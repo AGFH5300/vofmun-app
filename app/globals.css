@@ -26,39 +26,43 @@
   --font-sans: 'Inter', 'Poppins', 'Open Sans', sans-serif;
   
   /* New Color Scheme Variables */
-  
+
   /* Primary Colors */
-  --deep-red: hsl(0, 65%, 24%);
-  --dark-burgundy: hsl(0, 70%, 27%);
-  
+  --deep-red: #701e1e;
+  --dark-burgundy: #8b2424;
+  --primary-peach: #ffebdd;
+  --off-white: #fffdfb;
+  --pure-white: #ffffff;
+
   /* Neutral Colors */
-  --almost-black-green: hsl(180, 100%, 4%);
-  --dark-navy: hsl(225, 100%, 8%);
-  --cool-grey: hsl(0, 0%, 86%);
-  --warm-light-grey: hsl(0, 0%, 94%);
-  
+  --almost-black-green: #1c1c1c;
+  --dark-navy: #26262b;
+  --cool-grey: #e4d7cc;
+  --warm-light-grey: #fffdfb;
+
   /* Highlight / Support Colors */
-  --soft-rose: hsl(0, 33%, 90%);
-  --soft-ivory: hsl(50, 33%, 90%);
-  --pale-aqua: hsl(180, 33%, 90%);
-  
+  --soft-rose: #f6d4c6;
+  --soft-ivory: #ffebdd;
+  --pale-aqua: #e0f1f4;
+  --rich-gold: #c79a3b;
+
   /* Semantic color mappings */
-  --background: var(--soft-ivory);
+  --background: var(--off-white);
   --foreground: var(--almost-black-green);
-  --card: #FFFFFF;
+  --card: var(--pure-white);
   --card-foreground: var(--almost-black-green);
-  --popover: #FFFFFF;
+  --popover: var(--pure-white);
   --popover-foreground: var(--almost-black-green);
   --primary: var(--deep-red);
-  --primary-foreground: #FFFFFF;
-  --secondary: var(--warm-light-grey);
+  --primary-foreground: var(--pure-white);
+  --secondary: var(--primary-peach);
   --secondary-foreground: var(--deep-red);
   --muted: var(--cool-grey);
   --muted-foreground: var(--almost-black-green);
   --accent: var(--pale-aqua);
   --accent-foreground: var(--dark-navy);
   --destructive: var(--dark-burgundy);
-  --destructive-foreground: #FFFFFF;
+  --destructive-foreground: var(--pure-white);
   --border: var(--cool-grey);
   --input: var(--warm-light-grey);
   --ring: var(--deep-red);
@@ -181,7 +185,7 @@ span {
 
 /* Hero Section Styles */
 .hero-section {
-  background: var(--deep-red); /* Deep Red background */
+  background: linear-gradient(135deg, color-mix(in srgb, var(--deep-red) 92%, black 8%), color-mix(in srgb, var(--dark-burgundy) 82%, black 18%));
   color: var(--warm-light-grey); /* Warm Light Grey text */
   padding: 4rem 0;
 }
@@ -197,6 +201,120 @@ span {
   color: var(--soft-ivory); /* Soft Ivory for subheadings */
   font-family: var(--font-sans);
   font-weight: 400;
+}
+
+/* Layout helpers */
+.page-shell {
+  min-height: 100vh;
+  background: radial-gradient(circle at top left, color-mix(in srgb, var(--soft-ivory) 85%, white 15%) 0%, transparent 55%),
+              radial-gradient(circle at top right, color-mix(in srgb, var(--primary-peach) 80%, white 20%) 0%, transparent 60%),
+              linear-gradient(180deg, color-mix(in srgb, var(--off-white) 95%, white 5%), color-mix(in srgb, var(--soft-ivory) 86%, white 14%));
+}
+
+.page-maxwidth {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 3.5rem;
+}
+
+.section-heading {
+  font-family: var(--font-serif);
+  font-size: clamp(1.75rem, 2.1vw + 1.5rem, 3rem);
+  color: var(--deep-red);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.section-subheading {
+  color: color-mix(in srgb, var(--almost-black-green) 75%, var(--deep-red) 25%);
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+}
+
+.surface-card {
+  background: color-mix(in srgb, var(--pure-white) 96%, var(--soft-ivory) 4%);
+  border: 1px solid rgba(112, 30, 30, 0.08);
+  border-radius: 1rem;
+  box-shadow:
+    0 16px 35px -24px rgba(112, 30, 30, 0.28),
+    0 2px 10px rgba(28, 28, 28, 0.06);
+  color: var(--almost-black-green);
+}
+
+.surface-card.is-emphasised {
+  background: linear-gradient(150deg, color-mix(in srgb, var(--deep-red) 88%, black 12%), color-mix(in srgb, var(--dark-burgundy) 80%, black 20%));
+  color: var(--pure-white);
+  border: 1px solid color-mix(in srgb, var(--deep-red) 70%, white 30%);
+  box-shadow:
+    0 20px 45px -20px rgba(112, 30, 30, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.45rem 1rem;
+  background: color-mix(in srgb, var(--soft-rose) 65%, white 35%);
+  color: color-mix(in srgb, var(--deep-red) 78%, black 22%);
+}
+
+.primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--deep-red) 95%, black 5%), color-mix(in srgb, var(--dark-burgundy) 80%, black 20%));
+  color: var(--pure-white);
+  box-shadow: 0 14px 30px -18px rgba(112, 30, 30, 0.5);
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.primary-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 32px -16px rgba(112, 30, 30, 0.55);
+  filter: brightness(1.05);
+}
+
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid color-mix(in srgb, var(--deep-red) 48%, white 52%);
+  background: color-mix(in srgb, var(--soft-ivory) 85%, white 15%);
+  color: color-mix(in srgb, var(--deep-red) 75%, black 25%);
+  transition: transform 150ms ease, box-shadow 150ms ease, border 150ms ease;
+}
+
+.ghost-button:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--dark-burgundy) 68%, white 32%);
+  box-shadow: 0 14px 24px -18px rgba(139, 36, 36, 0.4);
+}
+
+.divider-soft {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--deep-red) 28%, var(--cool-grey) 72%), transparent);
+  margin: 1.5rem 0;
 }
 
 /* Committee Cards */

@@ -3,19 +3,17 @@ import { Link } from '@/src/router';
 import { motion } from 'framer-motion';
 import { useSession } from '../context/sessionContext';
 import { ProtectedRoute } from '@/components/protectedroute';
-import { useMobile } from '@/hooks/use-mobile';
 import {
   Bell,
   MessageSquare,
   FileText,
-  Calendar,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  BookOpen
 } from 'lucide-react';
 
 const Page = () => {
   const { user: currentUser } = useSession();
-  const isMobile = useMobile();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -63,6 +61,8 @@ const Page = () => {
     }
   ];
 
+  const documentsCount = '3 drafts';
+
   const timeString = currentTime.toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
@@ -78,79 +78,102 @@ const Page = () => {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-soft-ivory">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Welcome Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+      <div className="page-shell">
+        <div className="page-maxwidth space-y-12">
+          <motion.section
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="bg-gradient-to-r from-deep-red to-dark-burgundy rounded-2xl shadow-2xl p-6 md:p-8 mb-8 text-white"
+            transition={{ duration: 0.65 }}
+            className="surface-card is-emphasised overflow-hidden"
           >
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-              <div className="mb-4 md:mb-0">
-                <div className="flex items-center space-x-3 mb-2">
-                  <Sparkles size={28} className="text-pale-aqua" />
-                  <h1 className="text-3xl md:text-4xl font-bold">
-                    Welcome back, {getDisplayName()}
-                  </h1>
-                </div>
-                <div className="flex items-center space-x-2 text-white/80">
-                  <span className="text-sm font-medium bg-white/20 px-3 py-1 rounded-full">
-                    {getUserRole()}
+            <div className="relative grid gap-6 md:grid-cols-[1.6fr_1fr] p-8 md:p-10">
+              <div>
+                <div className="flex items-center gap-3 text-sm text-white/80 mb-4">
+                  <span className="badge-pill bg-white/15 text-white/80">
+                    <Sparkles size={16} />
+                    Daily Briefing
                   </span>
+                  <span className="hidden md:inline-block text-white/70">{dateString}</span>
+                </div>
+                <h1 className="text-3xl md:text-5xl font-serif font-bold text-white leading-tight mb-3">
+                  Welcome back, {getDisplayName()}
+                </h1>
+                <p className="text-base md:text-lg text-white/80 max-w-xl leading-relaxed">
+                  {getUserRole()} access unlocked. Stay on top of committee updates, resources, and your team’s next moves in one streamlined dashboard.
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-3 mt-8">
+                  <Link to="/live-updates" className="primary-button">
+                    <Bell size={18} />
+                    Live Updates
+                  </Link>
+                  <Link to="/speechrepo" className="ghost-button">
+                    <FileText size={18} />
+                    Upload Speech
+                  </Link>
                 </div>
               </div>
 
-              <div className="text-right">
-                <div className="text-2xl md:text-3xl font-mono font-bold mb-1">
-                  {timeString}
-                </div>
-                <div className="text-sm text-white/80">
-                  {dateString}
+              <div className="relative">
+                <div className="surface-card bg-white/10 border border-white/20 rounded-2xl p-6 text-white backdrop-blur">
+                  <p className="uppercase tracking-[0.35em] text-white/60 text-xs mb-3">Now</p>
+                  <p className="text-4xl font-mono font-semibold mb-2">{timeString}</p>
+                  <p className="text-sm text-white/70 mb-6">{dateString}</p>
+                  <div className="divider-soft"></div>
+                  <p className="text-sm text-white/80 leading-relaxed">
+                    Keep an eye on the crisis room and be prepared to respond. Remember to sync with your bloc before the moderated caucus begins.
+                  </p>
                 </div>
               </div>
             </div>
-          </motion.div>
+            <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-transparent pointer-events-none"></div>
+          </motion.section>
 
-          {/* Quick Actions Grid */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+          <motion.section
+            initial={{ opacity: 0, y: 32 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="mb-8"
+            transition={{ duration: 0.6, delay: 0.15 }}
+            className="space-y-6"
           >
-            <h2 className="text-2xl md:text-3xl font-bold text-deep-red mb-6 text-center">
-              Quick Actions
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+              <div>
+                <h2 className="section-heading">Quick Actions</h2>
+                <p className="section-subheading max-w-2xl">
+                  Navigate to the tools you’ll need for speeches, resolutions, and staying informed during committee.
+                </p>
+              </div>
+              <Link to="/messages" className="ghost-button">
+                <MessageSquare size={16} />
+                Open Messages
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {quickActions.map((action, index) => {
                 const Icon = action.icon;
                 return (
                   <motion.div
                     key={action.title}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.1 * (index + 1) }}
-                    className="group"
+                    transition={{ duration: 0.55, delay: 0.1 * (index + 1) }}
                   >
-                    <Link to={action.href}>
-                      <div className={`bg-gradient-to-br ${action.color} rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 p-6 text-white group-hover:scale-105`}>
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                            <Icon size={24} className="text-white" />
+                    <Link to={action.href} className="group block h-full">
+                      <div className="surface-card h-full overflow-hidden p-6 transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-xl">
+                        <div className="flex items-start justify-between mb-6">
+                          <div className="flex items-center gap-4">
+                            <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-soft-rose text-deep-red">
+                              <Icon size={22} />
+                            </span>
+                            <div>
+                              <h3 className="text-xl font-semibold text-deep-red">{action.title}</h3>
+                              <p className="text-sm text-almost-black-green/70">{action.description}</p>
+                            </div>
                           </div>
-                          <ArrowRight
-                            size={20}
-                            className="text-white/70 group-hover:text-white group-hover:translate-x-1 transition-all duration-300"
-                          />
+                          <ArrowRight size={18} className="text-deep-red/50 group-hover:text-deep-red transition-colors" />
                         </div>
-
-                        <h3 className="text-xl font-bold mb-2 group-hover:text-pale-aqua transition-colors">
-                          {action.title}
-                        </h3>
-                        <p className="text-white/80 text-sm leading-relaxed">
-                          {action.description}
+                        <div className="divider-soft"></div>
+                        <p className="text-sm text-almost-black-green/80">
+                          Tap to open the {action.title.toLowerCase()} workspace in a focused view.
                         </p>
                       </div>
                     </Link>
@@ -158,26 +181,75 @@ const Page = () => {
                 );
               })}
             </div>
-          </motion.div>
+          </motion.section>
 
-          {/* Status Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+          <motion.section
+            initial={{ opacity: 0, y: 28 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="bg-white rounded-2xl shadow-lg p-6 border border-cool-grey"
+            transition={{ duration: 0.6, delay: 0.25 }}
+            className="grid gap-6 lg:grid-cols-[1.4fr_1fr]"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-deep-red">Conference Status</h3>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm text-almost-black-green font-medium">Active</span>
+            <div className="surface-card p-6 md:p-8">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-2xl font-semibold text-deep-red">Conference Status</h3>
+                <span className="badge-pill bg-pale-aqua text-deep-red">
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></div>
+                  Active Session
+                </span>
+              </div>
+              <p className="text-almost-black-green/80 leading-relaxed">
+                The committee is in active debate. Crisis staff are monitoring developments closely; watch for new directives every 15 minutes.
+              </p>
+              <div className="grid sm:grid-cols-3 gap-4 mt-6">
+                {[
+                  { title: 'Next Motion', value: 'Moderated Caucus', hint: 'Proposed by Germany – 8 minutes' },
+                  { title: 'Documents', value: documentsCount, hint: 'Drafts awaiting review' },
+                  { title: 'Messages', value: '2 unread', hint: 'Chairs awaiting responses' },
+                ].map((item) => (
+                  <div key={item.title} className="surface-card rounded-xl p-4">
+                    <p className="text-xs uppercase tracking-[0.3em] text-deep-red/60">{item.title}</p>
+                    <p className="text-lg font-semibold text-almost-black-green mt-1">{item.value}</p>
+                    <p className="text-xs text-almost-black-green/60 mt-2">{item.hint}</p>
+                  </div>
+                ))}
               </div>
             </div>
-            <p className="text-almost-black-green">
-              The conference is currently in session. Check Live Updates for the latest announcements and schedule changes.
-            </p>
-          </motion.div>
+
+            <div className="space-y-4">
+              <div className="surface-card p-6">
+                <h4 className="text-lg font-semibold text-deep-red mb-3">Today’s Priorities</h4>
+                <ul className="space-y-3 text-sm text-almost-black-green/80">
+                  <li className="flex items-start gap-3">
+                    <span className="mt-1 h-2.5 w-2.5 rounded-full bg-deep-red"></span>
+                    Coordinate final talking points for the bloc statement.
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="mt-1 h-2.5 w-2.5 rounded-full bg-dark-burgundy"></span>
+                    Review chair feedback on your draft resolution.
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="mt-1 h-2.5 w-2.5 rounded-full bg-rich-gold"></span>
+                    Confirm delegates assigned to crisis response roles.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="surface-card p-6">
+                <h4 className="text-lg font-semibold text-deep-red mb-3">Need a refresher?</h4>
+                <p className="text-sm text-almost-black-green/75 mb-4">
+                  Access the glossary for parliamentary procedure or jump into the resolution workspace to keep drafting with your bloc.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Link to="/glossary" className="ghost-button !py-2 !px-4">
+                    <BookOpen size={16} /> Glossary
+                  </Link>
+                  <Link to="/resolutions" className="ghost-button !py-2 !px-4">
+                    <FileText size={16} /> Resolutions
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </motion.section>
         </div>
       </div>
     </ProtectedRoute>
