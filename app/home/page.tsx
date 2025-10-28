@@ -228,7 +228,7 @@ const Page = () => {
                     Review chair feedback on your draft resolution.
                   </li>
                   <li className="flex items-start gap-3">
-                    <span className="mt-1 h-2.5 w-2.5 rounded-full bg-rich-gold"></span>
+                    <span className="mt-1 h-2.5 w-2.5 rounded-full" style={{ background: 'var(--rich-gold)' }}></span>
                     Confirm delegates assigned to crisis response roles.
                   </li>
                 </ul>
