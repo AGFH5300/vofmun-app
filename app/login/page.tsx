@@ -184,7 +184,7 @@ const Login = () => {
               <img
                 width={200}
                 height={200}
-                src="logo.svg"
+                src="/logo.svg"
                 alt="VOFMUN"
                 className="mx-auto"
               />
