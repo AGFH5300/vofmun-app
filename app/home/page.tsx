@@ -8,7 +8,8 @@ import {
   MessageSquare,
   FileText,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  BookOpen
 } from 'lucide-react';
 
 const Page = () => {
