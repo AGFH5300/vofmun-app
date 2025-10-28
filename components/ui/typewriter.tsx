@@ -13,9 +13,9 @@ export default function TypeWriter() {
     "Your one stop hub for collaboration",
     "Your one stop hub for innovation",
     "Your one stop hub for inspiration",
-    "Your one stop hub for all information",
-    "Your one stop hub for ideas",
     "Your one stop hub for interaction",
+    "Your one stop hub for ideas",
+    "Your one stop hub for all information",
     "Your one stop hub for news",
     "Are you still reading this?",
   ], []);
