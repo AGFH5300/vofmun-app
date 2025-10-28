@@ -67,61 +67,75 @@ const Page = () => {
 
   return (
     <AdminRoute>
-      <div className="flex flex-col items-center justify-center min-h-screen text-white p-4 sm:p-6 md:p-8">
-        <div className="flex flex-col md:flex-row flex-wrap items-start justify-center gap-6 w-full max-w-4xl animate-slidein-up" style={{animationDelay: '0.1s'}}>
-          <div className='text-white flex flex-col animate-fadein w-full md:w-1/3' style={{animationDelay: '0.2s'}}>
-            <p className="mb-2 font-medium animate-text-pop" style={{animationDelay: '0.3s'}}>Upload Image</p>
-            <label htmlFor="image-upload" className="flex flex-col items-center justify-center border-2 border-dashed border-gray-700 rounded-xl bg-gray-900 p-4 sm:p-6 cursor-pointer transition-all hover:border-blue-500 hover:bg-gray-800 focus-within:border-blue-500 w-full">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12" /></svg>
-              <span className="text-gray-300 mb-2 text-center text-sm sm:text-base">Click or drag an image here to upload</span>
-              <input 
-                id="image-upload"
-                type="file" 
-                accept="image/jpeg, image/jpg" 
-                className="hidden"
-                onChange={handleFileChange}
-              />
-              {selectedFile && (
-                <div className="mt-4 flex flex-col items-center">
-                  <img
-                    src={URL.createObjectURL(selectedFile)}
-                    alt="Preview"
-                    className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-lg border border-gray-700 shadow-md mb-2"
-                    width={128}
-                    height={128}
-                  />
-                  <p className="text-xs sm:text-sm text-gray-300 break-all text-center">{selectedFile.name}</p>
-                </div>
-              )}
-            </label>
-          </div>
-          
-          <div className='flex flex-col flex-1 animate-fadein w-full md:w-2/3' style={{animationDelay: '0.2s'}}>
-            <p className="mb-2 text-xl sm:text-2xl font-bold text-center animate-text-pop" style={{animationDelay: '0.3s'}}>Title</p>
-            <textarea 
-              className='p-3 sm:p-4 rounded-lg outline outline-gray-800 bg-gray-900 text-white resize-none h-[6rem] sm:h-[10rem] hover:scale-101 focus:animate-focus-scale-bounce transition-transform animate-fadein-up text-sm sm:text-base' 
-              style={{animationDelay: '0.4s'}}
-              value={title} 
-              placeholder='Write your update title here...' 
-              onChange={handleTitleChange}
-            ></textarea>
-            
-            <p className="mt-4 mb-2 text-center text-xl sm:text-2xl font-bold animate-text-pop" style={{animationDelay: '0.5s'}}>Content</p>
-            <textarea 
-              className='p-3 sm:p-4 rounded-lg outline outline-gray-800 bg-gray-900 text-white resize-none h-[12rem] sm:h-[24rem] hover:scale-101 focus:animate-focus-scale-bounce transition-transform animate-fadein-up text-sm sm:text-base' 
-              style={{animationDelay: '0.6s'}}
-              value={content} 
-              placeholder='Write your update content here...' 
-              onChange={handleContentChange}
-            ></textarea>
-            
-            <button 
-              onClick={handleAddUpdate}
-              className='p-3 sm:p-4 mt-4 sm:mt-6 bg-blue-600 hover:bg-blue-700 cursor-pointer transition-all hover:scale-102 duration-300 rounded-lg text-white font-semibold animate-btn-pop w-full sm:w-auto'
-              style={{animationDelay: '0.2s'}}
-            >
-              Add Update
-            </button>
+      <div className="page-shell">
+        <div className="page-maxwidth max-w-4xl space-y-10">
+          <header className="surface-card is-emphasised text-center px-8 py-10">
+            <span className="badge-pill bg-white/15 text-white/80 inline-flex justify-center mx-auto mb-4">Admin Controls</span>
+            <h1 className="text-3xl md:text-4xl font-serif font-semibold text-white">Publish Live Update</h1>
+            <p className="text-white/80 max-w-2xl mx-auto mt-3">
+              Share crisis updates with delegates. Upload an image, craft the headline, and publish instantly to the live feed.
+            </p>
+          </header>
+
+          <div className="grid md:grid-cols-[1fr_1.2fr] gap-6">
+            <div className="surface-card p-6 flex flex-col gap-4">
+              <h2 className="text-lg font-semibold text-deep-red">Upload Image</h2>
+              <label htmlFor="image-upload" className="flex flex-col items-center justify-center border-2 border-dashed border-soft-ivory rounded-2xl bg-warm-light-grey/80 p-6 cursor-pointer transition-all hover:border-deep-red/60">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-deep-red mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12" /></svg>
+                <span className="text-sm text-almost-black-green/70 text-center">Click or drag an image here to upload (JPG)</span>
+                <input
+                  id="image-upload"
+                  type="file"
+                  accept="image/jpeg, image/jpg"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                {selectedFile && (
+                  <div className="mt-4 w-full text-center">
+                    <img
+                      src={URL.createObjectURL(selectedFile)}
+                      alt="Preview"
+                      className="mx-auto w-28 h-28 object-cover rounded-xl border border-soft-ivory shadow"
+                      width={112}
+                      height={112}
+                    />
+                    <p className="text-xs text-almost-black-green/60 mt-2 break-all">{selectedFile.name}</p>
+                  </div>
+                )}
+              </label>
+            </div>
+
+            <div className="surface-card p-6 flex flex-col gap-4">
+              <div>
+                <label className="text-xs uppercase tracking-[0.3em] text-deep-red/70 block mb-2">Title</label>
+                <textarea
+                  className='w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-4 py-3 text-almost-black-green focus:border-deep-red/60 focus:ring-2 focus:ring-deep-red/20 resize-none'
+                  value={title}
+                  placeholder='Write your update title here...'
+                  onChange={handleTitleChange}
+                  rows={2}
+                ></textarea>
+              </div>
+
+              <div>
+                <label className="text-xs uppercase tracking-[0.3em] text-deep-red/70 block mb-2">Content</label>
+                <textarea
+                  className='w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-4 py-3 text-almost-black-green focus:border-deep-red/60 focus:ring-2 focus:ring-deep-red/20 resize-none h-48'
+                  value={content}
+                  placeholder='Write your update content here...'
+                  onChange={handleContentChange}
+                ></textarea>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={handleAddUpdate}
+                  className='primary-button'
+                >
+                  Add Update
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
