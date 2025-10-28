@@ -1,0 +1,547 @@
+@import "tailwindcss";
+
+/* Import new font families */
+@import '@fontsource/merriweather/300.css';
+@import '@fontsource/merriweather/400.css';
+@import '@fontsource/merriweather/600.css';
+@import '@fontsource/merriweather/700.css';
+@import '@fontsource/merriweather/900.css';
+@import '@fontsource/playfair-display/400.css';
+@import '@fontsource/playfair-display/600.css';
+@import '@fontsource/playfair-display/700.css';
+@import '@fontsource/playfair-display/900.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/poppins/400.css';
+@import '@fontsource/poppins/500.css';
+@import '@fontsource/poppins/600.css';
+@import '@fontsource/open-sans/400.css';
+@import '@fontsource/open-sans/500.css';
+@import '@fontsource/open-sans/600.css';
+
+:root {
+  /* Typography variables */
+  --font-serif: 'Merriweather', 'Playfair Display', 'Georgia', serif;
+  --font-sans: 'Inter', 'Poppins', 'Open Sans', sans-serif;
+  
+  /* New Color Scheme Variables */
+  
+  /* Primary Colors */
+  --deep-red: hsl(0, 65%, 24%);
+  --dark-burgundy: hsl(0, 70%, 27%);
+  
+  /* Neutral Colors */
+  --almost-black-green: hsl(180, 100%, 4%);
+  --dark-navy: hsl(225, 100%, 8%);
+  --cool-grey: hsl(0, 0%, 86%);
+  --warm-light-grey: hsl(0, 0%, 94%);
+  
+  /* Highlight / Support Colors */
+  --soft-rose: hsl(0, 33%, 90%);
+  --soft-ivory: hsl(50, 33%, 90%);
+  --pale-aqua: hsl(180, 33%, 90%);
+  
+  /* Semantic color mappings */
+  --background: var(--soft-ivory);
+  --foreground: var(--almost-black-green);
+  --card: #FFFFFF;
+  --card-foreground: var(--almost-black-green);
+  --popover: #FFFFFF;
+  --popover-foreground: var(--almost-black-green);
+  --primary: var(--deep-red);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--warm-light-grey);
+  --secondary-foreground: var(--deep-red);
+  --muted: var(--cool-grey);
+  --muted-foreground: var(--almost-black-green);
+  --accent: var(--pale-aqua);
+  --accent-foreground: var(--dark-navy);
+  --destructive: var(--dark-burgundy);
+  --destructive-foreground: #FFFFFF;
+  --border: var(--cool-grey);
+  --input: var(--warm-light-grey);
+  --ring: var(--deep-red);
+  
+  /* Enhanced radius for modern look */
+  --radius: 0.5rem;
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* Base styles */
+* {
+  border-color: var(--border);
+  outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  min-height: 100vh;
+  overflow-y: auto;
+  background-color: var(--background);
+  color: var(--foreground);
+  line-height: 1.6;
+}
+
+/*
+  The AmazingCursor component hides the native cursor while its overlay is
+  active so we can render the Bibata SVG artwork in React. When the component
+  is disabled (for example on coarse pointers) the injected CSS falls back to
+  the system cursor.
+*/
+body.super-cursor-active,
+body.super-cursor-active * {
+  cursor: none !important;
+}
+
+/* Typography Styles - Complete New Design */
+
+/* Headings (H1–H6) - Serif fonts with specified weights and colors */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+  color: var(--deep-red);
+  line-height: 1.2;
+  margin-bottom: 0.5em;
+  font-feature-settings: "liga" 1, "kern" 1;
+}
+
+h1 {
+  font-weight: 900; /* Bold (700–900) */
+  font-size: 2.5rem;
+  color: var(--deep-red);
+}
+
+h2 {
+  font-weight: 700; /* Semi-bold (600–700) */
+  font-size: 2rem;
+  color: var(--deep-red);
+}
+
+h3 {
+  font-weight: 600; /* Medium to Semi-bold (500–600) */
+  font-size: 1.75rem;
+  color: var(--deep-red);
+}
+
+h4 {
+  font-weight: 600; /* Medium to Semi-bold (500–600) */
+  font-size: 1.5rem;
+  color: var(--deep-red);
+}
+
+h5 {
+  font-weight: 500; /* Medium to Semi-bold (500–600) */
+  font-size: 1.25rem;
+  color: var(--deep-red);
+}
+
+h6 {
+  font-weight: 500; /* Medium to Semi-bold (500–600) */
+  font-size: 1.125rem;
+  color: var(--deep-red);
+}
+
+/* Paragraphs / Body Text - Sans-serif with specified weights and colors */
+p, body, li, td, th {
+  font-family: var(--font-sans);
+  font-weight: 400; 
+  color: var(--almost-black-green);
+  line-height: 1.6;
+}
+
+div,
+span {
+  font-family: var(--font-sans);
+  font-weight: 400; /* Regular (400) */
+  line-height: 1.6;
+}
+
+/* Text emphasis */
+.text-emphasis, strong, b {
+  font-weight: 500; /* Medium (500) for emphasis */
+  color: var(--almost-black-green);
+}
+
+/* Secondary text / muted info */
+.text-muted, .text-secondary {
+  color: var(--cool-grey); /* Cool Grey for muted text */
+}
+
+.text-light {
+  color: var(--warm-light-grey); /* Warm Light Grey for secondary text */
+}
+
+/* Hero Section Styles */
+.hero-section {
+  background: var(--deep-red); /* Deep Red background */
+  color: var(--warm-light-grey); /* Warm Light Grey text */
+  padding: 4rem 0;
+}
+
+.hero-section h1 {
+  color: #FFFFFF; /* White for primary headings in hero */
+  font-family: var(--font-serif);
+  font-weight: 900;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.hero-section .subheading {
+  color: var(--soft-ivory); /* Soft Ivory for subheadings */
+  font-family: var(--font-sans);
+  font-weight: 400;
+}
+
+/* Committee Cards */
+.committee-card {
+  background: #FFFFFF; /* White background */
+  border: 1px solid var(--cool-grey);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.committee-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border-color: var(--dark-burgundy);
+}
+
+.committee-card h3 {
+  color: var(--dark-burgundy); /* Dark Burgundy for headings */
+  font-family: var(--font-serif);
+  margin-bottom: 0.75rem;
+}
+
+.committee-card p {
+  color: var(--almost-black-green); /* Almost Black Green for body text */
+  font-family: var(--font-sans);
+  margin-bottom: 1rem;
+}
+
+/* Badge styles with highlight colors */
+.committee-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  display: inline-block;
+}
+
+.committee-badge.beginner {
+  background: var(--pale-aqua); /* Pale Aqua for beginner */
+  color: var(--dark-navy);
+}
+
+.committee-badge.intermediate {
+  background: var(--soft-rose); /* Soft Rose for intermediate */
+  color: var(--dark-burgundy);
+}
+
+.committee-badge.advanced {
+  background: var(--dark-burgundy);
+  color: #FFFFFF;
+}
+
+/* Forms & Inputs (Registration) */
+.form-label, label {
+  color: var(--almost-black-green); /* Almost Black Green for labels */
+  font-weight: 500;
+  font-family: var(--font-sans);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.form-input, input, textarea, select {
+  background: var(--warm-light-grey); /* Warm Light Grey input backgrounds */
+  border: 1px solid var(--cool-grey);
+  color: var(--almost-black-green);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  font-family: var(--font-sans);
+  transition: all 0.2s ease;
+}
+
+.form-input:focus, input:focus, textarea:focus, select:focus {
+  border-color: var(--deep-red);
+  box-shadow: 0 0 0 2px rgba(100, 20, 20, 0.1);
+  outline: none;
+}
+
+/* Button Styles */
+.btn-primary, button.primary {
+  background: var(--deep-red); /* Deep Red primary buttons */
+  color: #FFFFFF;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover, button.primary:hover {
+  background: var(--dark-burgundy); /* Dark Burgundy hover state */
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(100, 20, 20, 0.3);
+}
+
+.btn-secondary, button.secondary {
+  background: var(--warm-light-grey);
+  color: var(--deep-red);
+  font-weight: 500;
+  font-family: var(--font-sans);
+  border: 1px solid var(--cool-grey);
+  border-radius: var(--radius);
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover, button.secondary:hover {
+  background: var(--cool-grey);
+  border-color: var(--dark-burgundy);
+}
+
+/* Section Backgrounds */
+.section-background {
+  background: var(--soft-rose); /* Soft Rose section backgrounds */
+}
+
+.section-background-alt {
+  background: var(--soft-ivory); /* Soft Ivory alternate backgrounds */
+}
+
+.section-contrast {
+  background: var(--pale-aqua); /* Pale Aqua for contrast blocks */
+}
+
+/* Card wrapper styles */
+.card-wrapper {
+  background: #FFFFFF;
+  border: 1px solid var(--cool-grey);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.card-wrapper:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+/* Navigation styles */
+.nav-link {
+  color: var(--almost-black-green);
+  font-weight: 500;
+  font-family: var(--font-sans);
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+  color: var(--deep-red);
+  background: var(--soft-ivory);
+}
+
+.nav-link.active {
+  color: var(--deep-red);
+  font-weight: 600;
+  background: var(--pale-aqua);
+}
+
+/* Footer styles */
+.footer {
+  background: var(--dark-navy); /* Dark Navy footer background */
+  color: var(--warm-light-grey);
+  padding: 2rem 0;
+}
+
+.footer h4 {
+  color: var(--warm-light-grey);
+  font-family: var(--font-serif);
+}
+
+.footer a {
+  color: var(--cool-grey);
+  transition: color 0.2s ease;
+}
+
+.footer a:hover {
+  color: #FFFFFF;
+}
+
+/* Main content areas */
+main {
+  background-color: var(--background);
+  color: var(--foreground);
+  min-height: 100vh;
+}
+
+.page-container {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Custom scrollbar with new colors */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--warm-light-grey);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--deep-red);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dark-burgundy);
+}
+
+/* Enhanced animations and interactions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-out;
+}
+
+.animate-fade-in-delay {
+  animation: fadeIn 0.8s ease-out 0.3s both;
+}
+
+.animate-fade-in-delay-2 {
+  animation: fadeIn 0.8s ease-out 0.6s both;
+}
+
+/* Hover effects */
+.hover-lift {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(100, 20, 20, 0.1), 0 10px 10px -5px rgba(100, 20, 20, 0.04);
+}
+
+/* Loading states */
+.loading-shimmer {
+  background: linear-gradient(90deg, var(--warm-light-grey) 25%, var(--cool-grey) 50%, var(--warm-light-grey) 75%);
+  background-size: 200% 100%;
+  animation: shimmer-loading 1.5s infinite;
+}
+
+@keyframes shimmer-loading {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Responsive typography */
+@media (max-width: 768px) {
+  h1 {
+    font-size: 2rem;
+  }
+
+  h2 {
+    font-size: 1.75rem;
+  }
+
+  h3 {
+    font-size: 1.5rem;
+  }
+
+  h4 {
+    font-size: 1.25rem;
+  }
+
+  h5 {
+    font-size: 1.125rem;
+  }
+
+  h6 {
+    font-size: 1rem;
+  }
+
+  .animate-fade-in,
+  .animate-fade-in-delay,
+  .animate-fade-in-delay-2 {
+    animation-duration: 0.5s;
+  }
+
+  .hover-lift:hover {
+    transform: none;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --deep-red: #8B0000;
+    --dark-burgundy: #A00000;
+    --almost-black-green: #000000;
+    --cool-grey: #808080;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Accessibility improvements */
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+  
+  body {
+    background-color: var(--background) !important;
+    color: var(--foreground) !important;
+  }
+}
+
+/* Focus states for accessibility */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--deep-red);
+  outline-offset: 2px;
+}
