@@ -121,92 +121,105 @@ const Page = () => {
 
   if (!isDelegateUser && !isChairUser) {
     return (
-      <div className="text-white bg-black min-h-screen text-center p-8">
-        Only delegates or chairs can access this page.
+      <div className="page-shell">
+        <div className="page-maxwidth flex items-center justify-center">
+          <div className="surface-card p-10 text-center max-w-md">
+            <h2 className="text-2xl font-semibold text-deep-red mb-3">Restricted Access</h2>
+            <p className="text-almost-black-green/75">Only delegates and chairs can view the speech repository. Please sign in with the appropriate credentials.</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <ParticipantRoute>
-      <div className="min-h-screen w-full bg-soft-ivory flex flex-col overflow-hidden">
-        <main className="flex-1 flex flex-col items-center justify-start px-2 py-4 md:py-6 overflow-y-auto">
-          <div className="flex items-center justify-center gap-4 mb-4 md:mb-6">
-            <h1 className="text-3xl md:text-5xl font-extrabold text-deep-red text-center tracking-tight drop-shadow-lg">
-              Speeches Page
-            </h1>
-          </div>
-          <div className="flex flex-col md:flex-row w-full max-w-7xl gap-4 md:gap-6 px-2 mb-8">
-            <div className="w-full md:w-1/3 lg:w-1/4 flex flex-col gap-4">
-              <aside className="w-full max-h-[300px] md:max-h-[500px] overflow-y-auto bg-white text-almost-black-green rounded-2xl shadow-2xl p-4 flex flex-col gap-3 mb-4 md:mb-0 border border-cool-grey">
-                <h2 className="text-xl md:text-2xl text-center font-extrabold mb-3 tracking-tight text-deep-red drop-shadow">
-                  All Speeches
-                </h2>
+      <div className="page-shell">
+        <main className="page-maxwidth space-y-10">
+          <header className="surface-card is-emphasised overflow-hidden px-8 py-10 text-center">
+            <span className="badge-pill bg-white/15 text-white/85 inline-flex justify-center mx-auto mb-4">
+              Prepared Speeches
+            </span>
+            <h1 className="text-4xl md:text-5xl font-serif font-semibold text-white">Speech Repository</h1>
+            <p className="text-white/80 max-w-3xl mx-auto mt-3">
+              Draft, rehearse, and refine your remarks. Save iterations or review submissions from your committee to stay ahead in debate.
+            </p>
+          </header>
+
+          <section className="flex flex-col lg:flex-row gap-6">
+            <aside className="lg:w-1/3 space-y-4">
+              <div className="surface-card p-6 max-h-[520px] overflow-y-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-deep-red">All Speeches</h2>
+                  <span className="badge-pill bg-soft-ivory text-deep-red/80">{fetchedSpeeches.length} saved</span>
+                </div>
                 {fetchedSpeeches.length === 0 ? (
-                  <div className="text-cool-grey text-center italic p-4">
-                    No speeches found.
+                  <div className="text-almost-black-green/60 text-center py-6 italic">
+                    No speeches yet. Start drafting your first statement.
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <ul className="space-y-3">
                     {fetchedSpeeches.map((speech, idx) => {
                       if (!speech) return null;
+                      const isActive = selectedSpeech?.speechID === speech.speechID;
                       return (
-                        <button
-                          key={speech.speechID}
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 cursor-pointer border-2 shadow-md text-left font-semibold text-almost-black-green
-                        ${
-                          selectedSpeech?.speechID === speech.speechID
-                            ? "border-deep-red bg-pale-aqua scale-[1.02]"
-                            : "border-cool-grey bg-warm-light-grey hover:scale-[1.02] hover:border-deep-red hover:bg-soft-rose"
-                        }
-                      `}
-                          onClick={() => {
-                            setSelectedSpeech(speech);
-                            setTitle(speech.title || "");
-                          }}
-                        >
-                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-deep-red text-white font-bold shadow">
-                            {idx + 1}
-                          </span>
-                          <span className="text-sm md:text-base flex-1">
-                            {speech.title ? speech.title : `Speech #${idx + 1}`}
-                          </span>
-                          <span className="text-deep-red text-lg">&gt;</span>
-                        </button>
+                        <li key={speech.speechID}>
+                          <button
+                            className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all ${isActive ? 'border-deep-red bg-soft-ivory shadow-lg' : 'border-soft-ivory bg-warm-light-grey hover:border-deep-red/60'}`}
+                            onClick={() => {
+                              setSelectedSpeech(speech);
+                              setTitle(speech.title || "");
+                            }}
+                          >
+                            <span className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold ${isActive ? 'bg-deep-red text-white' : 'bg-soft-rose text-deep-red'}`}>
+                              {idx + 1}
+                            </span>
+                            <div className="flex-1">
+                              <p className="font-semibold text-almost-black-green">
+                                {speech.title ? speech.title : `Speech #${idx + 1}`}
+                              </p>
+                              <p className="text-xs text-almost-black-green/60">Tap to load in editor</p>
+                            </div>
+                            <ArrowRight size={16} className={`transition-colors ${isActive ? 'text-deep-red' : 'text-deep-red/50'}`} />
+                          </button>
+                        </li>
                       );
                     })}
-                  </div>
+                  </ul>
                 )}
-              </aside>
-            </div>
+              </div>
+            </aside>
 
-            <section className="flex-1 flex flex-col bg-white text-almost-black-green border border-cool-grey rounded-lg shadow-lg p-2 md:p-4 max-h-[500px] md:max-h-[600px] overflow-auto relative z-0">
-              <div className="mb-3">
-                <textarea
-                  placeholder="Speech Title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-2 text-almost-black-green bg-warm-light-grey border border-cool-grey rounded-lg focus:outline-none focus:ring-2 focus:ring-deep-red focus:border-transparent resize-none"
-                  rows={1}
-                />
+            <div className="flex-1">
+              <div className="surface-card p-4 md:p-6 h-full flex flex-col">
+                <div className="mb-4">
+                  <label className="text-xs uppercase tracking-[0.3em] text-deep-red/70 block mb-2">Speech Title</label>
+                  <textarea
+                    placeholder="Give your speech a compelling title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-4 py-3 text-almost-black-green focus:border-deep-red/60 focus:ring-2 focus:ring-deep-red/30 resize-none"
+                    rows={1}
+                  />
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <SimpleEditor
+                    ref={editorRef}
+                    content={selectedSpeech?.content ? JSON.parse(selectedSpeech.content) : undefined}
+                    className="h-full toolbar-fixed"
+                  />
+                </div>
+                <div className="flex justify-end pt-4 mt-4 border-t border-soft-ivory">
+                  <button
+                    onClick={postSpeech}
+                    className="primary-button"
+                  >
+                    {selectedSpeech ? "Update Speech" : "Post Speech"}
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 overflow-auto">
-                <SimpleEditor
-                  ref={editorRef}
-                  content={selectedSpeech?.content ? JSON.parse(selectedSpeech.content) : undefined}
-                  className="h-full toolbar-fixed"
-                />
-              </div>
-              <div className="flex justify-end mt-3 pb-1 sticky bottom-0 right-0 z-10 bg-gradient-to-t from-white to-transparent pt-4">
-                <button
-                  onClick={postSpeech}
-                  className="rounded-lg cursor-pointer px-5 py-2.5 bg-deep-red hover:bg-dark-burgundy text-black font-semibold shadow-lg transition-colors"
-                >
-                  {selectedSpeech ? "Update Speech" : "Post Speech"}
-                </button>
-              </div>
-            </section>
-          </div>
+            </div>
+          </section>
         </main>
       </div>
     </ParticipantRoute>
