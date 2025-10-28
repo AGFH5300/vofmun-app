@@ -24,8 +24,6 @@
   /* Typography variables */
   --font-serif: 'Merriweather', 'Playfair Display', 'Georgia', serif;
   --font-sans: 'Inter', 'Poppins', 'Open Sans', sans-serif;
-  
-  /* New Color Scheme Variables */
 
   /* Primary Colors */
   --deep-red: #701e1e;
@@ -66,8 +64,8 @@
   --border: var(--cool-grey);
   --input: var(--warm-light-grey);
   --ring: var(--deep-red);
-  
-  /* Enhanced radius for modern look */
+
+  /* Radius */
   --radius: 0.5rem;
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
@@ -81,124 +79,76 @@
   outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
 }
 
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
 body {
   font-family: var(--font-sans);
   font-weight: 400;
-  min-height: 100vh;
-  overflow-y: auto;
-  background-color: var(--background);
   color: var(--foreground);
-  line-height: 1.6;
+  background: var(--background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/*
-  The AmazingCursor component hides the native cursor while its overlay is
-  active so we can render the Bibata SVG artwork in React. When the component
-  is disabled (for example on coarse pointers) the injected CSS falls back to
-  the system cursor.
-*/
-body.super-cursor-active,
-body.super-cursor-active * {
-  cursor: none !important;
-}
-
-/* Typography Styles - Complete New Design */
-
-/* Headings (H1–H6) - Serif fonts with specified weights and colors */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-serif);
-  color: var(--deep-red);
-  line-height: 1.2;
-  margin-bottom: 0.5em;
-  font-feature-settings: "liga" 1, "kern" 1;
+  color: var(--almost-black-green);
+  line-height: 1.25;
 }
 
-h1 {
-  font-weight: 900; /* Bold (700–900) */
-  font-size: 2.5rem;
-  color: var(--deep-red);
-}
-
-h2 {
-  font-weight: 700; /* Semi-bold (600–700) */
-  font-size: 2rem;
-  color: var(--deep-red);
-}
-
-h3 {
-  font-weight: 600; /* Medium to Semi-bold (500–600) */
-  font-size: 1.75rem;
-  color: var(--deep-red);
-}
-
-h4 {
-  font-weight: 600; /* Medium to Semi-bold (500–600) */
-  font-size: 1.5rem;
-  color: var(--deep-red);
-}
-
-h5 {
-  font-weight: 500; /* Medium to Semi-bold (500–600) */
-  font-size: 1.25rem;
-  color: var(--deep-red);
-}
-
-h6 {
-  font-weight: 500; /* Medium to Semi-bold (500–600) */
-  font-size: 1.125rem;
-  color: var(--deep-red);
-}
-
-/* Paragraphs / Body Text - Sans-serif with specified weights and colors */
 p, body, li, td, th {
   font-family: var(--font-sans);
-  font-weight: 400; 
-  color: var(--almost-black-green);
+  font-weight: 400;
   line-height: 1.6;
 }
 
-div,
-span {
+div, span {
   font-family: var(--font-sans);
-  font-weight: 400; /* Regular (400) */
+  font-weight: 400;
   line-height: 1.6;
 }
 
 /* Text emphasis */
 .text-emphasis, strong, b {
-  font-weight: 500; /* Medium (500) for emphasis */
+  font-weight: 500;
   color: var(--almost-black-green);
 }
 
 /* Secondary text / muted info */
-.text-muted, .text-secondary {
-  color: var(--cool-grey); /* Cool Grey for muted text */
-}
+.text-muted, .text-secondary { color: var(--cool-grey); }
+.text-light { color: var(--warm-light-grey); }
 
-.text-light {
-  color: var(--warm-light-grey); /* Warm Light Grey for secondary text */
-}
+/* Utility tokens (for convenience in JSX) */
+.text-deep-red { color: var(--deep-red); }
+.text-almost-black-green { color: var(--almost-black-green); }
+.text-dark-burgundy { color: var(--dark-burgundy); }
+.text-rich-gold { color: var(--rich-gold); }
+.bg-soft-ivory { background: var(--soft-ivory); }
+.bg-primary-peach { background: var(--primary-peach); }
+.bg-pale-aqua { background: var(--pale-aqua); }
+.bg-deep-red { background: var(--deep-red); }
+.bg-dark-burgundy { background: var(--dark-burgundy); }
 
 /* Hero Section Styles */
 .hero-section {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--deep-red) 92%, black 8%), color-mix(in srgb, var(--dark-burgundy) 82%, black 18%));
-  color: var(--warm-light-grey); /* Warm Light Grey text */
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--deep-red) 92%, black 8%),
+    color-mix(in srgb, var(--dark-burgundy) 82%, black 18%)
+  );
+  color: var(--warm-light-grey);
   padding: 4rem 0;
 }
 
 .hero-section h1 {
-  color: #FFFFFF; /* White for primary headings in hero */
+  color: #FFFFFF;
   font-family: var(--font-serif);
   font-weight: 900;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .hero-section .subheading {
-  color: var(--soft-ivory); /* Soft Ivory for subheadings */
+  color: var(--soft-ivory);
   font-family: var(--font-sans);
   font-weight: 400;
 }
@@ -206,9 +156,10 @@ span {
 /* Layout helpers */
 .page-shell {
   min-height: 100vh;
-  background: radial-gradient(circle at top left, color-mix(in srgb, var(--soft-ivory) 85%, white 15%) 0%, transparent 55%),
-              radial-gradient(circle at top right, color-mix(in srgb, var(--primary-peach) 80%, white 20%) 0%, transparent 60%),
-              linear-gradient(180deg, color-mix(in srgb, var(--off-white) 95%, white 5%), color-mix(in srgb, var(--soft-ivory) 86%, white 14%));
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--soft-ivory) 85%, white 15%) 0%, transparent 55%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--primary-peach) 80%, white 20%) 0%, transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--off-white) 95%, white 5%), color-mix(in srgb, var(--soft-ivory) 86%, white 14%));
 }
 
 .page-maxwidth {
@@ -233,16 +184,21 @@ span {
 }
 
 .surface-card {
-  background: var(--card);
-  border: 1px solid color-mix(in srgb, var(--cool-grey) 55%, white 45%);
+  background: color-mix(in srgb, var(--pure-white) 96%, var(--soft-ivory) 4%);
+  border: 1px solid rgba(112, 30, 30, 0.08);
   border-radius: 1rem;
   box-shadow:
-    0 18px 40px -24px rgba(112, 30, 30, 0.35),
-    0 2px 12px rgba(28, 28, 28, 0.08);
+    0 16px 35px -24px rgba(112, 30, 30, 0.28),
+    0 2px 10px rgba(28, 28, 28, 0.06);
+  color: var(--almost-black-green);
 }
 
 .surface-card.is-emphasised {
-  background: linear-gradient(150deg, color-mix(in srgb, var(--deep-red) 88%, black 12%), color-mix(in srgb, var(--dark-burgundy) 80%, black 20%));
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--deep-red) 88%, black 12%),
+    color-mix(in srgb, var(--dark-burgundy) 80%, black 20%)
+  );
   color: var(--pure-white);
   border: 1px solid color-mix(in srgb, var(--deep-red) 70%, white 30%);
   box-shadow:
@@ -275,7 +231,11 @@ span {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--deep-red) 95%, black 5%), color-mix(in srgb, var(--dark-burgundy) 80%, black 20%));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--deep-red) 95%, black 5%),
+    color-mix(in srgb, var(--dark-burgundy) 80%, black 20%)
+  );
   color: var(--pure-white);
   box-shadow: 0 14px 30px -18px rgba(112, 30, 30, 0.5);
   transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
@@ -312,13 +272,18 @@ span {
 .divider-soft {
   width: 100%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--deep-red) 28%, var(--cool-grey) 72%), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--deep-red) 28%, var(--cool-grey) 72%),
+    transparent
+  );
   margin: 1.5rem 0;
 }
 
 /* Committee Cards */
 .committee-card {
-  background: #FFFFFF; /* White background */
+  background: #FFFFFF;
   border: 1px solid var(--cool-grey);
   border-radius: var(--radius);
   padding: 1.5rem;
@@ -333,15 +298,14 @@ span {
 }
 
 .committee-card h3 {
-  color: var(--dark-burgundy); /* Dark Burgundy for headings */
+  color: var(--dark-burgundy);
   font-family: var(--font-serif);
   margin-bottom: 0.75rem;
 }
 
 .committee-card p {
-  color: var(--almost-black-green); /* Almost Black Green for body text */
+  color: var(--almost-black-green);
   font-family: var(--font-sans);
-  margin-bottom: 1rem;
 }
 
 /* Badge styles with highlight colors */

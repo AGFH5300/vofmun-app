@@ -206,7 +206,7 @@ const Page = () => {
                   { title: 'Documents', value: documentsCount, hint: 'Drafts awaiting review' },
                   { title: 'Messages', value: '2 unread', hint: 'Chairs awaiting responses' },
                 ].map((item) => (
-                  <div key={item.title} className="surface-card bg-warm-light-grey/60 border border-soft-ivory/70 rounded-xl p-4">
+                  <div key={item.title} className="surface-card rounded-xl p-4">
                     <p className="text-xs uppercase tracking-[0.3em] text-deep-red/60">{item.title}</p>
                     <p className="text-lg font-semibold text-almost-black-green mt-1">{item.value}</p>
                     <p className="text-xs text-almost-black-green/60 mt-2">{item.hint}</p>
@@ -228,7 +228,7 @@ const Page = () => {
                     Review chair feedback on your draft resolution.
                   </li>
                   <li className="flex items-start gap-3">
-                    <span className="mt-1 h-2.5 w-2.5 rounded-full bg-rich-gold"></span>
+                    <span className="mt-1 h-2.5 w-2.5 rounded-full" style={{ background: 'var(--rich-gold)' }}></span>
                     Confirm delegates assigned to crisis response roles.
                   </li>
                 </ul>

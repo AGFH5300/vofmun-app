@@ -53,7 +53,7 @@ const Page = () => {
                 <p className="text-almost-black-green/75 mb-5">{section.description}</p>
                 <ul className="space-y-3">
                   {section.items.map((item) => (
-                    <li key={item.term} className="surface-card bg-warm-light-grey/60 border border-soft-ivory/80 rounded-xl px-4 py-3">
+                    <li key={item.term} className="surface-card rounded-xl px-4 py-3">
                       <p className="font-semibold text-almost-black-green">{item.term}</p>
                       <p className="text-sm text-almost-black-green/70">{item.content}</p>
                     </li>

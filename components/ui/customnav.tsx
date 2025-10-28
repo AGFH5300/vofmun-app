@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from '@/src/router';
+import { Link, useRouter } from '@/src/router';
 import { useSession } from '@/app/context/sessionContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMobile } from '@/hooks/use-mobile';
@@ -24,6 +24,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   const { user: currentUser, logout } = useSession();
   const isMobile = useMobile();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { pathname } = useRouter();
 
   const navigationItems = [
     { name: 'Home', to: '/home', icon: Home },
@@ -57,22 +58,22 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
   if (isMobile) {
     return (
-      <nav className="sticky top-0 z-50 backdrop-blur bg-warm-light-grey/95 border-b border-cool-grey/70 shadow-[0_10px_30px_-25px_rgba(112,30,30,0.45)]">
+      <nav className="sticky top-0 z-50 border-b border-white/10 bg-gradient-to-r from-deep-red via-dark-burgundy to-deep-red text-white shadow-[0_18px_45px_-22px_rgba(112,30,30,0.65)] backdrop-blur">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-deep-red to-dark-burgundy flex items-center justify-center text-white font-semibold">
+              <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-white font-semibold shadow-inner">
                 V
               </div>
               <div className="text-left">
-                <p className="text-xs uppercase tracking-[0.35em] text-deep-red/80">Vofmun</p>
-                <p className="text-base font-semibold text-almost-black-green">Delegate Hub</p>
+                <p className="text-xs uppercase tracking-[0.4em] text-white/70">VOFMUN</p>
+                <p className="text-base font-semibold text-white">Delegate Hub</p>
               </div>
             </div>
 
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 rounded-lg text-almost-black-green hover:bg-soft-rose/60 transition-colors"
+              className="p-2 rounded-lg text-white hover:bg-white/10 transition-colors"
             >
               {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -84,38 +85,46 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="pb-4 border-t border-cool-grey/60"
+                className="pb-4 border-t border-white/15"
               >
                 <div className="space-y-2 pt-4">
                   {[...navigationItems, ...(currentUser && 'adminID' in currentUser ? adminItems : []), ...(currentUser && 'chairID' in currentUser ? chairItems : [])]
                     .map((item) => {
                       const Icon = item.icon ?? Home;
+                      const isActive = pathname === item.to || pathname.startsWith(`${item.to}/`);
                       return (
                         <Link
                           key={item.name}
                           to={item.to}
-                          className="flex items-center gap-3 px-4 py-3 rounded-xl text-almost-black-green hover:text-deep-red hover:bg-soft-ivory transition-colors font-medium"
+                          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+                            isActive
+                              ? 'bg-white text-deep-red shadow-[0_14px_35px_-18px_rgba(255,255,255,0.55)]'
+                              : 'text-white/85 hover:bg-white/10 hover:text-white'
+                          }`}
+                          aria-current={isActive ? 'page' : undefined}
                           onClick={() => setIsMenuOpen(false)}
                         >
-                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-soft-ivory text-deep-red">
-                            <Icon size={18} />
+                          <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+                            isActive ? 'bg-deep-red/10 text-deep-red' : 'bg-white/10 text-white'
+                          }`}>
+                            <Icon size={18} strokeWidth={1.75} />
                           </span>
                           <span>{item.name}</span>
                         </Link>
                       );
                     })}
 
-                  <div className="border-t border-cool-grey/60 pt-4 mt-6">
+                  <div className="border-t border-white/15 pt-4 mt-6">
                     <div className="px-4 py-2">
-                      <p className="text-sm font-medium text-almost-black-green"> Hello {getDisplayName()}</p>
-                      <p className="text-xs text-deep-red/80">{getUserRole()}</p>
+                      <p className="text-sm font-medium text-white/90"> Hello {getDisplayName()}</p>
+                      <p className="text-xs uppercase tracking-[0.25em] text-white/60">{getUserRole()}</p>
                     </div>
                     <button
                       onClick={() => {
                         logout();
                         setIsMenuOpen(false);
                       }}
-                      className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-deep-red to-dark-burgundy text-white font-semibold tracking-wide"
+                      className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white text-deep-red font-semibold tracking-wide shadow-sm hover:bg-soft-ivory transition"
                     >
                       <LogOut size={18} />
                       <span>Sign Out</span>
@@ -131,33 +140,40 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   }
 
   return (
-    <nav className="sticky top-0 z-50 backdrop-blur bg-warm-light-grey/95 border-b border-cool-grey/70 shadow-[0_20px_45px_-30px_rgba(112,30,30,0.45)]">
+    <nav className="sticky top-0 z-50 border-b border-white/10 bg-gradient-to-r from-deep-red via-dark-burgundy to-deep-red text-white shadow-[0_24px_55px_-28px_rgba(112,30,30,0.7)] backdrop-blur">
       <div className="max-w-6xl mx-auto px-6">
-        <div className="flex justify-between items-center h-20">
+        <div className="flex justify-between items-center h-20 gap-6">
           <div className="flex items-center space-x-4">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-deep-red via-dark-burgundy to-deep-red flex items-center justify-center text-white font-semibold text-lg shadow-lg">
+            <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-white font-semibold text-lg shadow-inner">
               V
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-deep-red/80">Vofmun</p>
-              <p className="text-xl font-semibold text-almost-black-green">Leadership Hub</p>
+              <p className="text-xs uppercase tracking-[0.45em] text-white/70">VOFMUN</p>
+              <p className="text-xl font-semibold text-white">Leadership Hub</p>
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-2 lg:gap-3 bg-white/60 border border-cool-grey/70 rounded-full px-2 py-1.5 shadow-inner">
+          <div className="hidden md:flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-2 py-1.5 shadow-[0_10px_25px_-18px_rgba(0,0,0,0.35)] backdrop-blur-sm">
             {[...navigationItems, ...(currentUser && 'adminID' in currentUser ? adminItems : []), ...(currentUser && 'chairID' in currentUser ? chairItems : [])]
               .map((item) => {
                 const Icon = item.icon ?? Home;
+                const isActive = pathname === item.to || pathname.startsWith(`${item.to}/`);
                 return (
                   <Link
                     key={item.name}
                     to={item.to}
-                    className="group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-almost-black-green/80 transition-all hover:bg-soft-ivory hover:text-deep-red"
+                    className={`group relative flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                      isActive
+                        ? 'bg-white text-deep-red shadow-[0_12px_28px_-16px_rgba(255,255,255,0.65)]'
+                        : 'text-white/80 hover:text-white hover:bg-white/15'
+                    }`}
+                    aria-current={isActive ? 'page' : undefined}
                   >
-                    <span className="hidden lg:flex h-8 w-8 items-center justify-center rounded-full bg-soft-rose/70 text-deep-red group-hover:bg-deep-red group-hover:text-white transition-colors">
-                      <Icon size={16} />
+                    <span className="lg:hidden flex items-center gap-2">
+                      <Icon size={16} strokeWidth={1.75} />
+                      <span>{item.name}</span>
                     </span>
-                    <span>{item.name}</span>
+                    <span className="hidden lg:inline">{item.name}</span>
                   </Link>
                 );
               })}
@@ -165,13 +181,13 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
           <div className="hidden md:flex items-center space-x-4">
             <div className="text-right">
-              <p className="text-sm font-semibold text-almost-black-green">{getDisplayName()}</p>
-              <p className="text-xs text-deep-red/80 uppercase tracking-[0.18em]">{getUserRole()}</p>
+              <p className="text-sm font-semibold text-white">{getDisplayName()}</p>
+              <p className="text-xs uppercase tracking-[0.22em] text-white/60">{getUserRole()}</p>
             </div>
 
             <button
               onClick={logout}
-              className="primary-button !py-2 !px-4"
+              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-semibold text-deep-red shadow-sm transition hover:bg-soft-ivory"
             >
               <LogOut size={16} />
               <span className="hidden lg:inline">Sign Out</span>
@@ -180,7 +196,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden p-2 rounded-lg text-almost-black-green hover:bg-soft-rose/60 transition-colors"
+            className="md:hidden p-2 rounded-lg text-white hover:bg-white/10 transition-colors"
           >
             {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
