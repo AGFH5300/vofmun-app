@@ -378,20 +378,28 @@ span {
   display: block;
 }
 
-.form-input, input, textarea, select {
-  background: var(--warm-light-grey); /* Warm Light Grey input backgrounds */
-  border: 1px solid var(--cool-grey);
+.form-input,
+input,
+textarea,
+select {
+  background: color-mix(in srgb, var(--warm-light-grey) 92%, white 8%);
+  border: 1.5px solid color-mix(in srgb, var(--soft-ivory) 78%, var(--deep-red) 22%);
   color: var(--almost-black-green);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   padding: 0.75rem;
   font-family: var(--font-sans);
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  box-shadow: inset 0 1px 2px rgba(112, 30, 30, 0.06);
 }
 
-.form-input:focus, input:focus, textarea:focus, select:focus {
-  border-color: var(--deep-red);
-  box-shadow: 0 0 0 2px rgba(100, 20, 20, 0.1);
+.form-input:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: color-mix(in srgb, var(--deep-red) 62%, white 38%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--deep-red) 16%, transparent 84%);
   outline: none;
+  background: color-mix(in srgb, var(--warm-light-grey) 98%, var(--soft-ivory) 2%);
 }
 
 /* Button Styles */
