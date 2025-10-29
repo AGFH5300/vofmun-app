@@ -8,6 +8,7 @@ import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
+import { ArrowRight } from "lucide-react";
 
 type SpeechRow = Omit<Speech, "tags">;
 type SpeechTagRow = { speechID: string; tag: string };
