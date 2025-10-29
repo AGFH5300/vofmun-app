@@ -414,7 +414,13 @@ const Page = () => {
                               setTitle(reso.title || "");
                             }}
                           >
-                            <span className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold ${isActive ? 'bg-deep-red text-white' : 'bg-soft-rose text-deep-red'}`}>
+                            <span
+                              className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold shadow-sm ${
+                                isActive
+                                  ? 'bg-[#701e1e] text-white'
+                                  : 'bg-[#f6d4c6] text-[#701e1e]'
+                              }`}
+                            >
                               {idx + 1}
                             </span>
                             <div className="flex-1">

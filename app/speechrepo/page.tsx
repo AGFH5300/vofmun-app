@@ -13,6 +13,34 @@ import { ArrowRight } from "lucide-react";
 type SpeechRow = Omit<Speech, "tags">;
 type SpeechTagRow = { speechID: string; tag: string };
 
+const parseSpeechContent = (raw?: string | object | null) => {
+  if (!raw) {
+    return undefined;
+  }
+
+  if (typeof raw === "object") {
+    return raw;
+  }
+
+  if (typeof raw !== "string") {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    const paragraphs = raw.split(/\r?\n+/).map((paragraph) => ({
+      type: "paragraph",
+      content: paragraph ? [{ type: "text", text: paragraph }] : [],
+    }));
+
+    return {
+      type: "doc",
+      content: paragraphs.length > 0 ? paragraphs : [{ type: "paragraph" }],
+    };
+  }
+};
+
 const Page = () => {
   const { user: currentUser } = useSession();
   const userRole = role(currentUser);
@@ -22,6 +50,10 @@ const Page = () => {
   const [title, setTitle] = useState<string>("");
   const isDelegateUser = userRole === "delegate" && currentUser !== null;
   const isChairUser = userRole === "chair" && currentUser !== null;
+  const parsedSpeechContent = React.useMemo(
+    () => parseSpeechContent(selectedSpeech?.content ?? null),
+    [selectedSpeech]
+  );
 
   useEffect(() => {
     if (selectedSpeech) {
@@ -343,7 +375,13 @@ const Page = () => {
                               setTitle(speech.title || "");
                             }}
                           >
-                            <span className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold ${isActive ? 'bg-deep-red text-white' : 'bg-soft-rose text-deep-red'}`}>
+                            <span
+                              className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold shadow-sm ${
+                                isActive
+                                  ? 'bg-[#701e1e] text-white'
+                                  : 'bg-[#f6d4c6] text-[#701e1e]'
+                              }`}
+                            >
                               {idx + 1}
                             </span>
                             <div className="flex-1">
@@ -377,7 +415,7 @@ const Page = () => {
                 <div className="flex-1 overflow-hidden">
                   <SimpleEditor
                     ref={editorRef}
-                    content={selectedSpeech?.content ? JSON.parse(selectedSpeech.content) : undefined}
+                    content={parsedSpeechContent}
                     className="h-full toolbar-fixed"
                   />
                 </div>

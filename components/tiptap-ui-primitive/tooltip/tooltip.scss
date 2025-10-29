@@ -1,12 +1,14 @@
 .tiptap-tooltip {
-  --tt-tooltip-bg: var(--tt-gray-light-900);
-  --tt-tooltip-text: var(--white);
-  --tt-kbd: var(--tt-gray-dark-a-400);
+  --tt-tooltip-bg: color-mix(in srgb, var(--deep-red) 92%, black 8%);
+  --tt-tooltip-text: color-mix(in srgb, white 92%, var(--soft-ivory) 8%);
+  --tt-tooltip-border: color-mix(in srgb, var(--deep-red) 70%, white 30%);
+  --tt-kbd: color-mix(in srgb, white 75%, var(--deep-red) 25%);
 
   .dark & {
-    --tt-tooltip-bg: var(--white);
-    --tt-tooltip-text: var(--tt-gray-light-600);
-    --tt-kbd: var(--tt-gray-light-a-400);
+    --tt-tooltip-bg: color-mix(in srgb, var(--soft-ivory) 92%, black 8%);
+    --tt-tooltip-text: color-mix(in srgb, var(--deep-red) 85%, black 15%);
+    --tt-tooltip-border: color-mix(in srgb, var(--soft-ivory) 78%, var(--deep-red) 22%);
+    --tt-kbd: color-mix(in srgb, var(--deep-red) 65%, black 35%);
   }
 }
 
@@ -21,6 +23,7 @@
   color: var(--tt-tooltip-text);
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
   text-align: center;
+  border: 1px solid var(--tt-tooltip-border);
 
   kbd {
     display: inline-block;
