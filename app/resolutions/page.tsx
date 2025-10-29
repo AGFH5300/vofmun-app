@@ -8,6 +8,7 @@ import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
+import { ArrowRight } from "lucide-react";
 // this page assumes that delegates can only post 1 reso, might be changed later
 
 const Page = () => {
