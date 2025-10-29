@@ -154,11 +154,11 @@ h6 {
 }
 
 /* Paragraphs / Body Text - Sans-serif with specified weights and colors */
-p, body, li, td, th {
+p, li, td, th {
   font-family: var(--font-sans);
-  font-weight: 400; 
-  color: var(--almost-black-green);
+  font-weight: 400;
   line-height: 1.6;
+  color: inherit;
 }
 
 div,
@@ -171,7 +171,7 @@ span {
 /* Text emphasis */
 .text-emphasis, strong, b {
   font-weight: 500; /* Medium (500) for emphasis */
-  color: var(--almost-black-green);
+  color: inherit;
 }
 
 /* Secondary text / muted info */

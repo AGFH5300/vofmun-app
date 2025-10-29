@@ -1,12 +1,16 @@
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
-import { Speech } from "@/db/types";
+import React, { useEffect, useState } from "react";
+import { Chair, Delegate, Speech } from "@/db/types";
 import { useSession } from "../context/sessionContext";
 import { Editor } from "@tiptap/react";
 import { SimpleEditor } from "../../components/tiptap-templates/simple/simple-editor";
 import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
 import role from "@/lib/roles";
+import supabase from "@/lib/supabase";
+
+type SpeechRow = Omit<Speech, "tags">;
+type SpeechTagRow = { speechID: string; tag: string };
 
 const Page = () => {
   const { user: currentUser } = useSession();
@@ -30,22 +34,93 @@ const Page = () => {
     const fetchSpeeches = async () => {
       if (!currentUser) return;
 
-      let endpoint = "/api/speeches";
-      if (isDelegateUser) {
-        endpoint += `/delegate?delegateID=${currentUser.delegateID}`;
-      } else if (isChairUser) {
-        endpoint += `/chair?committeeID=${currentUser.committee.committeeID}`;
-      }
+      try {
+        let speechIds: { speechID: string; delegateID?: string }[] = [];
 
-      const res = await fetch(endpoint);
-      const data = await res.json();
-      setFetchedSpeeches(data.speeches || []);
+        if (isDelegateUser) {
+          const delegateUser = currentUser as Delegate;
+          const { data, error } = await supabase
+            .from<{ speechID: string }>("Delegate-Speech")
+            .select("speechID")
+            .eq("delegateID", delegateUser.delegateID);
 
-      if (selectedSpeech) {
-        const updatedSelectedSpeech = data.find((speech: Speech) => speech.speechID === selectedSpeech.speechID);
-        if (updatedSelectedSpeech) {
-          setTitle(updatedSelectedSpeech.title || "");
+          if (error) {
+            throw error;
+          }
+
+          speechIds = (data ?? []).map((row) => ({
+            speechID: row.speechID,
+            delegateID: delegateUser.delegateID,
+          }));
+        } else if (isChairUser) {
+          const chairUser = currentUser as Chair;
+          const { data, error } = await supabase
+            .from<{ speechID: string }>("Chair-Speech")
+            .select("speechID")
+            .eq("chairID", chairUser.chairID);
+
+          if (error) {
+            throw error;
+          }
+
+          speechIds = (data ?? []).map((row) => ({ speechID: row.speechID }));
         }
+
+        if (speechIds.length === 0) {
+          setFetchedSpeeches([]);
+          return;
+        }
+
+        const speechIdList = speechIds.map((row) => row.speechID);
+
+        const { data: speechRows, error: speechesError } = await supabase
+          .from<SpeechRow>("Speech")
+          .select("*")
+          .in("speechID", speechIdList);
+
+        if (speechesError) {
+          throw speechesError;
+        }
+
+        const { data: tagRows, error: tagsError } = await supabase
+          .from<SpeechTagRow>("Speech-Tags")
+          .select("speechID, tag")
+          .in("speechID", speechIdList);
+
+        if (tagsError) {
+          throw tagsError;
+        }
+
+        const tagsBySpeechId: Record<string, string[]> = {};
+        (tagRows ?? []).forEach((tagRecord) => {
+          if (!tagsBySpeechId[tagRecord.speechID]) {
+            tagsBySpeechId[tagRecord.speechID] = [];
+          }
+          tagsBySpeechId[tagRecord.speechID].push(tagRecord.tag);
+        });
+
+        const normalizedSpeeches: Speech[] = (speechRows ?? []).map((speech) => {
+          const matchingDelegateId = speechIds.find((row) => row.speechID === speech.speechID)?.delegateID ?? speech.delegateID ?? "";
+          return {
+            ...speech,
+            delegateID: matchingDelegateId,
+            tags: tagsBySpeechId[speech.speechID] ?? [],
+          };
+        });
+
+        setFetchedSpeeches(normalizedSpeeches);
+
+        if (selectedSpeech) {
+          const updatedSelectedSpeech = normalizedSpeeches.find(
+            (speech) => speech.speechID === selectedSpeech.speechID
+          );
+          if (updatedSelectedSpeech) {
+            setTitle(updatedSelectedSpeech.title || "");
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch speeches:", error);
+        toast.error("Failed to fetch speeches");
       }
     };
 
@@ -76,46 +151,142 @@ const Page = () => {
 
     const content = editorRef.current.getJSON();
 
-    let delegateID = "";
-    let committeeID = "";
+    const serializedContent = JSON.stringify(content);
+    const timestamp = new Date().toISOString();
 
-    if (isDelegateUser) {
-      delegateID = currentUser.delegateID;
-      committeeID = currentUser.committee.committeeID;
-    } else if (isChairUser) {
-      delegateID = selectedSpeech?.delegateID || "";
-      committeeID = currentUser.committee.committeeID;
-    }
+    try {
+      if (selectedSpeech) {
+        const { error: updateError } = await supabase
+          .from("Speech")
+          .update({
+            title,
+            content: serializedContent,
+            date: timestamp,
+          })
+          .eq("speechID", selectedSpeech.speechID);
 
-    const res = await fetch("/api/speeches/delegate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        speechID: selectedSpeech ? selectedSpeech.speechID : "-1",
-        delegateID,
+        if (updateError) {
+          throw updateError;
+        }
+
+        const tags = selectedSpeech.tags ?? [];
+
+        const { error: deleteTagsError } = await supabase
+          .from("Speech-Tags")
+          .delete()
+          .eq("speechID", selectedSpeech.speechID);
+
+        if (deleteTagsError) {
+          throw deleteTagsError;
+        }
+
+        if (tags.length > 0) {
+          const tagRows = tags.map((tag) => ({
+            speechID: selectedSpeech.speechID,
+            tag,
+          }));
+
+          const { error: tagInsertError } = await supabase
+            .from("Speech-Tags")
+            .insert(tagRows);
+
+          if (tagInsertError) {
+            throw tagInsertError;
+          }
+        }
+
+        const updatedSpeech: Speech = {
+          ...selectedSpeech,
+          title,
+          content: serializedContent,
+          date: timestamp,
+        };
+
+        setFetchedSpeeches((prev) =>
+          prev.map((speech) =>
+            speech.speechID === updatedSpeech.speechID ? updatedSpeech : speech
+          )
+        );
+        setSelectedSpeech(updatedSpeech);
+        toast.success("Speech updated successfully!");
+        return;
+      }
+
+      const { data: existingSpeeches, error: speechIdError } = await supabase
+        .from<{ speechID: string }>("Speech")
+        .select("speechID");
+
+      if (speechIdError) {
+        throw speechIdError;
+      }
+
+      const sortedSpeechIds = existingSpeeches ? [...existingSpeeches] : [];
+      sortedSpeechIds.sort((a, b) => a.speechID.localeCompare(b.speechID));
+      const nextSpeechId =
+        sortedSpeechIds.length > 0
+          ? (parseInt(sortedSpeechIds[sortedSpeechIds.length - 1].speechID, 10) + 1)
+              .toString()
+              .padStart(4, "0")
+          : "0001";
+
+      const insertPayload = {
+        speechID: nextSpeechId,
+        content: serializedContent,
         title,
-        content: JSON.stringify(content),
-        date: new Date().toISOString(),
+        date: timestamp,
+      };
+
+      const { error: insertError } = await supabase
+        .from("Speech")
+        .insert(insertPayload);
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      if (isDelegateUser) {
+        const delegateUser = currentUser as Delegate;
+        const { error: linkError } = await supabase
+          .from("Delegate-Speech")
+          .insert({
+            speechID: nextSpeechId,
+            delegateID: delegateUser.delegateID,
+          });
+
+        if (linkError) {
+          throw linkError;
+        }
+      } else if (isChairUser) {
+        const chairUser = currentUser as Chair;
+        const { error: linkError } = await supabase
+          .from("Chair-Speech")
+          .insert({
+            speechID: nextSpeechId,
+            chairID: chairUser.chairID,
+          });
+
+        if (linkError) {
+          throw linkError;
+        }
+      }
+
+      const createdSpeech: Speech = {
+        speechID: nextSpeechId,
+        title,
+        content: serializedContent,
+        date: timestamp,
+        delegateID: isDelegateUser
+          ? (currentUser as Delegate).delegateID
+          : "",
         tags: [],
-        isNew: !selectedSpeech,
-      }),
-    });
+      };
 
-    if (!res.ok) {
+      setFetchedSpeeches((prev) => [...prev, createdSpeech]);
+      setSelectedSpeech(createdSpeech);
+      toast.success("Speech posted successfully!");
+    } catch (error) {
+      console.error("Failed to save speech:", error);
       toast.error("Failed to save speech");
-      return;
-    }
-
-    const newSpeech = await res.json();
-    toast.success(
-      `Speech ${selectedSpeech ? "updated" : "posted"} successfully!`
-    );
-
-    if (!selectedSpeech && !fetchedSpeeches.some((s) => s.speechID === newSpeech.speechID)) {
-      setFetchedSpeeches((prev) => [...prev, newSpeech]);
-      setTitle("");
     }
   };
 

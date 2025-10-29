@@ -64,21 +64,30 @@ const Page = () => {
     return currentUser;
   }, [currentUser, userRole, login]);
 
-  useEffect( () => {
+  useEffect(() => {
+    const fetchDels = async () => {
+      if (!currentUser || userRole !== "chair") return;
 
-    const fetchDels = async() => {
-      if (!currentUser) return;
+      try {
+        const chairUser = currentUser as Chair;
+        const { data, error } = await supabase
+          .from<shortenedDel>("Delegate")
+          .select("delegateID, firstname, lastname, resoPerms")
+          .eq("committeeID", chairUser.committee.committeeID);
 
-      const res = await fetch(`/api/delegates?committeeID=${(currentUser as Chair).committee.committeeID}`);
-      const data = await res.json();
-      setDelegates(data);
-    }
-    if (currentUser && 'chairID' in currentUser) {
+        if (error) {
+          throw error;
+        }
 
-      fetchDels();
+        setDelegates(data ?? []);
+      } catch (error) {
+        console.error("Failed to fetch delegates:", error);
+        toast.error("Failed to fetch delegates");
+      }
+    };
 
-    }
-  }, [currentUser])
+    fetchDels();
+  }, [currentUser, userRole]);
 
   useEffect( () => {
     logBackIn();
@@ -89,39 +98,51 @@ const Page = () => {
     const fetchResos = async () => {
       if (!currentUser) return;
 
-      let endpoint = "/api/resos";
-      if (role(currentUser) === "delegate" && currentUser !== null) {
-        const delegateUser = currentUser as Delegate;
-        if (!delegateUser.resoPerms["view:allreso"]) {
-          endpoint += `/delegate?delegateID=${delegateUser.delegateID}`;
-        } else {
-          endpoint += `/chair?committeeID=${delegateUser.committee.committeeID}`;
-        }
-      } else if (role(currentUser) === "chair") {
-        const chairUser = currentUser as Chair;
-        endpoint += `/chair?committeeID=${chairUser.committee.committeeID}`;
-      }
+      try {
+        let query = supabase.from<Reso>("Resos").select("*");
 
-      const res = await fetch(endpoint);
-      const data = await res.json();
-      setFetchedResos(data);
-      
-      if (selectedReso) {
-        const updatedSelectedReso = data.find((reso: Reso) => reso.resoID === selectedReso.resoID);
-        if (updatedSelectedReso) {
-          setTitle(updatedSelectedReso.title || "");
+        if (userRole === "delegate") {
+          const delegateUser = currentUser as Delegate;
+          if (!delegateUser.resoPerms["view:allreso"]) {
+            query = query.eq("delegateID", delegateUser.delegateID);
+          } else {
+            query = query.eq("committeeID", delegateUser.committee.committeeID);
+          }
+        } else if (userRole === "chair") {
+          const chairUser = currentUser as Chair;
+          query = query.eq("committeeID", chairUser.committee.committeeID);
         }
+
+        const { data, error } = await query;
+
+        if (error) {
+          throw error;
+        }
+
+        const fetched = data ?? [];
+        setFetchedResos(fetched);
+
+        if (selectedReso) {
+          const updatedSelectedReso = fetched.find((reso: Reso) => reso.resoID === selectedReso.resoID);
+          if (updatedSelectedReso) {
+            setTitle(updatedSelectedReso.title || "");
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch resolutions:", error);
+        toast.error("Failed to fetch resolutions");
       }
     };
 
     fetchResos();
-  }, [currentUser, selectedReso]);
+  }, [currentUser, selectedReso, userRole]);
 
   const postReso = async () => {
     const updatedUser = await logBackIn();
     if (!updatedUser) return;
 
-    const isDelegateUser = role(updatedUser) === "delegate" && updatedUser !== null;
+    const updatedUserRole = role(updatedUser);
+    const isDelegateUser = updatedUserRole === "delegate" && updatedUser !== null;
 
     if (!editorRef.current) {
       toast.error("Editor not initialized");
@@ -146,29 +167,20 @@ const Page = () => {
       }
       if (
         selectedReso &&
-        (selectedReso?.delegateID !== delegateUser.delegateID
-        && !(delegateUser.resoPerms["update:reso"]?.includes(selectedReso.resoID)))
+        (selectedReso.delegateID !== delegateUser.delegateID &&
+          !(delegateUser.resoPerms["update:reso"]?.includes(selectedReso.resoID)))
       ) {
         toast.error("You can only update your own resolutions.");
         return;
       }
     }
 
-    const content = editorRef.current.getJSON();
-
     if (!title.trim()) {
       toast.error("Please enter a resolution title");
       return;
     }
 
-    const delegateUser = updatedUser as Delegate;
-    const ownResos = fetchedResos.filter(
-      (reso) => reso.delegateID === delegateUser.delegateID
-    );
-    if (ownResos.length >= 1 && !selectedReso) {
-      toast.error("You can only post one resolution as a delegate.");
-      return;
-    }
+    const content = editorRef.current.getJSON();
 
     let delegateID = "0000";
     let committeeID = "0000";
@@ -177,38 +189,94 @@ const Page = () => {
       const delegateUser = updatedUser as Delegate;
       delegateID = delegateUser.delegateID;
       committeeID = delegateUser.committee.committeeID;
+
+      const ownResos = fetchedResos.filter(
+        (reso) => reso.delegateID === delegateUser.delegateID
+      );
+      if (ownResos.length >= 1 && !selectedReso) {
+        toast.error("You can only post one resolution as a delegate.");
+        return;
+      }
+    } else if (updatedUserRole === "chair" && selectedReso) {
+      const chairUser = updatedUser as Chair;
+      committeeID = chairUser.committee.committeeID;
+      delegateID = selectedReso.delegateID;
     }
 
-    const res = await fetch("/api/resos/delegate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        resoID: selectedReso ? selectedReso.resoID : "-1",
-        delegateID: isDelegateUser ? delegateID : selectedReso?.delegateID,
+    try {
+      if (selectedReso) {
+        const { error: updateError } = await supabase
+          .from("Resos")
+          .update({ content, title })
+          .eq("resoID", selectedReso.resoID);
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        const updatedReso: Reso = {
+          ...selectedReso,
+          content,
+          title,
+        };
+
+        setFetchedResos((prev) =>
+          prev.map((reso) =>
+            reso.resoID === updatedReso.resoID ? updatedReso : reso
+          )
+        );
+        setSelectedReso(updatedReso);
+        toast.success("Resolution updated successfully!");
+        return;
+      }
+
+      const { data: existingResos, error: resoError } = await supabase
+        .from<{ resoID: string }>("Resos")
+        .select("resoID");
+
+      if (resoError) {
+        throw resoError;
+      }
+
+      const sortedResos = existingResos ? [...existingResos] : [];
+      sortedResos.sort((a, b) => a.resoID.localeCompare(b.resoID));
+      const highestResoID =
+        sortedResos.length > 0
+          ? (parseInt(sortedResos[sortedResos.length - 1].resoID, 10) + 1)
+              .toString()
+              .padStart(4, "0")
+          : "0001";
+
+      const newResoPayload: Reso = {
+        resoID: highestResoID,
+        delegateID,
         committeeID,
         content,
-        isNew: !selectedReso,
         title,
-      }),
-    });
+        isNew: false,
+      };
 
-    if (!res.ok) {
-      toast.error("Failed to post resolution");
-      return;
-    }
-    const newReso = await res.json();
-    toast.success(
-      `Resolution ${selectedReso ? "updated" : "posted"} successfully!`
-    );
+      const { data: insertedReso, error: insertError } = await supabase
+        .from("Resos")
+        .insert(newResoPayload)
+        .select()
+        .single();
 
-    if (
-      !selectedReso &&
-      !fetchedResos.some((r) => r.resoID === newReso.resoID)
-    ) {
-      setFetchedResos((prev) => [...prev, newReso]);
+      if (insertError) {
+        throw insertError;
+      }
+
+      const createdReso: Reso = (insertedReso as Reso) ?? {
+        ...newResoPayload,
+      };
+
+      setFetchedResos((prev) => [...prev, createdReso]);
+      setSelectedReso(createdReso);
       setTitle("");
+      toast.success("Resolution posted successfully!");
+    } catch (error) {
+      console.error("Failed to save resolution:", error);
+      toast.error("Failed to post resolution");
     }
   };
 
@@ -244,19 +312,13 @@ const Page = () => {
         };
       }
 
-      const res = await fetch(`/api/delegates`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          delegateID: delegateID,
-          resoPerms: updatedPermissions
-        })
-      });
+      const { error: updateError } = await supabase
+        .from("Delegate")
+        .update({ resoPerms: updatedPermissions })
+        .eq("delegateID", delegateID);
 
-      if (!res.ok) {
-        throw new Error('Failed to update permissions');
+      if (updateError) {
+        throw updateError;
       }
 
       setDelegates(delegates.map(d => 
