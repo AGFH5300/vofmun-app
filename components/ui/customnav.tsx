@@ -77,13 +77,13 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   };
 
   const brand = (
-    <Link to="/home" className="flex items-center gap-3">
-      <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-[0_4px_12px_-6px_rgba(112,30,30,0.35)] ring-1 ring-deep-red/15">
+    <Link to="/home" className="flex items-center gap-3 text-white">
+      <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white/10 shadow-[0_10px_20px_-12px_rgba(12,12,12,0.55)] ring-1 ring-white/25 backdrop-blur">
         <img src="/logo.svg" alt="VOFMUN" className="h-full w-full object-contain" />
       </span>
-      <div className="text-left">
-        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-deep-red/70">VOFMUN</p>
-        <p className="text-lg font-semibold text-deep-red">Delegate Hub</p>
+      <div className="text-left leading-tight">
+        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/70">VOFMUN</p>
+        <p className="text-lg font-semibold text-white">Delegate Hub</p>
       </div>
     </Link>
   );
@@ -103,11 +103,11 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
     return (
       <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-deep-red text-xs font-semibold uppercase tracking-wide text-white">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-xs font-semibold uppercase tracking-wide text-white shadow-[0_6px_18px_-12px_rgba(0,0,0,0.45)]">
           {getInitials()}
         </span>
         <div className="leading-tight">
-          <p className="text-sm font-semibold text-deep-red">{getDisplayName()}</p>
+          <p className="text-sm font-semibold text-white">{getDisplayName()}</p>
         </div>
       </div>
     );
@@ -117,12 +117,12 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
   if (isMobile) {
     return (
-      <nav className="sticky top-0 z-50 border-b border-deep-red/10 bg-white text-deep-red shadow-[0_18px_42px_-32px_rgba(112,30,30,0.25)]">
+      <nav className="relative z-40 border-b border-white/15 bg-gradient-to-r from-deep-red via-dark-burgundy to-deep-red text-white shadow-[0_24px_60px_-28px_rgba(112,30,30,0.55)]">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4">
           {brand}
           <button
             onClick={() => setIsMenuOpen((prev) => !prev)}
-            className="rounded-full border border-deep-red/15 bg-white p-2 text-deep-red transition hover:border-deep-red/40 hover:bg-deep-red/5"
+            className="rounded-full border border-white/20 bg-white/10 p-2 text-white transition hover:border-white/30 hover:bg-white/20"
             aria-expanded={isMenuOpen}
             aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
           >
@@ -136,7 +136,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="border-t border-deep-red/10 bg-white px-4 pb-6"
+              className="border-t border-white/15 bg-gradient-to-b from-deep-red via-dark-burgundy to-deep-red px-4 pb-6"
             >
               <div className="space-y-4 pt-4">
                 {availableItems.map((item) => {
@@ -148,8 +148,8 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                       to={item.to}
                       className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${
                         active
-                          ? "border-deep-red bg-deep-red/10 text-deep-red"
-                          : "border-deep-red/10 bg-white text-deep-red/80 hover:border-deep-red/40 hover:bg-deep-red/5 hover:text-deep-red"
+                          ? "border-white/40 bg-white text-deep-red"
+                          : "border-white/15 bg-white/5 text-white/80 hover:border-white/30 hover:bg-white/15 hover:text-white"
                       }`}
                       aria-current={active ? "page" : undefined}
                       onClick={() => setIsMenuOpen(false)}
@@ -157,8 +157,8 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                       <span
                         className={`flex h-9 w-9 items-center justify-center rounded-xl ${
                           active
-                            ? "bg-deep-red/20 text-deep-red"
-                            : "bg-deep-red/10 text-deep-red"
+                            ? "bg-white/30 text-deep-red"
+                            : "bg-white/15 text-white"
                         }`}
                       >
                         <Icon size={18} strokeWidth={1.75} />
@@ -168,9 +168,9 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                   );
                 })}
 
-                <div className="space-y-3 border-t border-deep-red/10 pt-4">
+                <div className="space-y-3 border-t border-white/15 pt-4">
                   {userDetails && (
-                    <div className="rounded-xl border border-deep-red/15 bg-deep-red/5 px-4 py-3">
+                    <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-3">
                       {userDetails}
                     </div>
                   )}
@@ -179,7 +179,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                       logout();
                       setIsMenuOpen(false);
                     }}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-deep-red/20 bg-white px-4 py-2 text-sm font-medium text-deep-red transition-colors hover:border-deep-red/40 hover:bg-deep-red/5"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:border-white/30 hover:bg-white/20"
                   >
                     <LogOut size={18} />
                     <span>Sign Out</span>
@@ -194,12 +194,12 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   }
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-deep-red/10 bg-white text-deep-red shadow-[0_20px_55px_-32px_rgba(112,30,30,0.25)]">
-      <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between gap-4 px-6">
+    <nav className="relative z-40 border-b border-white/15 bg-gradient-to-r from-deep-red via-dark-burgundy to-deep-red text-white shadow-[0_30px_70px_-32px_rgba(112,30,30,0.55)]">
+      <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between gap-6 px-6">
         {brand}
 
-        <div className="hidden flex-1 items-center justify-center overflow-x-auto md:flex">
-          <div className="flex items-center gap-1.5 rounded-full border border-deep-red/10 bg-white/90 px-3 py-1.5">
+        <div className="hidden flex-1 items-center justify-center md:flex">
+          <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 backdrop-blur">
             {availableItems.map((item) => {
               const Icon = item.icon ?? Home;
               const active = isActive(item.to);
@@ -209,8 +209,8 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                   to={item.to}
                   className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                     active
-                      ? "border border-deep-red bg-deep-red/10 text-deep-red"
-                      : "text-deep-red/70 hover:bg-deep-red/5 hover:text-deep-red"
+                      ? "bg-white text-deep-red shadow-[0_15px_25px_-20px_rgba(255,255,255,0.9)]"
+                      : "text-white/80 hover:bg-white/15 hover:text-white"
                   }`}
                   aria-current={active ? "page" : undefined}
                 >
@@ -224,13 +224,13 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
         <div className="hidden items-center gap-3 md:flex">
           {userDetails && (
-            <div className="rounded-full border border-deep-red/10 bg-deep-red/5 px-4 py-2">
+            <div className="rounded-full border border-white/20 bg-white/10 px-4 py-2 backdrop-blur">
               {userDetails}
             </div>
           )}
           <button
             onClick={logout}
-            className="flex items-center gap-2 rounded-full border border-deep-red/20 bg-deep-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-dark-burgundy"
+            className="flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/25"
           >
             <LogOut size={16} />
             <span>Sign Out</span>
@@ -239,7 +239,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
         <button
           onClick={() => setIsMenuOpen((prev) => !prev)}
-          className="rounded-full border border-deep-red/15 bg-white p-2 text-deep-red transition hover:border-deep-red/40 hover:bg-deep-red/5 md:hidden"
+          className="rounded-full border border-white/20 bg-white/10 p-2 text-white transition hover:border-white/30 hover:bg-white/20 md:hidden"
           aria-expanded={isMenuOpen}
           aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
         >
@@ -253,7 +253,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="border-t border-deep-red/10 bg-white px-6 pb-6 md:hidden"
+            className="border-t border-white/15 bg-gradient-to-b from-deep-red via-dark-burgundy to-deep-red px-6 pb-6 md:hidden"
           >
             <div className="space-y-4 pt-4">
               {availableItems.map((item) => {
@@ -265,8 +265,8 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                     to={item.to}
                     className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${
                       active
-                        ? "border-deep-red bg-deep-red/10 text-deep-red"
-                        : "border-deep-red/10 bg-white text-deep-red/80 hover:border-deep-red/40 hover:bg-deep-red/5 hover:text-deep-red"
+                        ? "border-white/40 bg-white text-deep-red"
+                        : "border-white/15 bg-white/5 text-white/80 hover:border-white/30 hover:bg-white/15 hover:text-white"
                     }`}
                     aria-current={active ? "page" : undefined}
                     onClick={() => setIsMenuOpen(false)}
@@ -274,8 +274,8 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                     <span
                       className={`flex h-9 w-9 items-center justify-center rounded-xl ${
                         active
-                          ? "bg-deep-red/20 text-deep-red"
-                          : "bg-deep-red/10 text-deep-red"
+                          ? "bg-white/30 text-deep-red"
+                          : "bg-white/15 text-white"
                       }`}
                     >
                       <Icon size={18} strokeWidth={1.75} />
@@ -285,9 +285,9 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                 );
               })}
 
-              <div className="space-y-3 border-t border-deep-red/10 pt-4">
+              <div className="space-y-3 border-t border-white/15 pt-4">
                 {userDetails && (
-                  <div className="rounded-xl border border-deep-red/15 bg-deep-red/5 px-4 py-3">
+                  <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-3">
                     {userDetails}
                   </div>
                 )}
@@ -296,7 +296,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                     logout();
                     setIsMenuOpen(false);
                   }}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-deep-red/20 bg-white px-4 py-2 text-sm font-medium text-deep-red transition-colors hover:border-deep-red/40 hover:bg-deep-red/5"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:border-white/30 hover:bg-white/20"
                 >
                   <LogOut size={18} />
                   <span>Sign Out</span>
