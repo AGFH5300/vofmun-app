@@ -58,6 +58,16 @@
   --tt-radius-md: 0.5rem;
   --tt-radius-lg: 0.75rem;
   --tt-radius-xl: 1rem;
+  --tt-color-highlight-green: #d6f1d8;
+  --tt-color-highlight-green-contrast: #2f6b32;
+  --tt-color-highlight-blue: #d7e9ff;
+  --tt-color-highlight-blue-contrast: #1d4e89;
+  --tt-color-highlight-red: #f7d6d6;
+  --tt-color-highlight-red-contrast: #7d2020;
+  --tt-color-highlight-purple: #eadcff;
+  --tt-color-highlight-purple-contrast: #4f3d9a;
+  --tt-color-highlight-yellow: #fff1c2;
+  --tt-color-highlight-yellow-contrast: #8a6500;
   --tt-shadow-elevated-md: 0 24px 50px -28px rgba(112, 30, 30, 0.45);
   --tt-transition-duration-default: 0.2s;
   --tt-transition-easing-default: cubic-bezier(0.4, 0, 0.2, 1);
