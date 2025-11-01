@@ -8,10 +8,17 @@ import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
-import { ArrowRight } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
+import { useRouter } from "@/src/router";
 
 type SpeechRow = Omit<Speech, "tags">;
 type SpeechTagRow = { speechID: string; tag: string };
+
+const EMPTY_DOCUMENT = { type: "doc", content: [{ type: "paragraph" }] };
+const serializeDocument = (content?: object | null) =>
+  JSON.stringify(content ?? EMPTY_DOCUMENT);
+const UNSAVED_CHANGES_MESSAGE =
+  "You have unsaved changes. Do you want to leave without saving?";
 
 const parseSpeechContent = (raw?: string | object | null) => {
   if (!raw) {
@@ -28,7 +35,7 @@ const parseSpeechContent = (raw?: string | object | null) => {
 
   try {
     return JSON.parse(raw);
-  } catch (error) {
+  } catch {
     const paragraphs = raw.split(/\r?\n+/).map((paragraph) => ({
       type: "paragraph",
       content: paragraph ? [{ type: "text", text: paragraph }] : [],
@@ -45,22 +52,133 @@ const Page = () => {
   const { user: currentUser } = useSession();
   const userRole = role(currentUser);
   const editorRef = React.useRef<Editor | null>(null);
+  const { registerNavigationGuard } = useRouter();
   const [fetchedSpeeches, setFetchedSpeeches] = useState<Speech[]>([]);
   const [selectedSpeech, setSelectedSpeech] = useState<Speech | null>(null);
   const [title, setTitle] = useState<string>("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const isDelegateUser = userRole === "delegate" && currentUser !== null;
   const isChairUser = userRole === "chair" && currentUser !== null;
+  const initialStateRef = React.useRef({
+    title: "",
+    content: serializeDocument(EMPTY_DOCUMENT),
+  });
   const parsedSpeechContent = React.useMemo(
     () => parseSpeechContent(selectedSpeech?.content ?? null),
     [selectedSpeech]
   );
 
-  useEffect(() => {
-    if (selectedSpeech) {
-      setTitle(selectedSpeech.title || "");
-    } else {
-      setTitle("");
+  const getEditorSnapshot = React.useCallback(() => {
+    if (!editorRef.current) {
+      return initialStateRef.current.content;
     }
+
+    try {
+      return JSON.stringify(editorRef.current.getJSON());
+    } catch {
+      return initialStateRef.current.content;
+    }
+  }, []);
+
+  const evaluateUnsavedChanges = React.useCallback(() => {
+    const contentSnapshot = getEditorSnapshot();
+    const dirty =
+      contentSnapshot !== initialStateRef.current.content ||
+      title !== initialStateRef.current.title;
+    setHasUnsavedChanges(dirty);
+  }, [getEditorSnapshot, title]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const handleUpdate = () => {
+      evaluateUnsavedChanges();
+    };
+
+    editor.on("update", handleUpdate);
+
+    return () => {
+      editor.off("update", handleUpdate);
+    };
+  }, [evaluateUnsavedChanges]);
+
+  useEffect(() => {
+    evaluateUnsavedChanges();
+  }, [title, evaluateUnsavedChanges]);
+
+  const confirmDiscardChanges = React.useCallback(() => {
+    if (!hasUnsavedChanges) {
+      return true;
+    }
+
+    return window.confirm(UNSAVED_CHANGES_MESSAGE);
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    const unregister = registerNavigationGuard(() => confirmDiscardChanges());
+    return unregister;
+  }, [confirmDiscardChanges, registerNavigationGuard]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = UNSAVED_CHANGES_MESSAGE;
+      return UNSAVED_CHANGES_MESSAGE;
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
+
+  const handleSelectSpeech = React.useCallback(
+    (speech: Speech) => {
+      if (isSaving) {
+        return;
+      }
+
+      if (selectedSpeech?.speechID === speech.speechID) {
+        return;
+      }
+
+      if (!confirmDiscardChanges()) {
+        return;
+      }
+
+      setSelectedSpeech(speech);
+    },
+    [confirmDiscardChanges, isSaving, selectedSpeech]
+  );
+
+  useEffect(() => {
+    const baselineTitle = selectedSpeech?.title ?? "";
+    const parsedContent = parseSpeechContent(selectedSpeech?.content ?? null);
+    const baselineContent = serializeDocument(parsedContent ?? null);
+
+    initialStateRef.current = {
+      title: baselineTitle,
+      content: baselineContent,
+    };
+
+    setTitle(baselineTitle);
+
+    if (editorRef.current) {
+      if (parsedContent) {
+        editorRef.current.commands.setContent(parsedContent);
+      } else {
+        editorRef.current.commands.clearContent(true);
+      }
+    }
+
+    setHasUnsavedChanges(false);
   }, [selectedSpeech]);
 
   useEffect(() => {
@@ -160,7 +278,17 @@ const Page = () => {
     fetchSpeeches();
   }, [currentUser, isDelegateUser, isChairUser, selectedSpeech]);
 
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.setEditable(!isSaving);
+    }
+  }, [isSaving]);
+
   const postSpeech = async () => {
+    if (isSaving) {
+      return;
+    }
+
     if (!currentUser) {
       toast.error("No user logged in");
       return;
@@ -183,9 +311,10 @@ const Page = () => {
     }
 
     const content = editorRef.current.getJSON();
-
     const serializedContent = JSON.stringify(content);
     const timestamp = new Date().toISOString();
+
+    setIsSaving(true);
 
     try {
       if (selectedSpeech) {
@@ -242,84 +371,92 @@ const Page = () => {
         );
         setSelectedSpeech(updatedSpeech);
         toast.success("Speech updated successfully!");
-        return;
-      }
+      } else {
+        const { data: existingSpeeches, error: speechIdError } = await supabase
+          .from<{ speechID: string }>("Speech")
+          .select("speechID");
 
-      const { data: existingSpeeches, error: speechIdError } = await supabase
-        .from<{ speechID: string }>("Speech")
-        .select("speechID");
-
-      if (speechIdError) {
-        throw speechIdError;
-      }
-
-      const sortedSpeechIds = existingSpeeches ? [...existingSpeeches] : [];
-      sortedSpeechIds.sort((a, b) => a.speechID.localeCompare(b.speechID));
-      const nextSpeechId =
-        sortedSpeechIds.length > 0
-          ? (parseInt(sortedSpeechIds[sortedSpeechIds.length - 1].speechID, 10) + 1)
-              .toString()
-              .padStart(4, "0")
-          : "0001";
-
-      const insertPayload = {
-        speechID: nextSpeechId,
-        content: serializedContent,
-        title,
-        date: timestamp,
-      };
-
-      const { error: insertError } = await supabase
-        .from("Speech")
-        .insert(insertPayload);
-
-      if (insertError) {
-        throw insertError;
-      }
-
-      if (isDelegateUser) {
-        const delegateUser = currentUser as Delegate;
-        const { error: linkError } = await supabase
-          .from("Delegate-Speech")
-          .insert({
-            speechID: nextSpeechId,
-            delegateID: delegateUser.delegateID,
-          });
-
-        if (linkError) {
-          throw linkError;
+        if (speechIdError) {
+          throw speechIdError;
         }
-      } else if (isChairUser) {
-        const chairUser = currentUser as Chair;
-        const { error: linkError } = await supabase
-          .from("Chair-Speech")
-          .insert({
-            speechID: nextSpeechId,
-            chairID: chairUser.chairID,
-          });
 
-        if (linkError) {
-          throw linkError;
+        const sortedSpeechIds = existingSpeeches ? [...existingSpeeches] : [];
+        sortedSpeechIds.sort((a, b) => a.speechID.localeCompare(b.speechID));
+        const nextSpeechId =
+          sortedSpeechIds.length > 0
+            ? (parseInt(sortedSpeechIds[sortedSpeechIds.length - 1].speechID, 10) + 1)
+                .toString()
+                .padStart(4, "0")
+            : "0001";
+
+        const insertPayload = {
+          speechID: nextSpeechId,
+          content: serializedContent,
+          title,
+          date: timestamp,
+        };
+
+        const { error: insertError } = await supabase
+          .from("Speech")
+          .insert(insertPayload);
+
+        if (insertError) {
+          throw insertError;
         }
+
+        if (isDelegateUser) {
+          const delegateUser = currentUser as Delegate;
+          const { error: linkError } = await supabase
+            .from("Delegate-Speech")
+            .insert({
+              speechID: nextSpeechId,
+              delegateID: delegateUser.delegateID,
+            });
+
+          if (linkError) {
+            throw linkError;
+          }
+        } else if (isChairUser) {
+          const chairUser = currentUser as Chair;
+          const { error: linkError } = await supabase
+            .from("Chair-Speech")
+            .insert({
+              speechID: nextSpeechId,
+              chairID: chairUser.chairID,
+            });
+
+          if (linkError) {
+            throw linkError;
+          }
+        }
+
+        const createdSpeech: Speech = {
+          speechID: nextSpeechId,
+          title,
+          content: serializedContent,
+          date: timestamp,
+          delegateID: isDelegateUser
+            ? (currentUser as Delegate).delegateID
+            : "",
+          tags: [],
+        };
+
+        setFetchedSpeeches((prev) => [...prev, createdSpeech]);
+        setSelectedSpeech(createdSpeech);
+        toast.success("Speech posted successfully!");
       }
 
-      const createdSpeech: Speech = {
-        speechID: nextSpeechId,
+      const snapshot = getEditorSnapshot();
+      initialStateRef.current = {
         title,
-        content: serializedContent,
-        date: timestamp,
-        delegateID: isDelegateUser
-          ? (currentUser as Delegate).delegateID
-          : "",
-        tags: [],
+        content: snapshot,
       };
-
-      setFetchedSpeeches((prev) => [...prev, createdSpeech]);
-      setSelectedSpeech(createdSpeech);
-      toast.success("Speech posted successfully!");
+      setHasUnsavedChanges(false);
     } catch (error) {
       console.error("Failed to save speech:", error);
       toast.error("Failed to save speech");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -370,10 +507,7 @@ const Page = () => {
                         <li key={speech.speechID}>
                           <button
                             className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all ${isActive ? 'border-deep-red bg-soft-ivory shadow-lg' : 'border-soft-ivory bg-warm-light-grey hover:border-deep-red/60'}`}
-                            onClick={() => {
-                              setSelectedSpeech(speech);
-                              setTitle(speech.title || "");
-                            }}
+                            onClick={() => handleSelectSpeech(speech)}
                           >
                             <span
                               className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold shadow-sm ${
@@ -408,11 +542,20 @@ const Page = () => {
                     placeholder="Give your speech a compelling title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-4 py-3 text-almost-black-green focus:border-deep-red/60 focus:ring-2 focus:ring-deep-red/30 resize-none"
+                    disabled={isSaving}
+                    className="w-full rounded-xl border-2 border-soft-ivory bg-warm-light-grey px-4 py-3 text-almost-black-green shadow-inner transition focus:border-deep-red/70 focus:ring-2 focus:ring-deep-red/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 resize-none"
                     rows={1}
                   />
                 </div>
-                <div className="flex-1 overflow-hidden">
+                {hasUnsavedChanges && (
+                  <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+                    <AlertTriangle size={16} className="shrink-0" />
+                    <span>Unsaved changes detected. Don&apos;t forget to post your latest edits.</span>
+                  </div>
+                )}
+                <div
+                  className={`flex-1 overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isSaving ? "pointer-events-none opacity-60" : ""}`}
+                >
                   <SimpleEditor
                     ref={editorRef}
                     content={parsedSpeechContent}
@@ -422,9 +565,18 @@ const Page = () => {
                 <div className="flex justify-end pt-4 mt-4 border-t border-soft-ivory">
                   <button
                     onClick={postSpeech}
-                    className="primary-button"
+                    className="primary-button inline-flex items-center gap-2"
+                    disabled={isSaving}
+                    aria-busy={isSaving}
                   >
-                    {selectedSpeech ? "Update Speech" : "Post Speech"}
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>{selectedSpeech ? "Update Speech" : "Post Speech"}</>
+                    )}
                   </button>
                 </div>
               </div>
