@@ -8,7 +8,7 @@ import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
-import { AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2, Trash2 } from "lucide-react";
 import { useRouter } from "@/src/router";
 
 const EMPTY_DOCUMENT = { type: "doc", content: [{ type: "paragraph" }] };
@@ -56,12 +56,14 @@ const Page = () => {
   const [delegates, setDelegates] = useState<shortenedDel[]>([]);
   const [title, setTitle] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const isDelegateUser = userRole === "delegate" && currentUser !== null;
   const initialStateRef = React.useRef({
     title: "",
     content: serializeDocument(),
   });
+  const isBusy = isSaving || isDeleting;
   const parsedResoContent = React.useMemo(
     () => parseResoContent(selectedReso?.content ?? null),
     [selectedReso]
@@ -262,9 +264,9 @@ const Page = () => {
 
   useEffect(() => {
     if (editorRef.current) {
-      editorRef.current.setEditable(!isSaving);
+      editorRef.current.setEditable(!isBusy);
     }
-  }, [isSaving]);
+  }, [isBusy]);
 
   const confirmDiscardChanges = useCallback(() => {
     if (!hasUnsavedChanges) {
@@ -299,7 +301,7 @@ const Page = () => {
 
   const handleSelectReso = useCallback(
     (reso: Reso) => {
-      if (isSaving) {
+      if (isBusy) {
         return;
       }
 
@@ -313,11 +315,11 @@ const Page = () => {
 
       setSelectedReso(reso);
     },
-    [confirmDiscardChanges, isSaving, selectedReso]
+    [confirmDiscardChanges, isBusy, selectedReso]
   );
 
   const handleCreateNewReso = useCallback(() => {
-    if (isSaving) {
+    if (isBusy) {
       return;
     }
 
@@ -329,10 +331,10 @@ const Page = () => {
     if (editorRef.current) {
       editorRef.current.commands.clearContent(false);
     }
-  }, [confirmDiscardChanges, isSaving]);
+  }, [confirmDiscardChanges, isBusy]);
 
   const postReso = async () => {
-    if (isSaving) {
+    if (isBusy) {
       return;
     }
 
@@ -486,6 +488,82 @@ const Page = () => {
       setIsSaving(false);
     }
   };
+
+  const handleDeleteReso = useCallback(async () => {
+    if (!selectedReso || isBusy) {
+      return;
+    }
+
+    const updatedUser = await logBackIn();
+    if (!updatedUser) return;
+
+    const updatedRole = role(updatedUser);
+
+    if (updatedRole === "delegate") {
+      const delegateUser = updatedUser as Delegate;
+      const ownsReso = selectedReso.delegateID === delegateUser.delegateID;
+      const hasUpdatePermission = Array.isArray(delegateUser.resoPerms?.["update:reso"])
+        ? delegateUser.resoPerms["update:reso"].includes(selectedReso.resoID)
+        : false;
+
+      if (!ownsReso && !hasUpdatePermission) {
+        toast.error("You can only delete resolutions you are allowed to update.");
+        return;
+      }
+    } else if (updatedRole !== "chair") {
+      toast.error("You do not have permission to delete this resolution.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this resolution? This action cannot be undone."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      const { error } = await supabase
+        .from("Resos")
+        .delete()
+        .eq("resoID", selectedReso.resoID);
+
+      if (error) {
+        throw error;
+      }
+
+      const updatedResos = fetchedResos.filter(
+        (reso) => reso.resoID !== selectedReso.resoID
+      );
+
+      setFetchedResos(updatedResos);
+
+      if (updatedResos.length > 0) {
+        setSelectedReso(updatedResos[0]);
+      } else {
+        setSelectedReso(null);
+        setTitle("");
+        initialStateRef.current = {
+          title: "",
+          content: serializeDocument(),
+        };
+        if (editorRef.current) {
+          editorRef.current.commands.clearContent(true);
+        }
+      }
+
+      setHasUnsavedChanges(false);
+      toast.success("Resolution deleted successfully.");
+    } catch (error) {
+      console.error("Failed to delete resolution:", error);
+      toast.error("Failed to delete resolution");
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [editorRef, fetchedResos, initialStateRef, isBusy, logBackIn, selectedReso]);
 
   const toggleResoUpdatePermission = async (delegateID: string) => {
     if (!currentUser || !selectedReso || userRole !== "chair") {
@@ -678,23 +756,23 @@ const Page = () => {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                   <div className="flex-1">
                     <label className="text-xs uppercase tracking-[0.3em] text-deep-red/70 block mb-2">Resolution Title</label>
-                    <textarea
-                      placeholder="Name your resolution"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      disabled={isSaving}
-                      className="w-full rounded-xl border-2 border-soft-ivory bg-warm-light-grey px-4 py-3 text-almost-black-green shadow-inner transition focus:border-deep-red/70 focus:ring-2 focus:ring-deep-red/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 resize-none"
-                      rows={1}
-                    />
-                  </div>
-                  <button
-                    onClick={handleCreateNewReso}
-                    className="ghost-button disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={isSaving}
-                  >
-                    New Resolution
-                  </button>
+                  <textarea
+                    placeholder="Name your resolution"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    disabled={isBusy}
+                    className="w-full rounded-xl border-2 border-soft-ivory bg-warm-light-grey px-4 py-3 text-almost-black-green shadow-inner transition focus:border-deep-red/70 focus:ring-2 focus:ring-deep-red/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 resize-none"
+                    rows={1}
+                  />
                 </div>
+                <button
+                  onClick={handleCreateNewReso}
+                  className="ghost-button disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isBusy}
+                >
+                  New Resolution
+                </button>
+              </div>
                 {hasUnsavedChanges && (
                   <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
                     <AlertTriangle size={16} className="shrink-0" />
@@ -703,7 +781,7 @@ const Page = () => {
                 )}
 
                 <div
-                  className={`flex-1 overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isSaving ? "pointer-events-none opacity-60" : ""}`}
+                  className={`flex-1 overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isBusy ? "pointer-events-none opacity-60" : ""}`}
                 >
                   <SimpleEditor
                     ref={editorRef}
@@ -712,11 +790,30 @@ const Page = () => {
                   />
                 </div>
 
-                <div className="flex justify-end pt-4 mt-4 border-t border-soft-ivory">
+                <div className="mt-4 flex flex-col gap-3 border-t border-soft-ivory pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  {selectedReso && (
+                    <button
+                      onClick={handleDeleteReso}
+                      className="danger-button disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isBusy}
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 size={16} />
+                          Delete Resolution
+                        </>
+                      )}
+                    </button>
+                  )}
                   <button
                     onClick={postReso}
                     className="primary-button inline-flex items-center gap-2"
-                    disabled={isSaving}
+                    disabled={isBusy}
                     aria-busy={isSaving}
                   >
                     {isSaving ? (

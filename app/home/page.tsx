@@ -115,12 +115,12 @@ const Page = () => {
               </div>
 
               <div className="relative">
-                <div className="surface-card bg-white/10 border border-white/20 rounded-2xl p-6 text-white backdrop-blur">
-                  <p className="uppercase tracking-[0.35em] text-white/60 text-xs mb-3">Now</p>
-                  <p className="text-4xl font-mono font-semibold mb-2">{timeString}</p>
-                  <p className="text-sm text-white/70 mb-6">{dateString}</p>
+                <div className="surface-card rounded-2xl border border-soft-ivory bg-white p-6 text-deep-red shadow-xl">
+                  <p className="mb-3 text-xs uppercase tracking-[0.35em] text-deep-red/70">Now</p>
+                  <p className="mb-2 text-4xl font-mono font-semibold text-deep-red">{timeString}</p>
+                  <p className="mb-6 text-sm text-almost-black-green/70">{dateString}</p>
                   <div className="divider-soft"></div>
-                  <p className="text-sm text-white/80 leading-relaxed">
+                  <p className="text-sm leading-relaxed text-almost-black-green/80">
                     Keep an eye on the crisis room and be prepared to respond. Remember to sync with your bloc before the moderated caucus begins.
                   </p>
                 </div>

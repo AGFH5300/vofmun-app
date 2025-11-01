@@ -160,7 +160,12 @@ body {
 }
 
 ::selection {
-  background: var(--tt-selection-color);
+  background: color-mix(in srgb, var(--soft-ivory) 88%, white 12%);
+  color: var(--deep-red);
+}
+
+::-moz-selection {
+  background: color-mix(in srgb, var(--soft-ivory) 88%, white 12%);
   color: var(--deep-red);
 }
 
@@ -376,6 +381,28 @@ span {
   transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--dark-burgundy) 68%, white 32%);
   box-shadow: 0 14px 24px -18px rgba(139, 36, 36, 0.4);
+}
+
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--destructive) 94%, black 6%), color-mix(in srgb, var(--dark-burgundy) 85%, black 15%));
+  color: var(--pure-white);
+  box-shadow: 0 16px 34px -20px rgba(112, 30, 30, 0.55);
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+
+.danger-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 36px -18px rgba(112, 30, 30, 0.6);
+  filter: brightness(1.05);
 }
 
 .divider-soft {
