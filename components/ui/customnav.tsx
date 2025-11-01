@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Link, useRouter } from "@/src/router";
 import { useSession } from "@/app/context/sessionContext";
-import { motion, AnimatePresence } from "framer-motion";
 import { useMobile } from "@/hooks/use-mobile";
 import {
   Home,
@@ -77,13 +76,13 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   };
 
   const brand = (
-    <Link to="/home" className="flex items-center gap-3 text-white">
-      <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white/10 shadow-[0_10px_20px_-12px_rgba(12,12,12,0.55)] ring-1 ring-white/25 backdrop-blur">
+    <Link to="/home" className="flex items-center gap-3 text-slate-100">
+      <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-slate-900/70 shadow-[0_10px_20px_-12px_rgba(12,12,12,0.55)] ring-1 ring-slate-700">
         <img src="/logo.svg" alt="VOFMUN" className="h-full w-full object-contain" />
       </span>
       <div className="text-left leading-tight">
-        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/70">VOFMUN</p>
-        <p className="text-lg font-semibold text-white">Delegate Hub</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-400">VOFMUN</p>
+        <p className="text-lg font-semibold text-slate-100">Delegate Hub</p>
       </div>
     </Link>
   );
@@ -103,11 +102,11 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
     return (
       <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-xs font-semibold uppercase tracking-wide text-white shadow-[0_6px_18px_-12px_rgba(0,0,0,0.45)]">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-800/70 text-xs font-semibold uppercase tracking-wide text-slate-200 shadow-[0_6px_18px_-12px_rgba(0,0,0,0.45)]">
           {getInitials()}
         </span>
         <div className="leading-tight">
-          <p className="text-sm font-semibold text-white">{getDisplayName()}</p>
+          <p className="text-sm font-semibold text-slate-100">{getDisplayName()}</p>
         </div>
       </div>
     );
@@ -117,12 +116,12 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
   if (isMobile) {
     return (
-      <nav className="relative z-40 border-b border-white/15 bg-gradient-to-r from-deep-red via-dark-burgundy to-deep-red text-white shadow-[0_24px_60px_-28px_rgba(112,30,30,0.55)]">
+      <nav className="relative z-40 border-b border-slate-800 bg-[#0b1524] text-slate-200 shadow-[0_10px_30px_-25px_rgba(8,15,25,0.95)]">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4">
           {brand}
           <button
             onClick={() => setIsMenuOpen((prev) => !prev)}
-            className="rounded-full border border-white/20 bg-white/10 p-2 text-white transition hover:border-white/30 hover:bg-white/20"
+            className="rounded-md border border-slate-700 bg-slate-800/60 p-2 text-slate-100 transition hover:border-slate-500 hover:bg-slate-800"
             aria-expanded={isMenuOpen}
             aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
           >
@@ -130,76 +129,69 @@ const CustomNav: React.FC<CustomNavProps> = () => {
           </button>
         </div>
 
-        <AnimatePresence>
-          {isMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="border-t border-white/15 bg-gradient-to-b from-deep-red via-dark-burgundy to-deep-red px-4 pb-6"
-            >
-              <div className="space-y-4 pt-4">
-                {availableItems.map((item) => {
-                  const Icon = item.icon ?? Home;
-                  const active = isActive(item.to);
-                  return (
-                    <Link
-                      key={item.name}
-                      to={item.to}
-                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${
-                        active
-                          ? "border-white/40 bg-white text-deep-red"
-                          : "border-white/15 bg-white/5 text-white/80 hover:border-white/30 hover:bg-white/15 hover:text-white"
-                      }`}
-                      aria-current={active ? "page" : undefined}
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <span
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl ${
-                          active
-                            ? "bg-white/30 text-deep-red"
-                            : "bg-white/15 text-white"
-                        }`}
-                      >
-                        <Icon size={18} strokeWidth={1.75} />
-                      </span>
-                      <span className="flex-1 whitespace-nowrap">{item.name}</span>
-                    </Link>
-                  );
-                })}
-
-                <div className="space-y-3 border-t border-white/15 pt-4">
-                  {userDetails && (
-                    <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-3">
-                      {userDetails}
-                    </div>
-                  )}
-                  <button
-                    onClick={() => {
-                      logout();
-                      setIsMenuOpen(false);
-                    }}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:border-white/30 hover:bg-white/20"
+        {isMenuOpen && (
+          <div className="border-t border-slate-800 bg-[#0b1524] px-4 pb-6">
+            <div className="space-y-4 pt-4">
+              {availableItems.map((item) => {
+                const Icon = item.icon ?? Home;
+                const active = isActive(item.to);
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.to}
+                    className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
+                      active
+                        ? "border-slate-500 bg-slate-800 text-white"
+                        : "border-transparent text-slate-300 hover:border-slate-600 hover:bg-slate-800/70 hover:text-white"
+                    }`}
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => setIsMenuOpen(false)}
                   >
-                    <LogOut size={18} />
-                    <span>Sign Out</span>
-                  </button>
-                </div>
+                    <span
+                      className={`flex h-9 w-9 items-center justify-center rounded-md ${
+                        active
+                          ? "bg-slate-700 text-white"
+                          : "bg-slate-800/70 text-slate-200"
+                      }`}
+                    >
+                      <Icon size={18} strokeWidth={1.75} />
+                    </span>
+                    <span className="flex-1 whitespace-nowrap">{item.name}</span>
+                  </Link>
+                );
+              })}
+
+              <div className="space-y-3 border-t border-slate-800 pt-4">
+                {userDetails && (
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-3 text-slate-200">
+                    {userDetails}
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    logout();
+                    setIsMenuOpen(false);
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2 text-sm font-medium text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-700"
+                >
+                  <LogOut size={18} />
+                  <span>Sign Out</span>
+                </button>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        )}
       </nav>
     );
   }
 
   return (
-    <nav className="relative z-40 border-b border-white/15 bg-gradient-to-r from-deep-red via-dark-burgundy to-deep-red text-white shadow-[0_30px_70px_-32px_rgba(112,30,30,0.55)]">
+    <nav className="relative z-40 border-b border-slate-800 bg-[#0b1524] text-slate-200 shadow-[0_14px_38px_-28px_rgba(8,15,25,0.95)]">
       <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between gap-6 px-6">
         {brand}
 
         <div className="hidden flex-1 items-center justify-center md:flex">
-          <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 backdrop-blur">
+          <div className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-1.5">
             {availableItems.map((item) => {
               const Icon = item.icon ?? Home;
               const active = isActive(item.to);
@@ -209,8 +201,8 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                   to={item.to}
                   className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                     active
-                      ? "bg-white text-deep-red shadow-[0_15px_25px_-20px_rgba(255,255,255,0.9)]"
-                      : "text-white/80 hover:bg-white/15 hover:text-white"
+                      ? "bg-slate-200 text-[#0b1524] shadow-[0_10px_30px_-25px_rgba(15,25,40,0.9)]"
+                      : "text-slate-300 hover:bg-slate-800/70 hover:text-white"
                   }`}
                   aria-current={active ? "page" : undefined}
                 >
@@ -224,13 +216,13 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
         <div className="hidden items-center gap-3 md:flex">
           {userDetails && (
-            <div className="rounded-full border border-white/20 bg-white/10 px-4 py-2 backdrop-blur">
+            <div className="rounded-full border border-slate-700 bg-slate-900/60 px-4 py-2 text-slate-200">
               {userDetails}
             </div>
           )}
           <button
             onClick={logout}
-            className="flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/25"
+            className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/70 px-4 py-2 text-sm font-medium text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-700"
           >
             <LogOut size={16} />
             <span>Sign Out</span>
@@ -239,7 +231,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
         <button
           onClick={() => setIsMenuOpen((prev) => !prev)}
-          className="rounded-full border border-white/20 bg-white/10 p-2 text-white transition hover:border-white/30 hover:bg-white/20 md:hidden"
+          className="rounded-md border border-slate-700 bg-slate-800/60 p-2 text-slate-100 transition hover:border-slate-500 hover:bg-slate-800 md:hidden"
           aria-expanded={isMenuOpen}
           aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
         >
@@ -247,65 +239,58 @@ const CustomNav: React.FC<CustomNavProps> = () => {
         </button>
       </div>
 
-      <AnimatePresence>
-        {isMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="border-t border-white/15 bg-gradient-to-b from-deep-red via-dark-burgundy to-deep-red px-6 pb-6 md:hidden"
-          >
-            <div className="space-y-4 pt-4">
-              {availableItems.map((item) => {
-                const Icon = item.icon ?? Home;
-                const active = isActive(item.to);
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.to}
-                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${
-                      active
-                        ? "border-white/40 bg-white text-deep-red"
-                        : "border-white/15 bg-white/5 text-white/80 hover:border-white/30 hover:bg-white/15 hover:text-white"
-                    }`}
-                    aria-current={active ? "page" : undefined}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <span
-                      className={`flex h-9 w-9 items-center justify-center rounded-xl ${
-                        active
-                          ? "bg-white/30 text-deep-red"
-                          : "bg-white/15 text-white"
-                      }`}
-                    >
-                      <Icon size={18} strokeWidth={1.75} />
-                    </span>
-                    <span className="flex-1 whitespace-nowrap">{item.name}</span>
-                  </Link>
-                );
-              })}
-
-              <div className="space-y-3 border-t border-white/15 pt-4">
-                {userDetails && (
-                  <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-3">
-                    {userDetails}
-                  </div>
-                )}
-                <button
-                  onClick={() => {
-                    logout();
-                    setIsMenuOpen(false);
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:border-white/30 hover:bg-white/20"
+      {isMenuOpen && (
+        <div className="border-t border-slate-800 bg-[#0b1524] px-6 pb-6 md:hidden">
+          <div className="space-y-4 pt-4">
+            {availableItems.map((item) => {
+              const Icon = item.icon ?? Home;
+              const active = isActive(item.to);
+              return (
+                <Link
+                  key={item.name}
+                  to={item.to}
+                  className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
+                    active
+                      ? "border-slate-500 bg-slate-800 text-white"
+                      : "border-transparent text-slate-300 hover:border-slate-600 hover:bg-slate-800/70 hover:text-white"
+                  }`}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => setIsMenuOpen(false)}
                 >
-                  <LogOut size={18} />
-                  <span>Sign Out</span>
-                </button>
-              </div>
+                  <span
+                    className={`flex h-9 w-9 items-center justify-center rounded-md ${
+                      active
+                        ? "bg-slate-700 text-white"
+                        : "bg-slate-800/70 text-slate-200"
+                    }`}
+                  >
+                    <Icon size={18} strokeWidth={1.75} />
+                  </span>
+                  <span className="flex-1 whitespace-nowrap">{item.name}</span>
+                </Link>
+              );
+            })}
+
+            <div className="space-y-3 border-t border-slate-800 pt-4">
+              {userDetails && (
+                <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-3 text-slate-200">
+                  {userDetails}
+                </div>
+              )}
+              <button
+                onClick={() => {
+                  logout();
+                  setIsMenuOpen(false);
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2 text-sm font-medium text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-700"
+              >
+                <LogOut size={18} />
+                <span>Sign Out</span>
+              </button>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };
