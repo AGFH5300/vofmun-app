@@ -8,25 +8,124 @@ import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
-import { ArrowRight } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
+import { useRouter } from "@/src/router";
+
+const EMPTY_DOCUMENT = { type: "doc", content: [{ type: "paragraph" }] };
+const serializeDocument = (content?: object | null) =>
+  JSON.stringify(content ?? EMPTY_DOCUMENT);
+const UNSAVED_CHANGES_MESSAGE =
+  "You have unsaved changes. Do you want to leave without saving?";
+
+const parseResoContent = (raw?: string | object | null) => {
+  if (!raw) {
+    return undefined;
+  }
+
+  if (typeof raw === "object") {
+    return raw;
+  }
+
+  if (typeof raw !== "string") {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const paragraphs = raw.split(/\r?\n+/).map((paragraph) => ({
+      type: "paragraph",
+      content: paragraph ? [{ type: "text", text: paragraph }] : [],
+    }));
+
+    return {
+      type: "doc",
+      content: paragraphs.length > 0 ? paragraphs : [{ type: "paragraph" }],
+    };
+  }
+};
 // this page assumes that delegates can only post 1 reso, might be changed later
 
 const Page = () => {
   const { user: currentUser, login } = useSession();
   const userRole = role(currentUser);
   const editorRef = React.useRef<Editor | null>(null);
+  const { registerNavigationGuard } = useRouter();
   const [fetchedResos, setFetchedResos] = useState<Reso[]>([]);
   const [selectedReso, setSelectedReso] = useState<Reso | null>(null);
   const [delegates, setDelegates] = useState<shortenedDel[]>([]);
   const [title, setTitle] = useState<string>("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const isDelegateUser = userRole === "delegate" && currentUser !== null;
+  const initialStateRef = React.useRef({
+    title: "",
+    content: serializeDocument(),
+  });
+  const parsedResoContent = React.useMemo(
+    () => parseResoContent(selectedReso?.content ?? null),
+    [selectedReso]
+  );
+  const getEditorSnapshot = useCallback(() => {
+    if (!editorRef.current) {
+      return initialStateRef.current.content;
+    }
+
+    try {
+      return JSON.stringify(editorRef.current.getJSON());
+    } catch {
+      return initialStateRef.current.content;
+    }
+  }, []);
+
+  const evaluateUnsavedChanges = useCallback(() => {
+    const snapshot = getEditorSnapshot();
+    const dirty =
+      snapshot !== initialStateRef.current.content ||
+      title !== initialStateRef.current.title;
+    setHasUnsavedChanges(dirty);
+  }, [getEditorSnapshot, title]);
 
   useEffect(() => {
-    if (selectedReso) {
-      setTitle(selectedReso.title || "");
-    } else {
-      setTitle("");
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const handleUpdate = () => {
+      evaluateUnsavedChanges();
+    };
+
+    editor.on("update", handleUpdate);
+
+    return () => {
+      editor.off("update", handleUpdate);
+    };
+  }, [evaluateUnsavedChanges]);
+
+  useEffect(() => {
+    evaluateUnsavedChanges();
+  }, [title, evaluateUnsavedChanges]);
+
+  useEffect(() => {
+    const baselineTitle = selectedReso?.title ?? "";
+    const parsedContent = parseResoContent(selectedReso?.content ?? null);
+    const baselineContent = serializeDocument(parsedContent ?? null);
+
+    initialStateRef.current = {
+      title: baselineTitle,
+      content: baselineContent,
+    };
+
+    setTitle(baselineTitle);
+
+    if (editorRef.current) {
+      if (parsedContent) {
+        editorRef.current.commands.setContent(parsedContent);
+      } else {
+        editorRef.current.commands.clearContent(true);
+      }
     }
+
+    setHasUnsavedChanges(false);
   }, [selectedReso]);
 
   const logBackIn = useCallback(async () => {
@@ -138,7 +237,82 @@ const Page = () => {
     fetchResos();
   }, [currentUser, selectedReso, userRole]);
 
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.setEditable(!isSaving);
+    }
+  }, [isSaving]);
+
+  const confirmDiscardChanges = useCallback(() => {
+    if (!hasUnsavedChanges) {
+      return true;
+    }
+
+    return window.confirm(UNSAVED_CHANGES_MESSAGE);
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    const unregister = registerNavigationGuard(() => confirmDiscardChanges());
+    return unregister;
+  }, [confirmDiscardChanges, registerNavigationGuard]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = UNSAVED_CHANGES_MESSAGE;
+      return UNSAVED_CHANGES_MESSAGE;
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
+
+  const handleSelectReso = useCallback(
+    (reso: Reso) => {
+      if (isSaving) {
+        return;
+      }
+
+      if (selectedReso?.resoID === reso.resoID) {
+        return;
+      }
+
+      if (!confirmDiscardChanges()) {
+        return;
+      }
+
+      setSelectedReso(reso);
+    },
+    [confirmDiscardChanges, isSaving, selectedReso]
+  );
+
+  const handleCreateNewReso = useCallback(() => {
+    if (isSaving) {
+      return;
+    }
+
+    if (!confirmDiscardChanges()) {
+      return;
+    }
+
+    setSelectedReso(null);
+    if (editorRef.current) {
+      editorRef.current.commands.clearContent(true);
+    }
+  }, [confirmDiscardChanges, isSaving]);
+
   const postReso = async () => {
+    if (isSaving) {
+      return;
+    }
+
     const updatedUser = await logBackIn();
     if (!updatedUser) return;
 
@@ -204,6 +378,8 @@ const Page = () => {
       delegateID = selectedReso.delegateID;
     }
 
+    setIsSaving(true);
+
     try {
       if (selectedReso) {
         const { error: updateError } = await supabase
@@ -228,56 +404,63 @@ const Page = () => {
         );
         setSelectedReso(updatedReso);
         toast.success("Resolution updated successfully!");
-        return;
+      } else {
+        const { data: existingResos, error: resoError } = await supabase
+          .from<{ resoID: string }>("Resos")
+          .select("resoID");
+
+        if (resoError) {
+          throw resoError;
+        }
+
+        const sortedResos = existingResos ? [...existingResos] : [];
+        sortedResos.sort((a, b) => a.resoID.localeCompare(b.resoID));
+        const highestResoID =
+          sortedResos.length > 0
+            ? (parseInt(sortedResos[sortedResos.length - 1].resoID, 10) + 1)
+                .toString()
+                .padStart(4, "0")
+            : "0001";
+
+        const newResoPayload: Reso = {
+          resoID: highestResoID,
+          delegateID,
+          committeeID,
+          content,
+          title,
+          isNew: false,
+        };
+
+        const { data: insertedReso, error: insertError } = await supabase
+          .from("Resos")
+          .insert(newResoPayload)
+          .select()
+          .single();
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        const createdReso: Reso = (insertedReso as Reso) ?? {
+          ...newResoPayload,
+        };
+
+        setFetchedResos((prev) => [...prev, createdReso]);
+        setSelectedReso(createdReso);
+        toast.success("Resolution posted successfully!");
       }
 
-      const { data: existingResos, error: resoError } = await supabase
-        .from<{ resoID: string }>("Resos")
-        .select("resoID");
-
-      if (resoError) {
-        throw resoError;
-      }
-
-      const sortedResos = existingResos ? [...existingResos] : [];
-      sortedResos.sort((a, b) => a.resoID.localeCompare(b.resoID));
-      const highestResoID =
-        sortedResos.length > 0
-          ? (parseInt(sortedResos[sortedResos.length - 1].resoID, 10) + 1)
-              .toString()
-              .padStart(4, "0")
-          : "0001";
-
-      const newResoPayload: Reso = {
-        resoID: highestResoID,
-        delegateID,
-        committeeID,
-        content,
+      const snapshot = getEditorSnapshot();
+      initialStateRef.current = {
         title,
-        isNew: false,
+        content: snapshot,
       };
-
-      const { data: insertedReso, error: insertError } = await supabase
-        .from("Resos")
-        .insert(newResoPayload)
-        .select()
-        .single();
-
-      if (insertError) {
-        throw insertError;
-      }
-
-      const createdReso: Reso = (insertedReso as Reso) ?? {
-        ...newResoPayload,
-      };
-
-      setFetchedResos((prev) => [...prev, createdReso]);
-      setSelectedReso(createdReso);
-      setTitle("");
-      toast.success("Resolution posted successfully!");
+      setHasUnsavedChanges(false);
     } catch (error) {
       console.error("Failed to save resolution:", error);
       toast.error("Failed to post resolution");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -409,10 +592,7 @@ const Page = () => {
                         <li key={reso.resoID}>
                           <button
                             className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all ${isActive ? 'border-deep-red bg-soft-ivory shadow-lg' : 'border-soft-ivory bg-warm-light-grey hover:border-deep-red/60'}`}
-                            onClick={() => {
-                              setSelectedReso(reso);
-                              setTitle(reso.title || "");
-                            }}
+                            onClick={() => handleSelectReso(reso)}
                           >
                             <span
                               className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold shadow-sm ${
@@ -479,25 +659,32 @@ const Page = () => {
                       placeholder="Name your resolution"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-4 py-3 text-almost-black-green focus:border-deep-red/60 focus:ring-2 focus:ring-deep-red/30 resize-none"
+                      disabled={isSaving}
+                      className="w-full rounded-xl border-2 border-soft-ivory bg-warm-light-grey px-4 py-3 text-almost-black-green shadow-inner transition focus:border-deep-red/70 focus:ring-2 focus:ring-deep-red/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 resize-none"
                       rows={1}
                     />
                   </div>
                   <button
-                    onClick={() => {
-                      setSelectedReso(null);
-                      setTitle("");
-                    }}
-                    className="ghost-button"
+                    onClick={handleCreateNewReso}
+                    className="ghost-button disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isSaving}
                   >
                     New Resolution
                   </button>
                 </div>
+                {hasUnsavedChanges && (
+                  <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+                    <AlertTriangle size={16} className="shrink-0" />
+                    <span>Unsaved changes detected. Don&apos;t forget to post your latest edits.</span>
+                  </div>
+                )}
 
-                <div className="flex-1 overflow-hidden">
+                <div
+                  className={`flex-1 overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isSaving ? "pointer-events-none opacity-60" : ""}`}
+                >
                   <SimpleEditor
                     ref={editorRef}
-                    content={selectedReso?.content || undefined}
+                    content={parsedResoContent}
                     className="h-full toolbar-fixed"
                   />
                 </div>
@@ -505,9 +692,18 @@ const Page = () => {
                 <div className="flex justify-end pt-4 mt-4 border-t border-soft-ivory">
                   <button
                     onClick={postReso}
-                    className="primary-button"
+                    className="primary-button inline-flex items-center gap-2"
+                    disabled={isSaving}
+                    aria-busy={isSaving}
                   >
-                    {selectedReso ? "Update Resolution" : "Post Resolution"}
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>{selectedReso ? "Update Resolution" : "Post Resolution"}</>
+                    )}
                   </button>
                 </div>
               </div>

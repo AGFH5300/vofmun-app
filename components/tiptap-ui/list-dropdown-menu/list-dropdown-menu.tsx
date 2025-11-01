@@ -207,8 +207,8 @@ export function ListDropdownMenu({
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent>
-        <DropdownMenuGroup>
+      <DropdownMenuContent className="min-w-[220px] rounded-2xl border border-soft-ivory/80 bg-white/95 p-1 shadow-xl backdrop-blur-sm">
+        <DropdownMenuGroup className="space-y-1">
           {filteredLists.map((option) => (
             <DropdownMenuItem key={option.type} asChild>
               <ListButton
@@ -217,6 +217,8 @@ export function ListDropdownMenu({
                 text={option.label}
                 hideWhenUnavailable={hideWhenUnavailable}
                 tooltip={""}
+                className="w-full justify-start gap-3 px-3 py-2 text-sm"
+                showTooltip={false}
               />
             </DropdownMenuItem>
           ))}
