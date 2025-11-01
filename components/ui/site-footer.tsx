@@ -1,12 +1,11 @@
 import React from "react";
-import { Link } from "@/src/router";
 import { Linkedin, Instagram } from "lucide-react";
 
 const SiteFooter: React.FC = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-dark-navy text-white">
+    <footer className="bg-gray-900 text-white">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4">
           <div>
@@ -19,70 +18,70 @@ const SiteFooter: React.FC = () => {
           </div>
 
           <div>
-            <h3 className="mb-4 text-base font-semibold sm:text-lg">Quick Links</h3>
-            <ul className="space-y-2 text-xs sm:text-sm">
+            <h3 className="mb-4 text-base font-semibold text-white sm:text-lg">Delegate Hub</h3>
+            <ul className="space-y-2 text-xs text-gray-400 sm:text-sm">
               <li>
-                <Link to="/signup" className="text-gray-400 transition-colors hover:text-white">
-                  Register
-                </Link>
+                <a href="/home" className="text-gray-400 transition-colors hover:text-white">
+                  Home
+                </a>
               </li>
               <li>
-                <Link to="/resources" className="text-gray-400 transition-colors hover:text-white">
+                <a href="/live-updates" className="text-gray-400 transition-colors hover:text-white">
+                  Live Updates
+                </a>
+              </li>
+              <li>
+                <a href="/glossary" className="text-gray-400 transition-colors hover:text-white">
+                  Glossary
+                </a>
+              </li>
+              <li>
+                <a href="/speechrepo" className="text-gray-400 transition-colors hover:text-white">
+                  Speech Repository
+                </a>
+              </li>
+              <li>
+                <a href="/resolutions" className="text-gray-400 transition-colors hover:text-white">
+                  Resolutions
+                </a>
+              </li>
+              <li>
+                <a href="/messages" className="text-gray-400 transition-colors hover:text-white">
+                  Messaging
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="mb-4 text-base font-semibold text-white sm:text-lg">Get Started</h3>
+            <ul className="space-y-2 text-xs text-gray-400 sm:text-sm">
+              <li>
+                <a href="https://vofmun.org" className="text-gray-400 transition-colors hover:text-white">
+                  VOFMUN Homepage
+                </a>
+              </li>
+              <li>
+                <a href="https://vofmun.org/resources" className="text-gray-400 transition-colors hover:text-white">
                   Resources
-                </Link>
+                </a>
               </li>
               <li>
-                <Link to="/founders" className="text-gray-400 transition-colors hover:text-white">
-                  Our Team
-                </Link>
+                <a href="https://vofmun.org/live" className="text-gray-400 transition-colors hover:text-white">
+                  Conference Updates
+                </a>
+              </li>
+              <li>
+                <a href="https://vofmun.org/register" className="text-gray-400 transition-colors hover:text-white">
+                  Delegate Registration
+                </a>
               </li>
             </ul>
           </div>
 
           <div>
-            <h3 className="mb-4 text-base font-semibold sm:text-lg">Committees</h3>
-            <ul className="space-y-2 text-xs sm:text-sm">
-              <li>
-                <Link to="/committees/ga1" className="text-gray-400 transition-colors hover:text-white">
-                  General Assembly
-                </Link>
-              </li>
-              <li>
-                <Link to="/committees/ecosoc" className="text-gray-400 transition-colors hover:text-white">
-                  ECOSOC
-                </Link>
-              </li>
-              <li>
-                <Link to="/committees/who" className="text-gray-400 transition-colors hover:text-white">
-                  WHO
-                </Link>
-              </li>
-              <li>
-                <Link to="/committees/unodc" className="text-gray-400 transition-colors hover:text-white">
-                  UNODC
-                </Link>
-              </li>
-              <li>
-                <Link to="/committees/uncstd" className="text-gray-400 transition-colors hover:text-white">
-                  UNCSTD
-                </Link>
-              </li>
-              <li>
-                <Link to="/committees/icj" className="text-gray-400 transition-colors hover:text-white">
-                  ICJ
-                </Link>
-              </li>
-              <li>
-                <Link to="/committees/icrcc" className="text-gray-400 transition-colors hover:text-white">
-                  ICRCC
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="mb-4 text-base font-semibold sm:text-lg">Contact</h3>
-            <ul className="space-y-2 text-xs sm:text-sm text-gray-400">
+            <h3 className="mb-4 text-base font-semibold text-white sm:text-lg">Contact</h3>
+            <ul className="space-y-2 text-xs text-gray-400 sm:text-sm">
               <li>contact@vofmun.org</li>
               <li>
                 <a
