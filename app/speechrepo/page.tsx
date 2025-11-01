@@ -8,7 +8,7 @@ import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
-import { AlertTriangle, ArrowRight, Loader2, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "@/src/router";
 
 type SpeechRow = Omit<Speech, "tags">;
@@ -117,6 +117,29 @@ const Page = () => {
 
     return window.confirm(UNSAVED_CHANGES_MESSAGE);
   }, [hasUnsavedChanges]);
+
+  const handleStartNewSpeech = React.useCallback(() => {
+    if (isBusy) {
+      return;
+    }
+
+    if (!confirmDiscardChanges()) {
+      return;
+    }
+
+    setSelectedSpeech(null);
+    setTitle("");
+    initialStateRef.current = {
+      title: "",
+      content: serializeDocument(EMPTY_DOCUMENT),
+    };
+    setHasUnsavedChanges(false);
+
+    if (editorRef.current) {
+      editorRef.current.commands.setContent(EMPTY_DOCUMENT);
+      editorRef.current.commands.focus("end");
+    }
+  }, [confirmDiscardChanges, isBusy]);
 
   useEffect(() => {
     const unregister = registerNavigationGuard(() => confirmDiscardChanges());
@@ -583,9 +606,20 @@ const Page = () => {
           <section className="flex flex-col lg:flex-row gap-6">
             <aside className="lg:w-1/3 space-y-4">
               <div className="surface-card p-6 max-h-[520px] overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-xl font-semibold text-deep-red">All Speeches</h2>
-                  <span className="badge-pill bg-soft-ivory text-deep-red/80">{fetchedSpeeches.length} saved</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleStartNewSpeech}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-deep-red/20 bg-white px-3 py-1.5 text-xs font-medium text-deep-red transition-colors hover:border-deep-red/40 hover:bg-deep-red/5 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isBusy}
+                    >
+                      <Plus size={14} />
+                      New Speech
+                    </button>
+                    <span className="badge-pill bg-soft-ivory text-deep-red/80">{fetchedSpeeches.length} saved</span>
+                  </div>
                 </div>
                 {fetchedSpeeches.length === 0 ? (
                   <div className="text-almost-black-green/60 text-center py-6 italic">
