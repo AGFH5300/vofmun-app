@@ -8,7 +8,7 @@ import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
-import { AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2, Trash2 } from "lucide-react";
 import { useRouter } from "@/src/router";
 
 type SpeechRow = Omit<Speech, "tags">;
@@ -57,6 +57,7 @@ const Page = () => {
   const [selectedSpeech, setSelectedSpeech] = useState<Speech | null>(null);
   const [title, setTitle] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const isDelegateUser = userRole === "delegate" && currentUser !== null;
   const isChairUser = userRole === "chair" && currentUser !== null;
@@ -64,6 +65,7 @@ const Page = () => {
     title: "",
     content: serializeDocument(EMPTY_DOCUMENT),
   });
+  const isBusy = isSaving || isDeleting;
   const parsedSpeechContent = React.useMemo(
     () => parseSpeechContent(selectedSpeech?.content ?? null),
     [selectedSpeech]
@@ -141,7 +143,7 @@ const Page = () => {
 
   const handleSelectSpeech = React.useCallback(
     (speech: Speech) => {
-      if (isSaving) {
+      if (isBusy) {
         return;
       }
 
@@ -155,7 +157,7 @@ const Page = () => {
 
       setSelectedSpeech(speech);
     },
-    [confirmDiscardChanges, isSaving, selectedSpeech]
+    [confirmDiscardChanges, isBusy, selectedSpeech]
   );
 
   useEffect(() => {
@@ -280,12 +282,12 @@ const Page = () => {
 
   useEffect(() => {
     if (editorRef.current) {
-      editorRef.current.setEditable(!isSaving);
+      editorRef.current.setEditable(!isBusy);
     }
-  }, [isSaving]);
+  }, [isBusy]);
 
   const postSpeech = async () => {
-    if (isSaving) {
+    if (isBusy) {
       return;
     }
 
@@ -460,6 +462,97 @@ const Page = () => {
     }
   };
 
+  const handleDeleteSpeech = async () => {
+    if (!selectedSpeech || isBusy) {
+      return;
+    }
+
+    if (!currentUser) {
+      toast.error("No user logged in");
+      return;
+    }
+
+    if (!isDelegateUser && !isChairUser) {
+      toast.error("You do not have permission to delete speeches.");
+      return;
+    }
+
+    if (
+      isDelegateUser &&
+      selectedSpeech.delegateID &&
+      selectedSpeech.delegateID !== (currentUser as Delegate).delegateID
+    ) {
+      toast.error("You can only delete your own speeches.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this speech? This action cannot be undone."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      await supabase
+        .from("Speech-Tags")
+        .delete()
+        .eq("speechID", selectedSpeech.speechID);
+
+      await supabase
+        .from("Speech")
+        .delete()
+        .eq("speechID", selectedSpeech.speechID);
+
+      if (isDelegateUser) {
+        const delegateUser = currentUser as Delegate;
+        await supabase
+          .from("Delegate-Speech")
+          .delete()
+          .eq("speechID", selectedSpeech.speechID)
+          .eq("delegateID", delegateUser.delegateID);
+      } else if (isChairUser) {
+        const chairUser = currentUser as Chair;
+        await supabase
+          .from("Chair-Speech")
+          .delete()
+          .eq("speechID", selectedSpeech.speechID)
+          .eq("chairID", chairUser.chairID);
+      }
+
+      const updatedSpeeches = fetchedSpeeches.filter(
+        (speech) => speech.speechID !== selectedSpeech.speechID
+      );
+
+      setFetchedSpeeches(updatedSpeeches);
+
+      if (updatedSpeeches.length > 0) {
+        setSelectedSpeech(updatedSpeeches[0]);
+      } else {
+        setSelectedSpeech(null);
+        setTitle("");
+        initialStateRef.current = {
+          title: "",
+          content: serializeDocument(),
+        };
+        if (editorRef.current) {
+          editorRef.current.commands.clearContent(true);
+        }
+      }
+
+      setHasUnsavedChanges(false);
+      toast.success("Speech deleted successfully.");
+    } catch (error) {
+      console.error("Failed to delete speech:", error);
+      toast.error("Failed to delete speech");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (!isDelegateUser && !isChairUser) {
     return (
       <div className="page-shell">
@@ -542,7 +635,7 @@ const Page = () => {
                     placeholder="Give your speech a compelling title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    disabled={isSaving}
+                    disabled={isBusy}
                     className="w-full rounded-xl border-2 border-soft-ivory bg-warm-light-grey px-4 py-3 text-almost-black-green shadow-inner transition focus:border-deep-red/70 focus:ring-2 focus:ring-deep-red/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 resize-none"
                     rows={1}
                   />
@@ -554,7 +647,7 @@ const Page = () => {
                   </div>
                 )}
                 <div
-                  className={`flex-1 overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isSaving ? "pointer-events-none opacity-60" : ""}`}
+                  className={`flex-1 overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isBusy ? "pointer-events-none opacity-60" : ""}`}
                 >
                   <SimpleEditor
                     ref={editorRef}
@@ -562,11 +655,30 @@ const Page = () => {
                     className="h-full toolbar-fixed"
                   />
                 </div>
-                <div className="flex justify-end pt-4 mt-4 border-t border-soft-ivory">
+                <div className="mt-4 flex flex-col gap-3 border-t border-soft-ivory pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  {selectedSpeech && (
+                    <button
+                      onClick={handleDeleteSpeech}
+                      className="danger-button disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isBusy}
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 size={16} />
+                          Delete Speech
+                        </>
+                      )}
+                    </button>
+                  )}
                   <button
                     onClick={postSpeech}
                     className="primary-button inline-flex items-center gap-2"
-                    disabled={isSaving}
+                    disabled={isBusy}
                     aria-busy={isSaving}
                   >
                     {isSaving ? (
