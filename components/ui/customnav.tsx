@@ -76,13 +76,13 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   };
 
   const brand = (
-    <Link to="/home" className="flex items-center gap-3 text-slate-100">
-      <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-slate-900/70 shadow-[0_10px_20px_-12px_rgba(12,12,12,0.55)] ring-1 ring-slate-700">
+    <Link to="/home" className="flex items-center gap-3 text-slate-900">
+      <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 shadow-[0_12px_20px_-16px_rgba(15,23,42,0.45)] ring-1 ring-slate-200">
         <img src="/logo.svg" alt="VOFMUN" className="h-full w-full object-contain" />
       </span>
       <div className="text-left leading-tight">
-        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-400">VOFMUN</p>
-        <p className="text-lg font-semibold text-slate-100">Delegate Hub</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">VOFMUN</p>
+        <p className="text-lg font-semibold text-slate-900">Delegate Hub</p>
       </div>
     </Link>
   );
@@ -102,11 +102,11 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
     return (
       <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-800/70 text-xs font-semibold uppercase tracking-wide text-slate-200 shadow-[0_6px_18px_-12px_rgba(0,0,0,0.45)]">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-900 shadow-[0_8px_18px_-14px_rgba(15,23,42,0.25)]">
           {getInitials()}
         </span>
         <div className="leading-tight">
-          <p className="text-sm font-semibold text-slate-100">{getDisplayName()}</p>
+          <p className="text-sm font-semibold text-slate-900">{getDisplayName()}</p>
         </div>
       </div>
     );
@@ -116,12 +116,12 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
   if (isMobile) {
     return (
-      <nav className="relative z-40 border-b border-slate-800 bg-[#0b1524] text-slate-200 shadow-[0_10px_30px_-25px_rgba(8,15,25,0.95)]">
+      <nav className="relative z-40 border-b border-slate-200 bg-white text-slate-900 shadow-[0_10px_30px_-25px_rgba(15,23,42,0.25)]">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4">
           {brand}
           <button
             onClick={() => setIsMenuOpen((prev) => !prev)}
-            className="rounded-md border border-slate-700 bg-slate-800/60 p-2 text-slate-100 transition hover:border-slate-500 hover:bg-slate-800"
+            className="rounded-md border border-slate-200 bg-slate-100 p-2 text-slate-900 transition hover:border-slate-300 hover:bg-slate-200"
             aria-expanded={isMenuOpen}
             aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
           >
@@ -130,7 +130,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
         </div>
 
         {isMenuOpen && (
-          <div className="border-t border-slate-800 bg-[#0b1524] px-4 pb-6">
+          <div className="border-t border-slate-200 bg-white px-4 pb-6">
             <div className="space-y-4 pt-4">
               {availableItems.map((item) => {
                 const Icon = item.icon ?? Home;
@@ -141,8 +141,8 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                     to={item.to}
                     className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
                       active
-                        ? "border-slate-500 bg-slate-800 text-white"
-                        : "border-transparent text-slate-300 hover:border-slate-600 hover:bg-slate-800/70 hover:text-white"
+                        ? "border-slate-300 bg-slate-900 text-white"
+                        : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-100 hover:text-slate-900"
                     }`}
                     aria-current={active ? "page" : undefined}
                     onClick={() => setIsMenuOpen(false)}
@@ -150,8 +150,8 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                     <span
                       className={`flex h-9 w-9 items-center justify-center rounded-md ${
                         active
-                          ? "bg-slate-700 text-white"
-                          : "bg-slate-800/70 text-slate-200"
+                          ? "bg-slate-800 text-white"
+                          : "bg-slate-200 text-slate-700"
                       }`}
                     >
                       <Icon size={18} strokeWidth={1.75} />
@@ -161,9 +161,9 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                 );
               })}
 
-              <div className="space-y-3 border-t border-slate-800 pt-4">
+              <div className="space-y-3 border-t border-slate-200 pt-4">
                 {userDetails && (
-                  <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-3 text-slate-200">
+                  <div className="rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-slate-900">
                     {userDetails}
                   </div>
                 )}
@@ -172,7 +172,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                     logout();
                     setIsMenuOpen(false);
                   }}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2 text-sm font-medium text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-700"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
                 >
                   <LogOut size={18} />
                   <span>Sign Out</span>
@@ -186,12 +186,12 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   }
 
   return (
-    <nav className="relative z-40 border-b border-slate-800 bg-[#0b1524] text-slate-200 shadow-[0_14px_38px_-28px_rgba(8,15,25,0.95)]">
+    <nav className="relative z-40 border-b border-slate-200 bg-white text-slate-900 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.2)]">
       <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between gap-6 px-6">
         {brand}
 
         <div className="hidden flex-1 items-center justify-center md:flex">
-          <div className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-1.5">
+          <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5">
             {availableItems.map((item) => {
               const Icon = item.icon ?? Home;
               const active = isActive(item.to);
@@ -201,8 +201,8 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                   to={item.to}
                   className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                     active
-                      ? "bg-slate-200 text-[#0b1524] shadow-[0_10px_30px_-25px_rgba(15,25,40,0.9)]"
-                      : "text-slate-300 hover:bg-slate-800/70 hover:text-white"
+                      ? "bg-slate-900 text-white shadow-[0_16px_32px_-28px_rgba(15,23,42,0.35)]"
+                      : "text-slate-600 hover:bg-slate-200 hover:text-slate-900"
                   }`}
                   aria-current={active ? "page" : undefined}
                 >
@@ -216,13 +216,13 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
         <div className="hidden items-center gap-3 md:flex">
           {userDetails && (
-            <div className="rounded-full border border-slate-700 bg-slate-900/60 px-4 py-2 text-slate-200">
+            <div className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-slate-900">
               {userDetails}
             </div>
           )}
           <button
             onClick={logout}
-            className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/70 px-4 py-2 text-sm font-medium text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-700"
+            className="flex items-center gap-2 rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
           >
             <LogOut size={16} />
             <span>Sign Out</span>
@@ -231,7 +231,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
         <button
           onClick={() => setIsMenuOpen((prev) => !prev)}
-          className="rounded-md border border-slate-700 bg-slate-800/60 p-2 text-slate-100 transition hover:border-slate-500 hover:bg-slate-800 md:hidden"
+          className="rounded-md border border-slate-200 bg-slate-100 p-2 text-slate-900 transition hover:border-slate-300 hover:bg-slate-200 md:hidden"
           aria-expanded={isMenuOpen}
           aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
         >
@@ -240,7 +240,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
       </div>
 
       {isMenuOpen && (
-        <div className="border-t border-slate-800 bg-[#0b1524] px-6 pb-6 md:hidden">
+        <div className="border-t border-slate-200 bg-white px-6 pb-6 md:hidden">
           <div className="space-y-4 pt-4">
             {availableItems.map((item) => {
               const Icon = item.icon ?? Home;
@@ -251,8 +251,8 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                   to={item.to}
                   className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
                     active
-                      ? "border-slate-500 bg-slate-800 text-white"
-                      : "border-transparent text-slate-300 hover:border-slate-600 hover:bg-slate-800/70 hover:text-white"
+                      ? "border-slate-300 bg-slate-900 text-white"
+                      : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-100 hover:text-slate-900"
                   }`}
                   aria-current={active ? "page" : undefined}
                   onClick={() => setIsMenuOpen(false)}
@@ -260,8 +260,8 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                   <span
                     className={`flex h-9 w-9 items-center justify-center rounded-md ${
                       active
-                        ? "bg-slate-700 text-white"
-                        : "bg-slate-800/70 text-slate-200"
+                        ? "bg-slate-800 text-white"
+                        : "bg-slate-200 text-slate-700"
                     }`}
                   >
                     <Icon size={18} strokeWidth={1.75} />
@@ -271,9 +271,9 @@ const CustomNav: React.FC<CustomNavProps> = () => {
               );
             })}
 
-            <div className="space-y-3 border-t border-slate-800 pt-4">
+            <div className="space-y-3 border-t border-slate-200 pt-4">
               {userDetails && (
-                <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-3 text-slate-200">
+                <div className="rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-slate-900">
                   {userDetails}
                 </div>
               )}
@@ -282,7 +282,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                   logout();
                   setIsMenuOpen(false);
                 }}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2 text-sm font-medium text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-700"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
               >
                 <LogOut size={18} />
                 <span>Sign Out</span>
