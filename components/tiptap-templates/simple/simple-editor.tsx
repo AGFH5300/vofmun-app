@@ -200,7 +200,7 @@ export const SimpleEditor = React.forwardRef(function SimpleEditor({ content, cl
 
     React.useEffect(() => {
       if (editor && content) {
-        editor.commands.setContent(content)
+        editor.commands.setContent(content, false)
       }
     }, [content, editor])
 

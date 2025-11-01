@@ -108,25 +108,48 @@ const Page = () => {
   useEffect(() => {
     const baselineTitle = selectedReso?.title ?? "";
     const parsedContent = parseResoContent(selectedReso?.content ?? null);
-    const baselineContent = serializeDocument(parsedContent ?? null);
+    let frame: number | null = null;
 
-    initialStateRef.current = {
-      title: baselineTitle,
-      content: baselineContent,
+    const applyBaseline = () => {
+      if (!editorRef.current) {
+        frame = window.requestAnimationFrame(applyBaseline);
+        return;
+      }
+
+      if (parsedContent) {
+        editorRef.current.commands.setContent(parsedContent, false);
+      } else {
+        editorRef.current.commands.clearContent(false);
+      }
+
+      const snapshot = getEditorSnapshot();
+      initialStateRef.current = {
+        title: baselineTitle,
+        content: snapshot,
+      };
+      frame = null;
     };
 
     setTitle(baselineTitle);
 
     if (editorRef.current) {
-      if (parsedContent) {
-        editorRef.current.commands.setContent(parsedContent);
-      } else {
-        editorRef.current.commands.clearContent(true);
-      }
+      applyBaseline();
+    } else {
+      initialStateRef.current = {
+        title: baselineTitle,
+        content: serializeDocument(parsedContent ?? null),
+      };
+      frame = window.requestAnimationFrame(applyBaseline);
     }
 
     setHasUnsavedChanges(false);
-  }, [selectedReso]);
+
+    return () => {
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [getEditorSnapshot, selectedReso]);
 
   const logBackIn = useCallback(async () => {
     if (!currentUser) {
@@ -304,7 +327,7 @@ const Page = () => {
 
     setSelectedReso(null);
     if (editorRef.current) {
-      editorRef.current.commands.clearContent(true);
+      editorRef.current.commands.clearContent(false);
     }
   }, [confirmDiscardChanges, isSaving]);
 
