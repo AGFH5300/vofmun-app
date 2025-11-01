@@ -1,153 +1,149 @@
 import React from "react";
-import { Linkedin, Instagram } from "lucide-react";
+import { Link } from "@/src/router";
+import { Instagram, Linkedin } from "lucide-react";
+
+const delegateLinks = [
+  { label: "Home", href: "/home" },
+  { label: "Live Updates", href: "/live-updates" },
+  { label: "Glossary", href: "/glossary" },
+  { label: "Resolutions", href: "/resolutions" },
+  { label: "Speech Repository", href: "/speechrepo" },
+  { label: "Messaging", href: "/messages" },
+];
+
+const resourceLinks = [
+  {
+    label: "VOFMUN Homepage",
+    href: "https://vofmun.org",
+  },
+  {
+    label: "Resources",
+    href: "https://vofmun.org/resources",
+  },
+  {
+    label: "Conference Updates",
+    href: "https://vofmun.org/live",
+  },
+  {
+    label: "Delegate Registration",
+    href: "https://vofmun.org/register",
+  },
+];
+
+const socialLinks = [
+  {
+    label: "LinkedIn",
+    href: "https://www.linkedin.com/company/vofmun",
+    icon: Linkedin,
+  },
+  {
+    label: "Instagram",
+    href: "https://www.instagram.com/vofmun",
+    icon: Instagram,
+  },
+];
 
 const SiteFooter: React.FC = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-gray-900 text-white">
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 text-white">
-        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 text-white">
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4 text-white">
-            {/* Brand / About */}
-            <div className="text-gray-400">
-              <div className="mb-4 flex items-center space-x-2 text-white">
-                <span className="text-lg font-bold sm:text-xl">VOFMUN</span>
+    <footer className="border-t border-white/15 bg-gradient-to-b from-deep-red via-dark-burgundy to-deep-red text-white">
+      <div className="mx-auto max-w-6xl px-6 py-16">
+        <div className="flex flex-col gap-12 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-sm">
+            <Link to="/home" className="flex items-center gap-3 text-white">
+              <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white/15 shadow-[0_12px_30px_-20px_rgba(0,0,0,0.45)] ring-1 ring-white/25 backdrop-blur">
+                <img src="/logo.svg" alt="VOFMUN" className="h-full w-full object-contain" />
+              </span>
+              <div className="text-left leading-tight">
+                <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/70">VOFMUN</p>
+                <p className="text-lg font-semibold text-white">Delegate Hub</p>
               </div>
-              <p className="text-xs text-gray-400 sm:text-sm">
-                Empowering tomorrow&apos;s leaders through diplomatic excellence and global dialogue.
-              </p>
-            </div>
+            </Link>
+            <p className="mt-5 text-sm leading-relaxed text-white/75">
+              Empowering tomorrow&apos;s leaders through structured preparation, timely updates, and a beautifully organised conference hub.
+            </p>
+          </div>
 
-            {/* Delegate Hub */}
-            <div className="text-white">
-              <h3 className="mb-4 text-base font-semibold text-white sm:text-lg">Delegate Hub</h3>
-              <ul className="space-y-2 text-xs text-gray-400 sm:text-sm">
-                <li>
-                  <a href="/home" className="transition-colors hover:text-white">
-                    Home
-                  </a>
-                </li>
-                <li>
-                  <a href="/live-updates" className="transition-colors hover:text-white">
-                    Live Updates
-                  </a>
-                </li>
-                <li>
-                  <a href="/glossary" className="transition-colors hover:text-white">
-                    Glossary
-                  </a>
-                </li>
-                <li>
-                  <a href="/speechrepo" className="transition-colors hover:text-white">
-                    Speech Repository
-                  </a>
-                </li>
-                <li>
-                  <a href="/resolutions" className="transition-colors hover:text-white">
-                    Resolutions
-                  </a>
-                </li>
-                <li>
-                  <a href="/messages" className="transition-colors hover:text-white">
-                    Messaging
-                  </a>
-                </li>
+          <div className="grid flex-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-[0.28em] text-white/70">Delegate Hub</h3>
+              <ul className="mt-4 space-y-3 text-sm text-white/80">
+                {delegateLinks.map((link) => (
+                  <li key={link.label}>
+                    <Link
+                      to={link.href}
+                      className="transition-colors duration-200 hover:text-white"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
 
-            {/* Get Started */}
             <div>
-              <h3 className="mb-4 text-base font-semibold text-white sm:text-lg">Get Started</h3>
-              <ul className="space-y-2 text-xs text-gray-400 sm:text-sm">
-                <li>
-                  <a
-                    href="https://vofmun.org"
-                    className="transition-colors hover:text-white"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    VOFMUN Homepage
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://vofmun.org/resources"
-                    className="transition-colors hover:text-white"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Resources
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://vofmun.org/live"
-                    className="transition-colors hover:text-white"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Conference Updates
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://vofmun.org/register"
-                    className="transition-colors hover:text-white"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Delegate Registration
-                  </a>
-                </li>
+              <h3 className="text-sm font-semibold uppercase tracking-[0.28em] text-white/70">Resources</h3>
+              <ul className="mt-4 space-y-3 text-sm text-white/80">
+                {resourceLinks.map((link) => (
+                  <li key={link.label}>
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="transition-colors duration-200 hover:text-white"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
               </ul>
             </div>
 
-            {/* Contact */}
             <div>
-              <h3 className="mb-4 text-base font-semibold text-white sm:text-lg">Contact</h3>
-              <ul className="space-y-2 text-xs text-gray-400 sm:text-sm">
-                <li>contact@vofmun.org</li>
+              <h3 className="text-sm font-semibold uppercase tracking-[0.28em] text-white/70">Connect</h3>
+              <ul className="mt-4 space-y-3 text-sm text-white/80">
                 <li>
                   <a
-                    href="https://www.linkedin.com/company/vofmun"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 transition-colors hover:text-white"
+                    href="mailto:contact@vofmun.org"
+                    className="transition-colors duration-200 hover:text-white"
                   >
-                    <Linkedin size={16} />
-                    <span>LinkedIn</span>
+                    contact@vofmun.org
                   </a>
                 </li>
-                <li>
-                  <a
-                    href="https://www.instagram.com/vofmun"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 transition-colors hover:text-white"
-                  >
-                    <Instagram size={16} />
-                    <span>Instagram</span>
-                  </a>
-                </li>
+                {socialLinks.map(({ label, href, icon: Icon }) => (
+                  <li key={label}>
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 transition-colors duration-200 hover:text-white"
+                    >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
+                        <Icon size={16} />
+                      </span>
+                      <span>{label}</span>
+                    </a>
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
         </div>
 
-        <div className="mt-12 border-t border-gray-800 pt-6 text-center text-xs text-gray-500 sm:mt-16 sm:pt-8 sm:text-sm">
+        <div className="mt-12 border-t border-white/15 pt-6 text-xs text-white/60 sm:flex sm:items-center sm:justify-between sm:text-sm">
           <p>© {currentYear} Voices of the Future Model United Nations. All rights reserved.</p>
-          <p className="mt-2">
-            Made by {" "}
+          <div className="mt-3 flex items-center gap-2 sm:mt-0">
+            <span>Made by</span>
             <a
               href="https://anshgupta.site"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:underline"
+              className="font-medium text-white transition-colors hover:text-white/80 hover:underline"
             >
               Ansh Gupta
             </a>
-          </p>
+          </div>
         </div>
       </div>
     </footer>
