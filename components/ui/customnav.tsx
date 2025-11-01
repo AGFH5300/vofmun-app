@@ -85,25 +85,33 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   };
 
   const brand = (
-    <Link to="/home" className="flex items-center space-x-3">
-      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-deep-red text-white font-semibold shadow-inner">
-        V
-      </div>
+    <Link to="/home" className="flex items-center gap-3">
+      <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-[0_4px_12px_-6px_rgba(112,30,30,0.65)] ring-1 ring-deep-red/20">
+        <img src="/logo.svg" alt="VOFMUN" className="h-full w-full object-contain" />
+      </span>
       <div className="text-left">
-        <p className="text-xs uppercase tracking-[0.42em] text-deep-red/70">VOFMUN</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-deep-red/70">VOFMUN</p>
         <p className="text-lg font-semibold text-deep-red">Delegate Hub</p>
       </div>
     </Link>
   );
 
+  const getInitials = () => {
+    if (!currentUser) return "V";
+    const first = currentUser.firstname?.[0] ?? "";
+    const last = currentUser.lastname?.[0] ?? "";
+    const initials = `${first}${last}`.trim();
+    return initials ? initials.toUpperCase() : "V";
+  };
+
   if (isMobile) {
     return (
-      <nav className="sticky top-0 z-50 border-b border-deep-red/10 bg-off-white/95 text-deep-red shadow-[0_18px_42px_-28px_rgba(112,30,30,0.45)] backdrop-blur">
+      <nav className="sticky top-0 z-50 border-b border-deep-red/10 bg-white text-deep-red shadow-[0_18px_42px_-32px_rgba(112,30,30,0.45)]">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           {brand}
           <button
             onClick={() => setIsMenuOpen((prev) => !prev)}
-            className="rounded-full border border-deep-red/15 bg-white/60 p-2 text-deep-red transition hover:border-deep-red/40 hover:bg-white"
+            className="rounded-full border border-deep-red/15 bg-white p-2 text-deep-red transition hover:border-deep-red/40 hover:bg-deep-red/5"
             aria-expanded={isMenuOpen}
             aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
           >
@@ -117,7 +125,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="border-t border-deep-red/10 bg-off-white px-4 pb-6"
+              className="border-t border-deep-red/10 bg-white px-4 pb-6"
             >
               <div className="space-y-3 pt-4">
                 {availableItems.map((item) => {
@@ -127,10 +135,10 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                     <Link
                       key={item.name}
                       to={item.to}
-                      className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium transition-all ${
+                        className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium transition-all ${
                         active
                           ? "border-transparent bg-deep-red text-white shadow-[0_20px_40px_-28px_rgba(112,30,30,0.75)]"
-                          : "border-deep-red/10 bg-white/70 text-deep-red/80 hover:bg-white hover:text-deep-red"
+                          : "border-deep-red/10 bg-white text-deep-red/80 hover:border-deep-red/20 hover:text-deep-red"
                       }`}
                       aria-current={active ? "page" : undefined}
                       onClick={() => setIsMenuOpen(false)}
@@ -151,8 +159,19 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
                 <div className="border-t border-deep-red/10 pt-4">
                   <div className="px-1 pb-3">
-                    <p className="text-sm font-semibold text-deep-red">Hello {getDisplayName()}</p>
-                    <p className="text-xs uppercase tracking-[0.28em] text-deep-red/60">{getUserRole()}</p>
+                    <div className="flex items-center gap-3 rounded-2xl bg-deep-red/5 px-3 py-2">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-deep-red text-sm font-semibold uppercase text-white">
+                        {getInitials()}
+                      </span>
+                      <div className="leading-tight">
+                        <p className="text-sm font-semibold text-deep-red">{getDisplayName()}</p>
+                        {getUserRole() && (
+                          <span className="mt-0.5 inline-block rounded-full bg-white px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-deep-red/80 ring-1 ring-deep-red/20">
+                            {getUserRole()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <button
                     onClick={() => {
@@ -174,12 +193,12 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   }
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-deep-red/10 bg-off-white/90 text-deep-red shadow-[0_24px_55px_-30px_rgba(112,30,30,0.5)] backdrop-blur">
+    <nav className="sticky top-0 z-50 border-b border-deep-red/10 bg-white text-deep-red shadow-[0_24px_55px_-34px_rgba(112,30,30,0.45)]">
       <div className="mx-auto flex h-20 max-w-6xl items-center justify-between gap-6 px-6">
         {brand}
 
-        <div className="hidden flex-1 md:flex items-center justify-center">
-          <div className="flex items-center gap-1.5 rounded-full border border-deep-red/10 bg-white/70 px-3 py-1.5 shadow-[0_12px_32px_-24px_rgba(112,30,30,0.45)]">
+        <div className="hidden flex-1 items-center justify-center md:flex">
+          <div className="flex items-center gap-1.5 rounded-full border border-deep-red/10 bg-white px-3 py-1.5 shadow-[0_12px_32px_-28px_rgba(112,30,30,0.35)]">
             {availableItems.map((item) => {
               const Icon = item.icon ?? Home;
               const active = isActive(item.to);
@@ -189,7 +208,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                   to={item.to}
                   className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all ${
                     active
-                      ? "bg-deep-red text-white shadow-[0_18px_36px_-22px_rgba(112,30,30,0.65)]"
+                      ? "bg-deep-red text-white shadow-[0_18px_36px_-24px_rgba(112,30,30,0.6)]"
                       : "text-deep-red/75 hover:bg-deep-red/10 hover:text-deep-red"
                   }`}
                   aria-current={active ? "page" : undefined}
@@ -203,9 +222,18 @@ const CustomNav: React.FC<CustomNavProps> = () => {
         </div>
 
         <div className="hidden items-center gap-4 md:flex">
-          <div className="text-right">
-            <p className="text-sm font-semibold text-deep-red">{getDisplayName()}</p>
-            <p className="text-xs uppercase tracking-[0.26em] text-deep-red/60">{getUserRole()}</p>
+          <div className="flex items-center gap-3 rounded-full border border-deep-red/10 bg-deep-red/5 px-3 py-2 shadow-[0_12px_28px_-26px_rgba(112,30,30,0.45)]">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-deep-red text-sm font-semibold uppercase text-white">
+              {getInitials()}
+            </span>
+            <div className="leading-tight">
+              <p className="text-sm font-semibold text-deep-red">{getDisplayName()}</p>
+              {getUserRole() && (
+                <span className="mt-0.5 inline-block rounded-full bg-white px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-deep-red/80 ring-1 ring-deep-red/20">
+                  {getUserRole()}
+                </span>
+              )}
+            </div>
           </div>
           <button
             onClick={logout}
@@ -218,7 +246,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
         <button
           onClick={() => setIsMenuOpen((prev) => !prev)}
-          className="md:hidden rounded-full border border-deep-red/15 bg-white/60 p-2 text-deep-red transition hover:border-deep-red/40 hover:bg-white"
+          className="rounded-full border border-deep-red/15 bg-white p-2 text-deep-red transition hover:border-deep-red/40 hover:bg-deep-red/5 md:hidden"
           aria-expanded={isMenuOpen}
           aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
         >
@@ -232,7 +260,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="border-t border-deep-red/10 bg-off-white px-6 pb-6 md:hidden"
+            className="border-t border-deep-red/10 bg-white px-6 pb-6 md:hidden"
           >
             <div className="space-y-3 pt-4">
               {availableItems.map((item) => {
@@ -245,7 +273,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                     className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium transition-all ${
                       active
                         ? "border-transparent bg-deep-red text-white shadow-[0_20px_40px_-28px_rgba(112,30,30,0.75)]"
-                        : "border-deep-red/10 bg-white/70 text-deep-red/80 hover:bg-white hover:text-deep-red"
+                        : "border-deep-red/10 bg-white text-deep-red/80 hover:border-deep-red/20 hover:text-deep-red"
                     }`}
                     aria-current={active ? "page" : undefined}
                     onClick={() => setIsMenuOpen(false)}
@@ -266,8 +294,19 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
               <div className="border-t border-deep-red/10 pt-4">
                 <div className="px-1 pb-3">
-                  <p className="text-sm font-semibold text-deep-red">Hello {getDisplayName()}</p>
-                  <p className="text-xs uppercase tracking-[0.28em] text-deep-red/60">{getUserRole()}</p>
+                  <div className="flex items-center gap-3 rounded-2xl bg-deep-red/5 px-3 py-2">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-deep-red text-sm font-semibold uppercase text-white">
+                      {getInitials()}
+                    </span>
+                    <div className="leading-tight">
+                      <p className="text-sm font-semibold text-deep-red">{getDisplayName()}</p>
+                      {getUserRole() && (
+                        <span className="mt-0.5 inline-block rounded-full bg-white px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-deep-red/80 ring-1 ring-deep-red/20">
+                          {getUserRole()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <button
                   onClick={() => {
