@@ -1,12 +1,11 @@
 import React from "react";
-import { Link } from "@/src/router";
 import { Linkedin, Instagram } from "lucide-react";
 
 const SiteFooter: React.FC = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-dark-navy text-white">
+    <footer className="bg-gray-900 text-white">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4">
           <div>
@@ -22,19 +21,19 @@ const SiteFooter: React.FC = () => {
             <h3 className="mb-4 text-base font-semibold sm:text-lg">Quick Links</h3>
             <ul className="space-y-2 text-xs sm:text-sm">
               <li>
-                <Link to="/signup" className="text-gray-400 transition-colors hover:text-white">
+                <a href="https://vofmun.org/signup" className="text-gray-400 transition-colors hover:text-white">
                   Register
-                </Link>
+                </a>
               </li>
               <li>
-                <Link to="/resources" className="text-gray-400 transition-colors hover:text-white">
+                <a href="https://vofmun.org/resources" className="text-gray-400 transition-colors hover:text-white">
                   Resources
-                </Link>
+                </a>
               </li>
               <li>
-                <Link to="/founders" className="text-gray-400 transition-colors hover:text-white">
+                <a href="https://vofmun.org/founders" className="text-gray-400 transition-colors hover:text-white">
                   Our Team
-                </Link>
+                </a>
               </li>
             </ul>
           </div>
@@ -43,39 +42,39 @@ const SiteFooter: React.FC = () => {
             <h3 className="mb-4 text-base font-semibold sm:text-lg">Committees</h3>
             <ul className="space-y-2 text-xs sm:text-sm">
               <li>
-                <Link to="/committees/ga1" className="text-gray-400 transition-colors hover:text-white">
+                <a href="https://vofmun.org/committees/ga1" className="text-gray-400 transition-colors hover:text-white">
                   General Assembly
-                </Link>
+                </a>
               </li>
               <li>
-                <Link to="/committees/ecosoc" className="text-gray-400 transition-colors hover:text-white">
+                <a href="https://vofmun.org/committees/ecosoc" className="text-gray-400 transition-colors hover:text-white">
                   ECOSOC
-                </Link>
+                </a>
               </li>
               <li>
-                <Link to="/committees/who" className="text-gray-400 transition-colors hover:text-white">
+                <a href="https://vofmun.org/committees/who" className="text-gray-400 transition-colors hover:text-white">
                   WHO
-                </Link>
+                </a>
               </li>
               <li>
-                <Link to="/committees/unodc" className="text-gray-400 transition-colors hover:text-white">
+                <a href="https://vofmun.org/committees/unodc" className="text-gray-400 transition-colors hover:text-white">
                   UNODC
-                </Link>
+                </a>
               </li>
               <li>
-                <Link to="/committees/uncstd" className="text-gray-400 transition-colors hover:text-white">
+                <a href="https://vofmun.org/committees/uncstd" className="text-gray-400 transition-colors hover:text-white">
                   UNCSTD
-                </Link>
+                </a>
               </li>
               <li>
-                <Link to="/committees/icj" className="text-gray-400 transition-colors hover:text-white">
+                <a href="https://vofmun.org/committees/icj" className="text-gray-400 transition-colors hover:text-white">
                   ICJ
-                </Link>
+                </a>
               </li>
               <li>
-                <Link to="/committees/icrcc" className="text-gray-400 transition-colors hover:text-white">
+                <a href="https://vofmun.org/committees/icrcc" className="text-gray-400 transition-colors hover:text-white">
                   ICRCC
-                </Link>
+                </a>
               </li>
             </ul>
           </div>
