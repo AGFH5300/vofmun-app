@@ -228,7 +228,7 @@ const Login = () => {
                 Official Access
               </span>
               <h1
-                className="mt-6 text-4xl lg:text-5xl font-heading font-semibold text-[#8B2424]"
+                className="mt-6 text-4xl lg:text-5xl font-heading font-semibold text-deep-red"
                 data-testid="text-login-header"
               >
                 VOFMUN Portal
