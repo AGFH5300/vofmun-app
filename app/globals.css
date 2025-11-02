@@ -130,7 +130,7 @@
   --border: var(--cool-grey);
   --input: var(--warm-light-grey);
   --ring: var(--deep-red);
-  
+
   /* Enhanced radius for modern look */
   --radius: 0.5rem;
   --radius-sm: calc(var(--radius) - 2px);
@@ -185,7 +185,6 @@ body.super-cursor-active * {
 /* Headings (H1–H6) - Serif fonts with specified weights and colors */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-serif);
-  color: var(--deep-red);
   line-height: 1.2;
   margin-bottom: 0.5em;
   font-feature-settings: "liga" 1, "kern" 1;
@@ -194,7 +193,6 @@ h1, h2, h3, h4, h5, h6 {
 h1 {
   font-weight: 900; /* Bold (700–900) */
   font-size: 2.5rem;
-  color: var(--deep-red);
 }
 
 h2 {
@@ -750,7 +748,7 @@ main {
     border-color: var(--border);
     outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
   }
-  
+
   body {
     background-color: var(--background) !important;
     color: var(--foreground) !important;
