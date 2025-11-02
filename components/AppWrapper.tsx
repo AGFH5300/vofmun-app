@@ -14,8 +14,9 @@ export default function AppWrapper({ children }: AppWrapperProps) {
   const { pathname } = useRouter();
   const userRole = role(currentUser);
   
-  // Don't show navigation on login page
-  const showNav = pathname !== "/login";
+  // Don't show navigation or footer on login page
+  const isLoginRoute = pathname === "/login";
+  const showNav = !isLoginRoute;
   
   // Get activeLink from pathname
   const getActiveLink = () => {
@@ -41,7 +42,7 @@ export default function AppWrapper({ children }: AppWrapperProps) {
           />
         )}
         <main className="flex-1">{children}</main>
-        <SiteFooter />
+        {!isLoginRoute && <SiteFooter />}
       </div>
     </>
   );
