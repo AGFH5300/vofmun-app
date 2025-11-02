@@ -8,6 +8,16 @@ import { Bell, Clock, AlertTriangle } from 'lucide-react'
 import supabase from '@/lib/supabase'
 
 const Page = () => {
+    const brandDarkRed = "#B22222";
+    const serifHeadingFont = "var(--font-dm-serif-display, 'DM Serif Display', serif)";
+    const heroHeadingStyle: React.CSSProperties = {
+        color: "#FFFFFF",
+        fontFamily: serifHeadingFont
+    };
+    const accentHeadingStyle: React.CSSProperties = {
+        color: brandDarkRed,
+        fontFamily: serifHeadingFont
+    };
     const [isLoading, setIsLoading] = React.useState<boolean>(true);
     const [updates, setUpdates] = React.useState<Update[]>([]);
     const isMobile = useMobile();
@@ -62,7 +72,10 @@ const Page = () => {
                             <span className="badge-pill bg-white/15 text-white/80">
                                 <Bell size={18} /> Real-time feed
                             </span>
-                            <h1 className="text-4xl md:text-5xl font-serif font-bold text-white leading-tight">
+                            <h1
+                                className="text-4xl md:text-5xl font-serif font-bold text-white leading-tight"
+                                style={heroHeadingStyle}
+                            >
                                 Live Crisis Updates
                             </h1>
                             <p className="text-base md:text-lg text-white/85 max-w-3xl leading-relaxed">
@@ -107,7 +120,10 @@ const Page = () => {
                                                         {new Date(update.time).toLocaleString()}
                                                     </span>
                                                 </div>
-                                                <h2 className="text-2xl md:text-3xl font-serif font-semibold text-deep-red mb-4">
+                                                <h2
+                                                    className="text-2xl md:text-3xl font-serif font-semibold text-deep-red mb-4"
+                                                    style={accentHeadingStyle}
+                                                >
                                                     {update.title}
                                                 </h2>
                                                 <p className="text-almost-black-green/80 leading-relaxed text-base md:text-lg">
@@ -153,7 +169,12 @@ const Page = () => {
                                     <div className="w-20 h-20 bg-soft-ivory rounded-full flex items-center justify-center mx-auto mb-6 border border-soft-rose">
                                         <Bell size={32} className="text-deep-red" />
                                     </div>
-                                    <h3 className="text-2xl font-serif font-semibold text-deep-red mb-3">All Clear for Now</h3>
+                                    <h3
+                                        className="text-2xl font-serif font-semibold text-deep-red mb-3"
+                                        style={accentHeadingStyle}
+                                    >
+                                        All Clear for Now
+                                    </h3>
                                     <p className="text-almost-black-green/75 max-w-2xl mx-auto leading-relaxed">
                                         The conference is currently stable. Check back frequently—urgent alerts will appear here with actionable guidance the moment situations escalate.
                                     </p>
