@@ -581,7 +581,7 @@ const Page = () => {
         delegate.resoPerms["update:reso"].includes(selectedReso.resoID);
 
       let updatedPermissions;
-      
+
       if (hasPermission) {
         updatedPermissions = {
           ...delegate.resoPerms,
@@ -611,7 +611,7 @@ const Page = () => {
           ? { ...d, resoPerms: updatedPermissions }
           : d
       ));
-      
+
       toast.success(`Permission ${hasPermission ? 'removed from' : 'granted to'} ${delegate.firstname}`);
     } catch (error) {
       console.error('Error updating permissions:', error);
@@ -677,7 +677,7 @@ const Page = () => {
             <aside className="lg:w-1/3 space-y-4">
               <div className="surface-card p-6 max-h-[520px] overflow-y-auto">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-deep-red">All Resolutions</h2>
+                  <h2 className="text-xl font-semibold text-deep-red">All Resos</h2>
                   <span className="badge-pill bg-soft-ivory text-deep-red/80">{fetchedResos.length} drafts</span>
                 </div>
                 {fetchedResos.length === 0 ? (
