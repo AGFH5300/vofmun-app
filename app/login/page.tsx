@@ -16,6 +16,8 @@ const Login = () => {
   const { navigate } = useRouter();
   const { login } = useSession();
   const isMobile = useMobile();
+  const brandDarkRed = "#B22222";
+  const serifHeadingFont = "var(--font-dm-serif-display, 'DM Serif Display', serif)";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -230,6 +232,7 @@ const Login = () => {
               <h1
                 className="mt-6 text-4xl lg:text-5xl font-heading font-semibold text-deep-red"
                 data-testid="text-login-header"
+                style={{ color: brandDarkRed, fontFamily: serifHeadingFont }}
               >
                 VOFMUN Portal
               </h1>

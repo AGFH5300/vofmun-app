@@ -37,6 +37,17 @@ const Page = () => {
     return `${currentUser.firstname} ${currentUser.lastname}`;
   };
 
+  const brandDarkRed = "#B22222";
+  const serifHeadingFont = "var(--font-dm-serif-display, 'DM Serif Display', serif)";
+  const heroHeadingStyle: React.CSSProperties = {
+    color: "#FFFFFF",
+    fontFamily: serifHeadingFont
+  };
+  const accentHeadingStyle: React.CSSProperties = {
+    color: brandDarkRed,
+    fontFamily: serifHeadingFont
+  };
+
   const quickActions = [
     {
       title: "Live Updates",
@@ -95,7 +106,10 @@ const Page = () => {
                   </span>
                   <span className="hidden md:inline-block text-white/70">{dateString}</span>
                 </div>
-                <h1 className="text-3xl md:text-5xl font-serif font-bold text-white leading-tight mb-3">
+                <h1
+                  className="text-3xl md:text-5xl font-serif font-bold text-white leading-tight mb-3"
+                  style={heroHeadingStyle}
+                >
                   Welcome back, {getDisplayName()}
                 </h1>
                 <p className="text-base md:text-lg text-white/80 max-w-xl leading-relaxed">
@@ -137,7 +151,9 @@ const Page = () => {
           >
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
               <div>
-                <h2 className="section-heading">Quick Actions</h2>
+                <h2 className="section-heading" style={accentHeadingStyle}>
+                  Quick Actions
+                </h2>
                 <p className="section-subheading max-w-2xl">
                   Navigate to the tools you’ll need for speeches, resolutions, and staying informed during committee.
                 </p>
@@ -165,7 +181,12 @@ const Page = () => {
                               <Icon size={22} />
                             </span>
                             <div>
-                              <h3 className="text-xl font-semibold text-deep-red">{action.title}</h3>
+                              <h3
+                                className="text-xl font-semibold text-deep-red"
+                                style={accentHeadingStyle}
+                              >
+                                {action.title}
+                              </h3>
                               <p className="text-sm text-almost-black-green/70">{action.description}</p>
                             </div>
                           </div>
@@ -191,7 +212,12 @@ const Page = () => {
           >
             <div className="surface-card p-6 md:p-8">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-2xl font-semibold text-deep-red">Conference Status</h3>
+                <h3
+                  className="text-2xl font-semibold text-deep-red"
+                  style={accentHeadingStyle}
+                >
+                  Conference Status
+                </h3>
                 <span className="badge-pill bg-pale-aqua text-deep-red">
                   <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></div>
                   Active Session
@@ -217,7 +243,12 @@ const Page = () => {
 
             <div className="space-y-4">
               <div className="surface-card p-6">
-                <h4 className="text-lg font-semibold text-deep-red mb-3">Today’s Priorities</h4>
+                <h4
+                  className="text-lg font-semibold text-deep-red mb-3"
+                  style={accentHeadingStyle}
+                >
+                  Today’s Priorities
+                </h4>
                 <ul className="space-y-3 text-sm text-almost-black-green/80">
                   <li className="flex items-start gap-3">
                     <span className="mt-1 h-2.5 w-2.5 rounded-full bg-deep-red"></span>
@@ -235,7 +266,12 @@ const Page = () => {
               </div>
 
               <div className="surface-card p-6">
-                <h4 className="text-lg font-semibold text-deep-red mb-3">Need a refresher?</h4>
+                <h4
+                  className="text-lg font-semibold text-deep-red mb-3"
+                  style={accentHeadingStyle}
+                >
+                  Need a refresher?
+                </h4>
                 <p className="text-sm text-almost-black-green/75 mb-4">
                   Access the glossary for parliamentary procedure or jump into the resolution workspace to keep drafting with your bloc.
                 </p>

@@ -75,14 +75,30 @@ const CustomNav: React.FC<CustomNavProps> = () => {
     return `${currentUser.firstname} ${currentUser.lastname}`;
   };
 
+  const brandDarkRed = "#B22222";
+  const serifHeadingFont = "var(--font-dm-serif-display, 'DM Serif Display', serif)";
+  const sansFontFamily = "var(--font-dm-sans, 'DM Sans', 'Segoe UI', sans-serif)";
+
   const brand = (
-    <Link to="/home" className="flex items-center gap-3 text-slate-900">
-      <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 shadow-[0_12px_20px_-16px_rgba(15,23,42,0.45)] ring-1 ring-slate-200">
-        <img src="/logo.svg" alt="VOFMUN" className="h-full w-full object-contain" />
-      </span>
+    <Link
+      to="/home"
+      className="flex items-center gap-3 text-slate-900"
+      style={{ fontFamily: sansFontFamily }}
+    >
+      <img src="/logo.svg" alt="VOFMUN" className="h-11 w-11 object-contain" />
       <div className="text-left leading-tight">
-        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">VOFMUN</p>
-        <p className="text-lg font-semibold text-slate-900">Delegate Hub</p>
+        <p
+          className="text-xs font-semibold uppercase tracking-[0.32em]"
+          style={{ color: brandDarkRed, fontFamily: serifHeadingFont }}
+        >
+          VOFMUN
+        </p>
+        <p
+          className="text-lg font-semibold"
+          style={{ color: "#0F0F0F", fontFamily: serifHeadingFont }}
+        >
+          Delegate Hub
+        </p>
       </div>
     </Link>
   );

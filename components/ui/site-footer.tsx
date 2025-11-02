@@ -32,16 +32,28 @@ const contactLinks = [
   },
 ];
 
+const brandDarkRed = "#B22222";
+const serifHeadingFont = "var(--font-dm-serif-display, 'DM Serif Display', serif)";
+const sansFontFamily = "var(--font-dm-sans, 'DM Sans', 'Segoe UI', sans-serif)";
+
 const SiteFooter: React.FC = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-slate-800 bg-gray-900 text-white">
+    <footer
+      className="border-t border-slate-800 bg-gray-900 text-white"
+      style={{ fontFamily: sansFontFamily }}
+    >
       <div className="mx-auto max-w-6xl px-6 py-16">
         <div className="grid gap-12 lg:grid-cols-4">
           <div className="space-y-4">
             <Link to="/home" className="inline-flex flex-col gap-1 text-left">
-              <span className="text-2xl font-semibold text-white">VOFMUN</span>
+              <span
+                className="text-2xl font-semibold"
+                style={{ color: brandDarkRed, fontFamily: serifHeadingFont }}
+              >
+                VOFMUN
+              </span>
             </Link>
             <p className="text-sm leading-relaxed text-gray-400">
               Empowering tomorrow&apos;s leaders through diplomatic excellence and global dialogue.
@@ -49,7 +61,10 @@ const SiteFooter: React.FC = () => {
           </div>
 
           <div>
-            <h3 className="text-sm text-white">
+            <h3
+              className="text-sm"
+              style={{ color: brandDarkRed, fontFamily: serifHeadingFont }}
+            >
               Quick Links
             </h3>
             <ul className="mt-4 space-y-3 text-sm text-gray-400">
@@ -69,7 +84,10 @@ const SiteFooter: React.FC = () => {
           </div>
 
           <div>
-            <h3 className="font-semibold text-base sm:text-lg mb-3 sm:mb-4">
+            <h3
+              className="font-semibold text-base sm:text-lg mb-3 sm:mb-4"
+              style={{ color: brandDarkRed, fontFamily: serifHeadingFont }}
+            >
               Committees
             </h3>
             <ul className="mt-4 space-y-3 text-sm text-gray-400">
@@ -80,7 +98,10 @@ const SiteFooter: React.FC = () => {
           </div>
 
           <div>
-            <h3 className="text-sm text-white">
+            <h3
+              className="text-sm"
+              style={{ color: brandDarkRed, fontFamily: serifHeadingFont }}
+            >
               Contact
             </h3>
             <ul className="mt-4 space-y-3 text-sm text-gray-400">
