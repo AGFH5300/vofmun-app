@@ -2,9 +2,9 @@ import React from "react";
 import { Link } from "@/src/router";
 
 const quickLinks = [
-  { label: "Register", href: "https://vofmun.org/register" },
-  { label: "Resources", href: "https://vofmun.org/resources" },
-  { label: "Our Team", href: "https://vofmun.org/team" },
+  { label: "Sign Up", href: "https://site-4ux9.onrender.com/signup" },
+  { label: "Resources", href: "https://site-4ux9.onrender.com/resources" },
+  { label: "Founders", href: "https://site-4ux9.onrender.com/founders" },
 ];
 
 const committeeLinks = [
@@ -36,14 +36,11 @@ const SiteFooter: React.FC = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-slate-800 bg-black text-white">
+    <footer className="border-t border-slate-800 bg-gray-900 text-white">
       <div className="mx-auto max-w-6xl px-6 py-16">
         <div className="grid gap-12 lg:grid-cols-4">
           <div className="space-y-4">
             <Link to="/home" className="inline-flex flex-col gap-1 text-left">
-              <span className="text-sm font-semibold tracking-[0.32em] text-gray-400">
-                VOFMUN
-              </span>
               <span className="text-2xl font-semibold text-white">VOFMUN</span>
             </Link>
             <p className="text-sm leading-relaxed text-gray-400">
@@ -52,10 +49,10 @@ const SiteFooter: React.FC = () => {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-[0.28em] text-gray-400">
+            <h3 className="text-sm text-white">
               Quick Links
             </h3>
-            <ul className="mt-4 space-y-3 text-sm text-white">
+            <ul className="mt-4 space-y-3 text-sm text-gray-400">
               {quickLinks.map((link) => (
                 <li key={link.label}>
                   <a
@@ -72,10 +69,10 @@ const SiteFooter: React.FC = () => {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-[0.28em] text-gray-400">
+            <h3 className="font-semibold text-base sm:text-lg mb-3 sm:mb-4">
               Committees
             </h3>
-            <ul className="mt-4 space-y-3 text-sm text-white">
+            <ul className="mt-4 space-y-3 text-sm text-gray-400">
               {committeeLinks.map((label) => (
                 <li key={label}>{label}</li>
               ))}
@@ -83,10 +80,10 @@ const SiteFooter: React.FC = () => {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-[0.28em] text-gray-400">
+            <h3 className="text-sm text-white">
               Contact
             </h3>
-            <ul className="mt-4 space-y-3 text-sm text-white">
+            <ul className="mt-4 space-y-3 text-sm text-gray-400">
               {contactLinks.map((link) => (
                 <li key={link.label}>
                   <a
