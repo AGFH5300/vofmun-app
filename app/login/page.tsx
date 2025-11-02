@@ -164,7 +164,7 @@ const Login = () => {
       <div className="flex min-h-screen flex-col lg:flex-row">
         {/* Left Side - Branding */}
         <motion.div
-          className="relative overflow-hidden lg:w-1/2 bg-gradient-to-br from-deep-red to-dark-burgundy flex flex-col justify-center items-center p-8 lg:p-12 text-white"
+          className="relative overflow-hidden lg:w-1/2 bg-gradient-to-br from-deep-red to-dark-burgundy flex flex-col justify-center items-center p-8 lg:p-12"
           initial={{ opacity: 0, x: isMobile ? 0 : -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
@@ -202,7 +202,7 @@ const Login = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.6 }}
-              className="mt-6 text-lg leading-relaxed text-white/90"
+              className="mt-6 text-lg leading-relaxed text-[#1C1C1C]"
             >
               Empowering the next generation of global leaders through diplomacy,
               debate, and international cooperation.
@@ -228,7 +228,7 @@ const Login = () => {
                 Official Access
               </span>
               <h1
-                className="mt-6 text-4xl lg:text-5xl font-heading font-semibold text-[#1C1C1C]"
+                className="mt-6 text-4xl lg:text-5xl font-heading font-semibold text-[#8B2424]"
                 data-testid="text-login-header"
               >
                 VOFMUN Portal

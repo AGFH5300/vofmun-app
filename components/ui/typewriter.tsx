@@ -87,9 +87,11 @@ export default function TypeWriter() {
   }, [phase, charIndex, count, words, returnIndex]);
 
   return (
-    <h1 className="text-4xl text-center font-bold text-white">
-      {text}
-      <span>{blinker}</span>
-    </h1>
+    <div className="flex min-h-[3.5rem] items-center justify-center">
+      <h1 className="text-center text-4xl font-heading font-black leading-tight text-[#8B2424]">
+        {text}
+        <span className="ml-1 inline-block w-[0.5ch] align-middle text-[#8B2424]">{blinker}</span>
+      </h1>
+    </div>
   );
 }
