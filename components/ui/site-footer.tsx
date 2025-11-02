@@ -32,7 +32,7 @@ const contactLinks = [
   },
 ];
 
-const brandDarkRed = "#B22222";
+const brandWhite = "#ffffff";
 const serifHeadingFont = "var(--font-dm-serif-display, 'DM Serif Display', serif)";
 const sansFontFamily = "var(--font-dm-sans, 'DM Sans', 'Segoe UI', sans-serif)";
 
@@ -50,7 +50,7 @@ const SiteFooter: React.FC = () => {
             <Link to="/home" className="inline-flex flex-col gap-1 text-left">
               <span
                 className="text-2xl font-semibold"
-                style={{ color: brandDarkRed, fontFamily: serifHeadingFont }}
+                style={{ color: brandWhite, fontFamily: serifHeadingFont }}
               >
                 VOFMUN
               </span>
@@ -63,7 +63,7 @@ const SiteFooter: React.FC = () => {
           <div>
             <h3
               className="text-sm"
-              style={{ color: brandDarkRed, fontFamily: serifHeadingFont }}
+              style={{ color: brandWhite, fontFamily: serifHeadingFont }}
             >
               Quick Links
             </h3>
@@ -86,7 +86,7 @@ const SiteFooter: React.FC = () => {
           <div>
             <h3
               className="font-semibold text-base sm:text-lg mb-3 sm:mb-4"
-              style={{ color: brandDarkRed, fontFamily: serifHeadingFont }}
+              style={{ color: brandWhite, fontFamily: serifHeadingFont }}
             >
               Committees
             </h3>
@@ -100,7 +100,7 @@ const SiteFooter: React.FC = () => {
           <div>
             <h3
               className="text-sm"
-              style={{ color: brandDarkRed, fontFamily: serifHeadingFont }}
+              style={{ color: brandWhite, fontFamily: serifHeadingFont }}
             >
               Contact
             </h3>
