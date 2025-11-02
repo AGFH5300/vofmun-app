@@ -198,31 +198,26 @@ h1 {
 h2 {
   font-weight: 700; /* Semi-bold (600–700) */
   font-size: 2rem;
-  color: var(--deep-red);
 }
 
 h3 {
   font-weight: 600; /* Medium to Semi-bold (500–600) */
   font-size: 1.75rem;
-  color: var(--deep-red);
 }
 
 h4 {
   font-weight: 600; /* Medium to Semi-bold (500–600) */
   font-size: 1.5rem;
-  color: var(--deep-red);
 }
 
 h5 {
   font-weight: 500; /* Medium to Semi-bold (500–600) */
   font-size: 1.25rem;
-  color: var(--deep-red);
 }
 
 h6 {
   font-weight: 500; /* Medium to Semi-bold (500–600) */
   font-size: 1.125rem;
-  color: var(--deep-red);
 }
 
 /* Paragraphs / Body Text - Sans-serif with specified weights and colors */
@@ -230,7 +225,6 @@ p, li, td, th {
   font-family: var(--font-sans);
   font-weight: 400;
   line-height: 1.6;
-  color: inherit;
 }
 
 div,
@@ -243,7 +237,6 @@ span {
 /* Text emphasis */
 .text-emphasis, strong, b {
   font-weight: 500; /* Medium (500) for emphasis */
-  color: inherit;
 }
 
 /* Secondary text / muted info */
@@ -315,7 +308,6 @@ span {
 
 .surface-card.is-emphasised {
   background: linear-gradient(150deg, color-mix(in srgb, var(--deep-red) 88%, black 12%), color-mix(in srgb, var(--dark-burgundy) 80%, black 20%));
-  color: var(--pure-white);
   border: 1px solid color-mix(in srgb, var(--deep-red) 70%, white 30%);
   box-shadow:
     0 20px 45px -20px rgba(112, 30, 30, 0.5),
