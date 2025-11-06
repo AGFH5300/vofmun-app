@@ -581,7 +581,7 @@ const Page = () => {
         delegate.resoPerms["update:reso"].includes(selectedReso.resoID);
 
       let updatedPermissions;
-
+      
       if (hasPermission) {
         updatedPermissions = {
           ...delegate.resoPerms,
@@ -611,7 +611,7 @@ const Page = () => {
           ? { ...d, resoPerms: updatedPermissions }
           : d
       ));
-
+      
       toast.success(`Permission ${hasPermission ? 'removed from' : 'granted to'} ${delegate.firstname}`);
     } catch (error) {
       console.error('Error updating permissions:', error);
