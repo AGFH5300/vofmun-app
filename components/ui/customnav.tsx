@@ -85,7 +85,9 @@ const CustomNav: React.FC<CustomNavProps> = () => {
       className="flex items-center gap-3 text-slate-900"
       style={{ fontFamily: sansFontFamily }}
     >
-      <img src="/logo.svg" alt="VOFMUN" className="h-11 w-11 object-contain" />
+      <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-transparent">
+        <img src="/logo.svg" alt="VOFMUN" className="h-10 w-10 object-contain" />
+      </span>
       <div className="text-left leading-tight">
         <p
           className="text-xs font-semibold uppercase tracking-[0.32em]"
@@ -207,7 +209,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
         {brand}
 
         <div className="hidden flex-1 items-center justify-center md:flex">
-          <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5">
+          <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5">
             {availableItems.map((item) => {
               const Icon = item.icon ?? Home;
               const active = isActive(item.to);
@@ -232,7 +234,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
         <div className="hidden items-center gap-3 md:flex">
           {userDetails && (
-            <div className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-slate-900">
+            <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-slate-900">
               {userDetails}
             </div>
           )}
