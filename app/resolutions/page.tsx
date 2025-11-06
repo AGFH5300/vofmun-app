@@ -8,7 +8,7 @@ import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
-import { AlertTriangle, ArrowRight, Loader2, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "@/src/router";
 
 const EMPTY_DOCUMENT = { type: "doc", content: [{ type: "paragraph" }] };
@@ -767,9 +767,10 @@ const Page = () => {
                 </div>
                 <button
                   onClick={handleCreateNewReso}
-                  className="ghost-button disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-deep-red/20 bg-white px-3 py-1.5 text-xs font-medium text-deep-red transition-colors hover:border-deep-red/40 hover:bg-deep-red/5 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isBusy}
                 >
+                  <Plus size={14} />
                   New Resolution
                 </button>
               </div>
@@ -794,19 +795,14 @@ const Page = () => {
                   {selectedReso && (
                     <button
                       onClick={handleDeleteReso}
-                      className="danger-button disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-deep-red/30 bg-deep-red/10 text-deep-red transition-colors hover:border-deep-red/60 hover:bg-deep-red/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-deep-red/40 disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={isBusy}
+                      aria-label={isDeleting ? "Deleting resolution" : "Delete resolution"}
                     >
                       {isDeleting ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Deleting...
-                        </>
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <>
-                          <Trash2 size={16} />
-                          Delete Resolution
-                        </>
+                        <Trash2 size={16} />
                       )}
                     </button>
                   )}
