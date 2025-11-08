@@ -91,15 +91,8 @@ const CustomNav: React.FC<CustomNavProps> = () => {
       <div className="text-left leading-tight">
         <p
           className="text-xs font-semibold uppercase tracking-[0.32em]"
-          style={{ color: brandDarkRed, fontFamily: serifHeadingFont }}
         >
-          VOFMUN
-        </p>
-        <p
-          className="text-lg font-semibold"
-          style={{ color: "#0F0F0F", fontFamily: serifHeadingFont }}
-        >
-          Delegate Hub
+          VOFMUN ONE
         </p>
       </div>
     </Link>
