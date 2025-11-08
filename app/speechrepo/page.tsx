@@ -717,7 +717,7 @@ const Page = () => {
                         Saving...
                       </>
                     ) : (
-                      <>{selectedSpeech ? "Update Speech" : "Post Speech"}</>
+                      <>{selectedSpeech ? "Update Speech" : "Save Speech"}</>
                     )}
                   </button>
                 </div>
