@@ -80,6 +80,15 @@ body {
   margin-top: 0;
 }
 
+.simple-editor-content .tiptap.ProseMirror.tiptap-editor-empty::before {
+  content: attr(data-placeholder);
+  color: var(--tt-gray-light-500, #9ca3af);
+  pointer-events: none;
+  float: left;
+  height: 0;
+  white-space: pre-wrap;
+}
+
 @media screen and (max-width: 768px) {
   .simple-editor-content {
     max-width: 100%;

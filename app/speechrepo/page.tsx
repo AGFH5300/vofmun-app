@@ -687,6 +687,7 @@ const Page = () => {
                     ref={editorRef}
                     content={parsedSpeechContent}
                     className="h-full toolbar-fixed"
+                    placeholder="Delegates, delegates, delegates..."
                   />
                 </div>
                 <div className="mt-4 flex flex-col gap-3 border-t border-soft-ivory pt-4 sm:flex-row sm:items-center sm:justify-between">
