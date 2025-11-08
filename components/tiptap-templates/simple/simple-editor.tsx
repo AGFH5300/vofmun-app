@@ -10,6 +10,7 @@ import { TaskList } from "@tiptap/extension-task-list"
 import { TextAlign } from "@tiptap/extension-text-align"
 import { Typography } from "@tiptap/extension-typography"
 import { Highlight } from "@tiptap/extension-highlight"
+import Placeholder from "@tiptap/extension-placeholder"
 // Removed unused imports: Subscript and Superscript
 import { Underline } from "@tiptap/extension-underline"
 
@@ -163,14 +164,42 @@ const MobileToolbarContent = ({
 export interface SimpleEditorProps {
   content?: object
   className?: string
+  placeholder?: string
 }
 
-export const SimpleEditor = React.forwardRef(function SimpleEditor({ content, className }: SimpleEditorProps, ref: React.Ref<Editor | null>) {
+export const SimpleEditor = React.forwardRef(function SimpleEditor({ content, className, placeholder }: SimpleEditorProps, ref: React.Ref<Editor | null>) {
     const isMobile = useMobile()
     const [mobileView, setMobileView] = React.useState<
       "main" | "highlighter" | "link"
     >("main")
     const toolbarRef = React.useRef<HTMLDivElement>(null)
+
+    const extensions = React.useMemo(() => {
+      const baseExtensions = [
+        StarterKit,
+        TextAlign.configure({ types: ["heading", "paragraph"] }),
+        Underline,
+        TaskList,
+        TaskItem.configure({ nested: true }),
+        Highlight.configure({ multicolor: true }),
+        Typography,
+        Selection,
+        TrailingNode,
+        Link.configure({ openOnClick: false }),
+      ]
+
+      if (placeholder) {
+        baseExtensions.push(
+          Placeholder.configure({
+            placeholder,
+            emptyEditorClass: "tiptap-editor-empty",
+            showOnlyWhenEditable: true,
+          })
+        )
+      }
+
+      return baseExtensions
+    }, [placeholder])
 
     const editor = useEditor({
       immediatelyRender: false,
@@ -182,19 +211,7 @@ export const SimpleEditor = React.forwardRef(function SimpleEditor({ content, cl
           "aria-label": "Main content area, start typing to enter text.",
         },
       },
-      extensions: [
-        StarterKit,
-        TextAlign.configure({ types: ["heading", "paragraph"] }),
-        Underline,
-        TaskList,
-        TaskItem.configure({ nested: true }),
-        Highlight.configure({ multicolor: true }),
-        Typography,
-        
-        Selection,
-        TrailingNode,
-        Link.configure({ openOnClick: false }),
-      ],
+      extensions,
       content: content
     })
 
