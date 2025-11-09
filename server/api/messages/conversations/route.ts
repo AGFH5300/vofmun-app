@@ -41,8 +41,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    interface ConversationPartner {
+      participantID: string;
+      participantName: string;
+      participantType: 'delegate' | 'chair';
+    }
+
     // Get all people in the same committee (potential conversation partners)
-    let conversationPartners: any[] = [];
+    let conversationPartners: ConversationPartner[] = [];
 
     // Get delegates in the same committee
     const { data: delegates } = await supabase
@@ -92,34 +98,62 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // Get last message and unread count for each conversation partner
-    const conversationsWithDetails = await Promise.all(
-      conversationPartners.map(async (partner) => {
-        // Get last message
-        const { data: lastMessage } = await supabase
-          .from('Message')
-          .select('content, timestamp')
-          .or(`and(senderID.eq.${userIdentity.userID},receiverID.eq.${partner.participantID}),and(senderID.eq.${partner.participantID},receiverID.eq.${userIdentity.userID})`)
-          .order('timestamp', { ascending: false })
-          .limit(1)
-          .single();
-
-        // Get unread count (messages sent to this user that are unread)
-        const { count: unreadCount } = await supabase
-          .from('Message')
-          .select('*', { count: 'exact', head: true })
-          .eq('senderID', partner.participantID)
-          .eq('receiverID', userIdentity.userID)
-          .eq('read', false);
-
-        return {
-          ...partner,
-          lastMessage: lastMessage?.content || 'No messages yet',
-          lastMessageTime: lastMessage?.timestamp || new Date().toISOString(),
-          unreadCount: unreadCount || 0
-        };
-      })
+    const conversationKeys = conversationPartners.map((partner) =>
+      partner.participantID < userIdentity.userID
+        ? `${partner.participantID}::${userIdentity.userID}`
+        : `${userIdentity.userID}::${partner.participantID}`
     );
+
+    const lastMessageMap = new Map<string, { content: string; timestamp: string }>();
+    const unreadCountMap = new Map<string, number>();
+
+    if (conversationKeys.length > 0) {
+      const { data: lastMessages } = await supabase
+        .from('Message')
+        .select('conversationKey, content, timestamp')
+        .in('conversationKey', conversationKeys)
+        .order('timestamp', { ascending: false });
+
+      if (lastMessages) {
+        for (const message of lastMessages) {
+          if (!message.conversationKey) continue;
+          if (!lastMessageMap.has(message.conversationKey)) {
+            lastMessageMap.set(message.conversationKey, {
+              content: message.content ?? 'No messages yet',
+              timestamp: message.timestamp ?? new Date().toISOString()
+            });
+          }
+        }
+      }
+
+      const { data: unreadMessages } = await supabase
+        .from('Message')
+        .select('conversationKey')
+        .eq('receiverID', userIdentity.userID)
+        .eq('read', false)
+        .in('conversationKey', conversationKeys);
+
+      if (unreadMessages) {
+        for (const message of unreadMessages) {
+          if (!message.conversationKey) continue;
+          unreadCountMap.set(
+            message.conversationKey,
+            (unreadCountMap.get(message.conversationKey) || 0) + 1
+          );
+        }
+      }
+    }
+
+    const conversationsWithDetails = conversationPartners.map((partner, index) => {
+      const conversationKey = conversationKeys[index];
+      const lastMessage = lastMessageMap.get(conversationKey);
+      return {
+        ...partner,
+        lastMessage: lastMessage?.content || 'No messages yet',
+        lastMessageTime: lastMessage?.timestamp || new Date().toISOString(),
+        unreadCount: unreadCountMap.get(conversationKey) || 0
+      };
+    });
 
     // Sort by last message time (most recent first)
     conversationsWithDetails.sort((a, b) => 

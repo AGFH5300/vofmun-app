@@ -172,14 +172,23 @@ summary,
 input[type="checkbox"],
 input[type="radio"],
 select {
-  cursor: var(--cursor-pointer);
+  cursor: var(--cursor-pointer) !important;
+}
+
+a *,
+button *,
+[role="button"] *,
+label *,
+summary *,
+.cursor-pointer * {
+  cursor: inherit !important;
 }
 
 input,
 textarea,
 [contenteditable="true"],
 .cursor-text {
-  cursor: text;
+  cursor: text !important;
 }
 
 ::selection {
