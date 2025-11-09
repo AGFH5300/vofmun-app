@@ -1,411 +1,565 @@
 "use client";
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { ParticipantRoute } from '@/components/protectedroute';
-import { useSession } from '@/app/context/sessionContext';
-import { toast } from 'sonner';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ParticipantRoute } from "@/components/protectedroute";
+import { useSession } from "@/app/context/sessionContext";
+import { toast } from "sonner";
 import {
-  Send,
-  Users,
-  User,
   Crown,
+  Loader2,
   MessageCircle,
+  RefreshCw,
   Search,
-  RefreshCw
-} from 'lucide-react';
+  Send,
+  User
+} from "lucide-react";
+import type { UserType } from "@/db/types";
 
 interface Message {
   messageID: string;
   senderID: string;
-  senderType: 'delegate' | 'chair';
+  senderType: "delegate" | "chair";
   senderName: string;
   receiverID: string;
-  receiverType: 'delegate' | 'chair';
+  receiverType: "delegate" | "chair";
   receiverName: string;
   content: string;
   timestamp: string;
   read: boolean;
 }
 
-interface Conversation {
+interface ConversationSummary {
   participantID: string;
   participantName: string;
-  participantType: 'delegate' | 'chair';
+  participantType: "delegate" | "chair";
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
 }
 
-const Messages = () => {
-  const { user: currentUser } = useSession();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+interface UserIdentity {
+  id: string;
+  name: string;
+  type: "delegate" | "chair" | "admin";
+}
+
+const POLL_INTERVAL = 15_000;
+
+const getUserIdentity = (user: UserType | null): UserIdentity => {
+  if (!user) {
+    return { id: "", name: "", type: "delegate" };
+  }
+
+  if ("delegateID" in user) {
+    return {
+      id: user.delegateID,
+      name: `${user.firstname} ${user.lastname}`,
+      type: "delegate"
+    };
+  }
+
+  if ("chairID" in user) {
+    return {
+      id: user.chairID,
+      name: `${user.firstname} ${user.lastname}`,
+      type: "chair"
+    };
+  }
+
+  if ("adminID" in user) {
+    return {
+      id: user.adminID,
+      name: `${user.firstname} ${user.lastname}`,
+      type: "admin"
+    };
+  }
+
+  return { id: "", name: "", type: "delegate" };
+};
+
+const MessagesPage = () => {
+  const { user } = useSession();
+  const identity = useMemo(() => getUserIdentity(user), [user]);
+
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showAllMessages, setShowAllMessages] = useState(false); // For chair to view all delegate messages
+  const [activeConversation, setActiveConversation] = useState<string | null>(null);
+  const [showAllDelegateMessages, setShowAllDelegateMessages] = useState(false);
+  const [composerValue, setComposerValue] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isFetchingConversations, setIsFetchingConversations] = useState(false);
+  const [isFetchingMessages, setIsFetchingMessages] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const pollingHandle = useRef<NodeJS.Timeout | null>(null);
 
-  const getUserInfo = () => {
-    if (!currentUser) return { id: '', name: '', type: 'delegate' as const };
-    
-    if ('delegateID' in currentUser) {
-      return {
-        id: currentUser.delegateID,
-        name: `${currentUser.firstname} ${currentUser.lastname}`,
-        type: 'delegate' as const
-      };
-    } else if ('chairID' in currentUser) {
-      return {
-        id: currentUser.chairID,
-        name: `${currentUser.firstname} ${currentUser.lastname}`,
-        type: 'chair' as const
-      };
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return conversations;
     }
-    
-    return { id: '', name: '', type: 'delegate' as const };
-  };
 
-  const userInfo = getUserInfo();
+    const query = searchQuery.toLowerCase();
+    return conversations.filter((conversation) =>
+      conversation.participantName.toLowerCase().includes(query)
+    );
+  }, [conversations, searchQuery]);
+
+  const activeConversationDetails = useMemo(
+    () => conversations.find((conversation) => conversation.participantID === activeConversation) || null,
+    [conversations, activeConversation]
+  );
+
+  const stopPolling = useCallback(() => {
+    if (pollingHandle.current) {
+      clearInterval(pollingHandle.current);
+      pollingHandle.current = null;
+    }
+  }, []);
 
   const fetchConversations = useCallback(async () => {
+    if (!identity.id) {
+      return;
+    }
+
+    setIsFetchingConversations(true);
+    setErrorMessage(null);
+
     try {
-      setLoading(true);
-      const response = await fetch('/api/messages/conversations');
-      if (response.ok) {
-        const data = await response.json();
-        setConversations(data);
-      } else {
-        toast.error('Failed to load conversations');
+      const response = await fetch("/api/messages/conversations", { credentials: "include" });
+
+      if (!response.ok) {
+        throw new Error("Unable to load conversations");
       }
+
+      const payload = (await response.json()) as ConversationSummary[];
+      setConversations(payload);
     } catch (error) {
-      console.error('Error fetching conversations:', error);
-      toast.error('Error loading conversations');
+      console.error("Error fetching conversations", error);
+      const message = error instanceof Error ? error.message : "Unable to load conversations";
+      setErrorMessage(message);
+      toast.error(message);
     } finally {
-      setLoading(false);
+      setIsFetchingConversations(false);
     }
-  }, []);
+  }, [identity.id]);
 
-  const fetchMessages = useCallback(async (conversationWith: string) => {
-    try {
-      const response = await fetch(`/api/messages?conversationWith=${conversationWith}`);
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(data);
-        
-        // Mark messages as read
-        await fetch('/api/messages/mark-read', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversationWith
-          })
+  const fetchMessages = useCallback(
+    async (participantID: string) => {
+      if (!identity.id || !participantID) {
+        return;
+      }
+
+      setIsFetchingMessages(true);
+      setErrorMessage(null);
+
+      try {
+        const response = await fetch(`/api/messages?conversationWith=${participantID}`, {
+          credentials: "include"
         });
-      } else {
-        toast.error('Failed to load messages');
+
+        if (!response.ok) {
+          throw new Error("Unable to load messages");
+        }
+
+        const payload = (await response.json()) as Message[];
+        setMessages(payload);
+
+        await fetch("/api/messages/mark-read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ conversationWith: participantID })
+        });
+      } catch (error) {
+        console.error("Error fetching messages", error);
+        const message = error instanceof Error ? error.message : "Unable to load messages";
+        setErrorMessage(message);
+        toast.error(message);
+      } finally {
+        setIsFetchingMessages(false);
       }
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      toast.error('Error loading messages');
-    }
-  }, []);
-
-  const sendMessage = useCallback(async () => {
-    if (!newMessage.trim() || !selectedConversation) return;
-
-    try {
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          receiverID: selectedConversation,
-          content: newMessage.trim()
-        })
-      });
-
-      if (response.ok) {
-        setNewMessage('');
-        await fetchMessages(selectedConversation);
-        await fetchConversations();
-        toast.success('Message sent');
-      } else {
-        toast.error('Failed to send message');
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast.error('Error sending message');
-    }
-  }, [newMessage, selectedConversation, fetchMessages, fetchConversations]);
+    },
+    [identity.id]
+  );
 
   const fetchAllDelegateMessages = useCallback(async () => {
-    if (userInfo.type !== 'chair') return;
-    
-    try {
-      setLoading(true);
-      const response = await fetch('/api/messages/all-delegate-messages');
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(data);
-      } else {
-        toast.error('Failed to load delegate messages');
-      }
-    } catch (error) {
-      console.error('Error fetching delegate messages:', error);
-      toast.error('Error loading delegate messages');
-    } finally {
-      setLoading(false);
+    if (identity.type !== "chair") {
+      return;
     }
-  }, [userInfo.type]);
+
+    setIsFetchingMessages(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/messages/all-delegate-messages", { credentials: "include" });
+
+      if (!response.ok) {
+        throw new Error("Unable to load delegate messages");
+      }
+
+      const payload = (await response.json()) as Message[];
+      setMessages(payload);
+    } catch (error) {
+      console.error("Error fetching delegate messages", error);
+      const message = error instanceof Error ? error.message : "Unable to load delegate messages";
+      setErrorMessage(message);
+      toast.error(message);
+    } finally {
+      setIsFetchingMessages(false);
+    }
+  }, [identity.type]);
+
+  const refreshCurrentView = useCallback(async () => {
+    await fetchConversations();
+
+    if (showAllDelegateMessages && identity.type === "chair") {
+      await fetchAllDelegateMessages();
+      return;
+    }
+
+    if (activeConversation) {
+      await fetchMessages(activeConversation);
+    }
+  }, [fetchAllDelegateMessages, fetchConversations, fetchMessages, activeConversation, showAllDelegateMessages, identity.type]);
+
+  const handleSelectConversation = useCallback((participantID: string) => {
+    setShowAllDelegateMessages(false);
+    setActiveConversation(participantID);
+    setComposerValue("");
+  }, []);
+
+  const handleToggleAllDelegateMessages = useCallback(async () => {
+    if (identity.type !== "chair") {
+      return;
+    }
+
+    const nextState = !showAllDelegateMessages;
+    setShowAllDelegateMessages(nextState);
+    setActiveConversation(null);
+    setComposerValue("");
+
+    if (!nextState) {
+      await fetchConversations();
+    }
+  }, [identity.type, showAllDelegateMessages, fetchConversations]);
+
+  const handleSendMessage = useCallback(async () => {
+    if (!composerValue.trim() || !activeConversation) {
+      return;
+    }
+
+    setIsSendingMessage(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ receiverID: activeConversation, content: composerValue.trim() })
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to send message");
+      }
+
+      setComposerValue("");
+      toast.success("Message sent");
+      await Promise.all([fetchMessages(activeConversation), fetchConversations()]);
+    } catch (error) {
+      console.error("Error sending message", error);
+      const message = error instanceof Error ? error.message : "Unable to send message";
+      setErrorMessage(message);
+      toast.error(message);
+    } finally {
+      setIsSendingMessage(false);
+    }
+  }, [activeConversation, composerValue, fetchConversations, fetchMessages]);
 
   useEffect(() => {
-    if (userInfo.id) {
-      fetchConversations();
-    }
+    fetchConversations();
   }, [fetchConversations]);
 
   useEffect(() => {
-    if (selectedConversation && !showAllMessages) {
-      fetchMessages(selectedConversation);
+    if (showAllDelegateMessages) {
+      if (identity.type === "chair") {
+        fetchAllDelegateMessages();
+      }
+      return;
     }
-  }, [selectedConversation, fetchMessages, showAllMessages]);
+
+    if (activeConversation) {
+      fetchMessages(activeConversation);
+    } else {
+      setMessages([]);
+    }
+  }, [activeConversation, showAllDelegateMessages, identity.type, fetchMessages, fetchAllDelegateMessages]);
 
   useEffect(() => {
-    if (showAllMessages && userInfo.type === 'chair') {
-      fetchAllDelegateMessages();
+    if (!identity.id) {
+      return;
     }
-  }, [showAllMessages, fetchAllDelegateMessages]);
 
-  const filteredConversations = conversations.filter(conv =>
-    conv.participantName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    stopPolling();
+
+    pollingHandle.current = setInterval(() => {
+      refreshCurrentView().catch((error) => {
+        console.error("Polling error", error);
+      });
+    }, POLL_INTERVAL);
+
+    return () => {
+      stopPolling();
+    };
+  }, [identity.id, refreshCurrentView, stopPolling]);
+
+  const allowMessageSend = Boolean(composerValue.trim()) && !isSendingMessage;
 
   return (
     <ParticipantRoute>
       <div className="page-shell">
-        <div className="page-maxwidth space-y-10">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="surface-card is-emphasised text-center px-8 py-10"
-          >
-            <span className="badge-pill bg-white/15 text-white/80 inline-flex justify-center mx-auto mb-4">
-              Real-time messaging
-            </span>
-            <h1 className="text-3xl md:text-4xl font-heading font-bold text-white mb-3">
-              Messages
-            </h1>
-            <p className="text-white/80 max-w-3xl mx-auto">
-              Coordinate strategy, update your chair, and manage crisis responses without leaving the delegate workspace.
+        <div className="page-maxwidth space-y-8">
+          <section className="surface-card px-8 py-10 text-center">
+            <p className="badge-pill bg-deep-red/10 text-deep-red inline-flex items-center justify-center mx-auto mb-4">
+              Real-time coordination
             </p>
-          </motion.div>
+            <h1 className="text-3xl md:text-4xl font-heading font-bold text-deep-red mb-3">Messages</h1>
+            <p className="text-base text-almost-black-green/80 max-w-2xl mx-auto">
+              Coordinate directly with delegates and chairs in your committee. Conversations refresh automatically so you never miss an important update.
+            </p>
+          </section>
 
-          <div className="grid lg:grid-cols-[1.1fr_1.9fr] gap-6 min-h-[600px]">
-            {/* Conversations Sidebar */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="surface-card flex flex-col overflow-hidden"
-            >
-              <div className="px-6 py-5 border-b border-soft-ivory bg-gradient-to-r from-deep-red/95 to-dark-burgundy/90 text-white">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-white/10">
-                      <MessageCircle size={24} />
+          <section className="grid gap-6 lg:grid-cols-[minmax(280px,340px)_1fr]">
+            <aside className="surface-card flex flex-col overflow-hidden" aria-label="Conversation list">
+              <header className="border-b border-soft-ivory bg-soft-ivory/70 px-6 py-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 text-left">
+                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-deep-red/10 text-deep-red">
+                      <MessageCircle size={22} strokeWidth={2} />
                     </span>
-                    <div className="text-left">
-                      <h2 className="text-lg font-semibold">Conversations</h2>
-                      <p className="text-xs uppercase tracking-[0.3em] text-white/70">Stay in sync</p>
+                    <div>
+                      <h2 className="text-lg font-semibold text-deep-red">Conversations</h2>
+                      <p className="text-xs uppercase tracking-[0.3em] text-almost-black-green/50">Stay in sync</p>
                     </div>
                   </div>
                   <button
-                    onClick={fetchConversations}
-                    className="rounded-full border border-white/30 px-3 py-2 text-xs uppercase tracking-[0.2em] hover:bg-white/10 transition"
-                    disabled={loading}
+                    type="button"
+                    onClick={() => refreshCurrentView()}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-deep-red/20 text-deep-red hover:bg-deep-red/10 transition"
+                    disabled={isFetchingConversations}
                     data-testid="button-refresh-conversations"
+                    aria-label="Refresh conversations"
                   >
-                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                    {isFetchingConversations ? <Loader2 className="animate-spin" size={18} /> : <RefreshCw size={18} />}
                   </button>
                 </div>
-              </div>
+              </header>
 
-              <div className="p-5 flex-1 flex flex-col gap-4">
+              <div className="p-5 space-y-4 border-b border-soft-ivory/80">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-deep-red/50" size={18} />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-deep-red/40" size={18} />
                   <input
                     type="text"
                     placeholder="Search conversations"
-                    className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey pl-10 pr-4 py-2.5 text-almost-black-green focus:border-deep-red/60 focus:ring-2 focus:ring-deep-red/25"
+                    className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey pl-10 pr-4 py-2.5 text-sm text-almost-black-green focus:border-deep-red/60 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(event) => setSearchQuery(event.target.value)}
                     data-testid="input-search-conversations"
                   />
                 </div>
 
-                {userInfo.type === 'chair' && (
+                {identity.type === "chair" && (
                   <button
-                    onClick={() => setShowAllMessages(!showAllMessages)}
-                    className={`w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all border ${showAllMessages ? 'bg-deep-red text-white border-deep-red' : 'bg-soft-ivory text-deep-red border-soft-ivory hover:border-deep-red/50'}`}
+                    type="button"
+                    onClick={handleToggleAllDelegateMessages}
+                    className={`w-full rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                      showAllDelegateMessages
+                        ? "bg-deep-red text-white border-deep-red shadow-sm"
+                        : "bg-soft-ivory text-deep-red border-soft-ivory hover:border-deep-red/40"
+                    }`}
                     data-testid="button-toggle-all-messages"
                   >
-                    <div className="flex items-center justify-center gap-2">
-                      <Users size={18} />
-                      {showAllMessages ? 'Show My Conversations' : 'View All Delegate Messages'}
-                    </div>
+                    {showAllDelegateMessages ? "Show My Conversations" : "View All Delegate Messages"}
                   </button>
                 )}
-
-                <div className="space-y-3 overflow-y-auto pr-1 flex-1">
-                  {filteredConversations.length > 0 ? (
-                    filteredConversations.map((conversation) => {
-                      const isActive = selectedConversation === conversation.participantID && !showAllMessages;
-                      return (
-                        <motion.button
-                          key={conversation.participantID}
-                          onClick={() => {
-                            setSelectedConversation(conversation.participantID);
-                            setShowAllMessages(false);
-                          }}
-                          className={`w-full rounded-2xl border px-4 py-3 text-left transition-all ${isActive ? 'bg-soft-ivory border-deep-red text-deep-red' : 'bg-warm-light-grey border-soft-ivory hover:border-deep-red/40 text-almost-black-green'}`}
-                          data-testid={`button-conversation-${conversation.participantID}`}
-                          whileHover={{ scale: 1.01 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <span className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${isActive ? 'bg-deep-red text-white' : 'bg-soft-rose text-deep-red'}`}>
-                                {conversation.participantType === 'chair' ? <Crown size={16} /> : <User size={16} />}
-                              </span>
-                              <div>
-                                <p className="font-semibold">{conversation.participantName}</p>
-                                <p className="text-xs text-almost-black-green/60 truncate max-w-[160px]">{conversation.lastMessage}</p>
-                              </div>
-                            </div>
-                            {conversation.unreadCount > 0 && (
-                              <span className="badge-pill bg-soft-rose text-deep-red/80">
-                                {conversation.unreadCount}
-                              </span>
-                            )}
-                          </div>
-                        </motion.button>
-                      );
-                    })
-                  ) : (
-                    <div className="text-center py-8 text-almost-black-green/60">
-                      <MessageCircle className="mx-auto mb-3 text-deep-red/50" size={40} />
-                      <p>No conversations yet</p>
-                    </div>
-                  )}
-                </div>
               </div>
-            </motion.div>
 
-            {/* Messages Area */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="surface-card flex flex-col overflow-hidden"
-            >
-              {selectedConversation || showAllMessages ? (
-                <>
-                  <div className="px-6 py-5 border-b border-soft-ivory bg-soft-ivory/70">
-                    <h3 className="text-xl font-heading font-semibold text-deep-red">
-                      {showAllMessages
-                        ? 'All Delegate Messages'
-                        : conversations.find(c => c.participantID === selectedConversation)?.participantName || 'Messages'
-                      }
-                    </h3>
-                    {!showAllMessages && (
-                      <p className="text-xs text-almost-black-green/60 mt-1 uppercase tracking-[0.3em]">Direct conversation</p>
-                    )}
+              <div className="flex-1 overflow-y-auto px-5 pb-5 space-y-3" data-testid="conversation-list">
+                {isFetchingConversations && conversations.length === 0 ? (
+                  <div className="flex items-center justify-center py-12 text-almost-black-green/50 text-sm">
+                    <Loader2 className="mr-2 animate-spin" size={18} /> Loading conversations...
                   </div>
-
-                  <div className="flex-1 overflow-y-auto p-6 bg-warm-light-grey/70">
-                    <div className="space-y-4">
-                      {messages.length > 0 ? (
-                        messages.map((message, index) => {
-                          const isSender = message.senderID === userInfo.id;
-                          return (
-                            <motion.div
-                              key={message.messageID}
-                              initial={{ opacity: 0, y: 12 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.3, delay: index * 0.08 }}
-                              className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}
-                            >
-                              <div
-                                className={`max-w-xs md:max-w-md rounded-2xl px-5 py-4 shadow-sm ${
-                                  isSender
-                                    ? 'bg-gradient-to-br from-deep-red to-dark-burgundy text-white'
-                                    : 'bg-white text-almost-black-green border border-soft-ivory'
-                                }`}
-                                data-testid={`message-${message.messageID}`}
-                              >
-                                {showAllMessages && (
-                                  <div className="text-xs uppercase tracking-[0.25em] mb-2 text-white/70">
-                                    {message.senderName} → {message.receiverName}
-                                  </div>
-                                )}
-                                <p className="font-body text-sm leading-relaxed">{message.content}</p>
-                                <p className={`text-[0.7rem] mt-3 ${isSender ? 'text-white/70' : 'text-almost-black-green/50'}`}>
-                                  {new Date(message.timestamp).toLocaleString()}
-                                </p>
-                              </div>
-                            </motion.div>
-                          );
-                        })
-                      ) : (
-                        <div className="text-center py-10 text-almost-black-green/60">
-                          <MessageCircle className="mx-auto mb-3 text-deep-red/45" size={40} />
-                          <p>{showAllMessages ? 'No delegate messages found' : 'No messages yet. Start the conversation!'}</p>
+                ) : filteredConversations.length > 0 ? (
+                  filteredConversations.map((conversation) => {
+                    const isActive = !showAllDelegateMessages && activeConversation === conversation.participantID;
+                    return (
+                      <button
+                        key={conversation.participantID}
+                        type="button"
+                        onClick={() => handleSelectConversation(conversation.participantID)}
+                        className={`w-full rounded-2xl border px-4 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-deep-red ${
+                          isActive
+                            ? "bg-soft-ivory border-deep-red text-deep-red shadow-sm"
+                            : "bg-warm-light-grey border-transparent text-almost-black-green hover:border-deep-red/30"
+                        }`}
+                        data-testid={`button-conversation-${conversation.participantID}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <span className={`mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl ${
+                              conversation.participantType === "chair"
+                                ? "bg-deep-red text-white"
+                                : "bg-soft-rose text-deep-red"
+                            }`}>
+                              {conversation.participantType === "chair" ? <Crown size={16} /> : <User size={16} />}
+                            </span>
+                            <div className="space-y-1">
+                              <p className="font-semibold leading-tight">{conversation.participantName}</p>
+                              <p className="text-xs text-almost-black-green/60 line-clamp-2">{conversation.lastMessage || "No messages yet"}</p>
+                            </div>
+                          </div>
+                          {conversation.unreadCount > 0 && (
+                            <span className="badge-pill bg-deep-red/15 text-deep-red text-xs">
+                              {conversation.unreadCount}
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </div>
+                        <p className="mt-2 text-[0.7rem] uppercase tracking-[0.2em] text-almost-black-green/40">
+                          {new Date(conversation.lastMessageTime).toLocaleString()}
+                        </p>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-12 text-almost-black-green/60 text-sm">
+                    <MessageCircle className="mx-auto mb-3 text-deep-red/40" size={36} />
+                    <p>No conversations found</p>
                   </div>
+                )}
+              </div>
+            </aside>
 
-                  {!showAllMessages && (
-                    <div className="border-t border-soft-ivory bg-white px-6 py-5">
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <input
-                          type="text"
-                          placeholder="Type your message..."
-                          className="flex-1 rounded-xl border border-soft-ivory bg-warm-light-grey px-4 py-3 text-almost-black-green focus:border-deep-red/60 focus:ring-2 focus:ring-deep-red/25"
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                          data-testid="input-new-message"
-                        />
-                        <button
-                          onClick={sendMessage}
-                          disabled={!newMessage.trim()}
-                          className={`primary-button sm:w-auto w-full ${!newMessage.trim() ? 'opacity-60 cursor-not-allowed' : ''}`}
-                          data-testid="button-send-message"
-                        >
-                          <Send size={18} />
-                          <span>Send</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="flex-1 flex items-center justify-center p-10 text-center">
-                  <div>
-                    <MessageCircle className="mx-auto text-deep-red/50 mb-4" size={60} />
-                    <h3 className="text-xl font-heading font-semibold text-deep-red mb-2">Select a conversation</h3>
-                    <p className="text-sm text-almost-black-green/70">Choose a conversation from the sidebar to start messaging.</p>
-                  </div>
+            <section className="surface-card flex flex-col min-h-[520px]" aria-live="polite">
+              <header className="border-b border-soft-ivory/80 bg-soft-ivory/60 px-6 py-5">
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-xl font-heading font-semibold text-deep-red">
+                    {showAllDelegateMessages
+                      ? "All delegate messages"
+                      : activeConversationDetails?.participantName ?? "Select a conversation"}
+                  </h2>
+                  <p className="text-xs uppercase tracking-[0.3em] text-almost-black-green/50">
+                    {showAllDelegateMessages
+                      ? "Visible to chairs in your committee"
+                      : activeConversationDetails
+                      ? `Direct messages with ${activeConversationDetails.participantType === "chair" ? "Chair" : "Delegate"}`
+                      : "Choose a conversation from the left"}
+                  </p>
+                </div>
+              </header>
+
+              {errorMessage && (
+                <div className="mx-6 mt-4 rounded-lg border border-soft-rose/60 bg-soft-rose/20 px-4 py-3 text-sm text-deep-red">
+                  {errorMessage}
                 </div>
               )}
-            </motion.div>
-          </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-6 bg-warm-light-grey/60" data-testid="message-thread">
+                {isFetchingMessages && messages.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-almost-black-green/50 text-sm">
+                    <Loader2 className="mr-2 animate-spin" size={18} /> Loading messages...
+                  </div>
+                ) : messages.length > 0 ? (
+                  <div className="space-y-4">
+                    {messages.map((message) => {
+                      const isSender = message.senderID === identity.id;
+                      return (
+                        <article
+                          key={message.messageID}
+                          className={`flex ${isSender ? "justify-end" : "justify-start"}`}
+                          data-testid={`message-${message.messageID}`}
+                        >
+                          <div
+                            className={`max-w-xs md:max-w-md rounded-2xl px-5 py-4 shadow-sm ${
+                              isSender
+                                ? "bg-gradient-to-br from-deep-red to-dark-burgundy text-white"
+                                : "bg-white text-almost-black-green border border-soft-ivory"
+                            }`}
+                          >
+                            {showAllDelegateMessages && (
+                              <p className={`text-[0.65rem] uppercase tracking-[0.25em] mb-2 ${
+                                isSender ? "text-white/70" : "text-almost-black-green/50"
+                              }`}>
+                                {message.senderName} → {message.receiverName}
+                              </p>
+                            )}
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
+                            <p className={`mt-3 text-[0.7rem] ${
+                              isSender ? "text-white/70" : "text-almost-black-green/45"
+                            }`}>
+                              {new Date(message.timestamp).toLocaleString()}
+                            </p>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-center text-almost-black-green/60">
+                    <div className="max-w-sm space-y-2">
+                      <MessageCircle className="mx-auto text-deep-red/40" size={48} />
+                      <h3 className="text-lg font-semibold text-deep-red">
+                        {showAllDelegateMessages ? "No delegate conversations yet" : "Start the conversation"}
+                      </h3>
+                      <p className="text-sm">
+                        {showAllDelegateMessages
+                          ? "Delegate-to-delegate messages will appear here for chairs."
+                          : "Select a participant to view the thread and send them a message."}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {!showAllDelegateMessages && activeConversation && (
+                <footer className="border-t border-soft-ivory bg-white px-6 py-5" data-testid="message-composer">
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      type="text"
+                      placeholder="Type your message..."
+                      className="flex-1 rounded-xl border border-soft-ivory bg-warm-light-grey px-4 py-3 text-sm text-almost-black-green focus:border-deep-red/60 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
+                      value={composerValue}
+                      onChange={(event) => setComposerValue(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault();
+                          if (allowMessageSend) {
+                            handleSendMessage();
+                          }
+                        }
+                      }}
+                      data-testid="input-new-message"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendMessage}
+                      disabled={!allowMessageSend}
+                      className={`primary-button sm:w-auto w-full justify-center ${
+                        allowMessageSend ? "" : "opacity-60 cursor-not-allowed"
+                      }`}
+                      data-testid="button-send-message"
+                    >
+                      {isSendingMessage ? <Loader2 className="mr-2 animate-spin" size={18} /> : <Send size={18} className="mr-2" />}
+                      Send
+                    </button>
+                  </div>
+                </footer>
+              )}
+            </section>
+          </section>
         </div>
       </div>
     </ParticipantRoute>
   );
 };
 
-export default Messages;
+export default MessagesPage;

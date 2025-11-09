@@ -26,11 +26,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const conversationKey = conversationWith < userIdentity.userID
+      ? `${conversationWith}::${userIdentity.userID}`
+      : `${userIdentity.userID}::${conversationWith}`;
+
     // Mark all messages from conversationWith to authenticated user as read
     const { error } = await supabase
       .from('Message')
       .update({ read: true })
-      .eq('senderID', conversationWith)
+      .eq('conversationKey', conversationKey)
       .eq('receiverID', userIdentity.userID)
       .eq('read', false);
 

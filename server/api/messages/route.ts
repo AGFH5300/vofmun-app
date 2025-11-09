@@ -26,11 +26,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const conversationKey = conversationWith < userIdentity.userID
+      ? `${conversationWith}::${userIdentity.userID}`
+      : `${userIdentity.userID}::${conversationWith}`;
+
     // Get messages between the authenticated user and the conversation partner
     const { data: messages, error } = await supabase
       .from('Message')
       .select('*')
-      .or(`and(senderID.eq.${userIdentity.userID},receiverID.eq.${conversationWith}),and(senderID.eq.${conversationWith},receiverID.eq.${userIdentity.userID})`)
+      .eq('conversationKey', conversationKey)
       .order('timestamp', { ascending: true });
 
     if (error) {
