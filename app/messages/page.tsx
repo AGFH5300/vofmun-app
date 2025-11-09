@@ -14,6 +14,7 @@ import {
   User
 } from "lucide-react";
 import type { UserType } from "@/db/types";
+import supabase from "@/lib/supabase";
 
 interface Message {
   messageID: string;
@@ -91,6 +92,7 @@ const MessagesPage = () => {
   const [isFetchingMessages, setIsFetchingMessages] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [committeeID, setCommitteeID] = useState<string | null>(null);
   const pollingHandle = useRef<NodeJS.Timeout | null>(null);
 
   const filteredConversations = useMemo(() => {
@@ -116,6 +118,10 @@ const MessagesPage = () => {
     }
   }, []);
 
+  const createConversationKey = useCallback((userA: string, userB: string) => {
+    return userA < userB ? `${userA}::${userB}` : `${userB}::${userA}`;
+  }, []);
+
   const fetchConversations = useCallback(async () => {
     if (!identity.id) {
       return;
@@ -125,14 +131,193 @@ const MessagesPage = () => {
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/messages/conversations", { credentials: "include" });
+      let committee = committeeID;
 
-      if (!response.ok) {
+      if (!committee) {
+        if (identity.type === "delegate") {
+          const { data, error } = await supabase
+            .from("Delegation")
+            .select("committeeID")
+            .eq("delegateID", identity.id)
+            .single();
+
+          if (error) {
+            throw new Error("Unable to load conversations");
+          }
+
+          committee = data?.committeeID ?? null;
+        } else if (identity.type === "chair") {
+          const { data, error } = await supabase
+            .from("Committee-Chair")
+            .select("committeeID")
+            .eq("chairID", identity.id)
+            .single();
+
+          if (error) {
+            throw new Error("Unable to load conversations");
+          }
+
+          committee = data?.committeeID ?? null;
+        }
+      }
+
+      if (!committee) {
+        throw new Error("User committee not found");
+      }
+
+      setCommitteeID(committee);
+
+      interface DelegateRecord {
+        delegateID: string;
+        Delegate: { firstname: string; lastname: string } | null;
+      }
+
+      interface ChairRecord {
+        chairID: string;
+        Chair: { firstname: string; lastname: string } | null;
+      }
+
+      const conversationPartners: ConversationSummary[] = [];
+
+      const { data: delegates, error: delegatesError } = await supabase
+        .from("Delegation")
+        .select(
+          `
+        delegateID,
+        Delegate:delegateID (
+          firstname,
+          lastname
+        )
+      `
+        )
+        .eq("committeeID", committee)
+        .neq("delegateID", identity.id);
+
+      if (delegatesError) {
         throw new Error("Unable to load conversations");
       }
 
-      const payload = (await response.json()) as ConversationSummary[];
-      setConversations(payload);
+      if (delegates) {
+        for (const delegate of delegates as DelegateRecord[]) {
+          const delegateName = delegate.Delegate
+            ? `${delegate.Delegate.firstname} ${delegate.Delegate.lastname}`
+            : "Delegate";
+          conversationPartners.push({
+            participantID: delegate.delegateID,
+            participantName: delegateName,
+            participantType: "delegate",
+            lastMessage: "",
+            lastMessageTime: "",
+            unreadCount: 0
+          });
+        }
+      }
+
+      const { data: chairs, error: chairsError } = await supabase
+        .from("Committee-Chair")
+        .select(
+          `
+        chairID,
+        Chair:chairID (
+          firstname,
+          lastname
+        )
+      `
+        )
+        .eq("committeeID", committee)
+        .neq("chairID", identity.id);
+
+      if (chairsError) {
+        throw new Error("Unable to load conversations");
+      }
+
+      if (chairs) {
+        for (const chair of chairs as ChairRecord[]) {
+          const chairName = chair.Chair
+            ? `${chair.Chair.firstname} ${chair.Chair.lastname}`
+            : "Chair";
+          conversationPartners.push({
+            participantID: chair.chairID,
+            participantName: chairName,
+            participantType: "chair",
+            lastMessage: "",
+            lastMessageTime: "",
+            unreadCount: 0
+          });
+        }
+      }
+
+      if (conversationPartners.length === 0) {
+        setConversations([]);
+        return;
+      }
+
+      const conversationKeys = conversationPartners.map((partner) =>
+        createConversationKey(identity.id, partner.participantID)
+      );
+
+      const lastMessageMap = new Map<string, { content: string; timestamp: string }>();
+      const unreadCountMap = new Map<string, number>();
+
+      const { data: lastMessages, error: lastMessagesError } = await supabase
+        .from("Message")
+        .select("conversationKey, content, timestamp")
+        .in("conversationKey", conversationKeys)
+        .order("timestamp", { ascending: false });
+
+      if (lastMessagesError) {
+        throw new Error("Unable to load conversations");
+      }
+
+      if (lastMessages) {
+        for (const message of lastMessages) {
+          if (!message.conversationKey) continue;
+          if (!lastMessageMap.has(message.conversationKey)) {
+            lastMessageMap.set(message.conversationKey, {
+              content: message.content ?? "No messages yet",
+              timestamp: message.timestamp ?? new Date().toISOString()
+            });
+          }
+        }
+      }
+
+      const { data: unreadMessages, error: unreadMessagesError } = await supabase
+        .from("Message")
+        .select("conversationKey")
+        .eq("receiverID", identity.id)
+        .eq("read", false)
+        .in("conversationKey", conversationKeys);
+
+      if (unreadMessagesError) {
+        throw new Error("Unable to load conversations");
+      }
+
+      if (unreadMessages) {
+        for (const message of unreadMessages) {
+          if (!message.conversationKey) continue;
+          unreadCountMap.set(
+            message.conversationKey,
+            (unreadCountMap.get(message.conversationKey) || 0) + 1
+          );
+        }
+      }
+
+      const conversationsWithDetails = conversationPartners.map((partner) => {
+        const conversationKey = createConversationKey(identity.id, partner.participantID);
+        const lastMessage = lastMessageMap.get(conversationKey);
+        return {
+          ...partner,
+          lastMessage: lastMessage?.content || "No messages yet",
+          lastMessageTime: lastMessage?.timestamp || new Date().toISOString(),
+          unreadCount: unreadCountMap.get(conversationKey) || 0
+        } satisfies ConversationSummary;
+      });
+
+      conversationsWithDetails.sort((a, b) =>
+        new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
+      );
+
+      setConversations(conversationsWithDetails);
     } catch (error) {
       console.error("Error fetching conversations", error);
       const message = error instanceof Error ? error.message : "Unable to load conversations";
@@ -141,7 +326,7 @@ const MessagesPage = () => {
     } finally {
       setIsFetchingConversations(false);
     }
-  }, [identity.id]);
+  }, [identity.id, identity.type, committeeID, createConversationKey]);
 
   const fetchMessages = useCallback(
     async (participantID: string) => {
@@ -153,23 +338,30 @@ const MessagesPage = () => {
       setErrorMessage(null);
 
       try {
-        const response = await fetch(`/api/messages?conversationWith=${participantID}`, {
-          credentials: "include"
-        });
+        const conversationKey = createConversationKey(identity.id, participantID);
 
-        if (!response.ok) {
+        const { data, error: messagesError } = await supabase
+          .from("Message")
+          .select("*")
+          .eq("conversationKey", conversationKey)
+          .order("timestamp", { ascending: true });
+
+        if (messagesError) {
           throw new Error("Unable to load messages");
         }
 
-        const payload = (await response.json()) as Message[];
-        setMessages(payload);
+        setMessages((data as Message[]) || []);
 
-        await fetch("/api/messages/mark-read", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ conversationWith: participantID })
-        });
+        const { error: markReadError } = await supabase
+          .from("Message")
+          .update({ read: true })
+          .eq("conversationKey", conversationKey)
+          .eq("receiverID", identity.id)
+          .eq("read", false);
+
+        if (markReadError) {
+          console.error("Error marking messages as read", markReadError);
+        }
       } catch (error) {
         console.error("Error fetching messages", error);
         const message = error instanceof Error ? error.message : "Unable to load messages";
@@ -179,7 +371,7 @@ const MessagesPage = () => {
         setIsFetchingMessages(false);
       }
     },
-    [identity.id]
+    [identity.id, createConversationKey]
   );
 
   const fetchAllDelegateMessages = useCallback(async () => {
@@ -191,14 +383,59 @@ const MessagesPage = () => {
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/messages/all-delegate-messages", { credentials: "include" });
+      let committee = committeeID;
 
-      if (!response.ok) {
+      if (!committee) {
+        const { data, error } = await supabase
+          .from("Committee-Chair")
+          .select("committeeID")
+          .eq("chairID", identity.id)
+          .single();
+
+        if (error) {
+          throw new Error("Unable to load delegate messages");
+        }
+
+        committee = data?.committeeID ?? null;
+        setCommitteeID(committee ?? null);
+      }
+
+      if (!committee) {
         throw new Error("Unable to load delegate messages");
       }
 
-      const payload = (await response.json()) as Message[];
-      setMessages(payload);
+      const { data: delegations, error: delegationsError } = await supabase
+        .from("Delegation")
+        .select("delegateID")
+        .eq("committeeID", committee);
+
+      if (delegationsError) {
+        throw new Error("Unable to load delegate messages");
+      }
+
+      const delegateIDs = (delegations || [])
+        .map((delegation) => delegation.delegateID)
+        .filter((id): id is string => Boolean(id));
+
+      if (delegateIDs.length === 0) {
+        setMessages([]);
+        return;
+      }
+
+      const { data, error: delegateMessagesError } = await supabase
+        .from("Message")
+        .select("*")
+        .eq("senderType", "delegate")
+        .eq("receiverType", "delegate")
+        .in("senderID", delegateIDs)
+        .in("receiverID", delegateIDs)
+        .order("timestamp", { ascending: true });
+
+      if (delegateMessagesError) {
+        throw new Error("Unable to load delegate messages");
+      }
+
+      setMessages((data as Message[]) || []);
     } catch (error) {
       console.error("Error fetching delegate messages", error);
       const message = error instanceof Error ? error.message : "Unable to load delegate messages";
@@ -207,7 +444,7 @@ const MessagesPage = () => {
     } finally {
       setIsFetchingMessages(false);
     }
-  }, [identity.type]);
+  }, [identity.type, identity.id, committeeID]);
 
   const refreshCurrentView = useCallback(async () => {
     await fetchConversations();
@@ -252,14 +489,59 @@ const MessagesPage = () => {
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ receiverID: activeConversation, content: composerValue.trim() })
-      });
+      if (identity.type === "admin") {
+        throw new Error("Admins cannot send messages");
+      }
 
-      if (!response.ok) {
+      const conversationDetails = conversations.find(
+        (conversation) => conversation.participantID === activeConversation
+      );
+
+      const receiverType = conversationDetails?.participantType ?? "delegate";
+      const receiverName = conversationDetails?.participantName ?? "";
+
+      let committee = committeeID;
+
+      if (!committee) {
+        if (identity.type === "delegate") {
+          const { data } = await supabase
+            .from("Delegation")
+            .select("committeeID")
+            .eq("delegateID", identity.id)
+            .single();
+          committee = data?.committeeID ?? null;
+        } else if (identity.type === "chair") {
+          const { data } = await supabase
+            .from("Committee-Chair")
+            .select("committeeID")
+            .eq("chairID", identity.id)
+            .single();
+          committee = data?.committeeID ?? null;
+        }
+
+        setCommitteeID(committee ?? null);
+      }
+
+      if (!committee) {
+        throw new Error("Unable to determine committee for message");
+      }
+
+      const { error } = await supabase
+        .from("Message")
+        .insert({
+          senderID: identity.id,
+          senderType: identity.type === "delegate" ? "delegate" : "chair",
+          senderName: identity.name,
+          receiverID: activeConversation,
+          receiverType,
+          receiverName,
+          content: composerValue.trim(),
+          timestamp: new Date().toISOString(),
+          read: false,
+          committeeID: committee
+        });
+
+      if (error) {
         throw new Error("Unable to send message");
       }
 
@@ -274,7 +556,15 @@ const MessagesPage = () => {
     } finally {
       setIsSendingMessage(false);
     }
-  }, [activeConversation, composerValue, fetchConversations, fetchMessages]);
+  }, [
+    activeConversation,
+    composerValue,
+    fetchConversations,
+    fetchMessages,
+    identity,
+    conversations,
+    committeeID
+  ]);
 
   useEffect(() => {
     fetchConversations();
@@ -313,7 +603,11 @@ const MessagesPage = () => {
     };
   }, [identity.id, refreshCurrentView, stopPolling]);
 
-  const allowMessageSend = Boolean(composerValue.trim()) && !isSendingMessage;
+  const allowMessageSend =
+    Boolean(composerValue.trim()) &&
+    !isSendingMessage &&
+    Boolean(activeConversation) &&
+    identity.type !== "admin";
 
   return (
     <ParticipantRoute>
