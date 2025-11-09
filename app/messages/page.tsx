@@ -167,41 +167,35 @@ const MessagesPage = () => {
 
       setCommitteeID(committee);
 
-      interface DelegateRecord {
-        delegateID: string;
-        Delegate: { firstname: string; lastname: string } | null;
-      }
-
-      interface ChairRecord {
-        chairID: string;
-        Chair: { firstname: string; lastname: string } | null;
-      }
-
       const conversationPartners: ConversationSummary[] = [];
-
-      const { data: delegates, error: delegatesError } = await supabase
+      const { data: delegateRows, error: delegateRowsError } = await supabase
         .from("Delegation")
-        .select(
-          `
-        delegateID,
-        Delegate:delegateID (
-          firstname,
-          lastname
-        )
-      `
-        )
-        .eq("committeeID", committee)
-        .neq("delegateID", identity.id);
+        .select("delegateID")
+        .eq("committeeID", committee);
 
-      if (delegatesError) {
-        throw new Error("Unable to load conversations");
+      if (delegateRowsError) {
+        throw new Error(delegateRowsError.message || "Unable to load conversations");
       }
 
-      if (delegates) {
-        for (const delegate of delegates as DelegateRecord[]) {
-          const delegateName = delegate.Delegate
-            ? `${delegate.Delegate.firstname} ${delegate.Delegate.lastname}`
+      const delegateIDs = (delegateRows as { delegateID: string | null }[] | null)
+        ?.map((row) => row.delegateID)
+        .filter((id): id is string => Boolean(id) && id !== identity.id) ?? [];
+
+      if (delegateIDs.length > 0) {
+        const { data: delegateProfiles, error: delegateProfilesError } = await supabase
+          .from("Delegate")
+          .select("delegateID, firstname, lastname")
+          .in("delegateID", delegateIDs);
+
+        if (delegateProfilesError) {
+          throw new Error(delegateProfilesError.message || "Unable to load conversations");
+        }
+
+        for (const delegate of delegateProfiles ?? []) {
+          const delegateName = delegate.firstname && delegate.lastname
+            ? `${delegate.firstname} ${delegate.lastname}`
             : "Delegate";
+
           conversationPartners.push({
             participantID: delegate.delegateID,
             participantName: delegateName,
@@ -213,29 +207,34 @@ const MessagesPage = () => {
         }
       }
 
-      const { data: chairs, error: chairsError } = await supabase
+      const { data: chairRows, error: chairRowsError } = await supabase
         .from("Committee-Chair")
-        .select(
-          `
-        chairID,
-        Chair:chairID (
-          firstname,
-          lastname
-        )
-      `
-        )
-        .eq("committeeID", committee)
-        .neq("chairID", identity.id);
+        .select("chairID")
+        .eq("committeeID", committee);
 
-      if (chairsError) {
-        throw new Error("Unable to load conversations");
+      if (chairRowsError) {
+        throw new Error(chairRowsError.message || "Unable to load conversations");
       }
 
-      if (chairs) {
-        for (const chair of chairs as ChairRecord[]) {
-          const chairName = chair.Chair
-            ? `${chair.Chair.firstname} ${chair.Chair.lastname}`
+      const chairIDs = (chairRows as { chairID: string | null }[] | null)
+        ?.map((row) => row.chairID)
+        .filter((id): id is string => Boolean(id) && id !== identity.id) ?? [];
+
+      if (chairIDs.length > 0) {
+        const { data: chairProfiles, error: chairProfilesError } = await supabase
+          .from("Chair")
+          .select("chairID, firstname, lastname")
+          .in("chairID", chairIDs);
+
+        if (chairProfilesError) {
+          throw new Error(chairProfilesError.message || "Unable to load conversations");
+        }
+
+        for (const chair of chairProfiles ?? []) {
+          const chairName = chair.firstname && chair.lastname
+            ? `${chair.firstname} ${chair.lastname}`
             : "Chair";
+
           conversationPartners.push({
             participantID: chair.chairID,
             participantName: chairName,
