@@ -405,14 +405,14 @@ const Page = () => {
           throw speechIdError;
         }
 
-        const sortedSpeechIds = existingSpeeches ? [...existingSpeeches] : [];
-        sortedSpeechIds.sort((a, b) => a.speechID.localeCompare(b.speechID));
-        const nextSpeechId =
-          sortedSpeechIds.length > 0
-            ? (parseInt(sortedSpeechIds[sortedSpeechIds.length - 1].speechID, 10) + 1)
-                .toString()
-                .padStart(4, "0")
-            : "0001";
+        const numericSpeechIds = (existingSpeeches ?? [])
+          .map((row) => Number.parseInt(row.speechID, 10))
+          .filter((id) => Number.isFinite(id));
+
+        const nextSpeechNumber =
+          numericSpeechIds.length > 0 ? Math.max(...numericSpeechIds) + 1 : 1;
+
+        const nextSpeechId = nextSpeechNumber.toString().padStart(4, "0");
 
         const insertPayload = {
           speechID: nextSpeechId,
