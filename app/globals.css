@@ -110,8 +110,8 @@
   --tt-color-yellow-base: #facc15;
   --tt-color-yellow-inc-2: #fde047;
 
-  --cursor-default: url("/cursor/custom-pointer.svg") 0 0, auto;
-  --cursor-pointer: url("/cursor/custom-pointer.svg") 0 0, pointer;
+  --cursor-default: url("/custom-cursor.svg") 0 0, auto;
+  --cursor-pointer: url("/bibata-pointer.svg") 0 0, pointer;
 
   /* Semantic color mappings */
   --background: var(--off-white);
