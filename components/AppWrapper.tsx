@@ -3,7 +3,6 @@ import CustomNav from "@/components/ui/customnav";
 import SiteFooter from "@/components/ui/site-footer";
 import role from "@/lib/roles";
 import { useRouter } from "@/src/router";
-import AmazingCursor from "@/components/ui/AmazingCursor";
 
 interface AppWrapperProps {
   children: React.ReactNode;
@@ -32,18 +31,15 @@ export default function AppWrapper({ children }: AppWrapperProps) {
   };
 
   return (
-    <>
-      <AmazingCursor />
-      <div className="flex min-h-screen flex-col">
-        {showNav && (
-          <CustomNav
-            role={userRole as 'delegate' | 'chair' | 'admin'}
-            activeLink={getActiveLink()}
-          />
-        )}
-        <main className="flex-1">{children}</main>
-        {!isLoginRoute && <SiteFooter />}
-      </div>
-    </>
+    <div className="flex min-h-screen flex-col">
+      {showNav && (
+        <CustomNav
+          role={userRole as 'delegate' | 'chair' | 'admin'}
+          activeLink={getActiveLink()}
+        />
+      )}
+      <main className="flex-1">{children}</main>
+      {!isLoginRoute && <SiteFooter />}
+    </div>
   );
 }
