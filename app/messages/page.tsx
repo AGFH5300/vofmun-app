@@ -190,15 +190,16 @@ const MessagesPage = () => {
         )
       `
         )
-        .eq("committeeID", committee)
-        .neq("delegateID", identity.id);
+        .eq("committeeID", committee);
 
       if (delegatesError) {
         throw new Error("Unable to load conversations");
       }
 
       if (delegates) {
-        for (const delegate of delegates as DelegateRecord[]) {
+        for (const delegate of (delegates as DelegateRecord[]).filter(
+          (record) => record.delegateID !== identity.id
+        )) {
           const delegateName = delegate.Delegate
             ? `${delegate.Delegate.firstname} ${delegate.Delegate.lastname}`
             : "Delegate";
@@ -224,15 +225,16 @@ const MessagesPage = () => {
         )
       `
         )
-        .eq("committeeID", committee)
-        .neq("chairID", identity.id);
+        .eq("committeeID", committee);
 
       if (chairsError) {
         throw new Error("Unable to load conversations");
       }
 
       if (chairs) {
-        for (const chair of chairs as ChairRecord[]) {
+        for (const chair of (chairs as ChairRecord[]).filter(
+          (record) => record.chairID !== identity.id
+        )) {
           const chairName = chair.Chair
             ? `${chair.Chair.firstname} ${chair.Chair.lastname}`
             : "Chair";
