@@ -18,6 +18,7 @@
     "@fontsource/open-sans": "^5.2.7",
     "@fontsource/playfair-display": "^5.2.8",
     "@fontsource/poppins": "^5.2.7",
+    "@headlessui/react": "^2.2.0",
     "@heroicons/react": "^2.2.0",
     "@prisma/client": "^6.8.2",
     "@radix-ui/react-alert-dialog": "^1.1.6",

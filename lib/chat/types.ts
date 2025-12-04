@@ -8,7 +8,11 @@ export interface User {
   avatar_url?: string | null;
   is_online?: boolean | null;
   last_seen?: string | null;
+  role_title?: string | null;
+  committee?: string | null;
 }
+
+export type RoomType = 'dm' | 'group' | 'committee';
 
 export interface ChatRoom {
   id: string;
@@ -18,6 +22,8 @@ export interface ChatRoom {
   created_by?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  room_type?: RoomType;
+  icon?: string | null;
 }
 
 export interface RoomMember {
@@ -50,6 +56,26 @@ export interface MessageWithUser extends Message {
 export interface RoomWithDetails extends ChatRoom {
   members: RoomMember[];
   lastMessage?: MessageWithUser | null;
+  isPinned?: boolean;
+  unreadCount?: number;
+}
+
+export type FriendRequestStatus = 'pending' | 'accepted' | 'rejected';
+
+export interface FriendRequest {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  status: FriendRequestStatus;
+  created_at?: string | null;
+  updated_at?: string | null;
+  sender?: User;
+  receiver?: User;
+}
+
+export interface UserSearchResult extends User {
+  is_friend?: boolean;
+  has_pending_request?: boolean;
 }
 
 export interface ChatSocketPayload {
