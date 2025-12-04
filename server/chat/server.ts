@@ -2,7 +2,7 @@ import express, { NextFunction, Request, Response } from 'express';
 import http from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 import supabaseAdmin from '../../lib/supabaseAdmin';
-import { ChatSocketPayload, MessageWithUser, RoomMember, RoomWithDetails, User } from '../../lib/chat/types';
+import { ChatSocketPayload, FriendRequest, MessageWithUser, RoomMember, RoomWithDetails, RoomType, User } from '../../lib/chat/types';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -64,6 +64,13 @@ const broadcast = (predicate: (ctx: SocketContext) => boolean, payload: ChatSock
 const broadcastToRoom = (roomId: string, payload: ChatSocketPayload) =>
   broadcast((ctx) => ctx.roomId === roomId, payload);
 
+const deriveRoomType = (room: { is_private?: boolean | null; name?: string | null }, members: RoomMember[]): RoomType => {
+  if (room.is_private && members.length === 2) return 'dm';
+  const normalized = (room.name || '').toLowerCase();
+  if (normalized.includes('committee') || normalized.includes('room')) return 'committee';
+  return 'group';
+};
+
 const fetchRoomMembers = async (roomId: string): Promise<RoomMember[]> => {
   const { data } = await supabaseAdmin
     .from('room_members')
@@ -115,13 +122,96 @@ app.get('/api/rooms', requireAuth, async (req: AuthedRequest, res: Response) => 
     for (const room of rooms || []) {
       const members = await fetchRoomMembers(room.id);
       const lastMessage = await fetchLastMessage(room.id);
-      results.push({ ...room, members, lastMessage });
+      const room_type = deriveRoomType(room, members);
+      results.push({ ...room, members, lastMessage, room_type });
     }
 
     return res.json(results);
   } catch (error) {
     console.error('Error listing rooms', error);
     return res.status(500).json({ error: 'Failed to load rooms' });
+  }
+});
+
+app.get('/api/users/search', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const query = (req.query.query as string) || '';
+    if (!query.trim()) return res.json([]);
+    const { data } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .ilike('full_name', `%${query}%`)
+      .limit(20);
+    return res.json((data || []) as User[]);
+  } catch (error) {
+    console.error('Error searching users', error);
+    return res.status(500).json({ error: 'Failed to search users' });
+  }
+});
+
+app.post('/api/friend-requests', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { targetUserId } = req.body as { targetUserId?: string };
+    if (!targetUserId) return res.status(400).json({ error: 'Missing targetUserId' });
+
+    await supabaseAdmin
+      .from('friend_requests')
+      .upsert({ sender_id: req.userId!, receiver_id: targetUserId, status: 'pending' }, { onConflict: 'sender_id,receiver_id' });
+
+    const { data } = await supabaseAdmin
+      .from('friend_requests')
+      .select('*, sender:users!sender_id(*), receiver:users!receiver_id(*)')
+      .eq('sender_id', req.userId!)
+      .eq('receiver_id', targetUserId)
+      .single();
+
+    return res.json(data as FriendRequest);
+  } catch (error) {
+    console.error('Error sending friend request', error);
+    return res.status(500).json({ error: 'Failed to send request' });
+  }
+});
+
+app.get('/api/friend-requests', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { data } = await supabaseAdmin
+      .from('friend_requests')
+      .select('*, sender:users!sender_id(*), receiver:users!receiver_id(*)')
+      .or(`sender_id.eq.${req.userId},receiver_id.eq.${req.userId}`)
+      .order('created_at', { ascending: false });
+
+    return res.json((data || []) as FriendRequest[]);
+  } catch (error) {
+    console.error('Error listing friend requests', error);
+    return res.status(500).json({ error: 'Failed to load friend requests' });
+  }
+});
+
+app.post('/api/friend-requests/:id/respond', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body as { action?: 'accept' | 'reject' };
+    if (!action) return res.status(400).json({ error: 'Missing action' });
+
+    const status = action === 'accept' ? 'accepted' : 'rejected';
+    const { data: updated } = await supabaseAdmin
+      .from('friend_requests')
+      .update({ status })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (status === 'accepted' && updated) {
+      await supabaseAdmin.from('friendships').upsert(
+        { user1_id: updated.sender_id, user2_id: updated.receiver_id },
+        { onConflict: 'user1_id,user2_id' }
+      );
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Error responding to friend request', error);
+    return res.status(500).json({ error: 'Failed to update request' });
   }
 });
 
@@ -182,10 +272,46 @@ app.post('/api/rooms/direct', requireAuth, async (req: AuthedRequest, res: Respo
     const members = await fetchRoomMembers(roomId);
     const lastMessage = await fetchLastMessage(roomId);
 
-    return res.json({ ...room, members, lastMessage } as RoomWithDetails);
+    return res.json({ ...room, members, lastMessage, room_type: deriveRoomType(room, members) } as RoomWithDetails);
   } catch (error) {
     console.error('Error creating direct room', error);
     return res.status(500).json({ error: 'Failed to create direct room' });
+  }
+});
+
+app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { name, description, memberIds } = req.body as {
+      name?: string;
+      description?: string;
+      memberIds?: string[];
+    };
+    if (!name || !memberIds || memberIds.length === 0) {
+      return res.status(400).json({ error: 'Missing group details' });
+    }
+
+    const allMembers = Array.from(new Set([req.userId!, ...memberIds]));
+
+    const { data: createdRoom, error } = await supabaseAdmin
+      .from('chat_rooms')
+      .insert({ name, description: description || null, is_private: false, created_by: req.userId! })
+      .select('*')
+      .single();
+
+    if (error || !createdRoom) {
+      return res.status(500).json({ error: 'Failed to create room' });
+    }
+
+    await supabaseAdmin
+      .from('room_members')
+      .insert(allMembers.map((id) => ({ room_id: createdRoom.id, user_id: id, role: id === req.userId ? 'admin' : 'member' })));
+
+    const members = await fetchRoomMembers(createdRoom.id);
+    const lastMessage = await fetchLastMessage(createdRoom.id);
+    return res.json({ ...createdRoom, members, lastMessage, room_type: deriveRoomType(createdRoom, members) } as RoomWithDetails);
+  } catch (error) {
+    console.error('Error creating group room', error);
+    return res.status(500).json({ error: 'Failed to create group room' });
   }
 });
 

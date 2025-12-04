@@ -2,7 +2,14 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import supabase from '@/lib/supabase';
-import { ChatSocketPayload, MessageStatus, MessageWithUser, RoomWithDetails } from '@/lib/chat/types';
+import {
+  ChatSocketPayload,
+  FriendRequest,
+  MessageStatus,
+  MessageWithUser,
+  RoomWithDetails,
+  UserSearchResult,
+} from '@/lib/chat/types';
 
 const CHAT_WS_URL = import.meta.env.VITE_CHAT_WS_URL;
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '';
@@ -14,10 +21,25 @@ interface ChatContextValue {
   typingUsers: Record<string, Set<string>>;
   onlineUsers: Set<string>;
   isConnecting: boolean;
+  friendRequests: FriendRequest[];
+  currentUserId: string | null;
+  pinnedRoomIds: Set<string>;
   selectRoom: (room: RoomWithDetails) => Promise<void>;
   refreshRooms: () => Promise<void>;
   sendMessage: (roomId: string, content: string, replyTo?: string | null) => Promise<void>;
   sendTyping: (roomId: string, isTyping: boolean) => void;
+  togglePin: (roomId: string) => void;
+  createDirectRoom: (targetUserId: string) => Promise<RoomWithDetails | null>;
+  createGroupRoom: (payload: {
+    name: string;
+    description?: string;
+    icon?: string;
+    memberIds: string[];
+  }) => Promise<RoomWithDetails | null>;
+  searchUsers: (query: string) => Promise<UserSearchResult[]>;
+  refreshFriendRequests: () => Promise<void>;
+  sendFriendRequest: (targetUserId: string) => Promise<void>;
+  respondToFriendRequest: (id: string, action: 'accept' | 'reject') => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
@@ -38,6 +60,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const [token, setToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [pinnedRoomIds, setPinnedRoomIds] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set<string>();
+    const stored = window.localStorage.getItem('pinnedRooms');
+    return new Set(stored ? JSON.parse(stored) : []);
+  });
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,12 +103,24 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     const response = await fetch(`${CHAT_API_URL}/api/rooms`, withAuthHeaders());
     if (!response.ok) return;
     const data = (await response.json()) as RoomWithDetails[];
-    setRooms(data);
+    const enriched = data.map((room) => ({
+      ...room,
+      isPinned: pinnedRoomIds.has(room.id),
+    }));
+    setRooms(enriched);
     if (activeRoom) {
-      const updated = data.find((room) => room.id === activeRoom.id);
+      const updated = enriched.find((room) => room.id === activeRoom.id);
       if (updated) setActiveRoom(updated);
     }
-  }, [activeRoom, token, withAuthHeaders]);
+  }, [activeRoom, pinnedRoomIds, token, withAuthHeaders]);
+
+  const refreshFriendRequests = useCallback(async () => {
+    if (!token) return;
+    const response = await fetch(`${CHAT_API_URL}/api/friend-requests`, withAuthHeaders());
+    if (!response.ok) return;
+    const data = (await response.json()) as FriendRequest[];
+    setFriendRequests(data);
+  }, [token, withAuthHeaders]);
 
   const fetchMessages = useCallback(
     async (roomId: string) => {
@@ -202,8 +242,15 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   useEffect(() => {
     if (token) {
       refreshRooms();
+      refreshFriendRequests();
     }
-  }, [refreshRooms, token]);
+  }, [refreshRooms, refreshFriendRequests, token]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('pinnedRooms', JSON.stringify(Array.from(pinnedRoomIds)));
+    }
+  }, [pinnedRoomIds]);
 
   const sendMessage = useCallback(
     async (roomId: string, content: string, replyTo?: string | null) => {
@@ -243,7 +290,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
       }
     },
-    [withAuthHeaders]
+    [userId, withAuthHeaders]
   );
 
   const sendTyping = useCallback(
@@ -255,6 +302,88 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     []
   );
 
+  const togglePin = useCallback((roomId: string) => {
+    setPinnedRoomIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roomId)) {
+        next.delete(roomId);
+      } else {
+        next.add(roomId);
+      }
+      return next;
+    });
+    setRooms((prev) => prev.map((room) => (room.id === roomId ? { ...room, isPinned: !room.isPinned } : room)));
+  }, []);
+
+  const createDirectRoom = useCallback(
+    async (targetUserId: string) => {
+      if (!token) return null;
+      const response = await fetch(
+        `${CHAT_API_URL}/api/rooms/direct`,
+        withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
+      );
+      if (!response.ok) return null;
+      const room = (await response.json()) as RoomWithDetails;
+      setRooms((prev) => {
+        const existing = prev.find((r) => r.id === room.id);
+        const updated = existing ? prev.map((r) => (r.id === room.id ? room : r)) : [room, ...prev];
+        return updated.map((r) => ({ ...r, isPinned: pinnedRoomIds.has(r.id) }));
+      });
+      return room;
+    },
+    [pinnedRoomIds, token, withAuthHeaders]
+  );
+
+  const createGroupRoom = useCallback(
+    async (payload: { name: string; description?: string; icon?: string; memberIds: string[] }) => {
+      if (!token) return null;
+      const response = await fetch(
+        `${CHAT_API_URL}/api/rooms/group`,
+        withAuthHeaders({ method: 'POST', body: JSON.stringify(payload) })
+      );
+      if (!response.ok) return null;
+      const room = (await response.json()) as RoomWithDetails;
+      setRooms((prev) => [{ ...room, isPinned: pinnedRoomIds.has(room.id) }, ...prev]);
+      return room;
+    },
+    [pinnedRoomIds, token, withAuthHeaders]
+  );
+
+  const searchUsers = useCallback(
+    async (query: string) => {
+      if (!token || !query.trim()) return [] as UserSearchResult[];
+      const response = await fetch(`${CHAT_API_URL}/api/users/search?query=${encodeURIComponent(query)}`, withAuthHeaders());
+      if (!response.ok) return [] as UserSearchResult[];
+      return (await response.json()) as UserSearchResult[];
+    },
+    [token, withAuthHeaders]
+  );
+
+  const sendFriendRequest = useCallback(
+    async (targetUserId: string) => {
+      if (!token) return;
+      await fetch(
+        `${CHAT_API_URL}/api/friend-requests`,
+        withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
+      );
+      refreshFriendRequests();
+    },
+    [refreshFriendRequests, token, withAuthHeaders]
+  );
+
+  const respondToFriendRequest = useCallback(
+    async (id: string, action: 'accept' | 'reject') => {
+      if (!token) return;
+      await fetch(
+        `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
+        withAuthHeaders({ method: 'POST', body: JSON.stringify({ action }) })
+      );
+      refreshFriendRequests();
+      refreshRooms();
+    },
+    [refreshFriendRequests, refreshRooms, token, withAuthHeaders]
+  );
+
   const value = useMemo<ChatContextValue>(
     () => ({
       rooms,
@@ -263,12 +392,43 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       typingUsers,
       onlineUsers,
       isConnecting,
+      friendRequests,
+      currentUserId: userId,
+      pinnedRoomIds,
       selectRoom,
       refreshRooms,
       sendMessage,
       sendTyping,
+      togglePin,
+      createDirectRoom,
+      createGroupRoom,
+      searchUsers,
+      refreshFriendRequests,
+      sendFriendRequest,
+      respondToFriendRequest,
     }),
-    [rooms, activeRoom, messages, typingUsers, onlineUsers, isConnecting, selectRoom, refreshRooms, sendMessage, sendTyping]
+    [
+      rooms,
+      activeRoom,
+      messages,
+      typingUsers,
+      onlineUsers,
+      isConnecting,
+      friendRequests,
+      userId,
+      pinnedRoomIds,
+      selectRoom,
+      refreshRooms,
+      sendMessage,
+      sendTyping,
+      togglePin,
+      createDirectRoom,
+      createGroupRoom,
+      searchUsers,
+      refreshFriendRequests,
+      sendFriendRequest,
+      respondToFriendRequest,
+    ]
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
