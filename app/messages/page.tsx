@@ -1,23 +1,59 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ParticipantRoute } from '@/components/protectedroute';
 import { ChatProvider, useChat } from './context/ChatContext';
 import MessageBubble from './components/MessageBubble';
 import TypingIndicator from './components/TypingIndicator';
 import UserAvatar from './components/UserAvatar';
-import { MessageCircle, RefreshCw, Search, Send } from 'lucide-react';
+import ConversationList from './components/ConversationList';
+import NewChatModal from './components/NewChatModal';
+import NewGroupModal from './components/NewGroupModal';
+import FriendRequestsModal from './components/FriendRequestsModal';
+import ConversationDetailsModal from './components/ConversationDetailsModal';
+import { File, MoreVertical, Paperclip, RefreshCw, Search, Smile, Users } from 'lucide-react';
 import { RoomWithDetails } from '@/lib/chat/types';
 import supabase from '@/lib/supabase';
 
+const formatDateLabel = (dateString: string) => {
+  const date = new Date(dateString);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
 const ChatShell: React.FC = () => {
-  const { rooms, activeRoom, messages, selectRoom, refreshRooms, sendMessage, sendTyping, typingUsers, onlineUsers, isConnecting } = useChat();
+  const {
+    rooms,
+    activeRoom,
+    messages,
+    selectRoom,
+    refreshRooms,
+    sendMessage,
+    sendTyping,
+    typingUsers,
+    onlineUsers,
+    isConnecting,
+    friendRequests,
+    togglePin,
+    currentUserId,
+  } = useChat();
+
   const [composer, setComposer] = useState('');
   const [search, setSearch] = useState('');
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserIdState, setCurrentUserIdState] = useState<string | null>(null);
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [showNewGroup, setShowNewGroup] = useState(false);
+  const [showRequests, setShowRequests] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+    supabase.auth.getUser().then(({ data }) => setCurrentUserIdState(data.user?.id ?? null));
   }, []);
 
   const filteredRooms = useMemo(() => {
@@ -26,7 +62,14 @@ const ChatShell: React.FC = () => {
     return rooms.filter((room) => room.name.toLowerCase().includes(q));
   }, [rooms, search]);
 
-  const activeMessages = activeRoom ? messages[activeRoom.id] || [] : [];
+  const activeMessages = useMemo(() => (activeRoom ? messages[activeRoom.id] || [] : []), [activeRoom, messages]);
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [activeMessages.length, activeRoom?.id]);
+
   const roomTypingNames = useMemo(() => {
     if (!activeRoom) return [] as string[];
     const activeTyping = Array.from(typingUsers[activeRoom.id] || []);
@@ -45,6 +88,31 @@ const ChatShell: React.FC = () => {
     await selectRoom(room);
   };
 
+  const timeline = useMemo(() => {
+    const sequence: Array<{ type: 'date'; label: string } | { type: 'message'; id: string }> = [];
+    let lastDate: string | null = null;
+    activeMessages.forEach((msg) => {
+      const dateLabel = msg.created_at ? formatDateLabel(msg.created_at) : '';
+      if (dateLabel && dateLabel !== lastDate) {
+        sequence.push({ type: 'date', label: dateLabel });
+        lastDate = dateLabel;
+      }
+      sequence.push({ type: 'message', id: msg.id });
+    });
+    return sequence;
+  }, [activeMessages]);
+
+  const activeTypingDisplay = roomTypingNames.length ? <TypingIndicator names={roomTypingNames} /> : null;
+  const pendingRequests = friendRequests.filter(
+    (req) => req.status === 'pending' && req.receiver_id === (currentUserId || currentUserIdState)
+  ).length;
+
+  const headerSubtitle = activeRoom
+    ? activeRoom.room_type === 'dm'
+      ? activeRoom.members.find((m) => m.user_id !== (currentUserId || currentUserIdState))?.user?.committee || 'Delegate'
+      : `${activeRoom.members.length} participants`
+    : 'Choose a conversation to start';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-soft-ivory to-warm-light-grey/60">
       <div className="mx-auto max-w-6xl px-4 py-8">
@@ -52,29 +120,44 @@ const ChatShell: React.FC = () => {
           <p className="text-[0.7rem] uppercase tracking-[0.3em] text-deep-red/80">Real-time coordination</p>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-heading font-semibold text-deep-red">Messages</h1>
-            {isConnecting && <span className="text-xs text-almost-black-green/60">Connecting...</span>}
+            {isConnecting && <span className="text-xs text-almost-black-green/60">Connecting…</span>}
           </div>
           <p className="text-sm text-almost-black-green/80">
-            Coordinate directly with delegates and chairs. Conversations refresh automatically so you never miss an update.
+            Coordinate with delegates, chairs, and secretariat. Presence, typing, and unread updates keep you in the loop.
           </p>
         </header>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px,1fr]">
-          <aside className="rounded-3xl bg-white shadow-sm ring-1 ring-soft-ivory/80">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px,1fr]">
+          <aside className="flex h-[720px] flex-col rounded-3xl bg-white shadow-sm ring-1 ring-soft-ivory/80">
             <div className="flex items-center justify-between border-b border-soft-ivory px-4 py-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-almost-black-green/60">Conversations</p>
                 <p className="text-sm font-semibold text-deep-red">Stay in sync</p>
               </div>
-              <button
-                type="button"
-                onClick={refreshRooms}
-                className="inline-flex items-center gap-2 rounded-xl bg-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red hover:bg-soft-rose/50"
-              >
-                <RefreshCw size={14} /> Refresh
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRequests(true)}
+                  className="relative rounded-xl border border-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red hover:bg-soft-ivory"
+                >
+                  Requests
+                  {pendingRequests > 0 && (
+                    <span className="absolute -right-2 -top-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-deep-red px-1 text-[0.7rem] font-semibold text-white">
+                      {pendingRequests}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={refreshRooms}
+                  className="inline-flex items-center gap-2 rounded-xl bg-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red hover:bg-soft-rose/50"
+                >
+                  <RefreshCw size={14} />
+                  Refresh
+                </button>
+              </div>
             </div>
-            <div className="px-4 py-3">
+            <div className="border-b border-soft-ivory px-4 py-3">
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-almost-black-green/40" />
                 <input
@@ -85,121 +168,131 @@ const ChatShell: React.FC = () => {
                 />
               </label>
             </div>
-            <div className="h-[540px] overflow-y-auto px-2 pb-4">
-              {filteredRooms.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-almost-black-green/60">
-                  <MessageCircle className="text-deep-red/40" size={40} />
-                  <p className="font-semibold text-deep-red">No conversations found</p>
-                  <p className="text-sm">Create a direct message to get started.</p>
-                </div>
-              ) : (
-                <ul className="space-y-2">
-                  {filteredRooms.map((room) => {
-                    const last = room.lastMessage;
-                    const isActive = activeRoom?.id === room.id;
-                    const hasOnline = room.members.some((m) => onlineUsers.has(m.user_id));
-                    return (
-                      <li key={room.id}>
-                        <button
-                          type="button"
-                          onClick={() => handleSelectRoom(room)}
-                          className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                            isActive
-                              ? 'border-deep-red/40 bg-soft-rose/30 shadow-sm'
-                              : 'border-transparent hover:border-soft-ivory hover:bg-soft-ivory'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className={`h-2 w-2 rounded-full ${hasOnline ? 'bg-emerald-500' : 'bg-soft-ivory'}`} />
-                              <p className="text-sm font-semibold text-deep-red">{room.name}</p>
-                            </div>
-                            {last?.created_at && (
-                              <span className="text-[0.7rem] uppercase tracking-tight text-almost-black-green/50">
-                                {new Date(last.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-1 line-clamp-1 text-xs text-almost-black-green/70">
-                            {last?.content || 'No messages yet'}
-                          </p>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+            <div className="flex-1 overflow-y-auto px-3 pb-4">
+              <ConversationList
+                rooms={filteredRooms}
+                activeRoomId={activeRoom?.id}
+                onSelect={handleSelectRoom}
+                onTogglePin={togglePin}
+                currentUserId={currentUserIdState || currentUserId}
+                onlineUsers={onlineUsers}
+                onNewChat={() => setShowNewChat(true)}
+                onNewGroup={() => setShowNewGroup(true)}
+              />
             </div>
           </aside>
 
-          <section className="rounded-3xl bg-white shadow-sm ring-1 ring-soft-ivory/80">
+          <section className="flex h-[720px] flex-col rounded-3xl bg-white shadow-sm ring-1 ring-soft-ivory/80">
             <header className="flex items-center justify-between border-b border-soft-ivory px-6 py-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-almost-black-green/60">Messages</p>
                 <h2 className="text-xl font-heading font-semibold text-deep-red">
                   {activeRoom ? activeRoom.name : 'Select a conversation'}
                 </h2>
+                <p className="text-sm text-almost-black-green/60">{headerSubtitle}</p>
               </div>
-              {activeRoom && (
-                <div className="flex items-center -space-x-2">
-                  {activeRoom.members.map((member) => (
-                    <div key={member.id} className="border border-white rounded-full">
-                      <UserAvatar user={member.user} size={32} />
-                    </div>
-                  ))}
+              {activeRoom ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex -space-x-2">
+                    {activeRoom.members.map((member) => (
+                      <div key={member.id} className="rounded-full border border-white">
+                        <UserAvatar user={member.user} size={36} />
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDetails(true)}
+                    className="rounded-xl border border-soft-ivory p-2 text-almost-black-green/60 hover:text-deep-red"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
                 </div>
+              ) : (
+                <div className="text-sm text-almost-black-green/60">Choose a chat to begin</div>
               )}
             </header>
 
-            <div className="flex h-[620px] flex-col">
-              <div className="flex-1 space-y-4 overflow-y-auto bg-warm-light-grey/50 px-6 py-4">
+            <div className="flex flex-1 flex-col">
+              <div className="flex-1 space-y-4 overflow-y-auto bg-warm-light-grey/40 px-6 py-4">
                 {activeRoom ? (
                   activeMessages.length > 0 ? (
-                    activeMessages.map((msg) => <MessageBubble key={msg.id} message={msg} isOwn={msg.user_id === currentUserId} />)
+                    timeline.map((item) => {
+                      if (item.type === 'date') {
+                        return (
+                          <div key={`date-${item.label}`} className="sticky top-2 z-10 flex justify-center">
+                            <span className="rounded-full bg-white px-3 py-1 text-[0.75rem] text-almost-black-green/60 shadow-sm">
+                              {item.label}
+                            </span>
+                          </div>
+                        );
+                      }
+                      const message = activeMessages.find((msg) => msg.id === item.id);
+                      if (!message) return null;
+                      const isOwn = (currentUserId || currentUserIdState) === message.user_id;
+                      return (
+                        <MessageBubble
+                          key={item.id}
+                          message={message}
+                          isOwn={isOwn}
+                          showAuthor={activeRoom.room_type !== 'dm'}
+                        />
+                      );
+                    })
                   ) : (
                     <div className="flex h-full items-center justify-center text-center text-almost-black-green/60">
                       <div className="space-y-2">
-                        <MessageCircle className="mx-auto text-deep-red/40" size={44} />
+                        <Users className="mx-auto text-deep-red/40" size={44} />
                         <p className="font-semibold text-deep-red">No messages yet</p>
-                        <p className="text-sm">Start the conversation with a quick hello.</p>
+                        <p className="text-sm">Break the ice with a quick hello.</p>
                       </div>
                     </div>
                   )
                 ) : (
                   <div className="flex h-full items-center justify-center text-center text-almost-black-green/60">
                     <div className="space-y-2">
-                      <MessageCircle className="mx-auto text-deep-red/40" size={48} />
+                      <Users className="mx-auto text-deep-red/40" size={48} />
                       <p className="font-semibold text-deep-red">Select a conversation</p>
                       <p className="text-sm">Choose a room from the left to view messages.</p>
                     </div>
                   </div>
                 )}
+                <div ref={messagesEndRef} />
               </div>
 
               {activeRoom && (
                 <div className="border-t border-soft-ivory px-6 py-3">
-                  <TypingIndicator names={roomTypingNames} />
-                  <div className="mt-3 flex items-center gap-3">
-                    <input
-                      value={composer}
-                      onChange={(event) => setComposer(event.target.value)}
-                      onFocus={() => sendTyping(activeRoom.id, true)}
-                      onBlur={() => sendTyping(activeRoom.id, false)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' && !event.shiftKey) {
-                          event.preventDefault();
-                          handleSend();
-                        }
-                      }}
-                      placeholder="Type your message..."
-                      className="flex-1 rounded-xl border border-soft-ivory bg-warm-light-grey px-4 py-3 text-sm focus:border-deep-red/60 focus:ring-2 focus:ring-deep-red/20"
-                    />
+                  {activeTypingDisplay}
+                  <div className="mt-3 flex items-end gap-3">
+                    <div className="flex flex-1 items-center rounded-2xl border border-soft-ivory bg-warm-light-grey px-3">
+                      <button type="button" className="rounded-full p-2 text-almost-black-green/60 hover:text-deep-red">
+                        <Smile className="h-5 w-5" />
+                      </button>
+                      <textarea
+                        value={composer}
+                        onChange={(event) => setComposer(event.target.value)}
+                        onFocus={() => sendTyping(activeRoom.id, true)}
+                        onBlur={() => sendTyping(activeRoom.id, false)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' && !event.shiftKey) {
+                            event.preventDefault();
+                            handleSend();
+                          }
+                        }}
+                        placeholder="Message the room"
+                        rows={1}
+                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm focus:outline-none"
+                      />
+                      <button type="button" className="rounded-full p-2 text-almost-black-green/60 hover:text-deep-red">
+                        <Paperclip className="h-5 w-5" />
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={handleSend}
                       className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-dark-burgundy"
                     >
-                      <Send size={16} /> Send
+                      <File className="h-4 w-4" /> Send
                     </button>
                   </div>
                 </div>
@@ -208,6 +301,11 @@ const ChatShell: React.FC = () => {
           </section>
         </div>
       </div>
+
+      <NewChatModal open={showNewChat} onClose={() => setShowNewChat(false)} onConversationCreated={() => setShowNewChat(false)} />
+      <NewGroupModal open={showNewGroup} onClose={() => setShowNewGroup(false)} onCreated={() => setShowNewGroup(false)} />
+      <FriendRequestsModal open={showRequests} onClose={() => setShowRequests(false)} />
+      <ConversationDetailsModal room={activeRoom} open={showDetails} onClose={() => setShowDetails(false)} />
     </div>
   );
 };

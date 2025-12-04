@@ -8,6 +8,7 @@ import { Check, Clock, AlertCircle } from 'lucide-react';
 interface Props {
   message: MessageWithUser;
   isOwn: boolean;
+  showAuthor?: boolean;
 }
 
 const statusCopy: Record<string, string> = {
@@ -24,25 +25,35 @@ const statusIcon: Record<string, React.ReactNode> = {
   error: <AlertCircle className="h-3 w-3" />,
 };
 
-const MessageBubble: React.FC<Props> = ({ message, isOwn }) => {
+const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) => {
+  const timestamp = message.created_at
+    ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '';
+
   return (
     <div className={`flex gap-3 ${isOwn ? 'flex-row-reverse text-right' : 'flex-row'}`}>
-      <UserAvatar user={message.user} size={40} />
-      <div className={`max-w-xl rounded-2xl px-4 py-3 shadow-sm ${isOwn ? 'bg-deep-red text-white' : 'bg-white border border-soft-ivory text-almost-black-green'}`}>
-        <div className="flex items-center gap-2 text-xs font-semibold">
-          <span>{message.user?.full_name ?? 'Unknown user'}</span>
-          <span className="text-almost-black-green/50 dark:text-white/70">
-            {message.created_at ? new Date(message.created_at).toLocaleTimeString() : ''}
-          </span>
+      <UserAvatar user={message.user} size={36} />
+      <div
+        className={`group relative max-w-xl rounded-2xl px-4 py-3 shadow-sm ${
+          isOwn ? 'bg-deep-red text-white' : 'bg-white border border-soft-ivory text-almost-black-green'
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3 text-xs font-semibold">
+          {showAuthor && <span>{message.user?.full_name ?? 'Unknown user'}</span>}
+          <span className={`text-[0.7rem] ${isOwn ? 'text-white/70' : 'text-almost-black-green/60'}`}>{timestamp}</span>
         </div>
         {message.reply_to && (
-          <div className="mt-2 rounded-lg bg-black/5 px-3 py-2 text-xs text-almost-black-green/70 dark:bg-white/10 dark:text-white/80">
-            Replying to {message.reply_to}
+          <div className={`mt-2 rounded-lg px-3 py-2 text-xs ${isOwn ? 'bg-white/10 text-white/80' : 'bg-black/5 text-almost-black-green/70'}`}>
+            Replying to a previous message
           </div>
         )}
         <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
         {message.status && (
-          <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 text-[0.7rem] uppercase tracking-tight text-white">
+          <div
+            className={`mt-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.7rem] uppercase tracking-tight ${
+              isOwn ? 'bg-white/20 text-white' : 'bg-soft-ivory text-almost-black-green/70'
+            }`}
+          >
             {statusIcon[message.status]}
             <span>{statusCopy[message.status]}</span>
           </div>
