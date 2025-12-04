@@ -1,0 +1,377 @@
+import express, { NextFunction, Request, Response } from 'express';
+import http from 'http';
+import WebSocket, { WebSocketServer } from 'ws';
+import supabaseAdmin from '../../lib/supabaseAdmin';
+import { ChatSocketPayload, MessageWithUser, RoomMember, RoomWithDetails, User } from '../../lib/chat/types';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+interface AuthedRequest extends Request {
+  userId?: string;
+  token?: string;
+}
+
+interface SocketContext {
+  userId: string;
+  roomId?: string;
+  socket: WebSocket;
+}
+
+const app = express();
+app.use(express.json());
+
+if (!supabaseAdmin) {
+  throw new Error('Supabase admin client is not configured. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
+}
+
+const authenticateToken = async (token?: string): Promise<User | null> => {
+  if (!token) return null;
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data?.user) return null;
+  const userId = data.user.id;
+  const { data: profile } = await supabaseAdmin
+    .from('users')
+    .select('*')
+    .eq('id', userId)
+    .single();
+  return profile as User | null;
+};
+
+const requireAuth = async (req: AuthedRequest, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.replace('Bearer ', '');
+  const user = await authenticateToken(token);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  req.userId = user.id;
+  req.token = token;
+  return next();
+};
+
+const activeSockets = new Set<SocketContext>();
+
+const broadcast = (predicate: (ctx: SocketContext) => boolean, payload: ChatSocketPayload) => {
+  const message = JSON.stringify(payload);
+  activeSockets.forEach((ctx) => {
+    if (predicate(ctx) && ctx.socket.readyState === WebSocket.OPEN) {
+      ctx.socket.send(message);
+    }
+  });
+};
+
+const broadcastToRoom = (roomId: string, payload: ChatSocketPayload) =>
+  broadcast((ctx) => ctx.roomId === roomId, payload);
+
+const fetchRoomMembers = async (roomId: string): Promise<RoomMember[]> => {
+  const { data } = await supabaseAdmin
+    .from('room_members')
+    .select('id, room_id, user_id, role, joined_at, user:users(*)')
+    .eq('room_id', roomId);
+  return (data || []).map((member) => ({
+    id: member.id,
+    room_id: member.room_id,
+    user_id: member.user_id,
+    role: member.role,
+    joined_at: member.joined_at,
+    user: member.user as User,
+  }));
+};
+
+const fetchLastMessage = async (roomId: string): Promise<MessageWithUser | null> => {
+  const { data } = await supabaseAdmin
+    .from('messages')
+    .select('*, user:users(*)')
+    .eq('room_id', roomId)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (!data || data.length === 0) return null;
+  const msg = data[0];
+  return {
+    ...msg,
+    user: msg.user as User,
+  } as MessageWithUser;
+};
+
+app.get('/api/rooms', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { data: memberships } = await supabaseAdmin
+      .from('room_members')
+      .select('room_id, role')
+      .eq('user_id', req.userId!);
+
+    const roomIds = (memberships || []).map((m) => m.room_id);
+    if (roomIds.length === 0) {
+      return res.json([] as RoomWithDetails[]);
+    }
+
+    const { data: rooms } = await supabaseAdmin
+      .from('chat_rooms')
+      .select('*')
+      .in('id', roomIds);
+
+    const results: RoomWithDetails[] = [];
+    for (const room of rooms || []) {
+      const members = await fetchRoomMembers(room.id);
+      const lastMessage = await fetchLastMessage(room.id);
+      results.push({ ...room, members, lastMessage });
+    }
+
+    return res.json(results);
+  } catch (error) {
+    console.error('Error listing rooms', error);
+    return res.status(500).json({ error: 'Failed to load rooms' });
+  }
+});
+
+app.post('/api/rooms/direct', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { targetUserId } = req.body as { targetUserId?: string };
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'Missing targetUserId' });
+    }
+
+    const { data: myMemberships } = await supabaseAdmin
+      .from('room_members')
+      .select('room_id')
+      .eq('user_id', req.userId!);
+    const roomIds = (myMemberships || []).map((m) => m.room_id);
+
+    let existingRoomId: string | null = null;
+    if (roomIds.length > 0) {
+      const { data: mutualRooms } = await supabaseAdmin
+        .from('room_members')
+        .select('room_id')
+        .eq('user_id', targetUserId)
+        .in('room_id', roomIds);
+
+      existingRoomId = mutualRooms?.[0]?.room_id ?? null;
+    }
+
+    let roomId = existingRoomId;
+    if (!roomId) {
+      const { data: createdRoom, error } = await supabaseAdmin
+        .from('chat_rooms')
+        .insert({
+          name: 'Direct message',
+          description: null,
+          is_private: true,
+          created_by: req.userId!,
+        })
+        .select('id')
+        .single();
+
+      if (error || !createdRoom) {
+        return res.status(500).json({ error: 'Failed to create room' });
+      }
+
+      roomId = createdRoom.id;
+      await supabaseAdmin.from('room_members').insert([
+        { room_id: roomId, user_id: req.userId!, role: 'member' },
+        { room_id: roomId, user_id: targetUserId, role: 'member' },
+      ]);
+    }
+
+    const { data: room } = await supabaseAdmin
+      .from('chat_rooms')
+      .select('*')
+      .eq('id', roomId)
+      .single();
+
+    const members = await fetchRoomMembers(roomId);
+    const lastMessage = await fetchLastMessage(roomId);
+
+    return res.json({ ...room, members, lastMessage } as RoomWithDetails);
+  } catch (error) {
+    console.error('Error creating direct room', error);
+    return res.status(500).json({ error: 'Failed to create direct room' });
+  }
+});
+
+app.get('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { roomId } = req.params;
+    const { data: membership } = await supabaseAdmin
+      .from('room_members')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('user_id', req.userId!)
+      .single();
+
+    if (!membership) {
+      return res.status(403).json({ error: 'Not a room member' });
+    }
+
+    const { data: messages } = await supabaseAdmin
+      .from('messages')
+      .select('*, user:users(*)')
+      .eq('room_id', roomId)
+      .order('created_at', { ascending: true });
+
+    const formatted = (messages || []).map((msg) => ({ ...msg, user: msg.user as User } as MessageWithUser));
+    return res.json(formatted);
+  } catch (error) {
+    console.error('Error loading messages', error);
+    return res.status(500).json({ error: 'Failed to load messages' });
+  }
+});
+
+app.post('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { roomId } = req.params;
+    const { content, reply_to } = req.body as { content?: string; reply_to?: string | null };
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Message content is required' });
+    }
+
+    const { data: membership } = await supabaseAdmin
+      .from('room_members')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('user_id', req.userId!)
+      .single();
+    if (!membership) {
+      return res.status(403).json({ error: 'Not a room member' });
+    }
+
+    const { data: inserted, error } = await supabaseAdmin
+      .from('messages')
+      .insert({ room_id: roomId, user_id: req.userId!, content: content.trim(), reply_to: reply_to || null })
+      .select('*, user:users(*)')
+      .single();
+
+    if (error || !inserted) {
+      return res.status(500).json({ error: 'Failed to send message' });
+    }
+
+    const payload: MessageWithUser = { ...inserted, user: inserted.user as User };
+    broadcastToRoom(roomId, { type: 'new_message', message: payload });
+
+    return res.json(payload);
+  } catch (error) {
+    console.error('Error sending message', error);
+    return res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+app.get('/api/rooms/:roomId/members', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { roomId } = req.params;
+    const members = await fetchRoomMembers(roomId);
+    return res.json(members);
+  } catch (error) {
+    console.error('Error loading members', error);
+    return res.status(500).json({ error: 'Failed to load members' });
+  }
+});
+
+app.post('/api/rooms/:roomId/leave', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { roomId } = req.params;
+    await supabaseAdmin
+      .from('room_members')
+      .delete()
+      .eq('room_id', roomId)
+      .eq('user_id', req.userId!);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Error leaving room', error);
+    return res.status(500).json({ error: 'Failed to leave room' });
+  }
+});
+
+app.delete('/api/rooms/:roomId', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { roomId } = req.params;
+    const { data: room } = await supabaseAdmin
+      .from('chat_rooms')
+      .select('created_by')
+      .eq('id', roomId)
+      .single();
+
+    if (!room || room.created_by !== req.userId) {
+      return res.status(403).json({ error: 'Only the creator can delete the room' });
+    }
+
+    await supabaseAdmin.from('chat_rooms').delete().eq('id', roomId);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting room', error);
+    return res.status(500).json({ error: 'Failed to delete room' });
+  }
+});
+
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server, path: '/chat-ws' });
+
+wss.on('connection', (socket) => {
+  const context: Partial<SocketContext> = { socket };
+  let authenticated = false;
+
+  const disconnect = () => {
+    if (authenticated && context.userId) {
+      broadcast(() => true, { type: 'user_offline', userId: context.userId });
+    }
+    activeSockets.delete(context as SocketContext);
+  };
+
+  socket.on('message', async (raw) => {
+    try {
+      const data = JSON.parse(raw.toString()) as ChatSocketPayload;
+      switch (data.type) {
+        case 'auth': {
+          if (authenticated) return;
+          const user = await authenticateToken(data.token);
+          if (!user) {
+            socket.close();
+            return;
+          }
+          context.userId = user.id;
+          authenticated = true;
+          activeSockets.add(context as SocketContext);
+          socket.send(JSON.stringify({ type: 'authenticated' } satisfies ChatSocketPayload));
+          broadcast(() => true, { type: 'user_online', userId: user.id });
+          return;
+        }
+        case 'join_room': {
+          if (!authenticated || !context.userId || !data.roomId) return;
+          const { data: membership } = await supabaseAdmin
+            .from('room_members')
+            .select('id')
+            .eq('room_id', data.roomId)
+            .eq('user_id', context.userId)
+            .single();
+          if (!membership) return;
+          context.roomId = data.roomId;
+          socket.send(JSON.stringify({ type: 'room_joined', roomId: data.roomId } satisfies ChatSocketPayload));
+          return;
+        }
+        case 'typing': {
+          if (!authenticated || !context.userId || !context.roomId) return;
+          broadcastToRoom(context.roomId, {
+            type: 'user_typing',
+            roomId: context.roomId,
+            userId: context.userId,
+            isTyping: data.isTyping ?? true,
+          });
+          return;
+        }
+        default:
+          return;
+      }
+    } catch (error) {
+      console.error('WebSocket error', error);
+    }
+  });
+
+  socket.on('close', disconnect);
+  socket.on('error', disconnect);
+});
+
+const PORT = process.env.CHAT_PORT || 4000;
+server.listen(PORT, () => {
+  console.log(`Chat server listening on http://localhost:${PORT}`);
+});
+
+export default app;
