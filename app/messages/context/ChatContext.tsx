@@ -114,6 +114,14 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     }
   }, [activeRoom, pinnedRoomIds, token, withAuthHeaders]);
 
+  const refreshFriendRequests = useCallback(async () => {
+    if (!token) return;
+    const response = await fetch(`${CHAT_API_URL}/api/friend-requests`, withAuthHeaders());
+    if (!response.ok) return;
+    const data = (await response.json()) as FriendRequest[];
+    setFriendRequests(data);
+  }, [token, withAuthHeaders]);
+
   const fetchMessages = useCallback(
     async (roomId: string) => {
       if (!token) return;
@@ -350,14 +358,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     },
     [token, withAuthHeaders]
   );
-
-  const refreshFriendRequests = useCallback(async () => {
-    if (!token) return;
-    const response = await fetch(`${CHAT_API_URL}/api/friend-requests`, withAuthHeaders());
-    if (!response.ok) return;
-    const data = (await response.json()) as FriendRequest[];
-    setFriendRequests(data);
-  }, [token, withAuthHeaders]);
 
   const sendFriendRequest = useCallback(
     async (targetUserId: string) => {
