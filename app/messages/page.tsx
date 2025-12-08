@@ -51,6 +51,7 @@ const ChatShell: React.FC = () => {
   const [showRequests, setShowRequests] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserIdState(data.user?.id ?? null));
@@ -65,9 +66,8 @@ const ChatShell: React.FC = () => {
   const activeMessages = useMemo(() => (activeRoom ? messages[activeRoom.id] || [] : []), [activeRoom, messages]);
 
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    if (!activeRoom || !messagesContainerRef.current) return;
+    messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
   }, [activeMessages.length, activeRoom?.id]);
 
   const roomTypingNames = useMemo(() => {
@@ -116,7 +116,7 @@ const ChatShell: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-soft-ivory to-warm-light-grey/60">
       <div className="mx-auto max-w-6xl px-4 py-8">
-        <header className="mb-6 flex flex-col gap-2">
+        <header className="mb-4 flex flex-col gap-2">
           <p className="text-[0.7rem] uppercase tracking-[0.3em] text-deep-red/80">Real-time coordination</p>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-heading font-semibold text-deep-red">Messages</h1>
@@ -127,13 +127,14 @@ const ChatShell: React.FC = () => {
           </p>
         </header>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px,1fr]">
-          <aside className="flex h-[720px] flex-col rounded-3xl bg-white shadow-sm ring-1 ring-soft-ivory/80">
-            <div className="flex items-center justify-between border-b border-soft-ivory px-4 py-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.25em] text-almost-black-green/60">Conversations</p>
-                <p className="text-sm font-semibold text-deep-red">Stay in sync</p>
-              </div>
+        <div className="rounded-3xl bg-white shadow-sm ring-1 ring-soft-ivory/90">
+          <div className="grid grid-cols-1 lg:grid-cols-[340px,1fr]">
+            <aside className="flex h-[720px] flex-col border-b border-soft-ivory lg:border-b-0 lg:border-r lg:border-soft-ivory">
+              <div className="flex items-center justify-between border-b border-soft-ivory px-4 py-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.25em] text-almost-black-green/60">Conversations</p>
+                  <p className="text-sm font-semibold text-deep-red">Stay in sync</p>
+                </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -182,7 +183,7 @@ const ChatShell: React.FC = () => {
             </div>
           </aside>
 
-          <section className="flex h-[720px] flex-col rounded-3xl bg-white shadow-sm ring-1 ring-soft-ivory/80">
+          <section className="flex h-[720px] flex-col">
             <header className="flex items-center justify-between border-b border-soft-ivory px-6 py-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-almost-black-green/60">Messages</p>
@@ -214,7 +215,10 @@ const ChatShell: React.FC = () => {
             </header>
 
             <div className="flex flex-1 flex-col">
-              <div className="flex-1 space-y-4 overflow-y-auto bg-warm-light-grey/40 px-6 py-4">
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 space-y-4 overflow-y-auto bg-warm-light-grey/40 px-6 py-4"
+              >
                 {activeRoom ? (
                   activeMessages.length > 0 ? (
                     timeline.map((item) => {

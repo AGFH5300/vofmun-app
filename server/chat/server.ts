@@ -25,17 +25,12 @@ if (!supabaseAdmin) {
   throw new Error('Supabase admin client is not configured. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
 }
 
-const authenticateToken = async (token?: string): Promise<User | null> => {
+const authenticateToken = async (token?: string): Promise<{ id: string; email?: string | null } | null> => {
   if (!token) return null;
   const { data, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !data?.user) return null;
   const userId = data.user.id;
-  const { data: profile } = await supabaseAdmin
-    .from('users')
-    .select('*')
-    .eq('id', userId)
-    .single();
-  return profile as User | null;
+  return { id: userId, email: data.user.email };
 };
 
 const requireAuth = async (req: AuthedRequest, res: Response, next: NextFunction) => {
@@ -71,34 +66,95 @@ const deriveRoomType = (room: { is_private?: boolean | null; name?: string | nul
   return 'group';
 };
 
+const mapProfile = (raw: any, role: User['role']): User => ({
+  id: raw.adminID || raw.delegateID || raw.chairID || raw.secretariatID || raw.id,
+  email: raw.email || '',
+  username: raw.username || raw.email || undefined,
+  full_name: [raw.firstname, raw.lastname, raw.full_name, raw.name].filter(Boolean).join(' ') || 'Unknown',
+  avatar_url: raw.avatar_url || null,
+  role_title: role?.charAt(0).toUpperCase() + role?.slice(1),
+  committee: raw.committee?.name || raw.committeeCode || raw.committeeID || raw.committee || null,
+  country: raw.country?.name || raw.country || null,
+  role,
+});
+
+const searchPeople = async (query: string): Promise<User[]> => {
+  const ilike = `%${query}%`;
+  const orFilter = `firstname.ilike.${ilike},lastname.ilike.${ilike},full_name.ilike.${ilike},email.ilike.${ilike}`;
+
+  const [{ data: admins }, { data: chairs }, { data: delegates }, { data: secs }] = await Promise.all([
+    supabaseAdmin.from('Admin').select('*').or(orFilter).limit(10),
+    supabaseAdmin.from('Chair').select('*, committee:Committee(*)').or(orFilter).limit(10),
+    supabaseAdmin.from('Delegate').select('*, committee:Committee(*), country:Country(*)').or(orFilter).limit(10),
+    supabaseAdmin.from('Secretariat').select('*').or(orFilter).limit(10),
+  ]);
+
+  const results: User[] = [];
+  (admins || []).forEach((row) => results.push(mapProfile(row, 'admin')));
+  (chairs || []).forEach((row) => results.push(mapProfile(row, 'chair')));
+  (delegates || []).forEach((row) => results.push(mapProfile(row, 'delegate')));
+  (secs || []).forEach((row) => results.push(mapProfile(row, 'secretariat')));
+  return results;
+};
+
+const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, User>> => {
+  if (ids.length === 0) return {};
+  const uniqueIds = Array.from(new Set(ids));
+  const [admins, chairs, delegates, secs] = await Promise.all([
+    supabaseAdmin.from('Admin').select('*').in('adminID', uniqueIds),
+    supabaseAdmin.from('Chair').select('*, committee:Committee(*)').in('chairID', uniqueIds),
+    supabaseAdmin.from('Delegate').select('*, committee:Committee(*), country:Country(*)').in('delegateID', uniqueIds),
+    supabaseAdmin.from('Secretariat').select('*').in('secretariatID', uniqueIds),
+  ]);
+
+  const map: Record<string, User> = {};
+  (admins.data || []).forEach((row) => {
+    const profile = mapProfile(row, 'admin');
+    map[profile.id] = profile;
+  });
+  (chairs.data || []).forEach((row) => {
+    const profile = mapProfile(row, 'chair');
+    map[profile.id] = profile;
+  });
+  (delegates.data || []).forEach((row) => {
+    const profile = mapProfile(row, 'delegate');
+    map[profile.id] = profile;
+  });
+  (secs.data || []).forEach((row) => {
+    const profile = mapProfile(row, 'secretariat');
+    map[profile.id] = profile;
+  });
+  return map;
+};
+
 const fetchRoomMembers = async (roomId: string): Promise<RoomMember[]> => {
   const { data } = await supabaseAdmin
     .from('room_members')
-    .select('id, room_id, user_id, role, joined_at, user:users(*)')
+    .select('id, room_id, user_id, role, joined_at')
     .eq('room_id', roomId);
-  return (data || []).map((member) => ({
+  const members = data || [];
+  const profiles = await fetchProfilesByIds(members.map((m) => m.user_id).filter(Boolean));
+  return members.map((member) => ({
     id: member.id,
     room_id: member.room_id,
     user_id: member.user_id,
     role: member.role,
     joined_at: member.joined_at,
-    user: member.user as User,
+    user: profiles[member.user_id],
   }));
 };
 
 const fetchLastMessage = async (roomId: string): Promise<MessageWithUser | null> => {
   const { data } = await supabaseAdmin
     .from('messages')
-    .select('*, user:users(*)')
+    .select('*')
     .eq('room_id', roomId)
     .order('created_at', { ascending: false })
     .limit(1);
   if (!data || data.length === 0) return null;
   const msg = data[0];
-  return {
-    ...msg,
-    user: msg.user as User,
-  } as MessageWithUser;
+  const profiles = await fetchProfilesByIds([msg.user_id]);
+  return { ...msg, user: profiles[msg.user_id] } as MessageWithUser;
 };
 
 app.get('/api/rooms', requireAuth, async (req: AuthedRequest, res: Response) => {
@@ -137,12 +193,8 @@ app.get('/api/users/search', requireAuth, async (req: AuthedRequest, res: Respon
   try {
     const query = (req.query.query as string) || '';
     if (!query.trim()) return res.json([]);
-    const { data } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .ilike('full_name', `%${query}%`)
-      .limit(20);
-    return res.json((data || []) as User[]);
+    const results = await searchPeople(query);
+    return res.json(results);
   } catch (error) {
     console.error('Error searching users', error);
     return res.status(500).json({ error: 'Failed to search users' });
@@ -160,12 +212,17 @@ app.post('/api/friend-requests', requireAuth, async (req: AuthedRequest, res: Re
 
     const { data } = await supabaseAdmin
       .from('friend_requests')
-      .select('*, sender:users!sender_id(*), receiver:users!receiver_id(*)')
+      .select('*')
       .eq('sender_id', req.userId!)
       .eq('receiver_id', targetUserId)
       .single();
 
-    return res.json(data as FriendRequest);
+    const profiles = await fetchProfilesByIds([req.userId!, targetUserId]);
+    return res.json({
+      ...(data as FriendRequest),
+      sender: profiles[req.userId!],
+      receiver: profiles[targetUserId],
+    });
   } catch (error) {
     console.error('Error sending friend request', error);
     return res.status(500).json({ error: 'Failed to send request' });
@@ -176,11 +233,24 @@ app.get('/api/friend-requests', requireAuth, async (req: AuthedRequest, res: Res
   try {
     const { data } = await supabaseAdmin
       .from('friend_requests')
-      .select('*, sender:users!sender_id(*), receiver:users!receiver_id(*)')
+      .select('*')
       .or(`sender_id.eq.${req.userId},receiver_id.eq.${req.userId}`)
       .order('created_at', { ascending: false });
 
-    return res.json((data || []) as FriendRequest[]);
+    const ids = new Set<string>();
+    (data || []).forEach((reqItem) => {
+      ids.add(reqItem.sender_id);
+      ids.add(reqItem.receiver_id);
+    });
+    const profiles = await fetchProfilesByIds(Array.from(ids));
+
+    const enriched = (data || []).map((item) => ({
+      ...(item as FriendRequest),
+      sender: profiles[item.sender_id],
+      receiver: profiles[item.receiver_id],
+    }));
+
+    return res.json(enriched as FriendRequest[]);
   } catch (error) {
     console.error('Error listing friend requests', error);
     return res.status(500).json({ error: 'Failed to load friend requests' });
@@ -331,11 +401,12 @@ app.get('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, r
 
     const { data: messages } = await supabaseAdmin
       .from('messages')
-      .select('*, user:users(*)')
+      .select('*')
       .eq('room_id', roomId)
       .order('created_at', { ascending: true });
 
-    const formatted = (messages || []).map((msg) => ({ ...msg, user: msg.user as User } as MessageWithUser));
+    const profiles = await fetchProfilesByIds((messages || []).map((msg) => msg.user_id));
+    const formatted = (messages || []).map((msg) => ({ ...msg, user: profiles[msg.user_id] } as MessageWithUser));
     return res.json(formatted);
   } catch (error) {
     console.error('Error loading messages', error);
@@ -364,14 +435,15 @@ app.post('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, 
     const { data: inserted, error } = await supabaseAdmin
       .from('messages')
       .insert({ room_id: roomId, user_id: req.userId!, content: content.trim(), reply_to: reply_to || null })
-      .select('*, user:users(*)')
+      .select('*')
       .single();
 
     if (error || !inserted) {
       return res.status(500).json({ error: 'Failed to send message' });
     }
 
-    const payload: MessageWithUser = { ...inserted, user: inserted.user as User };
+    const profiles = await fetchProfilesByIds([inserted.user_id]);
+    const payload: MessageWithUser = { ...inserted, user: profiles[inserted.user_id] };
     broadcastToRoom(roomId, { type: 'new_message', message: payload });
 
     return res.json(payload);

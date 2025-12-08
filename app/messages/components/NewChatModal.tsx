@@ -78,7 +78,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
           <div className="flex items-start justify-between">
             <div>
               <Dialog.Title className="text-xl font-semibold text-deep-red">Start a direct message</Dialog.Title>
-              <p className="text-sm text-almost-black-green/70">Find participants by name, username, or email.</p>
+              <p className="text-sm text-almost-black-green/70">Find admins, chairs, delegates, or secretariat members by name or email.</p>
             </div>
             <button onClick={onClose} className="text-sm text-almost-black-green/60 hover:text-deep-red">Close</button>
           </div>
@@ -89,7 +89,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name, username, or email"
+                placeholder="Search by name, role, or email"
                 className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm focus:border-deep-red/40 focus:ring-2 focus:ring-deep-red/20"
               />
             </label>
@@ -104,7 +104,11 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                   <UserAvatar user={user} size={40} />
                   <div>
                     <p className="text-sm font-semibold text-deep-red">{user.full_name}</p>
-                    <p className="text-xs text-almost-black-green/60">@{user.username}</p>
+                    <p className="text-xs text-almost-black-green/60">
+                      {user.role_title || user.role || 'Participant'}
+                      {user.committee ? ` • ${user.committee}` : ''}
+                    </p>
+                    {user.email && <p className="text-xs text-almost-black-green/50">{user.email}</p>}
                   </div>
                 </div>
                 <div className="flex gap-2 text-sm">

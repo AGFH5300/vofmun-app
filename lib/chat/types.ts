@@ -3,13 +3,15 @@ export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'error';
 export interface User {
   id: string;
   email: string;
-  username: string;
+  username?: string;
   full_name: string;
   avatar_url?: string | null;
   is_online?: boolean | null;
   last_seen?: string | null;
   role_title?: string | null;
   committee?: string | null;
+  role?: 'admin' | 'delegate' | 'chair' | 'secretariat';
+  country?: string | null;
 }
 
 export type RoomType = 'dm' | 'group' | 'committee';
