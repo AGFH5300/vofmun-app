@@ -155,7 +155,8 @@ const NewGroupModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
                       <UserAvatar user={user} size={36} />
                       <div>
                         <p className="text-sm font-semibold text-deep-red">{user.full_name}</p>
-                        <p className="text-xs text-almost-black-green/60">@{user.username}</p>
+                        <p className="text-xs text-almost-black-green/60">{user.role_title || user.role || 'Participant'}</p>
+                        {user.committee && <p className="text-[0.7rem] text-almost-black-green/60">{user.committee}</p>}
                       </div>
                     </div>
                     <Plus className="h-4 w-4 text-deep-red" />
