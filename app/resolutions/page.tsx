@@ -17,7 +17,7 @@ const serializeDocument = (content?: object | null) =>
 const UNSAVED_CHANGES_MESSAGE =
   "You have unsaved changes. Do you want to leave without saving?";
 
-const parseResoContent = (raw?: string | object | null) => {
+  const parseResoContent = (raw?: string | object | null) => {
   if (!raw) {
     return undefined;
   }
@@ -106,6 +106,15 @@ const Page = () => {
   useEffect(() => {
     evaluateUnsavedChanges();
   }, [title, evaluateUnsavedChanges]);
+
+  const resolveCommitteeId = useCallback(async (value: string) => {
+    const { data } = await supabase
+      .from("Committee")
+      .select("committeeID, committeeCode")
+      .or(`committeeID.eq.${value},committeeCode.eq.${value}`)
+      .maybeSingle();
+    return data?.committeeID ?? value;
+  }, []);
 
   useEffect(() => {
     const baselineTitle = selectedReso?.title ?? "";
@@ -231,11 +240,17 @@ const Page = () => {
           if (!delegateUser.resoPerms["view:allreso"]) {
             query = query.eq("delegateID", delegateUser.delegateID);
           } else {
-            query = query.eq("committeeID", delegateUser.committee.committeeID);
+            const committeeUuid = await resolveCommitteeId(
+              delegateUser.committee.committeeID
+            );
+            query = query.eq("committeeID", committeeUuid);
           }
         } else if (userRole === "chair") {
           const chairUser = currentUser as Chair;
-          query = query.eq("committeeID", chairUser.committee.committeeID);
+          const committeeUuid = await resolveCommitteeId(
+            chairUser.committee.committeeID
+          );
+          query = query.eq("committeeID", committeeUuid);
         }
 
         const { data, error } = await query;
@@ -260,7 +275,7 @@ const Page = () => {
     };
 
     fetchResos();
-  }, [currentUser, selectedReso, userRole]);
+  }, [currentUser, resolveCommitteeId, selectedReso, userRole]);
 
   useEffect(() => {
     if (editorRef.current) {
@@ -388,7 +403,7 @@ const Page = () => {
     if (isDelegateUser) {
       const delegateUser = updatedUser as Delegate;
       delegateID = delegateUser.delegateID;
-      committeeID = delegateUser.committee.committeeID;
+      committeeID = await resolveCommitteeId(delegateUser.committee.committeeID);
 
       const ownResos = fetchedResos.filter(
         (reso) => reso.delegateID === delegateUser.delegateID
@@ -399,7 +414,7 @@ const Page = () => {
       }
     } else if (updatedUserRole === "chair" && selectedReso) {
       const chairUser = updatedUser as Chair;
-      committeeID = chairUser.committee.committeeID;
+      committeeID = await resolveCommitteeId(chairUser.committee.committeeID);
       delegateID = selectedReso.delegateID;
     }
 
