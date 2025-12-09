@@ -88,7 +88,7 @@ export default function TypeWriter() {
 
   return (
     <div className="flex min-h-[3.5rem] items-center justify-center">
-      <h1 className="text-center text-4xl font-heading font-black leading-tight text-deep-red">
+      <h1 className="text-center text-4xl font-heading font-black leading-tight text-deep-red style={ {color:"#701e1e"} }">
         {text}
         <span className="ml-1 inline-block w-[0.5ch] align-middle text-deep-red">{blinker}</span>
       </h1>
