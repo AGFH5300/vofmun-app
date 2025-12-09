@@ -108,8 +108,11 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
           </div>
 
           <div className="mt-4">
-            <label className="relative block">
-              <div className="flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 focus-within:border-deep-red/40 focus-within:ring-2 focus-within:ring-deep-red/20">
+            <label className="relative block items-center rounded-xl border border-soft-ivory bg-warm-light-grey focus-within:border-deep-red/40 focus-within:ring-2 focus-within:ring-deep-red/20">
+              <div 
+                className="flex items-center gap-2 rounded-xl bg-warm-light-grey px-3 py-2"
+                style={ {boxShadow: "2px 2px 4px rgba(0, 0, 0, 0.1)", paddingTop: "0px", paddingBottom: "0px"} }
+                >
                 <Search className="h-4 w-4 text-almost-black-green/50" />
                 <input
                   value={query}
@@ -122,7 +125,8 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                     }
                   }}
                   placeholder="Search by name or email"
-                  className="w-full bg-transparent text-sm text-almost-black-green/90 placeholder:text-almost-black-green/50 focus:outline-none"
+                  className="w-full bg-transparent text-sm text-almost-black-green/90 placeholder:text-almost-black-green/50 no-focus"
+                  style={ {borderColor: "none", borderWidth: "0px", boxShadow: "none"} }
                 />
               </div>
             </label>
