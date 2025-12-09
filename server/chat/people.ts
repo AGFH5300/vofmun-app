@@ -1,4 +1,5 @@
 import supabaseAdmin from '../../lib/supabaseAdmin';
+import { User } from '../../lib/chat/types';
 
 type ChatPersonRole = 'admin' | 'chair' | 'delegate' | 'secretariat';
 
@@ -13,6 +14,23 @@ export type ChatPerson = {
 
 const formatDisplayName = (first?: string | null, last?: string | null) =>
   `${first || ''} ${last || ''}`.trim() || 'Unknown';
+
+export const mapProfileForChat = (
+  row: { adminID?: string; chairID?: string; delegateID?: string; secretariatID?: string; firstname?: string | null; lastname?: string | null; email?: string | null },
+  role: ChatPersonRole,
+  extras?: { committee?: string | null; country?: string | null }
+): User => {
+  const id = row.adminID || row.chairID || row.delegateID || row.secretariatID || '';
+  return {
+    id,
+    email: row.email || '',
+    full_name: formatDisplayName(row.firstname, row.lastname),
+    role,
+    role_title: role.charAt(0).toUpperCase() + role.slice(1),
+    committee: extras?.committee || null,
+    country: extras?.country || null,
+  };
+};
 
 const logTableResult = (table: string, rows: unknown[]) => {
   console.log(`[people search] ${table} rows`, rows.length);

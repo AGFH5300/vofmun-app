@@ -10,35 +10,21 @@ export async function GET(req: Request) {
                 headers: { 'Content-Type': 'application/json' },
             });
         }
-        const { data: delegationData, error: delegationError } = await supabase
-            .from('Delegation')
-            .select('countryID')
-            .eq('committeeID', committeeID);
-        if (delegationError) {
-            return new Response(JSON.stringify({ message: `Error fetching delegations: ${delegationError.message}` }), {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' },
-            });
-        }
-        const countryIDs = (delegationData || []).map((row: {countryID : string}) => row.countryID);
-        if (countryIDs.length === 0) {
-            return new Response(JSON.stringify([]), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-            });
-        }
         const { data, error } = await supabase
-            .from('Country')
-            .select('*')
-            .in('countryID', countryIDs);
+            .from('Delegate')
+            .select('country')
+            .eq('committeeID', committeeID);
         if (error) {
-            return new Response(JSON.stringify({ message: `Error fetching countries: ${error.message}` }), {
+            return new Response(JSON.stringify({ message: `Error fetching delegates: ${error.message}` }), {
                 status: 500,
                 headers: { 'Content-Type': 'application/json' },
             });
         }
 
-        return new Response(JSON.stringify(data), {
+        const countries = Array.from(new Set((data || []).map((row: { country: string | null }) => row.country).filter(Boolean)))
+            .map((countryName) => ({ country: countryName }));
+
+        return new Response(JSON.stringify(countries), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
         });

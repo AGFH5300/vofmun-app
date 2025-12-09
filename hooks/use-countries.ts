@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 
-type Country = { countryID: string; flag: string; name: string };
+type Country = { name: string };
 
 export const useCountries = (committeeID: string | null) => {
   const [countries, setCountries] = useState<Country[] | null>(null);
@@ -16,8 +16,12 @@ export const useCountries = (committeeID: string | null) => {
       setLoading(true);
       const response = await fetch(`/api/countries?committeeID=${committeeID}`);
       if (response.ok) {
-        const data = await response.json();
-        setCountries([...data]);
+        const data: Array<{ country: string | null }> = await response.json();
+        const formatted = data
+          .map((entry) => entry.country)
+          .filter((country): country is string => Boolean(country))
+          .map((country) => ({ name: country }));
+        setCountries(formatted);
       } else {
         setCountries([]);
       }
@@ -32,20 +36,16 @@ export const useCountries = (committeeID: string | null) => {
     fetchCountries();
   }, [fetchCountries]);
 
-  const getCountryFlag = useCallback((countryID: string) => {
-    return countries?.find((country) => country.countryID === countryID)?.flag;
-  }, [countries]);
-
   const searchCountries = useCallback((query: string) => {
     if (!countries || !query) return new Set<string>();
-    
+
     const lowerCaseQuery = query.toLowerCase().trim();
     return new Set(
       countries
         .filter((country) =>
           country.name.toLowerCase().includes(lowerCaseQuery)
         )
-        .map((country) => country.countryID)
+        .map((country) => country.name)
     );
   }, [countries]);
 
@@ -53,7 +53,6 @@ export const useCountries = (committeeID: string | null) => {
     countries,
     loading,
     fetchCountries,
-    getCountryFlag,
     searchCountries,
   };
 };

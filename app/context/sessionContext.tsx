@@ -5,7 +5,7 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
-import { Admin, Delegate, Chair, UserType } from "@/db/types";
+import { Admin, Delegate, Chair, Secretariat, UserType } from "@/db/types";
 import Cookies from "js-cookie";
 import { useRouter } from "@/src/router";
 // lot to explain here lolz
@@ -20,7 +20,7 @@ const SessionContext = createContext<SessionContextProps | undefined>(
 );
 
 export const SessionProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<Delegate | Admin | Chair | null>(null);
+  const [user, setUser] = useState<Delegate | Admin | Chair | Secretariat | null>(null);
   const { navigate } = useRouter();
   const [isLoading, setIsLoading] =
     useState(true); /* this is very very very important

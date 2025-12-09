@@ -71,11 +71,28 @@ const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, User>> 
   if (ids.length === 0) return {};
   const uniqueIds = Array.from(new Set(ids));
   const [admins, chairs, delegates, secs] = await Promise.all([
-    supabaseAdmin.from('Admin').select('*').in('adminID', uniqueIds),
-    supabaseAdmin.from('Chair').select('*, committee:Committee(*)').in('chairID', uniqueIds),
-    supabaseAdmin.from('Delegate').select('*, committee:Committee(*), country:Country(*)').in('delegateID', uniqueIds),
-    supabaseAdmin.from('Secretariat').select('*').in('secretariatID', uniqueIds),
+    supabaseAdmin.from('Admin').select('adminID, firstname, lastname, email').in('adminID', uniqueIds),
+    supabaseAdmin.from('Chair').select('chairID, firstname, lastname, email').in('chairID', uniqueIds),
+    supabaseAdmin.from('Delegate').select('delegateID, firstname, lastname, email, country, committeeID').in('delegateID', uniqueIds),
+    supabaseAdmin.from('Secretariat').select('secretariatID, firstname, lastname, email').in('secretariatID', uniqueIds),
   ]);
+
+  const committeeIds = new Set<string>();
+  (delegates.data || []).forEach((row) => {
+    if (row.committeeID) committeeIds.add(row.committeeID);
+  });
+
+  const committeeMap = new Map<string, string | null>();
+  if (committeeIds.size > 0) {
+    const { data: committees } = await supabaseAdmin
+      .from('Committee')
+      .select('committeeID, committeeCode, name')
+      .in('committeeID', Array.from(committeeIds));
+
+    (committees || []).forEach((committee) => {
+      committeeMap.set(committee.committeeID, committee.committeeCode || committee.name || null);
+    });
+  }
 
   const map: Record<string, User> = {};
   (admins.data || []).forEach((row) => {
@@ -87,7 +104,10 @@ const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, User>> 
     map[profile.id] = profile;
   });
   (delegates.data || []).forEach((row) => {
-    const profile = mapProfileForChat(row, 'delegate');
+    const profile = mapProfileForChat(row, 'delegate', {
+      committee: row.committeeID ? committeeMap.get(row.committeeID) || null : null,
+      country: row.country || null,
+    });
     map[profile.id] = profile;
   });
   (secs.data || []).forEach((row) => {
