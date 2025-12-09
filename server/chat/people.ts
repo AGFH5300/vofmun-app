@@ -1,5 +1,5 @@
-import supabaseAdmin from '@/lib/supabaseAdmin';
-import { User } from '@/lib/chat/types';
+import supabaseAdmin from '../../lib/supabaseAdmin';
+import { User } from '../../lib/chat/types';
 
 const mapProfile = (raw: any, role: User['role']): User => ({
   id: raw.adminID || raw.delegateID || raw.chairID || raw.secretariatID || raw.id,
