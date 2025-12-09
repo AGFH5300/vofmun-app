@@ -78,6 +78,15 @@ export const searchPeople = async (query: string): Promise<User[]> => {
     returned: filtered.length,
   });
 
+  const sampleDelegate = delegates?.[0];
+  if (sampleDelegate) {
+    console.log('[people search] sample delegate', {
+      id: sampleDelegate.delegateID || sampleDelegate.id,
+      email: sampleDelegate.email,
+      name: [sampleDelegate.firstname, sampleDelegate.lastname].filter(Boolean).join(' '),
+    });
+  }
+
   return filtered;
 };
 
