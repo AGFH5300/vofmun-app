@@ -14,6 +14,15 @@ import {
 const CHAT_WS_URL = import.meta.env.VITE_CHAT_WS_URL;
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '';
 
+type PeopleSearchResult = {
+  id: string;
+  role: 'admin' | 'delegate' | 'chair' | 'secretariat';
+  displayName: string;
+  email: string | null;
+  committeeCode?: string | null;
+  country?: string | null;
+};
+
 interface ChatContextValue {
   rooms: RoomWithDetails[];
   activeRoom: RoomWithDetails | null;
@@ -352,14 +361,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const searchUsers = useCallback(
     async (query: string) => {
       const trimmed = query.trim();
-      if (!token || trimmed.length < 2) return [] as UserSearchResult[];
+      if (trimmed.length < 2) return [] as UserSearchResult[];
       try {
-        const url = `${CHAT_API_URL}/api/chat/people?query=${encodeURIComponent(trimmed)}`;
+        const url = `/api/chat/people?query=${encodeURIComponent(trimmed)}`;
         console.log('[ChatContext] searching people', url);
-        const response = await fetch(
-          url,
-          withAuthHeaders()
-        );
+        const response = await fetch(url);
         if (!response.ok) {
           const errorText = await response.text();
           console.error('[ChatContext] people search failed', {
@@ -369,13 +375,22 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           });
           return [] as UserSearchResult[];
         }
-        return (await response.json()) as UserSearchResult[];
+        const data = (await response.json()) as PeopleSearchResult[];
+        const mapped: UserSearchResult[] = data.map((person) => ({
+          id: person.id,
+          email: person.email || '',
+          full_name: person.displayName,
+          role: person.role,
+          committee: person.committeeCode || null,
+          country: person.country || null,
+        }));
+        return mapped;
       } catch (err) {
         console.error('[ChatContext] people search threw', err);
         return [] as UserSearchResult[];
       }
     },
-    [token, withAuthHeaders]
+    []
   );
 
   const sendFriendRequest = useCallback(

@@ -80,7 +80,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
   const emptyState = useMemo(
     () => (
       <div className="rounded-2xl border border-dashed border-soft-ivory bg-warm-light-grey/40 px-4 py-8 text-center text-almost-black-green/70">
-        <p className="text-sm">Search for a delegate, chair, or secretariat member to start a chat.</p>
+        <p className="text-sm">Start typing a name or email to search.</p>
       </div>
     ),
     []
@@ -105,7 +105,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name, role, or email"
+                placeholder="Search by name or email"
                 className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm focus:border-deep-red/40 focus:ring-2 focus:ring-deep-red/20"
               />
             </label>
