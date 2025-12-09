@@ -81,8 +81,10 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
 
   const handleSendRequest = async (user: UserSearchResult) => {
     setError(null);
-    await sendFriendRequest(user.id);
-    setError('Connection request sent');
+    const result = await sendFriendRequest(user.id);
+    if (!result) {
+      setError('Unable to send connection request.');
+    }
   };
 
   const emptyState = useMemo(

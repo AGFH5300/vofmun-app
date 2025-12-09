@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { ParticipantRoute } from "@/components/protectedroute";
 import { ChatProvider, useChat } from "./context/ChatContext";
 import MessageBubble from "./components/MessageBubble";
@@ -21,7 +21,6 @@ import {
   Users,
 } from "lucide-react";
 import { RoomWithDetails } from "@/lib/chat/types";
-import supabase from "@/lib/supabase";
 
 const formatDateLabel = (dateString: string) => {
   const date = new Date(dateString);
@@ -53,21 +52,12 @@ const ChatShell: React.FC = () => {
 
   const [composer, setComposer] = useState("");
   const [search, setSearch] = useState("");
-  const [currentUserIdState, setCurrentUserIdState] = useState<string | null>(
-    null,
-  );
   const [showNewChat, setShowNewChat] = useState(false);
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [showRequests, setShowRequests] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    supabase.auth
-      .getUser()
-      .then(({ data }) => setCurrentUserIdState(data.user?.id ?? null));
-  }, []);
 
   const filteredRooms = useMemo(() => {
     if (!search.trim()) return rooms;
@@ -129,13 +119,13 @@ const ChatShell: React.FC = () => {
   const pendingRequests = friendRequests.filter(
     (req) =>
       req.status === "pending" &&
-      req.receiver_id === (currentUserId || currentUserIdState),
+      req.receiver_id === currentUserId,
   ).length;
 
   const headerSubtitle = activeRoom
     ? activeRoom.room_type === "dm"
       ? activeRoom.members.find(
-          (m) => m.user_id !== (currentUserId || currentUserIdState),
+          (m) => m.user_id !== currentUserId,
         )?.user?.committee || "Delegate"
       : `${activeRoom.members.length} participants`
     : "Choose a conversation to start";
@@ -215,7 +205,7 @@ const ChatShell: React.FC = () => {
                   activeRoomId={activeRoom?.id}
                   onSelect={handleSelectRoom}
                   onTogglePin={togglePin}
-                  currentUserId={currentUserIdState || currentUserId}
+                  currentUserId={currentUserId}
                   onlineUsers={onlineUsers}
                   onNewChat={() => setShowNewChat(true)}
                   onNewGroup={() => setShowNewGroup(true)}
