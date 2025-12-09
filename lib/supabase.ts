@@ -15,6 +15,15 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
     headers: {
       apikey: supabaseKey,
       Authorization: `Bearer ${supabaseKey}`
+    },
+    // Ensure every request includes the required API key headers so Supabase
+    // never rejects the call with "No API key found".
+    fetch: (input, init = {}) => {
+      const headers = new Headers(init.headers || {});
+      headers.set("apikey", supabaseKey);
+      headers.set("Authorization", `Bearer ${supabaseKey}`);
+
+      return fetch(input, { ...init, headers });
     }
   }
 });
