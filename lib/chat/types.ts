@@ -62,7 +62,7 @@ export interface RoomWithDetails extends ChatRoom {
   unreadCount?: number;
 }
 
-export type FriendRequestStatus = 'pending' | 'accepted' | 'rejected';
+export type FriendRequestStatus = 'pending' | 'accepted' | 'declined' | 'rejected';
 
 export interface FriendRequest {
   id: string;

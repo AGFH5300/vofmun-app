@@ -365,7 +365,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       try {
         const url = `/api/chat/people?query=${encodeURIComponent(trimmed)}`;
         console.log('[ChatContext] searching people', url);
-        const response = await fetch(url);
+        const response = await fetch(url, withAuthHeaders());
         if (!response.ok) {
           const errorText = await response.text();
           console.error('[ChatContext] people search failed', {
@@ -376,33 +376,58 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           return [] as UserSearchResult[];
         }
         const data = (await response.json()) as PeopleSearchResult[];
-        const mapped: UserSearchResult[] = data.map((person) => ({
-          id: person.id,
-          email: person.email || '',
-          full_name: person.displayName,
-          role: person.role,
-          committee: person.committeeCode || null,
-          country: person.country || null,
-        }));
+        const mapped: UserSearchResult[] = data
+          .filter((person) => person.id !== userId)
+          .map((person) => {
+            const existingRequest = friendRequests.find(
+              (req) =>
+                (req.sender_id === person.id && req.receiver_id === userId) ||
+                (req.receiver_id === person.id && req.sender_id === userId)
+            );
+
+            return {
+              id: person.id,
+              email: person.email || '',
+              full_name: person.displayName,
+              role: person.role,
+              committee: person.committeeCode || null,
+              country: person.country || null,
+              is_friend: existingRequest?.status === 'accepted',
+              has_pending_request: existingRequest?.status === 'pending',
+            };
+          });
         return mapped;
       } catch (err) {
         console.error('[ChatContext] people search threw', err);
         return [] as UserSearchResult[];
       }
     },
-    []
+    [friendRequests, userId, withAuthHeaders]
   );
 
   const sendFriendRequest = useCallback(
     async (targetUserId: string) => {
-      if (!token) return;
-      await fetch(
+      if (!token) return null;
+      const response = await fetch(
         `${CHAT_API_URL}/api/friend-requests`,
         withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
       );
-      refreshFriendRequests();
+
+      if (!response.ok) {
+        console.error('[ChatContext] failed to send friend request', await response.text());
+        return null;
+      }
+
+      const created = (await response.json()) as FriendRequest;
+      setFriendRequests((prev) => {
+        const withoutDupes = prev.filter(
+          (req) => !(req.sender_id === created.sender_id && req.receiver_id === created.receiver_id)
+        );
+        return [created, ...withoutDupes];
+      });
+      return created;
     },
-    [refreshFriendRequests, token, withAuthHeaders]
+    [token, withAuthHeaders]
   );
 
   const respondToFriendRequest = useCallback(

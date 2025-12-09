@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import { Search, Send, UserPlus } from 'lucide-react';
+import { Check, Search, Send, UserPlus, X } from 'lucide-react';
 import { UserSearchResult } from '@/lib/chat/types';
 import UserAvatar from './UserAvatar';
 import { useChat } from '../context/ChatContext';
@@ -14,7 +14,15 @@ interface Props {
 }
 
 const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated }) => {
-  const { searchUsers, createDirectRoom, sendFriendRequest, selectRoom } = useChat();
+  const {
+    searchUsers,
+    createDirectRoom,
+    sendFriendRequest,
+    selectRoom,
+    friendRequests,
+    respondToFriendRequest,
+    currentUserId,
+  } = useChat();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -101,13 +109,22 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
 
           <div className="mt-4">
             <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-almost-black-green/40" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name or email"
-                className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm focus:border-deep-red/40 focus:ring-2 focus:ring-deep-red/20"
-              />
+              <div className="flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 focus-within:border-deep-red/40 focus-within:ring-2 focus-within:ring-deep-red/20">
+                <Search className="h-4 w-4 text-almost-black-green/50" />
+                <input
+                  value={query}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setQuery(value);
+                    if (!value.trim()) {
+                      setResults([]);
+                      setHasSearched(false);
+                    }
+                  }}
+                  placeholder="Search by name or email"
+                  className="w-full bg-transparent text-sm text-almost-black-green/90 placeholder:text-almost-black-green/50 focus:outline-none"
+                />
+              </div>
             </label>
           </div>
 
@@ -117,38 +134,87 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
             {!isSearching && hasSearched && canSearch && !results.length && !error && (
               <p className="text-sm text-almost-black-green/60">No people found</p>
             )}
-            {results.map((user) => (
-              <div key={user.id} className="flex items-center justify-between rounded-2xl border border-soft-ivory px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <UserAvatar user={user} size={40} />
-                  <div>
-                    <p className="text-sm font-semibold text-deep-red">{user.full_name}</p>
-                    <p className="text-xs text-almost-black-green/60">
-                      {user.role_title || user.role || 'Participant'}
-                      {user.committee ? ` • ${user.committee}` : ''}
-                      {user.country ? ` • ${user.country}` : ''}
-                    </p>
-                    {user.email && <p className="text-xs text-almost-black-green/50">{user.email}</p>}
+            {results.map((user) => {
+              const incomingRequest = friendRequests.find(
+                (req) => req.sender_id === user.id && req.receiver_id === currentUserId && req.status === 'pending'
+              );
+              const outgoingRequest = friendRequests.find(
+                (req) => req.sender_id === currentUserId && req.receiver_id === user.id && req.status === 'pending'
+              );
+              const acceptedRequest = friendRequests.find(
+                (req) =>
+                  (req.sender_id === currentUserId && req.receiver_id === user.id) ||
+                  (req.sender_id === user.id && req.receiver_id === currentUserId)
+              );
+
+              return (
+                <div key={user.id} className="flex items-center justify-between rounded-2xl border border-soft-ivory px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <UserAvatar user={user} size={40} />
+                    <div>
+                      <p className="text-sm font-semibold text-deep-red">{user.full_name}</p>
+                      <p className="text-xs text-almost-black-green/60">
+                        {user.role_title || user.role || 'Participant'}
+                        {user.committee ? ` • ${user.committee}` : ''}
+                        {user.country ? ` • ${user.country}` : ''}
+                      </p>
+                      {user.email && <p className="text-xs text-almost-black-green/50">{user.email}</p>}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => handleStartChat(user)}
+                      className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 font-semibold text-white hover:bg-dark-burgundy"
+                    >
+                      <Send className="h-4 w-4" /> Message
+                    </button>
+                    {incomingRequest ? (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => respondToFriendRequest(incomingRequest.id, 'accept')}
+                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-3 py-2 font-semibold text-white hover:bg-emerald-600"
+                        >
+                          <Check className="h-4 w-4" /> Accept
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => respondToFriendRequest(incomingRequest.id, 'reject')}
+                          className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 font-semibold text-deep-red hover:bg-soft-ivory"
+                        >
+                          <X className="h-4 w-4" /> Decline
+                        </button>
+                      </div>
+                    ) : outgoingRequest ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-3 py-2 font-semibold text-white opacity-80"
+                      >
+                        <Check className="h-4 w-4" /> Sent
+                      </button>
+                    ) : acceptedRequest && acceptedRequest.status === 'accepted' ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="inline-flex items-center gap-2 rounded-xl bg-soft-ivory px-3 py-2 font-semibold text-almost-black-green/80"
+                      >
+                        Connected
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSendRequest(user)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 font-semibold text-deep-red hover:bg-soft-ivory"
+                      >
+                        <UserPlus className="h-4 w-4" /> Connect
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="flex gap-2 text-sm">
-                  <button
-                    type="button"
-                    onClick={() => handleStartChat(user)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 font-semibold text-white hover:bg-dark-burgundy"
-                  >
-                    <Send className="h-4 w-4" /> Message
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSendRequest(user)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 font-semibold text-deep-red hover:bg-soft-ivory"
-                  >
-                    <UserPlus className="h-4 w-4" /> Connect
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
             {error && <p className="text-sm text-deep-red/80">{error}</p>}
           </div>
         </Dialog.Panel>
