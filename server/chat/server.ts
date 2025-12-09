@@ -83,9 +83,7 @@ const searchPeople = async (query: string): Promise<User[]> => {
   if (trimmed.length < 2) return [];
 
   const ilike = `%${trimmed}%`;
-  const orFilter = `firstname.ilike.${ilike},lastname.ilike.${ilike},full_name.ilike.${ilike},email.ilike.${ilike}`;
-  const chairFilter = `${orFilter},committee.name.ilike.${ilike},committee.fullname.ilike.${ilike}`;
-  const delegateFilter = `${orFilter},committee.name.ilike.${ilike},committee.fullname.ilike.${ilike},country.name.ilike.${ilike}`;
+  const baseFilter = `firstname.ilike.${ilike},lastname.ilike.${ilike},email.ilike.${ilike}`;
 
   const normalizedQuery = trimmed.toLowerCase();
   const broadenSearch = {
@@ -95,16 +93,22 @@ const searchPeople = async (query: string): Promise<User[]> => {
     secretariat: normalizedQuery.includes('secretariat'),
   };
 
-  const buildQuery = (table: string, select: string, broaden: boolean, filter?: string) => {
-    const base = supabaseAdmin.from(table).select(select).limit(10);
-    return broaden ? base : base.or(filter || orFilter);
+  const buildQuery = (table: string, select: string, broaden: boolean) => {
+    const base = supabaseAdmin.from(table).select(select).limit(20);
+    return broaden ? base : base.or(baseFilter);
   };
 
+  console.log('[people search] incoming query', { query: trimmed, length: trimmed.length });
+
   const [{ data: admins }, { data: chairs }, { data: delegates }, { data: secs }] = await Promise.all([
-    buildQuery('Admin', '*', broadenSearch.admin),
-    buildQuery('Chair', '*, committee:Committee(*)', broadenSearch.chair, chairFilter),
-    buildQuery('Delegate', '*, committee:Committee(*), country:Country(*)', broadenSearch.delegate, delegateFilter),
-    buildQuery('Secretariat', '*', broadenSearch.secretariat),
+    buildQuery('Admin', 'adminID, firstname, lastname, email, username', broadenSearch.admin),
+    buildQuery('Chair', 'chairID, firstname, lastname, email, username, committeeID, committee:Committee(*)', broadenSearch.chair),
+    buildQuery(
+      'Delegate',
+      'delegateID, firstname, lastname, email, username, committeeID, country, committee:Committee(*), country:Country(*)',
+      broadenSearch.delegate
+    ),
+    buildQuery('Secretariat', 'secretariatID, firstname, lastname, email, username', broadenSearch.secretariat),
   ]);
 
   const results: User[] = [];
@@ -128,7 +132,16 @@ const searchPeople = async (query: string): Promise<User[]> => {
     return haystack.includes(normalizedQuery);
   };
 
-  return results.filter((profile) => matchesQuery(profile));
+  const filtered = results.filter((profile) => matchesQuery(profile));
+  console.log('[people search] results', {
+    admins: admins?.length || 0,
+    chairs: chairs?.length || 0,
+    delegates: delegates?.length || 0,
+    secretariat: secs?.length || 0,
+    returned: filtered.length,
+  });
+
+  return filtered;
 };
 
 const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, User>> => {
