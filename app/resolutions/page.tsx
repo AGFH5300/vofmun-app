@@ -17,7 +17,7 @@ const serializeDocument = (content?: object | null) =>
 const UNSAVED_CHANGES_MESSAGE =
   "You have unsaved changes. Do you want to leave without saving?";
 
-  const parseResoContent = (raw?: string | object | null) => {
+const parseResoContent = (raw?: string | object | null) => {
   if (!raw) {
     return undefined;
   }
@@ -54,6 +54,9 @@ const Page = () => {
   const [fetchedResos, setFetchedResos] = useState<Reso[]>([]);
   const [selectedReso, setSelectedReso] = useState<Reso | null>(null);
   const [delegates, setDelegates] = useState<shortenedDel[]>([]);
+  const [committees, setCommittees] = useState<
+    { committeeID: string; committeeCode: string }[]
+  >([]);
   const [title, setTitle] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -68,6 +71,41 @@ const Page = () => {
     () => parseResoContent(selectedReso?.content ?? null),
     [selectedReso]
   );
+
+  const isValidUuid = useCallback((value: string) => {
+    return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
+      value
+    );
+  }, []);
+
+  const committeeIdFor = useCallback(
+    (value: string) => {
+      const match = committees.find(
+        (committee) =>
+          committee.committeeID === value || committee.committeeCode === value
+      );
+      return match?.committeeID ?? value;
+    },
+    [committees]
+  );
+
+  useEffect(() => {
+    const loadCommittees = async () => {
+      const { data, error } = await supabase
+        .from("Committee")
+        .select("committeeID, committeeCode")
+        .order("committeeCode", { ascending: true });
+
+      if (error) {
+        console.error("Failed to load committees", error);
+        toast.error("Unable to load committees");
+      } else {
+        setCommittees(data ?? []);
+      }
+    };
+
+    loadCommittees();
+  }, []);
   const getEditorSnapshot = useCallback(() => {
     if (!editorRef.current) {
       return initialStateRef.current.content;
@@ -106,15 +144,6 @@ const Page = () => {
   useEffect(() => {
     evaluateUnsavedChanges();
   }, [title, evaluateUnsavedChanges]);
-
-  const resolveCommitteeId = useCallback(async (value: string) => {
-    const { data } = await supabase
-      .from("Committee")
-      .select("committeeID, committeeCode")
-      .or(`committeeID.eq.${value},committeeCode.eq.${value}`)
-      .maybeSingle();
-    return data?.committeeID ?? value;
-  }, []);
 
   useEffect(() => {
     const baselineTitle = selectedReso?.title ?? "";
@@ -231,6 +260,12 @@ const Page = () => {
   useEffect(() => {
     const fetchResos = async () => {
       if (!currentUser) return;
+      if (
+        (userRole === "delegate" || userRole === "chair") &&
+        committees.length === 0
+      ) {
+        return;
+      }
 
       try {
         let query = supabase.from<Reso>("Resos").select("*");
@@ -240,16 +275,22 @@ const Page = () => {
           if (!delegateUser.resoPerms["view:allreso"]) {
             query = query.eq("delegateID", delegateUser.delegateID);
           } else {
-            const committeeUuid = await resolveCommitteeId(
+            const committeeUuid = committeeIdFor(
               delegateUser.committee.committeeID
             );
+            if (!isValidUuid(committeeUuid)) {
+              toast.error("Invalid committee reference for delegate");
+              return;
+            }
             query = query.eq("committeeID", committeeUuid);
           }
         } else if (userRole === "chair") {
           const chairUser = currentUser as Chair;
-          const committeeUuid = await resolveCommitteeId(
-            chairUser.committee.committeeID
-          );
+          const committeeUuid = committeeIdFor(chairUser.committee.committeeID);
+          if (!isValidUuid(committeeUuid)) {
+            toast.error("Invalid committee reference for chair");
+            return;
+          }
           query = query.eq("committeeID", committeeUuid);
         }
 
@@ -275,7 +316,14 @@ const Page = () => {
     };
 
     fetchResos();
-  }, [currentUser, resolveCommitteeId, selectedReso, userRole]);
+  }, [
+    committees.length,
+    committeeIdFor,
+    currentUser,
+    isValidUuid,
+    selectedReso,
+    userRole,
+  ]);
 
   useEffect(() => {
     if (editorRef.current) {
@@ -398,12 +446,16 @@ const Page = () => {
     const content = editorRef.current.getJSON();
 
     let delegateID = "0000";
-    let committeeID = "0000";
+    let committeeID = "";
 
     if (isDelegateUser) {
       const delegateUser = updatedUser as Delegate;
       delegateID = delegateUser.delegateID;
-      committeeID = await resolveCommitteeId(delegateUser.committee.committeeID);
+      committeeID = committeeIdFor(delegateUser.committee.committeeID);
+      if (!isValidUuid(committeeID)) {
+        toast.error("Unable to resolve your committee. Please contact admin.");
+        return;
+      }
 
       const ownResos = fetchedResos.filter(
         (reso) => reso.delegateID === delegateUser.delegateID
@@ -414,7 +466,11 @@ const Page = () => {
       }
     } else if (updatedUserRole === "chair" && selectedReso) {
       const chairUser = updatedUser as Chair;
-      committeeID = await resolveCommitteeId(chairUser.committee.committeeID);
+      committeeID = committeeIdFor(chairUser.committee.committeeID);
+      if (!isValidUuid(committeeID)) {
+        toast.error("Unable to resolve your committee. Please contact admin.");
+        return;
+      }
       delegateID = selectedReso.delegateID;
     }
 

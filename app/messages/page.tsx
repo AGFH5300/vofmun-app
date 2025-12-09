@@ -163,7 +163,7 @@ const ChatShell: React.FC = () => {
           </p>
         </header>
 
-        <div className="rounded-3xl bg-white shadow-sm ring-1 ring-soft-ivory/90">
+        <div className="rounded-3xl bg-white shadow-sm ring-1 ring-soft-ivory/90 overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-[340px,1fr]">
             <aside className="flex h-[720px] flex-col border-b border-soft-ivory lg:border-b-0 lg:border-r lg:border-soft-ivory">
               <div className="flex items-center justify-between border-b border-soft-ivory px-4 py-3">
@@ -223,7 +223,7 @@ const ChatShell: React.FC = () => {
               </div>
             </aside>
 
-            <section className="flex h-[720px] flex-col">
+            <section className="flex h-[720px] flex-col bg-gradient-to-b from-white to-warm-light-grey/40">
               <header className="flex items-center justify-between border-b border-soft-ivory px-6 py-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.25em] text-almost-black-green/60">
@@ -266,7 +266,7 @@ const ChatShell: React.FC = () => {
               <div className="flex flex-1 flex-col">
                 <div
                   ref={messagesContainerRef}
-                  className="flex-1 space-y-4 overflow-y-auto bg-warm-light-grey/40 px-6 py-4"
+                  className="flex-1 space-y-4 overflow-y-auto px-6 py-4"
                 >
                   {activeRoom ? (
                     activeMessages.length > 0 ? (
@@ -317,8 +317,8 @@ const ChatShell: React.FC = () => {
                     )
                   ) : (
                     <div className="flex h-full items-center justify-center text-center text-almost-black-green/60">
-                      <div className="space-y-2">
-                        <Users className="mx-auto text-deep-red/40" size={48} />
+                      <div className="space-y-2 rounded-2xl bg-white/70 px-6 py-4 shadow-sm">
+                        <Users className="mx-auto text-deep-red/40" size={44} />
                         <p className="font-semibold text-deep-red">
                           Select a conversation
                         </p>
