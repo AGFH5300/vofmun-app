@@ -232,7 +232,7 @@ const Login = () => {
               <h1
                 className="mt-6 text-4xl lg:text-5xl font-heading font-semibold text-deep-red"
                 data-testid="text-login-header"
-                style={{ color: brandDarkRed, fontFamily: serifHeadingFont }}
+                style={{ color: brandDarkRed, }}
               >
                 VOFMUN Portal
               </h1>
@@ -243,7 +243,7 @@ const Login = () => {
 
             <motion.form
               onSubmit={handleSubmit}
-              className="space-y-6 rounded-3xl border border-[#F4C5AF] bg-[#FFFDFB] p-8 shadow-[0_20px_45px_-20px_rgba(112,30,30,0.45)]"
+              className="space-y-6 rounded-3xl border border-[#e5e4e3] bg-[#FFFDFB] p-8 shadow-[0_20px_45px_-20px_rgba(112,30,30,0.45)]"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.6 }}
@@ -257,10 +257,11 @@ const Login = () => {
                   <input
                     type="email"
                     placeholder="Your Email Address"
-                    className="w-full rounded-xl border border-[#F1BBA3] bg-[#FFFDFB] px-4 py-3 text-[#1C1C1C] shadow-[0_8px_18px_-12px_rgba(139,36,36,0.6)] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-[#8B2424] focus:ring-4 focus:ring-[#8B2424]/30"
+                    className="w-full rounded-xl border border-[#e5e4e3] bg-[#f2f2f2] px-4 py-3 text-[#1C1C1C] shadow-[0_8px_18px_-12px_rgba(139,36,36,0.6)] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-[#8B2424] focus:ring-4 focus:ring-[#8B2424]/30"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     data-testid="input-email"
+                    style={ { backgroundColor: "#f2f2f2", borderColor: "#e5e4e3" } }
                   />
                 </div>
               </div>
@@ -278,6 +279,7 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     data-testid="input-password"
+                    style={ { backgroundColor: "#f2f2f2", borderColor: "#e5e4e3" } }
                   />
                   <button
                     type="button"
@@ -328,7 +330,7 @@ const Login = () => {
                 )}
               </button>
 
-              <p className="text-center text-xs font-medium uppercase tracking-[0.3em] text-[#8B2424]/60">
+              <p className="text-center text-xs font-medium uppercase tracking-[0.3em] text-[#000000]/90">
                 Secure Conference Access
               </p>
             </motion.form>
