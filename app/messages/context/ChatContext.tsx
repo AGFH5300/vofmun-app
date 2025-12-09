@@ -1,7 +1,6 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import supabase from '@/lib/supabase';
 import {
   ChatSocketPayload,
   FriendRequest,
@@ -10,6 +9,7 @@ import {
   RoomWithDetails,
   UserSearchResult,
 } from '@/lib/chat/types';
+import { useSession } from '@/app/context/sessionContext';
 
 const CHAT_WS_URL = import.meta.env.VITE_CHAT_WS_URL;
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '';
@@ -47,7 +47,7 @@ interface ChatContextValue {
   }) => Promise<RoomWithDetails | null>;
   searchUsers: (query: string) => Promise<UserSearchResult[]>;
   refreshFriendRequests: () => Promise<void>;
-  sendFriendRequest: (targetUserId: string) => Promise<void>;
+  sendFriendRequest: (targetUserId: string) => Promise<FriendRequest | null>;
   respondToFriendRequest: (id: string, action: 'accept' | 'reject') => Promise<void>;
 }
 
@@ -66,7 +66,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const [messages, setMessages] = useState<Record<string, MessageWithUser[]>>({});
   const [typingUsers, setTypingUsers] = useState<Record<string, Set<string>>>({});
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
-  const [token, setToken] = useState<string | null>(null);
+  const { user } = useSession();
   const [userId, setUserId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
@@ -81,34 +81,42 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const withAuthHeaders = useCallback(
     (extra?: RequestInit): RequestInit => ({
+      credentials: 'include',
       ...extra,
       headers: {
         'Content-Type': 'application/json',
         ...(extra?.headers || {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     }),
-    [token]
+    []
   );
 
-  const fetchToken = useCallback(async () => {
-    const session = await supabase.auth.getSession();
-    const sessionToken = session.data.session?.access_token ?? null;
-    setToken(sessionToken);
-    setUserId(session.data.session?.user?.id ?? null);
-  }, []);
-
   useEffect(() => {
-    fetchToken();
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setToken(session?.access_token ?? null);
-      setUserId(session?.user?.id ?? null);
-    });
-    return () => data.subscription.unsubscribe();
-  }, [fetchToken]);
+    if (!user) {
+      setUserId(null);
+      return;
+    }
+    if ('delegateID' in user && user.delegateID) {
+      setUserId(String(user.delegateID));
+      return;
+    }
+    if ('chairID' in user && user.chairID) {
+      setUserId(String(user.chairID));
+      return;
+    }
+    if ('adminID' in user && user.adminID) {
+      setUserId(String(user.adminID));
+      return;
+    }
+    if ('secretariatID' in user && user.secretariatID) {
+      setUserId(String(user.secretariatID));
+      return;
+    }
+    setUserId(null);
+  }, [user]);
 
   const refreshRooms = useCallback(async () => {
-    if (!token) return;
+    if (!userId) return;
     const response = await fetch(`${CHAT_API_URL}/api/rooms`, withAuthHeaders());
     if (!response.ok) return;
     const data = (await response.json()) as RoomWithDetails[];
@@ -121,25 +129,25 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const updated = enriched.find((room) => room.id === activeRoom.id);
       if (updated) setActiveRoom(updated);
     }
-  }, [activeRoom, pinnedRoomIds, token, withAuthHeaders]);
+  }, [activeRoom, pinnedRoomIds, userId, withAuthHeaders]);
 
   const refreshFriendRequests = useCallback(async () => {
-    if (!token) return;
+    if (!userId) return;
     const response = await fetch(`${CHAT_API_URL}/api/friend-requests`, withAuthHeaders());
     if (!response.ok) return;
     const data = (await response.json()) as FriendRequest[];
     setFriendRequests(data);
-  }, [token, withAuthHeaders]);
+  }, [userId, withAuthHeaders]);
 
   const fetchMessages = useCallback(
     async (roomId: string) => {
-      if (!token) return;
+      if (!userId) return;
       const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, withAuthHeaders());
       if (!response.ok) return;
       const data = (await response.json()) as MessageWithUser[];
       setMessages((prev) => ({ ...prev, [roomId]: data }));
     },
-    [token, withAuthHeaders]
+    [userId, withAuthHeaders]
   );
 
   const selectRoom = useCallback(
@@ -214,7 +222,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   );
 
   const connectSocket = useCallback(() => {
-    if (!token) return;
+    if (!userId) return;
     setIsConnecting(true);
     const url = getWebSocketUrl();
     const ws = new WebSocket(url);
@@ -222,7 +230,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
     ws.onopen = () => {
       setIsConnecting(false);
-      const authPayload: ChatSocketPayload = { type: 'auth', token } as ChatSocketPayload;
+      const authPayload: ChatSocketPayload = { type: 'auth' } as ChatSocketPayload;
       ws.send(JSON.stringify(authPayload));
     };
 
@@ -237,23 +245,23 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     ws.onerror = () => {
       ws.close();
     };
-  }, [handleSocketMessage, token]);
+  }, [handleSocketMessage, userId]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!userId) return;
     connectSocket();
     return () => {
       reconnectTimeout.current && clearTimeout(reconnectTimeout.current);
       wsRef.current?.close();
     };
-  }, [connectSocket, token]);
+  }, [connectSocket, userId]);
 
   useEffect(() => {
-    if (token) {
+    if (userId) {
       refreshRooms();
       refreshFriendRequests();
     }
-  }, [refreshRooms, refreshFriendRequests, token]);
+  }, [refreshRooms, refreshFriendRequests, userId]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -326,7 +334,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const createDirectRoom = useCallback(
     async (targetUserId: string) => {
-      if (!token) return null;
+      if (!userId) return null;
       const response = await fetch(
         `${CHAT_API_URL}/api/rooms/direct`,
         withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
@@ -340,12 +348,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       });
       return room;
     },
-    [pinnedRoomIds, token, withAuthHeaders]
+    [pinnedRoomIds, userId, withAuthHeaders]
   );
 
   const createGroupRoom = useCallback(
     async (payload: { name: string; description?: string; icon?: string; memberIds: string[] }) => {
-      if (!token) return null;
+      if (!userId) return null;
       const response = await fetch(
         `${CHAT_API_URL}/api/rooms/group`,
         withAuthHeaders({ method: 'POST', body: JSON.stringify(payload) })
@@ -355,7 +363,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       setRooms((prev) => [{ ...room, isPinned: pinnedRoomIds.has(room.id) }, ...prev]);
       return room;
     },
-    [pinnedRoomIds, token, withAuthHeaders]
+    [pinnedRoomIds, userId, withAuthHeaders]
   );
 
   const searchUsers = useCallback(
@@ -407,32 +415,50 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const sendFriendRequest = useCallback(
     async (targetUserId: string) => {
-      if (!token) return null;
-      const response = await fetch(
-        `${CHAT_API_URL}/api/friend-requests`,
-        withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
-      );
+      if (!userId) return null;
+      try {
+        const response = await fetch('/api/chat/friend-requests', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ receiverId: targetUserId }),
+        });
 
-      if (!response.ok) {
-        console.error('[ChatContext] failed to send friend request', await response.text());
+        const json = (await response.json().catch(() => null)) as
+          | { ok: boolean; request?: FriendRequest; already_exists?: boolean; status?: string; error?: string }
+          | null;
+
+        if (!response.ok || !json?.ok) {
+          console.error('[ChatContext] failed to send friend request', {
+            status: response.status,
+            json,
+          });
+          return null;
+        }
+
+        if (json.request) {
+          const created = json.request;
+          setFriendRequests((prev) => {
+            const withoutDupes = prev.filter(
+              (req) => !(req.sender_id === created.sender_id && req.receiver_id === created.receiver_id)
+            );
+            return [created, ...withoutDupes];
+          });
+          return created;
+        }
+
+        return null;
+      } catch (error) {
+        console.error('[ChatContext] friend request threw', error);
         return null;
       }
-
-      const created = (await response.json()) as FriendRequest;
-      setFriendRequests((prev) => {
-        const withoutDupes = prev.filter(
-          (req) => !(req.sender_id === created.sender_id && req.receiver_id === created.receiver_id)
-        );
-        return [created, ...withoutDupes];
-      });
-      return created;
     },
-    [token, withAuthHeaders]
+    [userId]
   );
 
   const respondToFriendRequest = useCallback(
     async (id: string, action: 'accept' | 'reject') => {
-      if (!token) return;
+      if (!userId) return;
       await fetch(
         `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
         withAuthHeaders({ method: 'POST', body: JSON.stringify({ action }) })
@@ -440,7 +466,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       refreshFriendRequests();
       refreshRooms();
     },
-    [refreshFriendRequests, refreshRooms, token, withAuthHeaders]
+    [refreshFriendRequests, refreshRooms, userId, withAuthHeaders]
   );
 
   const value = useMemo<ChatContextValue>(

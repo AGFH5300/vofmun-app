@@ -1,4 +1,5 @@
 import supabaseAdmin from '@/lib/supabaseAdmin';
+import { getSessionUserFromRequest } from '@/lib/chat/auth';
 import { searchPeople } from '@/server/chat/people';
 
 export async function GET(request: Request) {
@@ -14,19 +15,12 @@ export async function GET(request: Request) {
       return new Response(JSON.stringify({ error: 'Server not configured' }), { status: 500 });
     }
 
-    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization') || '';
-    const token = authHeader.replace('Bearer ', '');
-
-    if (!token) {
+    const sessionUser = getSessionUserFromRequest(request);
+    if (!sessionUser) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
 
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !authUser?.user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-    }
-
-    const results = await searchPeople(query, authUser.user.id);
+    const results = await searchPeople(query, sessionUser.id);
     return new Response(JSON.stringify(results), { status: 200, headers: { 'Content-Type': 'application/json' } });
   } catch (error) {
     console.error('[api chat people] error', error);

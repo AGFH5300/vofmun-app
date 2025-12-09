@@ -3,6 +3,7 @@ import http from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 import { randomUUID } from 'crypto';
 import supabaseAdmin from '../../lib/supabaseAdmin';
+import { getSessionUserFromCookieHeader } from '../../lib/chat/auth';
 import { ChatSocketPayload, FriendRequest, MessageWithUser, RoomMember, RoomWithDetails, RoomType, User } from '../../lib/chat/types';
 import { fetchPersonById, getUserContext, isVisibleToViewer, mapProfileForChat, searchPeople } from './people';
 import dotenv from 'dotenv';
@@ -11,7 +12,6 @@ dotenv.config();
 
 interface AuthedRequest extends Request {
   userId?: string;
-  token?: string;
 }
 
 interface SocketContext {
@@ -27,23 +27,12 @@ if (!supabaseAdmin) {
   throw new Error('Supabase admin client is not configured. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
 }
 
-const authenticateToken = async (token?: string): Promise<{ id: string; email?: string | null } | null> => {
-  if (!token) return null;
-  const { data, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !data?.user) return null;
-  const userId = data.user.id;
-  return { id: userId, email: data.user.email };
-};
-
-const requireAuth = async (req: AuthedRequest, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.replace('Bearer ', '');
-  const user = await authenticateToken(token);
-  if (!user) {
+const requireAuth = (req: AuthedRequest, res: Response, next: NextFunction) => {
+  const sessionUser = getSessionUserFromCookieHeader(req.headers.cookie || '');
+  if (!sessionUser) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  req.userId = user.id;
-  req.token = token;
+  req.userId = sessionUser.id;
   return next();
 };
 
@@ -606,9 +595,22 @@ app.delete('/api/rooms/:roomId', requireAuth, async (req: AuthedRequest, res: Re
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/chat-ws' });
 
-wss.on('connection', (socket) => {
+wss.on('connection', (socket, req) => {
   const context: Partial<SocketContext> = { socket };
   let authenticated = false;
+
+  const authenticateFromCookie = () => {
+    const sessionUser = getSessionUserFromCookieHeader(req.headers.cookie || '');
+    if (!sessionUser) return false;
+    context.userId = sessionUser.id;
+    authenticated = true;
+    activeSockets.add(context as SocketContext);
+    socket.send(JSON.stringify({ type: 'authenticated' } satisfies ChatSocketPayload));
+    broadcast(() => true, { type: 'user_online', userId: sessionUser.id });
+    return true;
+  };
+
+  authenticateFromCookie();
 
   const disconnect = () => {
     if (authenticated && context.userId) {
@@ -623,16 +625,9 @@ wss.on('connection', (socket) => {
       switch (data.type) {
         case 'auth': {
           if (authenticated) return;
-          const user = await authenticateToken(data.token);
-          if (!user) {
+          if (!authenticateFromCookie()) {
             socket.close();
-            return;
           }
-          context.userId = user.id;
-          authenticated = true;
-          activeSockets.add(context as SocketContext);
-          socket.send(JSON.stringify({ type: 'authenticated' } satisfies ChatSocketPayload));
-          broadcast(() => true, { type: 'user_online', userId: user.id });
           return;
         }
         case 'join_room': {

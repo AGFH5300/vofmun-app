@@ -13,7 +13,6 @@ import {
   LogOut,
   LayoutGrid,
 } from "lucide-react";
-import supabase from "@/lib/supabase";
 
 interface CustomNavProps {
   role?: "delegate" | "chair" | "admin";
@@ -36,15 +35,15 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   useEffect(() => {
     let active = true;
 
-    const fetchPending = async (token: string | null) => {
-      if (!token) {
+    const fetchPending = async () => {
+      if (!currentUser) {
         if (active) setPendingRequests(0);
         return;
       }
 
       try {
         const response = await fetch("/api/chat/friend-requests/pending", {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         });
 
         if (!response.ok) {
@@ -61,21 +60,28 @@ const CustomNav: React.FC<CustomNavProps> = () => {
     };
 
     const load = async () => {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token ?? null;
-      await fetchPending(token);
+      await fetchPending();
     };
 
     load();
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      fetchPending(session?.access_token ?? null);
-    });
+
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        fetchPending();
+      }
+    };
+
+    const interval = setInterval(fetchPending, 30000);
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleVisibility);
 
     return () => {
       active = false;
-      data?.subscription?.unsubscribe();
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleVisibility);
     };
-  }, []);
+  }, [currentUser]);
 
   const navigationItems: NavItem[] = useMemo(
     () => [
