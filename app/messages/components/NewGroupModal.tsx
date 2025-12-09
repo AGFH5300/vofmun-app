@@ -23,6 +23,10 @@ const NewGroupModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [icon, setIcon] = useState('🗳️');
+  const [isSearching, setIsSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const trimmedQuery = query.trim();
 
   useEffect(() => {
     if (!open) {
@@ -31,20 +35,32 @@ const NewGroupModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
       setSelected([]);
       setName('');
       setDescription('');
+      setError(null);
+      setIsSearching(false);
     }
   }, [open]);
 
   useEffect(() => {
     const handler = setTimeout(async () => {
-      if (!query.trim()) {
+      if (trimmedQuery.length < 2) {
         setResults([]);
+        setError(null);
+        setIsSearching(false);
         return;
       }
-      const data = await searchUsers(query);
-      setResults(data);
-    }, 250);
+      setIsSearching(true);
+      setError(null);
+      try {
+        const data = await searchUsers(trimmedQuery);
+        setResults(data);
+      } catch (_err) {
+        setError('Something went wrong while searching.');
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
     return () => clearTimeout(handler);
-  }, [query, searchUsers]);
+  }, [query, searchUsers, trimmedQuery]);
 
   const toggleSelect = (user: UserSearchResult) => {
     setSelected((prev) => {
@@ -140,6 +156,13 @@ const NewGroupModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
                 />
               </div>
               <div className="mt-2 space-y-2">
+                {isSearching && <p className="text-sm text-almost-black-green/60">Searching...</p>}
+                {!isSearching && trimmedQuery.length < 2 && (
+                  <p className="text-sm text-almost-black-green/60">Start typing to find people.</p>
+                )}
+                {!isSearching && trimmedQuery.length >= 2 && !results.length && !error && (
+                  <p className="text-sm text-almost-black-green/60">No people found</p>
+                )}
                 {results.map((user) => (
                   <button
                     key={user.id}
@@ -156,12 +179,16 @@ const NewGroupModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
                       <div>
                         <p className="text-sm font-semibold text-deep-red">{user.full_name}</p>
                         <p className="text-xs text-almost-black-green/60">{user.role_title || user.role || 'Participant'}</p>
-                        {user.committee && <p className="text-[0.7rem] text-almost-black-green/60">{user.committee}</p>}
+                        {user.email && <p className="text-[0.7rem] text-almost-black-green/60">{user.email}</p>}
+                        {user.committee && (
+                          <p className="text-[0.7rem] text-almost-black-green/60">{`${user.committee}${user.country ? ` • ${user.country}` : ''}`}</p>
+                        )}
                       </div>
                     </div>
                     <Plus className="h-4 w-4 text-deep-red" />
                   </button>
                 ))}
+                {error && <p className="text-sm text-deep-red/80">{error}</p>}
               </div>
               <div className="mt-3 space-y-2">
                 <p className="text-xs uppercase tracking-[0.2em] text-almost-black-green/60">Members</p>

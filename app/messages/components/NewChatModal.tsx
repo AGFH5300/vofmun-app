@@ -19,29 +19,39 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const trimmedQuery = query.trim();
 
   useEffect(() => {
     if (!open) {
       setQuery('');
       setResults([]);
       setError(null);
+      setIsSearching(false);
       return;
     }
   }, [open]);
 
   useEffect(() => {
     const handler = setTimeout(async () => {
-      if (!query.trim()) {
+      if (trimmedQuery.length < 2) {
         setResults([]);
+        setError(null);
+        setIsSearching(false);
         return;
       }
       setIsSearching(true);
-      const data = await searchUsers(query);
-      setResults(data);
-      setIsSearching(false);
-    }, 250);
+      setError(null);
+      try {
+        const data = await searchUsers(trimmedQuery);
+        setResults(data);
+      } catch (_err) {
+        setError('Something went wrong while searching.');
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
     return () => clearTimeout(handler);
-  }, [query, searchUsers]);
+  }, [query, searchUsers, trimmedQuery]);
 
   const handleStartChat = async (user: UserSearchResult) => {
     setError(null);
@@ -97,7 +107,10 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
 
           <div className="mt-4 space-y-3">
             {isSearching && <p className="text-sm text-almost-black-green/60">Searching...</p>}
-            {!isSearching && results.length === 0 && emptyState}
+            {!isSearching && trimmedQuery.length < 2 && emptyState}
+            {!isSearching && trimmedQuery.length >= 2 && !results.length && !error && (
+              <p className="text-sm text-almost-black-green/60">No people found</p>
+            )}
             {results.map((user) => (
               <div key={user.id} className="flex items-center justify-between rounded-2xl border border-soft-ivory px-4 py-3">
                 <div className="flex items-center gap-3">
@@ -107,6 +120,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                     <p className="text-xs text-almost-black-green/60">
                       {user.role_title || user.role || 'Participant'}
                       {user.committee ? ` • ${user.committee}` : ''}
+                      {user.country ? ` • ${user.country}` : ''}
                     </p>
                     {user.email && <p className="text-xs text-almost-black-green/50">{user.email}</p>}
                   </div>

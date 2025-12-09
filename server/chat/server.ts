@@ -79,14 +79,32 @@ const mapProfile = (raw: any, role: User['role']): User => ({
 });
 
 const searchPeople = async (query: string): Promise<User[]> => {
-  const ilike = `%${query}%`;
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  const ilike = `%${trimmed}%`;
   const orFilter = `firstname.ilike.${ilike},lastname.ilike.${ilike},full_name.ilike.${ilike},email.ilike.${ilike}`;
+  const chairFilter = `${orFilter},committee.name.ilike.${ilike},committee.fullname.ilike.${ilike}`;
+  const delegateFilter = `${orFilter},committee.name.ilike.${ilike},committee.fullname.ilike.${ilike},country.name.ilike.${ilike}`;
+
+  const normalizedQuery = trimmed.toLowerCase();
+  const broadenSearch = {
+    admin: normalizedQuery.includes('admin'),
+    chair: normalizedQuery.includes('chair'),
+    delegate: normalizedQuery.includes('delegate'),
+    secretariat: normalizedQuery.includes('secretariat'),
+  };
+
+  const buildQuery = (table: string, select: string, broaden: boolean, filter?: string) => {
+    const base = supabaseAdmin.from(table).select(select).limit(10);
+    return broaden ? base : base.or(filter || orFilter);
+  };
 
   const [{ data: admins }, { data: chairs }, { data: delegates }, { data: secs }] = await Promise.all([
-    supabaseAdmin.from('Admin').select('*').or(orFilter).limit(10),
-    supabaseAdmin.from('Chair').select('*, committee:Committee(*)').or(orFilter).limit(10),
-    supabaseAdmin.from('Delegate').select('*, committee:Committee(*), country:Country(*)').or(orFilter).limit(10),
-    supabaseAdmin.from('Secretariat').select('*').or(orFilter).limit(10),
+    buildQuery('Admin', '*', broadenSearch.admin),
+    buildQuery('Chair', '*, committee:Committee(*)', broadenSearch.chair, chairFilter),
+    buildQuery('Delegate', '*, committee:Committee(*), country:Country(*)', broadenSearch.delegate, delegateFilter),
+    buildQuery('Secretariat', '*', broadenSearch.secretariat),
   ]);
 
   const results: User[] = [];
@@ -94,7 +112,23 @@ const searchPeople = async (query: string): Promise<User[]> => {
   (chairs || []).forEach((row) => results.push(mapProfile(row, 'chair')));
   (delegates || []).forEach((row) => results.push(mapProfile(row, 'delegate')));
   (secs || []).forEach((row) => results.push(mapProfile(row, 'secretariat')));
-  return results;
+
+  const matchesQuery = (profile: User) => {
+    const haystack = [
+      profile.full_name,
+      profile.email,
+      profile.role_title,
+      profile.role,
+      profile.committee,
+      profile.country,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(normalizedQuery);
+  };
+
+  return results.filter((profile) => matchesQuery(profile));
 };
 
 const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, User>> => {
@@ -189,17 +223,19 @@ app.get('/api/rooms', requireAuth, async (req: AuthedRequest, res: Response) => 
   }
 });
 
-app.get('/api/users/search', requireAuth, async (req: AuthedRequest, res: Response) => {
+const handlePeopleSearch = async (req: AuthedRequest, res: Response) => {
   try {
     const query = (req.query.query as string) || '';
-    if (!query.trim()) return res.json([]);
     const results = await searchPeople(query);
     return res.json(results);
   } catch (error) {
     console.error('Error searching users', error);
     return res.status(500).json({ error: 'Failed to search users' });
   }
-});
+};
+
+app.get('/api/chat/people', requireAuth, handlePeopleSearch);
+app.get('/api/users/search', requireAuth, handlePeopleSearch);
 
 app.post('/api/friend-requests', requireAuth, async (req: AuthedRequest, res: Response) => {
   try {

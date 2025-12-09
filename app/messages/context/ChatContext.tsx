@@ -351,10 +351,18 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const searchUsers = useCallback(
     async (query: string) => {
-      if (!token || !query.trim()) return [] as UserSearchResult[];
-      const response = await fetch(`${CHAT_API_URL}/api/users/search?query=${encodeURIComponent(query)}`, withAuthHeaders());
-      if (!response.ok) return [] as UserSearchResult[];
-      return (await response.json()) as UserSearchResult[];
+      const trimmed = query.trim();
+      if (!token || trimmed.length < 2) return [] as UserSearchResult[];
+      try {
+        const response = await fetch(
+          `${CHAT_API_URL}/api/chat/people?query=${encodeURIComponent(trimmed)}`,
+          withAuthHeaders()
+        );
+        if (!response.ok) return [] as UserSearchResult[];
+        return (await response.json()) as UserSearchResult[];
+      } catch (_err) {
+        return [] as UserSearchResult[];
+      }
     },
     [token, withAuthHeaders]
   );
