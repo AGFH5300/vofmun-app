@@ -360,9 +360,18 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           url,
           withAuthHeaders()
         );
-        if (!response.ok) return [] as UserSearchResult[];
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[ChatContext] people search failed', {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorText,
+          });
+          return [] as UserSearchResult[];
+        }
         return (await response.json()) as UserSearchResult[];
-      } catch (_err) {
+      } catch (err) {
+        console.error('[ChatContext] people search threw', err);
         return [] as UserSearchResult[];
       }
     },
