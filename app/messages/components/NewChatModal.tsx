@@ -19,7 +19,9 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
   const trimmedQuery = query.trim();
+  const canSearch = trimmedQuery.length >= 2;
 
   useEffect(() => {
     if (!open) {
@@ -27,16 +29,18 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
       setResults([]);
       setError(null);
       setIsSearching(false);
+      setHasSearched(false);
       return;
     }
   }, [open]);
 
   useEffect(() => {
     const handler = setTimeout(async () => {
-      if (trimmedQuery.length < 2) {
+      if (!canSearch) {
         setResults([]);
         setError(null);
         setIsSearching(false);
+        setHasSearched(false);
         return;
       }
       setIsSearching(true);
@@ -44,6 +48,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
       try {
         const data = await searchUsers(trimmedQuery);
         setResults(data);
+        setHasSearched(true);
       } catch (_err) {
         setError('Something went wrong while searching.');
       } finally {
@@ -51,7 +56,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
       }
     }, 300);
     return () => clearTimeout(handler);
-  }, [query, searchUsers, trimmedQuery]);
+  }, [canSearch, query, searchUsers, trimmedQuery]);
 
   const handleStartChat = async (user: UserSearchResult) => {
     setError(null);
@@ -106,9 +111,9 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
           </div>
 
           <div className="mt-4 space-y-3">
-            {isSearching && <p className="text-sm text-almost-black-green/60">Searching...</p>}
-            {!isSearching && trimmedQuery.length < 2 && emptyState}
-            {!isSearching && trimmedQuery.length >= 2 && !results.length && !error && (
+            {isSearching && canSearch && <p className="text-sm text-almost-black-green/60">Searching...</p>}
+            {!isSearching && !canSearch && emptyState}
+            {!isSearching && hasSearched && canSearch && !results.length && !error && (
               <p className="text-sm text-almost-black-green/60">No people found</p>
             )}
             {results.map((user) => (

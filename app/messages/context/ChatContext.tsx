@@ -354,8 +354,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const trimmed = query.trim();
       if (!token || trimmed.length < 2) return [] as UserSearchResult[];
       try {
+        const url = `${CHAT_API_URL}/api/chat/people?query=${encodeURIComponent(trimmed)}`;
+        console.log('[ChatContext] searching people', url);
         const response = await fetch(
-          `${CHAT_API_URL}/api/chat/people?query=${encodeURIComponent(trimmed)}`,
+          url,
           withAuthHeaders()
         );
         if (!response.ok) return [] as UserSearchResult[];
