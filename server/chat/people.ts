@@ -13,81 +13,80 @@ const mapProfile = (raw: any, role: User['role']): User => ({
   role,
 });
 
+type TableConfig = {
+  table: string;
+  role: User['role'];
+  select: string;
+};
+
+const TABLES: TableConfig[] = [
+  { table: 'Admin', role: 'admin', select: 'adminID, firstname, lastname, email, username' },
+  {
+    table: 'Chair',
+    role: 'chair',
+    select: 'chairID, firstname, lastname, email, username, committeeID, committee:Committee(*)',
+  },
+  {
+    table: 'Delegate',
+    role: 'delegate',
+    select: 'delegateID, firstname, lastname, email, username, committeeID, country, committee:Committee(*), country:Country(*)',
+  },
+  { table: 'Secretariat', role: 'secretariat', select: 'secretariatID, firstname, lastname, email, username' },
+];
+
+const applyNameFilter = (rows: any[], query: string) => {
+  const lowered = query.toLowerCase();
+  return rows.filter((row) => {
+    const first = row.firstname?.toLowerCase() || '';
+    const last = row.lastname?.toLowerCase() || '';
+    const combined = `${row.firstname || ''} ${row.lastname || ''}`.toLowerCase();
+    return first.includes(lowered) || last.includes(lowered) || combined.includes(lowered);
+  });
+};
+
 export const searchPeople = async (query: string): Promise<User[]> => {
-  if (!supabaseAdmin) throw new Error('Supabase admin client is not configured.');
+  if (!supabaseAdmin) {
+    console.error('[people search] Supabase admin client is not configured.');
+    return [];
+  }
 
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
 
-  const ilike = `%${trimmed}%`;
-  const baseFilter = `firstname.ilike.${ilike},lastname.ilike.${ilike},email.ilike.${ilike}`;
+  const isEmailQuery = trimmed.includes('@');
+  const pattern = `%${trimmed}%`;
 
-  const normalizedQuery = trimmed.toLowerCase();
-  const broadenSearch = {
-    admin: normalizedQuery.includes('admin'),
-    chair: normalizedQuery.includes('chair'),
-    delegate: normalizedQuery.includes('delegate'),
-    secretariat: normalizedQuery.includes('secretariat'),
-  };
-
-  const buildQuery = (table: string, select: string, broaden: boolean) => {
-    const base = supabaseAdmin.from(table).select(select).limit(20);
-    return broaden ? base : base.or(baseFilter);
-  };
-
-  console.log('[people search] incoming query', { query: trimmed, length: trimmed.length });
-
-  const [{ data: admins }, { data: chairs }, { data: delegates }, { data: secs }] = await Promise.all([
-    buildQuery('Admin', 'adminID, firstname, lastname, email, username', broadenSearch.admin),
-    buildQuery('Chair', 'chairID, firstname, lastname, email, username, committeeID, committee:Committee(*)', broadenSearch.chair),
-    buildQuery(
-      'Delegate',
-      'delegateID, firstname, lastname, email, username, committeeID, country, committee:Committee(*), country:Country(*)',
-      broadenSearch.delegate
-    ),
-    buildQuery('Secretariat', 'secretariatID, firstname, lastname, email, username', broadenSearch.secretariat),
-  ]);
+  console.log('[people search] incoming query', { query: trimmed, isEmail: isEmailQuery });
 
   const results: User[] = [];
-  (admins || []).forEach((row) => results.push(mapProfile(row, 'admin')));
-  (chairs || []).forEach((row) => results.push(mapProfile(row, 'chair')));
-  (delegates || []).forEach((row) => results.push(mapProfile(row, 'delegate')));
-  (secs || []).forEach((row) => results.push(mapProfile(row, 'secretariat')));
 
-  const matchesQuery = (profile: User) => {
-    const haystack = [
-      profile.full_name,
-      profile.email,
-      profile.role_title,
-      profile.role,
-      profile.committee,
-      profile.country,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-    return haystack.includes(normalizedQuery);
-  };
+  for (const config of TABLES) {
+    let builder = supabaseAdmin.from(config.table).select(config.select).limit(20);
 
-  const filtered = results.filter((profile) => matchesQuery(profile));
-  console.log('[people search] results', {
-    admins: admins?.length || 0,
-    chairs: chairs?.length || 0,
-    delegates: delegates?.length || 0,
-    secretariat: secs?.length || 0,
-    returned: filtered.length,
-  });
+    if (isEmailQuery) {
+      builder = builder.ilike('email', pattern);
+    } else {
+      builder = builder.or(`firstname.ilike.${pattern},lastname.ilike.${pattern}`);
+    }
 
-  const sampleDelegate = delegates?.[0];
-  if (sampleDelegate) {
-    console.log('[people search] sample delegate', {
-      id: sampleDelegate.delegateID || sampleDelegate.id,
-      email: sampleDelegate.email,
-      name: [sampleDelegate.firstname, sampleDelegate.lastname].filter(Boolean).join(' '),
-    });
+    const { data, error } = await builder;
+
+    if (error) {
+      console.error(`[people search] ${config.table} error`, error);
+      continue;
+    }
+
+    const rows = data || [];
+    const filteredRows = isEmailQuery ? rows : applyNameFilter(rows, trimmed);
+
+    console.log(`[people search] ${config.table} matches:`, filteredRows.length);
+
+    filteredRows.forEach((row) => results.push(mapProfile(row, config.role)));
   }
 
-  return filtered;
+  console.log('[people search] total returned', results.length);
+
+  return results;
 };
 
 export const mapProfileForChat = mapProfile;
