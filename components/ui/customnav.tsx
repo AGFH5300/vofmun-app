@@ -75,7 +75,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
     return `${currentUser.firstname} ${currentUser.lastname}`;
   };
 
-  const brandDarkRed = "#B22222";
+  const brandDarkRed = "#701e1e";
   const serifHeadingFont = "var(--font-dm-serif-display, 'DM Serif Display', serif)";
   const sansFontFamily = "var(--font-dm-sans, 'DM Sans', 'Segoe UI', sans-serif)";
 
