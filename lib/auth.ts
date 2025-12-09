@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { UserType, Delegate, Chair, Admin } from "@/db/types";
+import { UserType, Delegate, Chair, Admin, Secretariat } from "@/db/types";
 
 /**
  * Extract and validate user session from request cookies
@@ -21,16 +21,20 @@ export function getServerSession(request: NextRequest): UserType | null {
     }
 
     // Check if user has valid ID and required fields
-    if ('delegateID' in user && user.delegateID && user.firstname && user.lastname) {
+    if ("delegateID" in user && user.delegateID && user.firstname && user.lastname) {
       return user as Delegate;
     }
-    
-    if ('chairID' in user && user.chairID && user.firstname && user.lastname) {
+
+    if ("chairID" in user && user.chairID && user.firstname && user.lastname) {
       return user as Chair;
     }
-    
-    if ('adminID' in user && user.adminID && user.firstname && user.lastname) {
+
+    if ("adminID" in user && user.adminID && user.firstname && user.lastname) {
       return user as Admin;
+    }
+
+    if ("secretariatID" in user && user.secretariatID && user.firstname && user.lastname) {
+      return user as Secretariat;
     }
 
     return null;
@@ -45,29 +49,37 @@ export function getServerSession(request: NextRequest): UserType | null {
  * @param user - User object from session
  * @returns Object with userID and userType
  */
-export function getUserIdentity(user: UserType): { userID: string; userType: 'delegate' | 'chair' | 'admin'; userName: string } | null {
+export function getUserIdentity(user: UserType): { userID: string; userType: 'delegate' | 'chair' | 'admin' | 'secretariat'; userName: string } | null {
   if (!user) return null;
 
-  if ('delegateID' in user) {
+  if ("delegateID" in user) {
     return {
       userID: user.delegateID,
       userType: 'delegate',
       userName: `${user.firstname} ${user.lastname}`
     };
   }
-  
-  if ('chairID' in user) {
+
+  if ("chairID" in user) {
     return {
       userID: user.chairID,
       userType: 'chair',
       userName: `${user.firstname} ${user.lastname}`
     };
   }
-  
-  if ('adminID' in user) {
+
+  if ("adminID" in user) {
     return {
       userID: user.adminID,
       userType: 'admin',
+      userName: `${user.firstname} ${user.lastname}`
+    };
+  }
+
+  if ("secretariatID" in user) {
+    return {
+      userID: user.secretariatID,
+      userType: 'secretariat',
       userName: `${user.firstname} ${user.lastname}`
     };
   }

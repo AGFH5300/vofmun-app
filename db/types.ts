@@ -5,27 +5,23 @@ export interface Committee {
   fullname: string;
 }
 
-export interface Country {
-  countryID: string;
-  name: string;
-  flag: string;
-}
-
-export interface Delegation {
-  delegateID: string;
-  committeeID: string;
-  countryID: string;
-}
-
 export interface Chair {
   chairID: string;
   firstname: string;
   lastname: string;
   password: string;
-  committee: Committee;
+  email: string;
 }
 
-export type UserType = Delegate | Admin | Chair | null;
+export interface Secretariat {
+  secretariatID: string;
+  firstname: string;
+  lastname: string;
+  password: string;
+  email: string;
+}
+
+export type UserType = Delegate | Admin | Chair | Secretariat | null;
 
 export interface Speech {
   speechID: string;
@@ -67,9 +63,10 @@ export interface Delegate {
   firstname: string;
   lastname: string;
   password: string;
-  country: Country;
-  committee: Committee;
-  email : string;
+  email: string;
+  country: string | null;
+  committeeID: string | null;
+  committee?: Committee | null;
   resoPerms: {
     "view:ownreso": boolean;
     "view:allreso": boolean;
@@ -110,6 +107,7 @@ export interface Admin {
   firstname: string;
   lastname: string;
   password: string;
+  email: string;
 }
 
 export interface Reso {

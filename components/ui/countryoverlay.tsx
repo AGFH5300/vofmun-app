@@ -2,15 +2,13 @@ import React from "react";
 import CountryFlag from "./countryflag";
 
 interface Country {
-  countryID: string;
-  flag: string;
   name: string;
 }
 
 interface CountryOverlayProps {
   countries: Country[];
   speechTags: string[];
-  toggleCountrySelection: (countryID: string) => void;
+  toggleCountrySelection: (countryName: string) => void;
   closeCountryOverlay: () => void;
 }
 
@@ -35,21 +33,21 @@ const CountryOverlay: React.FC<CountryOverlayProps> = ({
       <div className="flex flex-col gap-2">
         {countries.map((country, idx) => (
           <div
-            key={country.countryID}
+            key={country.name}
             className="px-5 py-4 rounded-2xl bg-gradient-to-r from-white/80 via-soft-rose/40 to-pale-aqua/40 hover:from-deep-red/5 hover:via-soft-rose/60 hover:to-pale-aqua/60 text-almost-black-green border border-cool-grey/30 hover:border-deep-red/40 flex items-center gap-4 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-[1.02] animate-fadein-up backdrop-blur-sm"
             style={{ animationDelay: `${idx * 40}ms` }}
-            onClick={() => toggleCountrySelection(country.countryID)}
-            data-testid={`country-item-${country.countryID}`}
+            onClick={() => toggleCountrySelection(country.name)}
+            data-testid={`country-item-${country.name}`}
           >
             <input
               type="checkbox"
-              checked={speechTags.includes(country.countryID)}
-              onChange={() => toggleCountrySelection(country.countryID)}
+              checked={speechTags.includes(country.name)}
+              onChange={() => toggleCountrySelection(country.name)}
               className="w-5 h-5 text-deep-red bg-soft-rose border-deep-red/30 rounded-md focus:ring-deep-red focus:ring-2 transition-all duration-200 animate-btn-pop"
-              data-testid={`checkbox-${country.countryID}`}
+              data-testid={`checkbox-${country.name}`}
             />
             <div className="animate-bounce-slow">
-              <CountryFlag 
+              <CountryFlag
                 countryName={country.name} 
                 size="medium"
                 className="drop-shadow-sm"

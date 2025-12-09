@@ -28,126 +28,84 @@ const Login = () => {
     const trimmedPassword = password.trim();
 
     try {
-      const { data: admin, error: adminError } = await supabase
+      const { data: admin } = await supabase
         .from("Admin")
-        .select("adminID, firstname, lastname, password")
-        .eq("adminID", trimmedEmail)
+        .select("*")
+        .eq("email", trimmedEmail)
         .maybeSingle();
 
-      if (!adminError && admin) {
+      if (admin) {
         if (admin.password !== trimmedPassword) {
           setError("Incorrect password");
           setLoading(false);
           return;
         }
 
-        const adminUser = {
-          ...admin,
-          role: "admin",
-        };
-
-        login(adminUser);
+        login({ ...admin, role: "admin" });
         navigate("/home");
         return;
       }
 
-      const { data: chair, error: chairError } = await supabase
+      const { data: chair } = await supabase
         .from("Chair")
         .select("*")
-        .eq("chairID", trimmedEmail)
+        .eq("email", trimmedEmail)
         .maybeSingle();
 
-      if (!chairError && chair) {
+      if (chair) {
         if (chair.password !== trimmedPassword) {
           setError("Incorrect password");
           setLoading(false);
           return;
         }
 
-        const { data: committeeID, error: IDerror } = await supabase
-          .from("Committee-Chair")
-          .select("chairID, committeeID")
-          .eq("chairID", trimmedEmail)
-          .single();
-
-        if (IDerror || !committeeID) {
-          setError("Committee assignment not found");
-          setLoading(false);
-          return;
-        }
-
-        const { data: committee, error: committeeError } = await supabase
-          .from("Committee")
-          .select("committeeID, name")
-          .eq("committeeID", committeeID.committeeID)
-          .single();
-
-        if (committeeError || !committee) {
-          setError("Committee not found");
-          setLoading(false);
-          return;
-        }
-
-        const enrichedUser = {
-          ...chair,
-          committee: {
-            committeeID: committee.committeeID,
-            name: committee.name,
-          },
-        };
-
-        login(enrichedUser);
+        login({ ...chair, role: "chair" });
         navigate("/home");
         return;
       }
 
-      const { data: delegate, error: delegateError } = await supabase
+      const { data: delegate } = await supabase
         .from("Delegate")
-        .select("delegateID, email, password")
+        .select("delegateID, firstname, lastname, password, email, country, committeeID, resoPerms")
         .eq("email", trimmedEmail)
         .maybeSingle();
 
-      if (!delegateError && delegate) {
+      if (delegate) {
         if (delegate.password !== trimmedPassword) {
           setError("Incorrect password");
           setLoading(false);
           return;
         }
 
-        const { data: fullDelegate, error: fullDelegateError } = await supabase
-          .from("Delegate")
-          .select("*")
-          .eq("delegateID", delegate.delegateID)
-          .single();
+        let committee = null;
+        if (delegate.committeeID) {
+          const { data: committeeRecord } = await supabase
+            .from("Committee")
+            .select("committeeID, name, committeeCode, fullname")
+            .eq("committeeID", delegate.committeeID)
+            .maybeSingle();
+          committee = committeeRecord || null;
+        }
 
-        if (fullDelegateError || !fullDelegate) {
-          setError("Delegate record not found");
+        login({ ...delegate, committee, role: "delegate" });
+        navigate("/home");
+        return;
+      }
+
+      const { data: secretariat } = await supabase
+        .from("Secretariat")
+        .select("*")
+        .eq("email", trimmedEmail)
+        .maybeSingle();
+
+      if (secretariat) {
+        if (secretariat.password !== trimmedPassword) {
+          setError("Incorrect password");
           setLoading(false);
           return;
         }
 
-        const { data: delegation, error: delegationError } = await supabase
-          .from("Delegation")
-          .select(`*,
-             Country:countryID (countryID, name, flag),
-             Committee:committeeID (committeeID, name)
-          `)
-          .eq("delegateID", delegate.delegateID)
-          .single();
-
-        if (delegationError || !delegation) {
-          setError("Delegation not found");
-          setLoading(false);
-          return;
-        }
-
-        const enrichedUser = {
-          ...fullDelegate,
-          country: delegation.Country,
-          committee: delegation.Committee,
-        };
-
-        login(enrichedUser);
+        login({ ...secretariat, role: "secretariat" });
         navigate("/home");
         return;
       }
