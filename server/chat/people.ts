@@ -18,6 +18,19 @@ const logTableResult = (table: string, rows: unknown[]) => {
   console.log(`[people search] ${table} rows`, rows.length);
 };
 
+const matchesQuery = (person: ChatPerson, normalizedQuery: string) => {
+  const haystacks = [
+    person.displayName,
+    person.email || '',
+    person.country || '',
+    person.committeeCode || '',
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  return haystacks.includes(normalizedQuery);
+};
+
 export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
   const trimmed = query.trim();
   console.log('[people search] incoming query', trimmed);
@@ -29,7 +42,7 @@ export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
 
   if (trimmed.length < 2) return [];
 
-  const isEmailQuery = trimmed.includes('@');
+  const normalizedQuery = trimmed.toLowerCase();
   const pattern = `%${trimmed}%`;
 
   const adminPromise = (async (): Promise<ChatPerson[]> => {
@@ -38,9 +51,9 @@ export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
       .select('adminID, firstname, lastname, email')
       .limit(20);
 
-    const { data, error } = isEmailQuery
-      ? await builder.ilike('email', pattern)
-      : await builder.or(`firstname.ilike.${pattern},lastname.ilike.${pattern}`);
+    const { data, error } = await builder.or(
+      `email.ilike.${pattern},firstname.ilike.${pattern},lastname.ilike.${pattern}`
+    );
 
     if (error) {
       console.error('[people search] Admin error', error);
@@ -50,12 +63,14 @@ export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
     const rows = data || [];
     logTableResult('Admin', rows);
 
-    return rows.map((row) => ({
-      id: row.adminID,
-      role: 'admin',
-      displayName: formatDisplayName(row.firstname, row.lastname),
-      email: row.email || null,
-    }));
+    return rows
+      .map((row) => ({
+        id: row.adminID,
+        role: 'admin',
+        displayName: formatDisplayName(row.firstname, row.lastname),
+        email: row.email || null,
+      }))
+      .filter((person) => matchesQuery(person, normalizedQuery));
   })();
 
   const chairPromise = (async (): Promise<ChatPerson[]> => {
@@ -64,9 +79,9 @@ export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
       .select('chairID, firstname, lastname, email')
       .limit(20);
 
-    const { data, error } = isEmailQuery
-      ? await builder.ilike('email', pattern)
-      : await builder.or(`firstname.ilike.${pattern},lastname.ilike.${pattern}`);
+    const { data, error } = await builder.or(
+      `email.ilike.${pattern},firstname.ilike.${pattern},lastname.ilike.${pattern}`
+    );
 
     if (error) {
       console.error('[people search] Chair error', error);
@@ -76,12 +91,14 @@ export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
     const rows = data || [];
     logTableResult('Chair', rows);
 
-    return rows.map((row) => ({
-      id: row.chairID,
-      role: 'chair',
-      displayName: formatDisplayName(row.firstname, row.lastname),
-      email: row.email || null,
-    }));
+    return rows
+      .map((row) => ({
+        id: row.chairID,
+        role: 'chair',
+        displayName: formatDisplayName(row.firstname, row.lastname),
+        email: row.email || null,
+      }))
+      .filter((person) => matchesQuery(person, normalizedQuery));
   })();
 
   const delegatePromise = (async (): Promise<ChatPerson[]> => {
@@ -90,9 +107,9 @@ export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
       .select('delegateID, firstname, lastname, email, country, committeeID')
       .limit(20);
 
-    const { data, error } = isEmailQuery
-      ? await builder.ilike('email', pattern)
-      : await builder.or(`firstname.ilike.${pattern},lastname.ilike.${pattern}`);
+    const { data, error } = await builder.or(
+      `email.ilike.${pattern},firstname.ilike.${pattern},lastname.ilike.${pattern},country.ilike.${pattern}`
+    );
 
     if (error) {
       console.error('[people search] Delegate error', error);
@@ -123,14 +140,16 @@ export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
       });
     }
 
-    return rows.map((row) => ({
-      id: row.delegateID,
-      role: 'delegate',
-      displayName: formatDisplayName(row.firstname, row.lastname),
-      email: row.email || null,
-      country: row.country || null,
-      committeeCode: row.committeeID ? committeeMap.get(row.committeeID) || null : null,
-    }));
+    return rows
+      .map((row) => ({
+        id: row.delegateID,
+        role: 'delegate',
+        displayName: formatDisplayName(row.firstname, row.lastname),
+        email: row.email || null,
+        country: row.country || null,
+        committeeCode: row.committeeID ? committeeMap.get(row.committeeID) || null : null,
+      }))
+      .filter((person) => matchesQuery(person, normalizedQuery));
   })();
 
   const secretariatPromise = (async (): Promise<ChatPerson[]> => {
@@ -139,9 +158,9 @@ export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
       .select('secretariatID, firstname, lastname, email')
       .limit(20);
 
-    const { data, error } = isEmailQuery
-      ? await builder.ilike('email', pattern)
-      : await builder.or(`firstname.ilike.${pattern},lastname.ilike.${pattern}`);
+    const { data, error } = await builder.or(
+      `email.ilike.${pattern},firstname.ilike.${pattern},lastname.ilike.${pattern}`
+    );
 
     if (error) {
       console.error('[people search] Secretariat error', error);
@@ -151,12 +170,14 @@ export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
     const rows = data || [];
     logTableResult('Secretariat', rows);
 
-    return rows.map((row) => ({
-      id: row.secretariatID,
-      role: 'secretariat',
-      displayName: formatDisplayName(row.firstname, row.lastname),
-      email: row.email || null,
-    }));
+    return rows
+      .map((row) => ({
+        id: row.secretariatID,
+        role: 'secretariat',
+        displayName: formatDisplayName(row.firstname, row.lastname),
+        email: row.email || null,
+      }))
+      .filter((person) => matchesQuery(person, normalizedQuery));
   })();
 
   const [admins, chairs, delegates, secretariat] = await Promise.all([
