@@ -56,6 +56,7 @@ const NewGroupModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
       setError(null);
       try {
         const data = await searchUsers(trimmedQuery);
+        console.log('[NewGroupModal] search results', data);
         setResults(data);
         setHasSearched(true);
       } catch (_err) {
