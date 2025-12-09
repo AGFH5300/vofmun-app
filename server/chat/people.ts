@@ -12,6 +12,13 @@ export type ChatPerson = {
   country?: string | null;
 };
 
+export type ViewerContext = {
+  id: string;
+  role: ChatPersonRole;
+  committeeCodes: string[];
+  country?: string | null;
+};
+
 const formatDisplayName = (first?: string | null, last?: string | null) =>
   `${first || ''} ${last || ''}`.trim() || 'Unknown';
 
@@ -49,7 +56,205 @@ const matchesQuery = (person: ChatPerson, normalizedQuery: string) => {
   return haystacks.includes(normalizedQuery);
 };
 
-export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
+const mapCommitteeCodes = async (committeeIds: (string | null | undefined)[]) => {
+  const ids = Array.from(new Set(committeeIds.filter(Boolean) as string[]));
+  const committeeMap = new Map<string, string | null>();
+
+  if (ids.length) {
+    const { data: committees, error: committeeError } = await supabaseAdmin
+      .from('Committee')
+      .select('committeeID, committeeCode')
+      .in('committeeID', ids);
+
+    if (committeeError) {
+      console.error('[people search] Committee lookup error', committeeError);
+    }
+
+    committees?.forEach((committee) => {
+      committeeMap.set(committee.committeeID, committee.committeeCode || null);
+    });
+  }
+
+  return committeeMap;
+};
+
+const fetchChairCommitteeMap = async (chairIds: string[]) => {
+  if (chairIds.length === 0) return new Map<string, string | null>();
+
+  const { data: chairLinks, error } = await supabaseAdmin
+    .from('Committee-Chair')
+    .select('chairID, committeeID')
+    .in('chairID', chairIds);
+
+  if (error) {
+    console.error('[people search] Committee-Chair lookup error', error);
+    return new Map();
+  }
+
+  const committeeIds = Array.from(new Set((chairLinks || []).map((link) => link.committeeID).filter(Boolean)));
+  const committeeMap = await mapCommitteeCodes(committeeIds);
+
+  const chairCommitteeMap = new Map<string, string | null>();
+  (chairLinks || []).forEach((link) => {
+    chairCommitteeMap.set(link.chairID, committeeMap.get(link.committeeID) || null);
+  });
+
+  return chairCommitteeMap;
+};
+
+export const getUserContext = async (userId: string): Promise<ViewerContext | null> => {
+  if (!supabaseAdmin) return null;
+
+  const { data: delegate } = await supabaseAdmin
+    .from('Delegate')
+    .select('delegateID, country, committeeID')
+    .eq('delegateID', userId)
+    .maybeSingle();
+
+  if (delegate) {
+    const committeeMap = await mapCommitteeCodes([delegate.committeeID]);
+    const committeeCode = delegate.committeeID ? committeeMap.get(delegate.committeeID) || null : null;
+    return {
+      id: delegate.delegateID,
+      role: 'delegate',
+      committeeCodes: committeeCode ? [committeeCode] : [],
+      country: delegate.country || null,
+    };
+  }
+
+  const { data: chair } = await supabaseAdmin
+    .from('Chair')
+    .select('chairID')
+    .eq('chairID', userId)
+    .maybeSingle();
+
+  if (chair) {
+    const committeeMap = await fetchChairCommitteeMap([chair.chairID]);
+    const committeeCode = committeeMap.get(chair.chairID) || null;
+    return {
+      id: chair.chairID,
+      role: 'chair',
+      committeeCodes: committeeCode ? [committeeCode] : [],
+    };
+  }
+
+  const { data: admin } = await supabaseAdmin
+    .from('Admin')
+    .select('adminID')
+    .eq('adminID', userId)
+    .maybeSingle();
+
+  if (admin) {
+    return { id: admin.adminID, role: 'admin', committeeCodes: [] };
+  }
+
+  const { data: secretariat } = await supabaseAdmin
+    .from('Secretariat')
+    .select('secretariatID')
+    .eq('secretariatID', userId)
+    .maybeSingle();
+
+  if (secretariat) {
+    return { id: secretariat.secretariatID, role: 'secretariat', committeeCodes: [] };
+  }
+
+  return null;
+};
+
+export const isVisibleToViewer = (viewer: ViewerContext | null, person: ChatPerson | null) => {
+  if (!viewer) return false;
+  if (!person) return false;
+  if (viewer.id === person.id) return false;
+
+  if (viewer.role === 'admin' || viewer.role === 'secretariat') return true;
+
+  const viewerCommitteeSet = new Set(viewer.committeeCodes.filter(Boolean));
+
+  if (viewer.role === 'delegate') {
+    return (
+      (person.role === 'delegate' || person.role === 'chair') &&
+      (!!person.committeeCode && viewerCommitteeSet.has(person.committeeCode))
+    );
+  }
+
+  if (viewer.role === 'chair') {
+    if (person.role === 'chair') return true;
+    if (person.role === 'delegate') {
+      return !!person.committeeCode && viewerCommitteeSet.has(person.committeeCode);
+    }
+  }
+
+  return false;
+};
+
+export const fetchPersonById = async (userId: string): Promise<ChatPerson | null> => {
+  if (!supabaseAdmin) return null;
+
+  const { data: admin } = await supabaseAdmin
+    .from('Admin')
+    .select('adminID, firstname, lastname, email')
+    .eq('adminID', userId)
+    .maybeSingle();
+  if (admin) {
+    return {
+      id: admin.adminID,
+      role: 'admin',
+      displayName: formatDisplayName(admin.firstname, admin.lastname),
+      email: admin.email || null,
+    };
+  }
+
+  const { data: chair } = await supabaseAdmin
+    .from('Chair')
+    .select('chairID, firstname, lastname, email')
+    .eq('chairID', userId)
+    .maybeSingle();
+  if (chair) {
+    const chairCommitteeMap = await fetchChairCommitteeMap([chair.chairID]);
+    return {
+      id: chair.chairID,
+      role: 'chair',
+      displayName: formatDisplayName(chair.firstname, chair.lastname),
+      email: chair.email || null,
+      committeeCode: chairCommitteeMap.get(chair.chairID) || null,
+    };
+  }
+
+  const { data: delegate } = await supabaseAdmin
+    .from('Delegate')
+    .select('delegateID, firstname, lastname, email, country, committeeID')
+    .eq('delegateID', userId)
+    .maybeSingle();
+  if (delegate) {
+    const committeeMap = await mapCommitteeCodes([delegate.committeeID]);
+    return {
+      id: delegate.delegateID,
+      role: 'delegate',
+      displayName: formatDisplayName(delegate.firstname, delegate.lastname),
+      email: delegate.email || null,
+      country: delegate.country || null,
+      committeeCode: delegate.committeeID ? committeeMap.get(delegate.committeeID) || null : null,
+    };
+  }
+
+  const { data: sec } = await supabaseAdmin
+    .from('Secretariat')
+    .select('secretariatID, firstname, lastname, email')
+    .eq('secretariatID', userId)
+    .maybeSingle();
+  if (sec) {
+    return {
+      id: sec.secretariatID,
+      role: 'secretariat',
+      displayName: formatDisplayName(sec.firstname, sec.lastname),
+      email: sec.email || null,
+    };
+  }
+
+  return null;
+};
+
+export const searchPeople = async (query: string, viewerId?: string): Promise<ChatPerson[]> => {
   const trimmed = query.trim();
   console.log('[people search] incoming query', trimmed);
 
@@ -109,12 +314,15 @@ export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
     const rows = data || [];
     logTableResult('Chair', rows);
 
+    const chairCommitteeMap = await fetchChairCommitteeMap(rows.map((row) => row.chairID));
+
     return rows
       .map((row) => ({
         id: row.chairID,
         role: 'chair',
         displayName: formatDisplayName(row.firstname, row.lastname),
         email: row.email || null,
+        committeeCode: chairCommitteeMap.get(row.chairID) || null,
       }))
       .filter((person) => matchesQuery(person, normalizedQuery));
   })();
@@ -140,23 +348,7 @@ export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
     const includesBob = rows.some((row) => (row.email || '').toLowerCase() === 'bob.smith@example.com');
     console.log('[people search] Delegate contains bob.smith@example.com:', includesBob);
 
-    const committeeIds = rows.map((row) => row.committeeID).filter(Boolean);
-    const committeeMap = new Map<string, string | null>();
-
-    if (committeeIds.length) {
-      const { data: committees, error: committeeError } = await supabaseAdmin
-        .from('Committee')
-        .select('committeeID, committeeCode')
-        .in('committeeID', committeeIds);
-
-      if (committeeError) {
-        console.error('[people search] Committee lookup error', committeeError);
-      }
-
-      committees?.forEach((committee) => {
-        committeeMap.set(committee.committeeID, committee.committeeCode || null);
-      });
-    }
+    const committeeMap = await mapCommitteeCodes(rows.map((row) => row.committeeID));
 
     return rows
       .map((row) => ({
@@ -208,5 +400,10 @@ export const searchPeople = async (query: string): Promise<ChatPerson[]> => {
   const combined = [...admins, ...chairs, ...delegates, ...secretariat];
   console.log('[people search] total returned', combined.length);
 
-  return combined;
+  if (!viewerId) {
+    return combined;
+  }
+
+  const viewer = await getUserContext(viewerId);
+  return combined.filter((person) => isVisibleToViewer(viewer, person));
 };

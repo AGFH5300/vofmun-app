@@ -1,9 +1,10 @@
 import express, { NextFunction, Request, Response } from 'express';
 import http from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
+import { randomUUID } from 'crypto';
 import supabaseAdmin from '../../lib/supabaseAdmin';
 import { ChatSocketPayload, FriendRequest, MessageWithUser, RoomMember, RoomWithDetails, RoomType, User } from '../../lib/chat/types';
-import { mapProfileForChat, searchPeople } from './people';
+import { fetchPersonById, getUserContext, isVisibleToViewer, mapProfileForChat, searchPeople } from './people';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -60,6 +61,12 @@ const broadcast = (predicate: (ctx: SocketContext) => boolean, payload: ChatSock
 const broadcastToRoom = (roomId: string, payload: ChatSocketPayload) =>
   broadcast((ctx) => ctx.roomId === roomId, payload);
 
+const canInteractWithUser = async (viewerId: string, targetUserId: string) => {
+  const viewer = await getUserContext(viewerId);
+  const target = await fetchPersonById(targetUserId);
+  return viewer ? isVisibleToViewer(viewer, target || null) : false;
+};
+
 const deriveRoomType = (room: { is_private?: boolean | null; name?: string | null }, members: RoomMember[]): RoomType => {
   if (room.is_private && members.length === 2) return 'dm';
   const normalized = (room.name || '').toLowerCase();
@@ -77,11 +84,28 @@ const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, User>> 
     supabaseAdmin.from('Secretariat').select('secretariatID, firstname, lastname, email').in('secretariatID', uniqueIds),
   ]);
 
-  const committeeIds = new Set<string>();
+  const delegateCommitteeIds = new Set<string>();
   (delegates.data || []).forEach((row) => {
-    if (row.committeeID) committeeIds.add(row.committeeID);
+    if (row.committeeID) delegateCommitteeIds.add(row.committeeID);
   });
 
+  const chairCommitteeIds = new Set<string>();
+  if (chairs.data && chairs.data.length > 0) {
+    const { data: chairLinks, error } = await supabaseAdmin
+      .from('Committee-Chair')
+      .select('chairID, committeeID')
+      .in('chairID', chairs.data.map((row) => row.chairID));
+
+    if (error) {
+      console.error('[chat] failed to load chair committees', error);
+    }
+
+    (chairLinks || []).forEach((link) => {
+      if (link.committeeID) chairCommitteeIds.add(link.committeeID);
+    });
+  }
+
+  const committeeIds = new Set([...delegateCommitteeIds, ...chairCommitteeIds]);
   const committeeMap = new Map<string, string | null>();
   if (committeeIds.size > 0) {
     const { data: committees } = await supabaseAdmin
@@ -94,13 +118,27 @@ const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, User>> 
     });
   }
 
+  const chairCommitteeMap = new Map<string, string | null>();
+  if (chairCommitteeIds.size > 0) {
+    const { data: chairLinks } = await supabaseAdmin
+      .from('Committee-Chair')
+      .select('chairID, committeeID')
+      .in('committeeID', Array.from(chairCommitteeIds));
+
+    (chairLinks || []).forEach((link) => {
+      chairCommitteeMap.set(link.chairID, link.committeeID ? committeeMap.get(link.committeeID) || null : null);
+    });
+  }
+
   const map: Record<string, User> = {};
   (admins.data || []).forEach((row) => {
     const profile = mapProfileForChat(row, 'admin');
     map[profile.id] = profile;
   });
   (chairs.data || []).forEach((row) => {
-    const profile = mapProfileForChat(row, 'chair');
+    const profile = mapProfileForChat(row, 'chair', {
+      committee: chairCommitteeMap.get(row.chairID) || null,
+    });
     map[profile.id] = profile;
   });
   (delegates.data || []).forEach((row) => {
@@ -182,7 +220,7 @@ app.get('/api/rooms', requireAuth, async (req: AuthedRequest, res: Response) => 
 const handlePeopleSearch = async (req: AuthedRequest, res: Response) => {
   try {
     const query = (req.query.query as string) || '';
-    const results = await searchPeople(query);
+    const results = await searchPeople(query, req.userId);
     return res.json(results);
   } catch (error) {
     console.error('Error searching users', error);
@@ -198,16 +236,46 @@ app.post('/api/friend-requests', requireAuth, async (req: AuthedRequest, res: Re
     const { targetUserId } = req.body as { targetUserId?: string };
     if (!targetUserId) return res.status(400).json({ error: 'Missing targetUserId' });
 
-    await supabaseAdmin
-      .from('friend_requests')
-      .upsert({ sender_id: req.userId!, receiver_id: targetUserId, status: 'pending' }, { onConflict: 'sender_id,receiver_id' });
+    if (targetUserId === req.userId) {
+      return res.status(400).json({ error: 'Cannot send a request to yourself' });
+    }
 
-    const { data } = await supabaseAdmin
+    const isAllowed = await canInteractWithUser(req.userId!, targetUserId);
+    if (!isAllowed) {
+      return res.status(403).json({ error: 'Not allowed to connect with this user' });
+    }
+
+    const { data: existing } = await supabaseAdmin
       .from('friend_requests')
       .select('*')
-      .eq('sender_id', req.userId!)
-      .eq('receiver_id', targetUserId)
-      .single();
+      .or(
+        `and(sender_id.eq.${req.userId},receiver_id.eq.${targetUserId}),and(sender_id.eq.${targetUserId},receiver_id.eq.${req.userId})`
+      );
+
+    const blocker = (existing || []).find((item) => item.status === 'pending' || item.status === 'accepted');
+    if (blocker) {
+      const profiles = await fetchProfilesByIds([req.userId!, targetUserId]);
+      return res.json({
+        ...(blocker as FriendRequest),
+        sender: profiles[blocker.sender_id],
+        receiver: profiles[blocker.receiver_id],
+      });
+    }
+
+    const insertPayload = {
+      id: randomUUID(),
+      sender_id: req.userId!,
+      receiver_id: targetUserId,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabaseAdmin.from('friend_requests').insert(insertPayload).select('*').single();
+
+    if (error || !data) {
+      console.error('Error sending friend request', error);
+      return res.status(500).json({ error: 'Failed to send request' });
+    }
 
     const profiles = await fetchProfilesByIds([req.userId!, targetUserId]);
     return res.json({
@@ -249,13 +317,42 @@ app.get('/api/friend-requests', requireAuth, async (req: AuthedRequest, res: Res
   }
 });
 
+app.get('/api/chat/friend-requests/pending', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { data } = await supabaseAdmin
+      .from('friend_requests')
+      .select('*')
+      .eq('receiver_id', req.userId!)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    const ids = new Set<string>();
+    (data || []).forEach((reqItem) => {
+      ids.add(reqItem.sender_id);
+      ids.add(reqItem.receiver_id);
+    });
+    const profiles = await fetchProfilesByIds(Array.from(ids));
+
+    const enriched = (data || []).map((item) => ({
+      ...(item as FriendRequest),
+      sender: profiles[item.sender_id],
+      receiver: profiles[item.receiver_id],
+    }));
+
+    return res.json(enriched as FriendRequest[]);
+  } catch (error) {
+    console.error('Error listing pending friend requests', error);
+    return res.status(500).json({ error: 'Failed to load friend requests' });
+  }
+});
+
 app.post('/api/friend-requests/:id/respond', requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { action } = req.body as { action?: 'accept' | 'reject' };
     if (!action) return res.status(400).json({ error: 'Missing action' });
 
-    const status = action === 'accept' ? 'accepted' : 'rejected';
+    const status = action === 'accept' ? 'accepted' : 'declined';
     const { data: updated } = await supabaseAdmin
       .from('friend_requests')
       .update({ status })
@@ -282,6 +379,11 @@ app.post('/api/rooms/direct', requireAuth, async (req: AuthedRequest, res: Respo
     const { targetUserId } = req.body as { targetUserId?: string };
     if (!targetUserId) {
       return res.status(400).json({ error: 'Missing targetUserId' });
+    }
+
+    const isAllowed = await canInteractWithUser(req.userId!, targetUserId);
+    if (!isAllowed) {
+      return res.status(403).json({ error: 'Not allowed to message this user' });
     }
 
     const { data: myMemberships } = await supabaseAdmin
@@ -353,6 +455,15 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
     }
 
     const allMembers = Array.from(new Set([req.userId!, ...memberIds]));
+
+    const visibilityChecks = await Promise.all(
+      memberIds.map(async (memberId) => ({ memberId, allowed: await canInteractWithUser(req.userId!, memberId) }))
+    );
+
+    const denied = visibilityChecks.find((check) => !check.allowed);
+    if (denied) {
+      return res.status(403).json({ error: `Not allowed to add member ${denied.memberId}` });
+    }
 
     const { data: createdRoom, error } = await supabaseAdmin
       .from('chat_rooms')

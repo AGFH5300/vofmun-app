@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useRouter } from "@/src/router";
 import { useSession } from "@/app/context/sessionContext";
 import { useMobile } from "@/hooks/use-mobile";
@@ -13,6 +13,7 @@ import {
   LogOut,
   LayoutGrid,
 } from "lucide-react";
+import supabase from "@/lib/supabase";
 
 interface CustomNavProps {
   role?: "delegate" | "chair" | "admin";
@@ -30,6 +31,51 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   const isMobile = useMobile();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { pathname } = useRouter();
+  const [pendingRequests, setPendingRequests] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchPending = async (token: string | null) => {
+      if (!token) {
+        if (active) setPendingRequests(0);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/chat/friend-requests/pending", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          if (active) setPendingRequests(0);
+          return;
+        }
+
+        const data = (await response.json()) as unknown[];
+        if (active) setPendingRequests(data.length || 0);
+      } catch (error) {
+        console.error("[customnav] failed to load pending requests", error);
+        if (active) setPendingRequests(0);
+      }
+    };
+
+    const load = async () => {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token ?? null;
+      await fetchPending(token);
+    };
+
+    load();
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      fetchPending(session?.access_token ?? null);
+    });
+
+    return () => {
+      active = false;
+      data?.subscription?.unsubscribe();
+    };
+  }, []);
 
   const navigationItems: NavItem[] = useMemo(
     () => [
@@ -104,6 +150,15 @@ const CustomNav: React.FC<CustomNavProps> = () => {
     const last = currentUser.lastname?.[0] ?? "";
     const initials = `${first}${last}`.trim();
     return initials ? initials.toUpperCase() : "V";
+  };
+
+  const renderBadge = (name: string) => {
+    if (name !== "Messages" || pendingRequests <= 0) return null;
+    return (
+      <span className="absolute -right-2 -top-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[0.7rem] font-semibold text-white">
+        {pendingRequests}
+      </span>
+    );
   };
 
   const renderUserDetails = () => {
@@ -217,7 +272,10 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                   }`}
                   aria-current={active ? "page" : undefined}
                 >
-                  <Icon size={16} strokeWidth={1.75} />
+                  <span className="relative inline-flex">
+                    <Icon size={16} strokeWidth={1.75} />
+                    {renderBadge(item.name)}
+                  </span>
                   <span className="whitespace-nowrap">{item.name}</span>
                 </Link>
               );
@@ -269,13 +327,14 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                   onClick={() => setIsMenuOpen(false)}
                 >
                   <span
-                    className={`flex h-9 w-9 items-center justify-center rounded-md ${
+                    className={`relative flex h-9 w-9 items-center justify-center rounded-md ${
                       active
                         ? "bg-slate-800 text-white"
                         : "bg-slate-200 text-slate-700"
                     }`}
                   >
                     <Icon size={18} strokeWidth={1.75} />
+                    {renderBadge(item.name)}
                   </span>
                   <span className="flex-1 whitespace-nowrap">{item.name}</span>
                 </Link>
