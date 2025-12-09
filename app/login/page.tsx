@@ -16,7 +16,7 @@ const Login = () => {
   const { navigate } = useRouter();
   const { login } = useSession();
   const isMobile = useMobile();
-  const brandDarkRed = "#B22222";
+  const brandDarkRed = "#701e1e";
   const serifHeadingFont = "var(--font-dm-serif-display, 'DM Serif Display', serif)";
 
   const handleSubmit = async (e: React.FormEvent) => {
