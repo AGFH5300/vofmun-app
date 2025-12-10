@@ -1,5 +1,5 @@
-import supabaseAdmin from '@/lib/supabaseAdmin';
-import { getSessionUserFromRequest } from '@/lib/chat/auth';
+import supabaseAdmin from '../../../../../lib/supabaseAdmin';
+import { getSessionUserFromRequest } from '../../../../../lib/chat/auth';
 
 const jsonResponse = (body: Record<string, any>, status = 200) =>
   new Response(JSON.stringify(body), {

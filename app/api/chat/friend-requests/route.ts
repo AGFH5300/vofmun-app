@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
-import supabaseAdmin from '@/lib/supabaseAdmin';
-import { getSessionUserFromRequest } from '@/lib/chat/auth';
-import { fetchPersonById, getUserContext, isVisibleToViewer } from '@/server/chat/people';
-import { FriendRequest } from '@/lib/chat/types';
+import supabaseAdmin from '../../../../lib/supabaseAdmin';
+import { getSessionUserFromRequest } from '../../../../lib/chat/auth';
+import { fetchPersonById, getUserContext, isVisibleToViewer } from '../../../../server/chat/people';
+import { FriendRequest } from '../../../../lib/chat/types';
 
 const jsonResponse = (body: Record<string, any>, status = 200) =>
   new Response(JSON.stringify(body), {

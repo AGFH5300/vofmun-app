@@ -1,7 +1,10 @@
 import { defineConfig } from 'vite';
 import path from 'path';
 import type { NextHandleFunction } from 'connect';
+import { IncomingHttpHeaders } from 'http';
 import { searchPeople } from './server/chat/people';
+import { POST as postFriendRequest } from './app/api/chat/friend-requests/route';
+import { GET as getPendingFriendRequests } from './app/api/chat/friend-requests/pending/route';
 
 const peopleSearchMiddleware = (): NextHandleFunction => async (req, res, next) => {
   const url = new URL(req.url || '', `http://${req.headers.host}`);
@@ -38,6 +41,79 @@ const peopleSearchMiddleware = (): NextHandleFunction => async (req, res, next) 
   }
 };
 
+const buildHeaders = (rawHeaders: IncomingHttpHeaders) => {
+  const headers = new Headers();
+  Object.entries(rawHeaders).forEach(([key, value]) => {
+    if (typeof value === 'string') {
+      headers.set(key, value);
+    } else if (Array.isArray(value)) {
+      headers.set(key, value.join(','));
+    }
+  });
+  return headers;
+};
+
+const adaptAppRoute = (
+  pathname: string,
+  handlers: Partial<Record<'GET' | 'POST', (req: Request) => Promise<Response>>>
+): NextHandleFunction => {
+  return async (req, res, next) => {
+    const url = new URL(req.url || '', `http://${req.headers.host}`);
+    if (url.pathname !== pathname) return next();
+
+    const method = (req.method || 'GET').toUpperCase() as 'GET' | 'POST';
+    const handler = handlers[method];
+
+    if (!handler) {
+      res.statusCode = 405;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      return;
+    }
+
+    let body: string | undefined;
+    if (method !== 'GET' && method !== 'HEAD') {
+      body = await new Promise<string | undefined>((resolve) => {
+        let data = '';
+        req.on('data', (chunk) => {
+          data += chunk;
+        });
+        req.on('end', () => resolve(data || undefined));
+        req.on('error', () => resolve(undefined));
+      });
+    }
+
+    const headers = buildHeaders(req.headers);
+    const request = new Request(url.toString(), {
+      method,
+      headers,
+      body: body && method !== 'GET' && method !== 'HEAD' ? body : undefined,
+    });
+
+    try {
+      const response = await handler(request);
+      res.statusCode = response.status;
+      response.headers.forEach((value, key) => res.setHeader(key, value));
+      const text = await response.text();
+      res.end(text);
+    } catch (error) {
+      console.error(`[api proxy] failed to handle ${pathname}`, error);
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+  };
+};
+
+const chatFriendRequestsMiddleware = (): NextHandleFunction => adaptAppRoute('/api/chat/friend-requests', {
+  POST: postFriendRequest,
+});
+
+const pendingFriendRequestsMiddleware = (): NextHandleFunction =>
+  adaptAppRoute('/api/chat/friend-requests/pending', {
+    GET: getPendingFriendRequests,
+  });
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -59,6 +135,17 @@ export default defineConfig({
       },
       configurePreviewServer(server) {
         server.middlewares.use(peopleSearchMiddleware());
+      },
+    },
+    {
+      name: 'chat-friend-requests-api',
+      configureServer(server) {
+        server.middlewares.use(chatFriendRequestsMiddleware());
+        server.middlewares.use(pendingFriendRequestsMiddleware());
+      },
+      configurePreviewServer(server) {
+        server.middlewares.use(chatFriendRequestsMiddleware());
+        server.middlewares.use(pendingFriendRequestsMiddleware());
       },
     },
   ],
