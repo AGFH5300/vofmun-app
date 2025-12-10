@@ -12,7 +12,6 @@ import { AlertTriangle, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "@/src/router";
 
 type SpeechRow = Omit<Speech, "tags">;
-type SpeechTagRow = { speechID: string; tag: string };
 
 const EMPTY_DOCUMENT = { type: "doc", content: [{ type: "paragraph" }] };
 const serializeDocument = (content?: object | null) =>
@@ -258,29 +257,12 @@ const Page = () => {
           throw speechesError;
         }
 
-        const { data: tagRows, error: tagsError } = await supabase
-          .from<SpeechTagRow>("Speech-Tags")
-          .select("speechID, tag")
-          .in("speechID", speechIdList);
-
-        if (tagsError) {
-          throw tagsError;
-        }
-
-        const tagsBySpeechId: Record<string, string[]> = {};
-        (tagRows ?? []).forEach((tagRecord) => {
-          if (!tagsBySpeechId[tagRecord.speechID]) {
-            tagsBySpeechId[tagRecord.speechID] = [];
-          }
-          tagsBySpeechId[tagRecord.speechID].push(tagRecord.tag);
-        });
-
         const normalizedSpeeches: Speech[] = (speechRows ?? []).map((speech) => {
           const matchingDelegateId = speechIds.find((row) => row.speechID === speech.speechID)?.delegateID ?? speech.delegateID ?? "";
           return {
             ...speech,
             delegateID: matchingDelegateId,
-            tags: tagsBySpeechId[speech.speechID] ?? [],
+            tags: [],
           };
         });
 
@@ -354,32 +336,6 @@ const Page = () => {
 
         if (updateError) {
           throw updateError;
-        }
-
-        const tags = selectedSpeech.tags ?? [];
-
-        const { error: deleteTagsError } = await supabase
-          .from("Speech-Tags")
-          .delete()
-          .eq("speechID", selectedSpeech.speechID);
-
-        if (deleteTagsError) {
-          throw deleteTagsError;
-        }
-
-        if (tags.length > 0) {
-          const tagRows = tags.map((tag) => ({
-            speechID: selectedSpeech.speechID,
-            tag,
-          }));
-
-          const { error: tagInsertError } = await supabase
-            .from("Speech-Tags")
-            .insert(tagRows);
-
-          if (tagInsertError) {
-            throw tagInsertError;
-          }
         }
 
         const updatedSpeech: Speech = {
@@ -520,11 +476,6 @@ const Page = () => {
     setIsDeleting(true);
 
     try {
-      await supabase
-        .from("Speech-Tags")
-        .delete()
-        .eq("speechID", selectedSpeech.speechID);
-
       await supabase
         .from("Speech")
         .delete()

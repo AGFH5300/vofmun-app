@@ -48,11 +48,6 @@ export interface Announcement {
   href: string;
 }
 
-export interface SpeechTag {
-  speechID: string;
-  tag: string;
-}
-
 export interface jargons {
   name: string;
   description: string;

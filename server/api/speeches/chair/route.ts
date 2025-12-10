@@ -59,24 +59,6 @@ export async function POST(request: Request) {
   }
 
 
-  //gonna insert tags now
-  //no need to check for existing tags cos this is assumed to be a new speech
-
-  if(body.speechData.tags && body.speechData.tags.length > 0 ) {
-    const tagRows = body.speechData.tags.map((tag: string) => ({ speechID, tag }));
-    const { error: tagError } = await supabase
-      .from("Speech-Tags")
-      .insert(tagRows);
-
-    if (tagError) {
-      return new NextResponse(
-        JSON.stringify({ message: `Error inserting tags: ${tagError.message}` }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-  }
-
-
   return new NextResponse(
     JSON.stringify({ message: "Speech created successfully", speechID }),
     { status: 201, headers: { "Content-Type": "application/json" } }
@@ -97,34 +79,6 @@ export async function POST(request: Request) {
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
-  // Update tags
-  if (body.speechData.tags) {
-    const { error: deleteTagsError } = await supabase
-      .from("Speech-Tags")
-      .delete()
-      .eq("speechID", speechID);
-
-    if (deleteTagsError) {
-      return new NextResponse(
-        JSON.stringify({ message: `Error deleting existing tags: ${deleteTagsError.message}` }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-    if (body.speechData.tags.length > 0) {
-      const tagRows = body.speechData.tags.map((tag: string) => ({ speechID, tag }));
-      const { error: tagInsertError } = await supabase
-        .from("Speech-Tags")
-        .insert(tagRows);
-
-      if (tagInsertError) {
-        return new NextResponse(
-          JSON.stringify({ message: `Error inserting tags: ${tagInsertError.message}` }),
-          { status: 500, headers: { "Content-Type": "application/json" } }
-        );
-      }
-    }
-  }
-
   return new NextResponse(
     JSON.stringify({ message: "Speech updated successfully", speechID }),
     { status: 200, headers: { "Content-Type": "application/json" } }
@@ -164,26 +118,9 @@ export async function GET(request: Request) {
       throw speechesDataError;
     }
     
-    const { data: allTags, error: tagsError } = await supabase
-      .from("Speech-Tags")
-      .select("speechID, tag")
-       .in("speechID", speechIDs.map(s => s.speechID));
-    
-    if (tagsError) {
-      throw tagsError;
-    }
-    
-    const tagsBySpeechId: Record<string, string[]> = {};
-    allTags?.forEach(tagRecord => {
-      if (!tagsBySpeechId[tagRecord.speechID]) {
-        tagsBySpeechId[tagRecord.speechID] = [];
-      }
-      tagsBySpeechId[tagRecord.speechID].push(tagRecord.tag);
-    });
-    
     const processedSpeeches = speeches?.map(speech => ({
       ...speech,
-      tags: tagsBySpeechId[speech.speechID] || []
+      tags: [],
     }));
 
     return new NextResponse(JSON.stringify({ speeches: processedSpeeches }), {
