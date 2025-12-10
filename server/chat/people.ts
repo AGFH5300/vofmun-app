@@ -12,6 +12,16 @@ export type ChatPerson = {
   country?: string | null;
 };
 
+export type ChatPersonDetails = {
+  id: string;
+  role: ChatPersonRole;
+  firstname: string | null;
+  lastname: string | null;
+  email: string | null;
+  committeeCode?: string | null;
+  country?: string | null;
+};
+
 export type ViewerContext = {
   id: string;
   role: ChatPersonRole;
@@ -100,6 +110,73 @@ const fetchChairCommitteeMap = async (chairIds: string[]) => {
   });
 
   return chairCommitteeMap;
+};
+
+export const fetchPeopleDetailsByIds = async (ids: string[]): Promise<Record<string, ChatPersonDetails>> => {
+  if (!supabaseAdmin) return {};
+  if (ids.length === 0) return {};
+
+  const uniqueIds = Array.from(new Set(ids));
+
+  const [admins, chairs, delegates, secretariat] = await Promise.all([
+    supabaseAdmin.from('Admin').select('adminID, firstname, lastname, email').in('adminID', uniqueIds),
+    supabaseAdmin.from('Chair').select('chairID, firstname, lastname, email').in('chairID', uniqueIds),
+    supabaseAdmin
+      .from('Delegate')
+      .select('delegateID, firstname, lastname, email, country, committeeID')
+      .in('delegateID', uniqueIds),
+    supabaseAdmin.from('Secretariat').select('secretariatID, firstname, lastname, email').in('secretariatID', uniqueIds),
+  ]);
+
+  const chairCommitteeMap = await fetchChairCommitteeMap((chairs.data || []).map((row) => row.chairID));
+  const delegateCommitteeMap = await mapCommitteeCodes((delegates.data || []).map((row) => row.committeeID));
+
+  const map: Record<string, ChatPersonDetails> = {};
+
+  (admins.data || []).forEach((row) => {
+    map[row.adminID] = {
+      id: row.adminID,
+      role: 'admin',
+      firstname: row.firstname || null,
+      lastname: row.lastname || null,
+      email: row.email || null,
+    };
+  });
+
+  (chairs.data || []).forEach((row) => {
+    map[row.chairID] = {
+      id: row.chairID,
+      role: 'chair',
+      firstname: row.firstname || null,
+      lastname: row.lastname || null,
+      email: row.email || null,
+      committeeCode: chairCommitteeMap.get(row.chairID) || null,
+    };
+  });
+
+  (delegates.data || []).forEach((row) => {
+    map[row.delegateID] = {
+      id: row.delegateID,
+      role: 'delegate',
+      firstname: row.firstname || null,
+      lastname: row.lastname || null,
+      email: row.email || null,
+      country: row.country || null,
+      committeeCode: row.committeeID ? delegateCommitteeMap.get(row.committeeID) || null : null,
+    };
+  });
+
+  (secretariat.data || []).forEach((row) => {
+    map[row.secretariatID] = {
+      id: row.secretariatID,
+      role: 'secretariat',
+      firstname: row.firstname || null,
+      lastname: row.lastname || null,
+      email: row.email || null,
+    };
+  });
+
+  return map;
 };
 
 export const getUserContext = async (userId: string): Promise<ViewerContext | null> => {

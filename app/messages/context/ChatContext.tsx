@@ -133,10 +133,17 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const refreshFriendRequests = useCallback(async () => {
     if (!userId) return;
-    const response = await fetch(`${CHAT_API_URL}/api/friend-requests`, withAuthHeaders());
-    if (!response.ok) return;
-    const data = (await response.json()) as FriendRequest[];
-    setFriendRequests(data);
+    const response = await fetch(`/api/chat/friend-requests`, withAuthHeaders());
+    if (!response.ok) {
+      console.error('[ChatContext] failed to load friend requests', response.status, response.statusText);
+      return;
+    }
+    const json = (await response.json().catch(() => null)) as { ok?: boolean; requests?: FriendRequest[] } | null;
+    if (!json?.ok || !json.requests) {
+      console.error('[ChatContext] friend request response unexpected', json);
+      return;
+    }
+    setFriendRequests(json.requests);
   }, [userId, withAuthHeaders]);
 
   const fetchMessages = useCallback(
@@ -469,14 +476,42 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const respondToFriendRequest = useCallback(
     async (id: string, action: 'accept' | 'reject') => {
       if (!userId) return;
-      await fetch(
-        `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
-        withAuthHeaders({ method: 'POST', body: JSON.stringify({ action }) })
-      );
-      refreshFriendRequests();
-      refreshRooms();
+      try {
+        const response = await fetch(
+          `/api/chat/friend-requests/${id}/respond`,
+          withAuthHeaders({
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+            body: JSON.stringify({ action: action === 'reject' ? 'decline' : 'accept' }),
+          })
+        );
+
+        const json = (await response.json().catch(() => null)) as
+          | { ok?: boolean; status?: string; request?: FriendRequest; error?: string }
+          | null;
+
+        if (!response.ok || !json?.ok) {
+          console.error('[ChatContext] failed to respond to request', {
+            status: response.status,
+            json,
+          });
+          return;
+        }
+
+        setFriendRequests((prev) => {
+          const remaining = prev.filter((req) => req.id !== id);
+          const updatedStatus = json.request?.status || json.status || (action === 'accept' ? 'accepted' : 'rejected');
+          const existing = prev.find((req) => req.id === id) || json.request;
+          const updated = existing ? { ...existing, status: updatedStatus } : null;
+          return updated ? [updated, ...remaining] : remaining;
+        });
+
+        refreshRooms();
+      } catch (error) {
+        console.error('[ChatContext] respondToFriendRequest threw', error);
+      }
     },
-    [refreshFriendRequests, refreshRooms, userId, withAuthHeaders]
+    [refreshRooms, userId, withAuthHeaders]
   );
 
   const value = useMemo<ChatContextValue>(

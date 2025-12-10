@@ -1,14 +1,72 @@
 import { randomUUID } from 'crypto';
 import supabaseAdmin from '../../../../lib/supabaseAdmin';
 import { getSessionUserFromRequest } from '../../../../lib/chat/auth';
-import { fetchPersonById, getUserContext, isVisibleToViewer } from '../../../../server/chat/people';
+import { fetchPersonById, fetchPeopleDetailsByIds, getUserContext, isVisibleToViewer } from '../../../../server/chat/people';
 import { FriendRequest } from '../../../../lib/chat/types';
 
-const jsonResponse = (body: Record<string, any>, status = 200) =>
+const jsonResponse = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+
+const mapProfileToUser = (profile: Awaited<ReturnType<typeof fetchPeopleDetailsByIds>>[string] | null | undefined) => {
+  if (!profile) return null;
+  const fullName = `${profile.firstname || ''} ${profile.lastname || ''}`.trim() || 'Unknown';
+  const roleTitle = profile.role.charAt(0).toUpperCase() + profile.role.slice(1);
+  return {
+    id: profile.id,
+    email: profile.email || '',
+    full_name: fullName,
+    firstname: profile.firstname,
+    lastname: profile.lastname,
+    role: profile.role,
+    role_title: roleTitle,
+    committee: profile.committeeCode || null,
+    country: profile.country || null,
+  };
+};
+
+export async function GET(request: Request) {
+  try {
+    if (!supabaseAdmin) {
+      return jsonResponse({ ok: false, error: 'Server not configured' }, 500);
+    }
+
+    const sessionUser = getSessionUserFromRequest(request);
+    if (!sessionUser) {
+      return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('friend_requests')
+      .select('*')
+      .or(`sender_id.eq.${sessionUser.id},receiver_id.eq.${sessionUser.id}`)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[api chat friend-requests] failed to fetch requests', error);
+      return jsonResponse({ ok: false, error: 'Failed to load requests' }, 500);
+    }
+
+    const requests = data || [];
+    const uniqueIds = Array.from(
+      new Set(requests.flatMap((req) => [req.sender_id, req.receiver_id]).filter(Boolean))
+    );
+    const profiles = await fetchPeopleDetailsByIds(uniqueIds);
+
+    const enriched = requests.map((req) => ({
+      ...req,
+      sender: mapProfileToUser(profiles[req.sender_id]),
+      receiver: mapProfileToUser(profiles[req.receiver_id]),
+    }));
+
+    return jsonResponse({ ok: true, requests: enriched }, 200);
+  } catch (error) {
+    console.error('[api chat friend-requests] unexpected error in GET', error);
+    return jsonResponse({ ok: false, error: 'Internal server error' }, 500);
+  }
+}
 
 export async function POST(request: Request) {
   try {
