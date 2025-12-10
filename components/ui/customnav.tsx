@@ -35,29 +35,50 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   useEffect(() => {
     let active = true;
 
-    const fetchPending = async () => {
-      if (!currentUser) {
-        if (active) setPendingRequests(0);
-        return;
-      }
-
-      try {
-        const response = await fetch("/api/chat/friend-requests/pending", {
-          credentials: "include",
-        });
-
-        if (!response.ok) {
+      const fetchPending = async () => {
+        if (!currentUser) {
           if (active) setPendingRequests(0);
           return;
         }
 
-        const data = (await response.json()) as unknown[];
-        if (active) setPendingRequests(data.length || 0);
-      } catch (error) {
-        console.error("[customnav] failed to load pending requests", error);
-        if (active) setPendingRequests(0);
-      }
-    };
+        try {
+          const response = await fetch("/api/chat/friend-requests/pending", {
+            credentials: "include",
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => null);
+            console.error("[customnav] failed to load pending requests", {
+              status: response.status,
+              body: errorText,
+            });
+            if (active) setPendingRequests(0);
+            return;
+          }
+
+          const payload = (await response.json().catch(() => null)) as
+            | { ok?: boolean; count?: number; requests?: unknown[]; error?: string }
+            | null;
+
+          if (!payload || payload.ok === false) {
+            console.error("[customnav] failed to load pending requests", payload);
+            if (active) setPendingRequests(0);
+            return;
+          }
+
+          const count =
+            typeof payload.count === "number"
+              ? payload.count
+              : Array.isArray(payload.requests)
+              ? payload.requests.length
+              : 0;
+
+          if (active) setPendingRequests(count);
+        } catch (error) {
+          console.error("[customnav] failed to load pending requests", error);
+          if (active) setPendingRequests(0);
+        }
+      };
 
     const load = async () => {
       await fetchPending();

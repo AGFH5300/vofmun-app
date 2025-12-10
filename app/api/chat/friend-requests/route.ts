@@ -4,64 +4,63 @@ import { getSessionUserFromRequest } from '@/lib/chat/auth';
 import { fetchPersonById, getUserContext, isVisibleToViewer } from '@/server/chat/people';
 import { FriendRequest } from '@/lib/chat/types';
 
+const jsonResponse = (body: Record<string, any>, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
 export async function POST(request: Request) {
-  if (!supabaseAdmin) {
-    return new Response(JSON.stringify({ ok: false, error: 'Server not configured' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  const sessionUser = getSessionUserFromRequest(request);
-  if (!sessionUser) {
-    return new Response(JSON.stringify({ ok: false, error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
   try {
+    if (!supabaseAdmin) {
+      return jsonResponse({ ok: false, error: 'Server not configured' }, 500);
+    }
+
+    const sessionUser = getSessionUserFromRequest(request);
+    if (!sessionUser) {
+      return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
+    }
+
     const body = await request.json().catch(() => null);
     const receiverId = body?.receiverId || body?.targetUserId;
 
     if (!receiverId) {
-      return new Response(JSON.stringify({ ok: false, error: 'Missing receiverId' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ ok: false, error: 'Missing receiverId' }, 400);
     }
 
     if (receiverId === sessionUser.id) {
-      return new Response(JSON.stringify({ ok: false, error: 'Cannot send a request to yourself' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ ok: false, error: 'Cannot send a request to yourself' }, 400);
     }
 
     const viewer = await getUserContext(sessionUser.id);
-    const target = await fetchPersonById(receiverId);
-    if (!isVisibleToViewer(viewer, target)) {
-      return new Response(JSON.stringify({ ok: false, error: 'Not allowed to connect with this user' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    if (!viewer) {
+      return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
     }
 
-    const { data: existing } = await supabaseAdmin
+    const target = await fetchPersonById(receiverId);
+    if (!target) {
+      return jsonResponse({ ok: false, error: 'User not found' }, 404);
+    }
+
+    if (!isVisibleToViewer(viewer, target)) {
+      return jsonResponse({ ok: false, error: 'Not allowed to connect with this user' }, 403);
+    }
+
+    const { data: existing, error: existingError } = await supabaseAdmin
       .from('friend_requests')
       .select('*')
-      .or(
-        `and(sender_id.eq.${sessionUser.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${sessionUser.id})`
-      );
+      .or(`and(sender_id.eq.${sessionUser.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${sessionUser.id})`);
+
+    if (existingError) {
+      console.error('[api chat friend-requests] failed to check existing requests', existingError);
+      return jsonResponse({ ok: false, error: 'Failed to send request' }, 500);
+    }
 
     const blocker = (existing || []).find((item) => item.status === 'pending' || item.status === 'accepted');
     if (blocker) {
-      return new Response(
-        JSON.stringify({ ok: true, status: blocker.status, already_exists: true, request: blocker as FriendRequest }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
+      return jsonResponse(
+        { ok: true, status: blocker.status, already_exists: true, request: blocker as FriendRequest },
+        200
       );
     }
 
@@ -77,21 +76,12 @@ export async function POST(request: Request) {
 
     if (error || !data) {
       console.error('[api chat friend-requests] failed to insert request', error);
-      return new Response(JSON.stringify({ ok: false, error: 'Failed to send request' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ ok: false, error: 'Failed to send request' }, 500);
     }
 
-    return new Response(
-      JSON.stringify({ ok: true, status: data.status, request: data as FriendRequest }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({ ok: true, status: data.status, request: data as FriendRequest }, 200);
   } catch (error) {
     console.error('[api chat friend-requests] unexpected error', error);
-    return new Response(JSON.stringify({ ok: false, error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ ok: false, error: 'Internal server error' }, 500);
   }
 }
