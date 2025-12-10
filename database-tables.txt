@@ -107,15 +107,6 @@ create table public."Speech" (
   constraint Speech_pkey primary key ("speechID")
 ) TABLESPACE pg_default;
 
-create table public."Speech-Tags" (
-  "speechID" character varying(255) not null,
-  tag character varying(255) not null,
-  constraint Speech - Tags_pkey primary key ("speechID", tag),
-  constraint Speech - Tags_speechID_fkey foreign KEY ("speechID") references "Speech" ("speechID") on delete CASCADE
-) TABLESPACE pg_default;
-
-create index IF not exists idx_speech_tags_speech on public."Speech-Tags" using btree ("speechID") TABLESPACE pg_default;
-
 create table public."Updates" (
   "updateID" character varying(255) not null,
   time character varying(255) not null,
@@ -130,11 +121,10 @@ create table public.chat_rooms (
   name character varying(100) not null,
   description text null,
   is_private boolean null default false,
-  created_by uuid null,
+  created_by character varying(255) null,
   created_at timestamp with time zone null default now(),
   updated_at timestamp with time zone null default now(),
-  constraint chat_rooms_pkey primary key (id),
-  constraint chat_rooms_created_by_fkey foreign KEY (created_by) references users (id) on delete CASCADE
+  constraint chat_rooms_pkey primary key (id)
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_chat_rooms_created_by on public.chat_rooms using btree (created_by) TABLESPACE pg_default;
@@ -151,15 +141,13 @@ execute FUNCTION update_updated_at_column ();
 
 create table public.friend_requests (
   id uuid not null default gen_random_uuid (),
-  sender_id uuid not null,
-  receiver_id uuid not null,
+  sender_id character varying(255) not null,
+  receiver_id character varying(255) not null,
   status text not null default 'pending'::text,
   created_at timestamp with time zone null default now(),
   updated_at timestamp with time zone null default now(),
   constraint friend_requests_pkey primary key (id),
   constraint friend_requests_sender_id_receiver_id_key unique (sender_id, receiver_id),
-  constraint friend_requests_receiver_id_fkey foreign KEY (receiver_id) references auth.users (id) on delete CASCADE,
-  constraint friend_requests_sender_id_fkey foreign KEY (sender_id) references auth.users (id) on delete CASCADE,
   constraint friend_requests_status_check check (
     (
       status = any (
@@ -181,13 +169,11 @@ create index IF not exists idx_friend_requests_status on public.friend_requests 
 
 create table public.friendships (
   id uuid not null default gen_random_uuid (),
-  user1_id uuid not null,
-  user2_id uuid not null,
+  user1_id character varying(255) not null,
+  user2_id character varying(255) not null,
   created_at timestamp with time zone null default now(),
   constraint friendships_pkey primary key (id),
-  constraint friendships_user1_id_user2_id_key unique (user1_id, user2_id),
-  constraint friendships_user1_id_fkey foreign KEY (user1_id) references auth.users (id) on delete CASCADE,
-  constraint friendships_user2_id_fkey foreign KEY (user2_id) references auth.users (id) on delete CASCADE
+  constraint friendships_user1_id_user2_id_key unique (user1_id, user2_id)
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_friendships_user1 on public.friendships using btree (user1_id) TABLESPACE pg_default;
@@ -197,7 +183,7 @@ create index IF not exists idx_friendships_user2 on public.friendships using btr
 create table public.messages (
   id uuid not null default gen_random_uuid (),
   room_id uuid null,
-  user_id uuid null,
+  user_id character varying(255) null,
   content text not null,
   message_type character varying(20) null default 'text'::character varying,
   reply_to uuid null,
@@ -206,8 +192,7 @@ create table public.messages (
   updated_at timestamp with time zone null default now(),
   constraint messages_pkey primary key (id),
   constraint messages_reply_to_fkey foreign KEY (reply_to) references messages (id) on delete set null,
-  constraint messages_room_id_fkey foreign KEY (room_id) references chat_rooms (id) on delete CASCADE,
-  constraint messages_user_id_fkey foreign KEY (user_id) references users (id) on delete CASCADE
+  constraint messages_room_id_fkey foreign KEY (room_id) references chat_rooms (id) on delete CASCADE
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_messages_room_id on public.messages using btree (room_id) TABLESPACE pg_default;
@@ -222,20 +207,15 @@ create trigger update_messages_updated_at BEFORE
 update on messages for EACH row
 execute FUNCTION update_updated_at_column ();
 
-create trigger update_user_last_seen_trigger
-after INSERT on messages for EACH row
-execute FUNCTION update_user_last_seen ();
-
 create table public.room_members (
   id uuid not null default gen_random_uuid (),
   room_id uuid null,
-  user_id uuid null,
+  user_id character varying(255) null,
   role character varying(20) null default 'member'::character varying,
   joined_at timestamp with time zone null default now(),
   constraint room_members_pkey primary key (id),
   constraint room_members_room_id_user_id_key unique (room_id, user_id),
-  constraint room_members_room_id_fkey foreign KEY (room_id) references chat_rooms (id) on delete CASCADE,
-  constraint room_members_user_id_fkey foreign KEY (user_id) references users (id) on delete CASCADE
+  constraint room_members_room_id_fkey foreign KEY (room_id) references chat_rooms (id) on delete CASCADE
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_room_members_room_id on public.room_members using btree (room_id) TABLESPACE pg_default;
