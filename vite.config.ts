@@ -3,8 +3,9 @@ import path from 'path';
 import type { NextHandleFunction } from 'connect';
 import { IncomingHttpHeaders } from 'http';
 import { searchPeople } from './server/chat/people';
-import { POST as postFriendRequest } from './app/api/chat/friend-requests/route';
+import { GET as getFriendRequests, POST as postFriendRequest } from './app/api/chat/friend-requests/route';
 import { GET as getPendingFriendRequests } from './app/api/chat/friend-requests/pending/route';
+import { POST as respondToFriendRequest } from './app/api/chat/friend-requests/[id]/respond/route';
 
 const peopleSearchMiddleware = (): NextHandleFunction => async (req, res, next) => {
   const url = new URL(req.url || '', `http://${req.headers.host}`);
@@ -106,6 +107,7 @@ const adaptAppRoute = (
 };
 
 const chatFriendRequestsMiddleware = (): NextHandleFunction => adaptAppRoute('/api/chat/friend-requests', {
+  GET: getFriendRequests,
   POST: postFriendRequest,
 });
 
@@ -113,6 +115,49 @@ const pendingFriendRequestsMiddleware = (): NextHandleFunction =>
   adaptAppRoute('/api/chat/friend-requests/pending', {
     GET: getPendingFriendRequests,
   });
+
+const respondFriendRequestMiddleware = (): NextHandleFunction => {
+  return async (req, res, next) => {
+    const url = new URL(req.url || '', `http://${req.headers.host}`);
+    if (!/^\/api\/chat\/friend-requests\/.+\/respond$/.test(url.pathname)) return next();
+
+    if ((req.method || '').toUpperCase() !== 'POST') {
+      res.statusCode = 405;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      return;
+    }
+
+    let body: string | undefined;
+    body = await new Promise<string | undefined>((resolve) => {
+      let data = '';
+      req.on('data', (chunk) => {
+        data += chunk;
+      });
+      req.on('end', () => resolve(data || undefined));
+      req.on('error', () => resolve(undefined));
+    });
+
+    const request = new Request(url.toString(), {
+      method: 'POST',
+      headers: buildHeaders(req.headers),
+      body,
+    });
+
+    try {
+      const response = await respondToFriendRequest(request);
+      res.statusCode = response.status;
+      response.headers.forEach((value, key) => res.setHeader(key, value));
+      const text = await response.text();
+      res.end(text);
+    } catch (error) {
+      console.error('[api proxy] failed to handle friend request response', error);
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+  };
+};
 
 export default defineConfig({
   resolve: {
@@ -142,10 +187,12 @@ export default defineConfig({
       configureServer(server) {
         server.middlewares.use(chatFriendRequestsMiddleware());
         server.middlewares.use(pendingFriendRequestsMiddleware());
+        server.middlewares.use(respondFriendRequestMiddleware());
       },
       configurePreviewServer(server) {
         server.middlewares.use(chatFriendRequestsMiddleware());
         server.middlewares.use(pendingFriendRequestsMiddleware());
+        server.middlewares.use(respondFriendRequestMiddleware());
       },
     },
   ],

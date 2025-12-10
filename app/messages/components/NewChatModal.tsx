@@ -22,6 +22,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
     friendRequests,
     respondToFriendRequest,
     currentUserId,
+    refreshFriendRequests,
   } = useChat();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSearchResult[]>([]);
@@ -30,6 +31,12 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
   const [hasSearched, setHasSearched] = useState(false);
   const trimmedQuery = query.trim();
   const canSearch = trimmedQuery.length >= 2;
+
+  useEffect(() => {
+    if (open) {
+      refreshFriendRequests();
+    }
+  }, [open, refreshFriendRequests]);
 
   useEffect(() => {
     if (!open) {
@@ -96,6 +103,11 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
     []
   );
 
+  const incomingRequests = useMemo(
+    () => friendRequests.filter((req) => req.receiver_id === currentUserId && req.status === 'pending'),
+    [currentUserId, friendRequests]
+  );
+
   return (
     <Dialog open={open} onClose={onClose} className="relative z-50">
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
@@ -111,7 +123,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
 
           <div className="mt-4">
             <label className="relative block items-center rounded-xl border border-soft-ivory bg-warm-light-grey focus-within:border-deep-red/40 focus-within:ring-2 focus-within:ring-deep-red/20">
-              <div 
+              <div
                 className="flex items-center gap-2 rounded-xl bg-warm-light-grey px-3 py-2"
                 style={ {boxShadow: "2px 2px 4px rgba(0, 0, 0, 0.1)", paddingTop: "0px", paddingBottom: "0px"} }
                 >
@@ -135,6 +147,59 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
           </div>
 
           <div className="mt-4 space-y-3">
+            {incomingRequests.length > 0 && (
+              <div className="space-y-3 rounded-2xl border border-soft-ivory bg-warm-light-grey/40 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-deep-red">Incoming connection requests</p>
+                  <span className="text-xs text-almost-black-green/60">{incomingRequests.length} pending</span>
+                </div>
+                {incomingRequests.map((req) => {
+                  const sender = req.sender;
+                  const displayName = sender?.full_name || `${sender?.firstname || ''} ${sender?.lastname || ''}`.trim() || req.sender_id;
+                  const avatarUser =
+                    sender ||
+                    ({
+                      id: req.sender_id,
+                      full_name: displayName,
+                      email: req.sender?.email || '',
+                    } as UserSearchResult);
+                  return (
+                    <div key={req.id} className="flex items-center justify-between rounded-2xl border border-soft-ivory bg-white px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <UserAvatar user={avatarUser} size={40} />
+                        <div>
+                          <p className="text-sm font-semibold text-deep-red">{displayName}</p>
+                          <p className="text-xs text-almost-black-green/60">
+                            {(sender?.role_title || sender?.role || 'Participant') as string}
+                            {sender?.committee ? ` • ${sender.committee}` : ''}
+                            {sender?.country ? ` • ${sender.country}` : ''}
+                          </p>
+                          {(sender?.email || req.sender_id) && (
+                            <p className="text-xs text-almost-black-green/50">{sender?.email || req.sender_id}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 text-sm">
+                        <button
+                          type="button"
+                          onClick={() => respondToFriendRequest(req.id, 'accept')}
+                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-3 py-2 font-semibold text-white hover:bg-emerald-600"
+                        >
+                          <Check className="h-4 w-4" /> Accept
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => respondToFriendRequest(req.id, 'reject')}
+                          className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 font-semibold text-deep-red hover:bg-soft-ivory"
+                        >
+                          <X className="h-4 w-4" /> Decline
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {isSearching && canSearch && <p className="text-sm text-almost-black-green/60">Searching...</p>}
             {!isSearching && !canSearch && emptyState}
             {!isSearching && hasSearched && canSearch && !results.length && !error && (

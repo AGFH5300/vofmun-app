@@ -1,7 +1,25 @@
 import supabaseAdmin from '../../../../../lib/supabaseAdmin';
 import { getSessionUserFromRequest } from '../../../../../lib/chat/auth';
+import { fetchPeopleDetailsByIds } from '../../../../../server/chat/people';
 
-const jsonResponse = (body: Record<string, any>, status = 200) =>
+const mapProfileToUser = (profile: Awaited<ReturnType<typeof fetchPeopleDetailsByIds>>[string] | null | undefined) => {
+  if (!profile) return null;
+  const fullName = `${profile.firstname || ''} ${profile.lastname || ''}`.trim() || 'Unknown';
+  const roleTitle = profile.role.charAt(0).toUpperCase() + profile.role.slice(1);
+  return {
+    id: profile.id,
+    email: profile.email || '',
+    full_name: fullName,
+    firstname: profile.firstname,
+    lastname: profile.lastname,
+    role: profile.role,
+    role_title: roleTitle,
+    committee: profile.committeeCode || null,
+    country: profile.country || null,
+  };
+};
+
+const jsonResponse = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json' },
@@ -32,8 +50,15 @@ export async function GET(request: Request) {
     }
 
     const requests = data || [];
+    const senderIds = Array.from(new Set(requests.map((req) => req.sender_id).filter(Boolean)));
+    const profiles = await fetchPeopleDetailsByIds(senderIds);
 
-    return jsonResponse({ ok: true, count: requests.length, requests }, 200);
+    const enriched = requests.map((req) => ({
+      ...req,
+      sender: mapProfileToUser(profiles[req.sender_id]),
+    }));
+
+    return jsonResponse({ ok: true, count: enriched.length, requests: enriched }, 200);
   } catch (error) {
     console.error('[api chat pending friend-requests] unexpected error', error);
     return jsonResponse({ ok: false, error: 'Internal server error' }, 500);
