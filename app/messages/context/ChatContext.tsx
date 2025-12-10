@@ -417,12 +417,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     async (targetUserId: string) => {
       if (!userId) return null;
       try {
-        const response = await fetch('/api/chat/friend-requests', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ receiverId: targetUserId }),
-        });
+        const response = await fetch(
+          '/api/chat/friend-requests',
+          withAuthHeaders({ method: 'POST', body: JSON.stringify({ receiverId: targetUserId }) })
+        );
 
         const json = (await response.json().catch(() => null)) as
           | { ok: boolean; request?: FriendRequest; already_exists?: boolean; status?: string; error?: string }
@@ -440,11 +438,23 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           const created = json.request;
           setFriendRequests((prev) => {
             const withoutDupes = prev.filter(
-              (req) => !(req.sender_id === created.sender_id && req.receiver_id === created.receiver_id)
+              (req) => !(req.sender_id === created.sender_id && req.receiver_id === created.receiver_id && req.status === created.status)
             );
             return [created, ...withoutDupes];
           });
           return created;
+        }
+
+        if (json.already_exists) {
+          const existing = friendRequests.find(
+            (req) =>
+              (req.sender_id === targetUserId && req.receiver_id === userId) ||
+              (req.sender_id === userId && req.receiver_id === targetUserId)
+          );
+          if (existing) {
+            return existing;
+          }
+          await refreshFriendRequests();
         }
 
         return null;
@@ -453,7 +463,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         return null;
       }
     },
-    [userId]
+    [friendRequests, refreshFriendRequests, userId, withAuthHeaders]
   );
 
   const respondToFriendRequest = useCallback(
