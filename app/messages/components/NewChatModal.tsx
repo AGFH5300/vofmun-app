@@ -16,13 +16,14 @@ interface Props {
 const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated }) => {
   const {
     searchUsers,
-    createDirectRoom,
     sendFriendRequest,
-    selectRoom,
     friendRequests,
-    respondToFriendRequest,
     currentUserId,
     refreshFriendRequests,
+    acceptFriendRequest,
+    declineFriendRequest,
+    openDirectMessageRoomForUser,
+    incomingRequests,
   } = useChat();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSearchResult[]>([]);
@@ -76,13 +77,8 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
 
   const handleStartChat = async (user: UserSearchResult) => {
     setError(null);
-    const room = await createDirectRoom(user.id);
-    if (!room) {
-      setError('Unable to start chat.');
-      return;
-    }
-    await selectRoom(room);
-    onConversationCreated?.(room.id);
+    await openDirectMessageRoomForUser(user.id);
+    onConversationCreated?.(user.id);
     onClose();
   };
 
@@ -103,9 +99,9 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
     []
   );
 
-  const incomingRequests = useMemo(
-    () => friendRequests.filter((req) => req.receiver_id === currentUserId && req.status === 'pending'),
-    [currentUserId, friendRequests]
+  const incomingRequestsList = useMemo(
+    () => incomingRequests.filter((req) => req.receiver_id === currentUserId && req.status === 'pending'),
+    [currentUserId, incomingRequests]
   );
 
   return (
@@ -147,13 +143,13 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
           </div>
 
           <div className="mt-4 space-y-3">
-            {incomingRequests.length > 0 && (
+            {incomingRequestsList.length > 0 && (
               <div className="space-y-3 rounded-2xl border border-soft-ivory bg-warm-light-grey/40 p-4">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-deep-red">Incoming connection requests</p>
-                  <span className="text-xs text-almost-black-green/60">{incomingRequests.length} pending</span>
+                  <span className="text-xs text-almost-black-green/60">{incomingRequestsList.length} pending</span>
                 </div>
-                {incomingRequests.map((req) => {
+                {incomingRequestsList.map((req) => {
                   const sender = req.sender;
                   const displayName = sender?.full_name || `${sender?.firstname || ''} ${sender?.lastname || ''}`.trim() || req.sender_id;
                   const avatarUser =
@@ -182,14 +178,14 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                       <div className="flex gap-2 text-sm">
                         <button
                           type="button"
-                          onClick={() => respondToFriendRequest(req.id, 'accept')}
+                          onClick={() => acceptFriendRequest(req.id)}
                           className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-3 py-2 font-semibold text-white hover:bg-emerald-600"
                         >
                           <Check className="h-4 w-4" /> Accept
                         </button>
                         <button
                           type="button"
-                          onClick={() => respondToFriendRequest(req.id, 'reject')}
+                          onClick={() => declineFriendRequest(req.id)}
                           className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 font-semibold text-deep-red hover:bg-soft-ivory"
                         >
                           <X className="h-4 w-4" /> Decline
@@ -214,8 +210,9 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
               );
               const acceptedRequest = friendRequests.find(
                 (req) =>
-                  (req.sender_id === currentUserId && req.receiver_id === user.id) ||
-                  (req.sender_id === user.id && req.receiver_id === currentUserId)
+                  req.status === 'accepted' &&
+                  ((req.sender_id === currentUserId && req.receiver_id === user.id) ||
+                    (req.sender_id === user.id && req.receiver_id === currentUserId))
               );
 
               return (
@@ -233,25 +230,26 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                     </div>
                   </div>
                   <div className="flex gap-2 text-sm">
-                    <button
-                      type="button"
-                      onClick={() => handleStartChat(user)}
-                      className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 font-semibold text-white hover:bg-dark-burgundy"
-                    >
-                      <Send className="h-4 w-4" /> Message
-                    </button>
-                    {incomingRequest ? (
+                    {acceptedRequest ? (
+                      <button
+                        type="button"
+                        onClick={() => handleStartChat(user)}
+                        className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 font-semibold text-white hover:bg-dark-burgundy"
+                      >
+                        <Send className="h-4 w-4" /> Message
+                      </button>
+                    ) : incomingRequest ? (
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => respondToFriendRequest(incomingRequest.id, 'accept')}
+                          onClick={() => acceptFriendRequest(incomingRequest.id)}
                           className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-3 py-2 font-semibold text-white hover:bg-emerald-600"
                         >
                           <Check className="h-4 w-4" /> Accept
                         </button>
                         <button
                           type="button"
-                          onClick={() => respondToFriendRequest(incomingRequest.id, 'reject')}
+                          onClick={() => declineFriendRequest(incomingRequest.id)}
                           className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 font-semibold text-deep-red hover:bg-soft-ivory"
                         >
                           <X className="h-4 w-4" /> Decline
@@ -264,14 +262,6 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                         className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-3 py-2 font-semibold text-white opacity-80"
                       >
                         <Check className="h-4 w-4" /> Sent
-                      </button>
-                    ) : acceptedRequest && acceptedRequest.status === 'accepted' ? (
-                      <button
-                        type="button"
-                        disabled
-                        className="inline-flex items-center gap-2 rounded-xl bg-soft-ivory px-3 py-2 font-semibold text-almost-black-green/80"
-                      >
-                        Connected
                       </button>
                     ) : (
                       <button

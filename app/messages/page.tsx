@@ -9,7 +9,6 @@ import UserAvatar from "./components/UserAvatar";
 import ConversationList from "./components/ConversationList";
 import NewChatModal from "./components/NewChatModal";
 import NewGroupModal from "./components/NewGroupModal";
-import FriendRequestsModal from "./components/FriendRequestsModal";
 import ConversationDetailsModal from "./components/ConversationDetailsModal";
 import {
   File,
@@ -20,7 +19,7 @@ import {
   Smile,
   Users,
 } from "lucide-react";
-import { RoomWithDetails } from "@/lib/chat/types";
+import { RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
 
 const formatDateLabel = (dateString: string) => {
   const date = new Date(dateString);
@@ -45,7 +44,9 @@ const ChatShell: React.FC = () => {
     typingUsers,
     onlineUsers,
     isConnecting,
-    friendRequests,
+    incomingRequests,
+    acceptFriendRequest,
+    declineFriendRequest,
     togglePin,
     currentUserId,
   } = useChat();
@@ -54,8 +55,8 @@ const ChatShell: React.FC = () => {
   const [search, setSearch] = useState("");
   const [showNewChat, setShowNewChat] = useState(false);
   const [showNewGroup, setShowNewGroup] = useState(false);
-  const [showRequests, setShowRequests] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -116,12 +117,6 @@ const ChatShell: React.FC = () => {
   const activeTypingDisplay = roomTypingNames.length ? (
     <TypingIndicator names={roomTypingNames} />
   ) : null;
-  const pendingRequests = friendRequests.filter(
-    (req) =>
-      req.status === "pending" &&
-      req.receiver_id === currentUserId,
-  ).length;
-
   const headerSubtitle = activeRoom
     ? activeRoom.room_type === "dm"
       ? activeRoom.members.find(
@@ -168,18 +163,6 @@ const ChatShell: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setShowRequests(true)}
-                    className="relative rounded-xl border border-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red hover:bg-soft-ivory"
-                  >
-                    Requests
-                    {pendingRequests > 0 && (
-                      <span className="absolute -right-2 -top-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-deep-red px-1 text-[0.7rem] font-semibold text-white">
-                        {pendingRequests}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    type="button"
                     onClick={refreshRooms}
                     className="inline-flex items-center gap-2 rounded-xl bg-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red hover:bg-soft-rose/50"
                   >
@@ -199,6 +182,80 @@ const ChatShell: React.FC = () => {
                   />
                 </label>
               </div>
+              {incomingRequests.length > 0 && (
+                <div className="mx-3 mt-3 space-y-3 rounded-2xl border border-soft-ivory bg-warm-light-grey/60 px-3 py-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase tracking-[0.2em] text-almost-black-green/60">Connection requests</p>
+                    <span className="rounded-full bg-deep-red/10 px-2 py-1 text-[0.7rem] font-semibold text-deep-red">
+                      {incomingRequests.length}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {incomingRequests.map((req) => {
+                      const sender = req.sender;
+                      const displayName = sender?.full_name || `${sender?.firstname || ""} ${sender?.lastname || ""}`.trim() || req.sender_id;
+                      const roleLine = `${sender?.role_title || sender?.role || "Participant"}${sender?.committee ? ` • ${sender.committee}` : ""}${sender?.country ? ` • ${sender.country}` : ""}`;
+                      const avatarUser =
+                        sender ||
+                        ({ id: req.sender_id, full_name: displayName, email: sender?.email || "" } as UserSearchResult);
+
+                      const handleAccept = async () => {
+                        setRespondingId(req.id);
+                        try {
+                          await acceptFriendRequest(req.id);
+                        } finally {
+                          setRespondingId(null);
+                        }
+                      };
+
+                      const handleDecline = async () => {
+                        setRespondingId(req.id);
+                        try {
+                          await declineFriendRequest(req.id);
+                        } finally {
+                          setRespondingId(null);
+                        }
+                      };
+
+                      return (
+                        <div
+                          key={req.id}
+                          className="flex items-center justify-between rounded-2xl bg-white px-3 py-2 shadow-sm ring-1 ring-soft-ivory"
+                        >
+                          <div className="flex items-center gap-3">
+                            <UserAvatar user={avatarUser} size={40} />
+                            <div>
+                              <p className="text-sm font-semibold text-deep-red">{displayName}</p>
+                              <p className="text-xs text-almost-black-green/60">{roleLine}</p>
+                              {sender?.email && (
+                                <p className="text-xs text-almost-black-green/50">{sender.email}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 text-xs font-semibold">
+                            <button
+                              type="button"
+                              onClick={handleDecline}
+                              disabled={respondingId === req.id}
+                              className="rounded-xl border border-soft-ivory px-3 py-2 text-deep-red hover:bg-soft-ivory disabled:opacity-60"
+                            >
+                              Decline
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleAccept}
+                              disabled={respondingId === req.id}
+                              className="rounded-xl bg-deep-red px-3 py-2 text-white shadow-sm hover:bg-dark-burgundy disabled:opacity-60"
+                            >
+                              Accept
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto px-3 pb-4">
                 <ConversationList
                   rooms={filteredRooms}
@@ -277,9 +334,7 @@ const ChatShell: React.FC = () => {
                           (msg) => msg.id === item.id,
                         );
                         if (!message) return null;
-                        const isOwn =
-                          (currentUserId || currentUserIdState) ===
-                          message.user_id;
+                        const isOwn = currentUserId === message.user_id;
                         return (
                           <MessageBubble
                             key={item.id}
@@ -378,10 +433,6 @@ const ChatShell: React.FC = () => {
           open={showNewGroup}
           onClose={() => setShowNewGroup(false)}
           onCreated={() => setShowNewGroup(false)}
-        />
-        <FriendRequestsModal
-          open={showRequests}
-          onClose={() => setShowRequests(false)}
         />
         <ConversationDetailsModal
           room={activeRoom}

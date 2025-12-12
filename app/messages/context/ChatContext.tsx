@@ -31,10 +31,11 @@ interface ChatContextValue {
   onlineUsers: Set<string>;
   isConnecting: boolean;
   friendRequests: FriendRequest[];
+  incomingRequests: FriendRequest[];
   currentUserId: string | null;
   pinnedRoomIds: Set<string>;
   selectRoom: (room: RoomWithDetails) => Promise<void>;
-  refreshRooms: () => Promise<void>;
+  refreshRooms: () => Promise<RoomWithDetails[]>;
   sendMessage: (roomId: string, content: string, replyTo?: string | null) => Promise<void>;
   sendTyping: (roomId: string, isTyping: boolean) => void;
   togglePin: (roomId: string) => void;
@@ -49,6 +50,9 @@ interface ChatContextValue {
   refreshFriendRequests: () => Promise<void>;
   sendFriendRequest: (targetUserId: string) => Promise<FriendRequest | null>;
   respondToFriendRequest: (id: string, action: 'accept' | 'reject') => Promise<void>;
+  acceptFriendRequest: (id: string) => Promise<void>;
+  declineFriendRequest: (id: string) => Promise<void>;
+  openDirectMessageRoomForUser: (userId: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
@@ -116,9 +120,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   }, [user]);
 
   const refreshRooms = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) return [] as RoomWithDetails[];
     const response = await fetch(`${CHAT_API_URL}/api/rooms`, withAuthHeaders());
-    if (!response.ok) return;
+    if (!response.ok) return [] as RoomWithDetails[];
     const data = (await response.json()) as RoomWithDetails[];
     const enriched = data.map((room) => ({
       ...room,
@@ -129,6 +133,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const updated = enriched.find((room) => room.id === activeRoom.id);
       if (updated) setActiveRoom(updated);
     }
+    return enriched;
   }, [activeRoom, pinnedRoomIds, userId, withAuthHeaders]);
 
   const refreshFriendRequests = useCallback(async () => {
@@ -258,7 +263,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     if (!userId) return;
     connectSocket();
     return () => {
-      reconnectTimeout.current && clearTimeout(reconnectTimeout.current);
+      if (reconnectTimeout.current) {
+        clearTimeout(reconnectTimeout.current);
+      }
       wsRef.current?.close();
     };
   }, [connectSocket, userId]);
@@ -304,7 +311,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           const withoutTemp = list.filter((msg) => msg.id !== tempId && msg.id !== saved.id);
           return { ...prev, [roomId]: [...withoutTemp, { ...saved, status: 'delivered' }] };
         });
-      } catch (error) {
+      } catch (_error) {
         setMessages((prev) => {
           const list = prev[roomId] || [];
           return {
@@ -473,8 +480,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     [friendRequests, refreshFriendRequests, userId, withAuthHeaders]
   );
 
-  const respondToFriendRequest = useCallback(
-    async (id: string, action: 'accept' | 'reject') => {
+  const acceptFriendRequest = useCallback(
+    async (id: string) => {
       if (!userId) return;
       try {
         const response = await fetch(
@@ -482,7 +489,77 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           withAuthHeaders({
             method: 'POST',
             headers: { Accept: 'application/json' },
-            body: JSON.stringify({ action: action === 'reject' ? 'decline' : 'accept' }),
+            body: JSON.stringify({ action: 'accept' }),
+          })
+        );
+
+        const json = (await response.json().catch(() => null)) as
+          | {
+              ok?: boolean;
+              status?: string;
+              request?: FriendRequest;
+              roomId?: string | null;
+              peer?: { id: string; firstname?: string | null; lastname?: string | null; email?: string | null } | null;
+              error?: string;
+            }
+          | null;
+
+        if (!response.ok || !json?.ok) {
+          console.error('[ChatContext] failed to respond to request', {
+            status: response.status,
+            json,
+          });
+          return;
+        }
+
+        setFriendRequests((prev) => {
+          const remaining = prev.filter((req) => req.id !== id);
+          const updatedStatus = json.request?.status || json.status || 'accepted';
+          const existing = prev.find((req) => req.id === id) || json.request;
+          const updated = existing ? { ...existing, status: updatedStatus } : null;
+          return updated ? [updated, ...remaining] : remaining;
+        });
+
+        const updatedRooms = await refreshRooms();
+        if (json.roomId) {
+          const foundRoom = updatedRooms.find((room) => room.id === json.roomId);
+          if (foundRoom) {
+            await selectRoom(foundRoom);
+          } else {
+            const placeholderName = json.peer
+              ? `${json.peer.firstname || ''} ${json.peer.lastname || ''}`.trim() || 'Direct message'
+              : 'Direct message';
+            const placeholderRoom: RoomWithDetails = {
+              id: json.roomId,
+              name: placeholderName,
+              members: [],
+              is_private: true,
+              room_type: 'dm',
+            };
+            setRooms((prev) => {
+              if (prev.some((room) => room.id === json.roomId)) return prev;
+              return [{ ...placeholderRoom, isPinned: pinnedRoomIds.has(json.roomId) }, ...prev];
+            });
+            await selectRoom(placeholderRoom);
+          }
+        }
+      } catch (error) {
+        console.error('[ChatContext] respondToFriendRequest threw', error);
+      }
+    },
+    [pinnedRoomIds, refreshRooms, selectRoom, userId, withAuthHeaders]
+  );
+
+  const declineFriendRequest = useCallback(
+    async (id: string) => {
+      if (!userId) return;
+      try {
+        const response = await fetch(
+          `/api/chat/friend-requests/${id}/respond`,
+          withAuthHeaders({
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+            body: JSON.stringify({ action: 'decline' }),
           })
         );
 
@@ -500,18 +577,47 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
         setFriendRequests((prev) => {
           const remaining = prev.filter((req) => req.id !== id);
-          const updatedStatus = json.request?.status || json.status || (action === 'accept' ? 'accepted' : 'rejected');
+          const updatedStatus = json.request?.status || json.status || 'rejected';
           const existing = prev.find((req) => req.id === id) || json.request;
           const updated = existing ? { ...existing, status: updatedStatus } : null;
           return updated ? [updated, ...remaining] : remaining;
         });
-
-        refreshRooms();
       } catch (error) {
         console.error('[ChatContext] respondToFriendRequest threw', error);
       }
     },
-    [refreshRooms, userId, withAuthHeaders]
+    [userId, withAuthHeaders]
+  );
+
+  const respondToFriendRequest = useCallback(
+    async (id: string, action: 'accept' | 'reject') => {
+      if (action === 'accept') return acceptFriendRequest(id);
+      return declineFriendRequest(id);
+    },
+    [acceptFriendRequest, declineFriendRequest]
+  );
+
+  const openDirectMessageRoomForUser = useCallback(
+    async (targetUserId: string) => {
+      if (!userId) return;
+      const existingRoom = rooms.find(
+        (room) =>
+          room.room_type === 'dm' &&
+          room.members.some((member) => member.user_id === userId) &&
+          room.members.some((member) => member.user_id === targetUserId)
+      );
+
+      if (existingRoom) {
+        await selectRoom(existingRoom);
+        return;
+      }
+
+      const room = await createDirectRoom(targetUserId);
+      if (room) {
+        await selectRoom(room);
+      }
+    },
+    [createDirectRoom, rooms, selectRoom, userId]
   );
 
   const value = useMemo<ChatContextValue>(
@@ -523,6 +629,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       onlineUsers,
       isConnecting,
       friendRequests,
+      incomingRequests: friendRequests.filter((req) => req.status === 'pending' && req.receiver_id === userId),
       currentUserId: userId,
       pinnedRoomIds,
       selectRoom,
@@ -536,6 +643,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       refreshFriendRequests,
       sendFriendRequest,
       respondToFriendRequest,
+      acceptFriendRequest,
+      declineFriendRequest,
+      openDirectMessageRoomForUser,
     }),
     [
       rooms,
@@ -558,6 +668,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       refreshFriendRequests,
       sendFriendRequest,
       respondToFriendRequest,
+      acceptFriendRequest,
+      declineFriendRequest,
+      openDirectMessageRoomForUser,
     ]
   );
 
