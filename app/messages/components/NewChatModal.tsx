@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import { Check, Search, Send, UserPlus, X } from 'lucide-react';
+import { Check, MessageSquare, Search, UserPlus, X } from 'lucide-react';
 import { UserSearchResult } from '@/lib/chat/types';
 import UserAvatar from './UserAvatar';
 import { useChat } from '../context/ChatContext';
@@ -90,6 +90,32 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
     }
   };
 
+  const relationshipState = useMemo(
+    () =>
+      (userId: string) => {
+        const incomingRequest = friendRequests.find(
+          (req) => req.sender_id === userId && req.receiver_id === currentUserId && req.status === 'pending'
+        );
+        if (incomingRequest) return { type: 'incoming', request: incomingRequest } as const;
+
+        const outgoingRequest = friendRequests.find(
+          (req) => req.sender_id === currentUserId && req.receiver_id === userId && req.status === 'pending'
+        );
+        if (outgoingRequest) return { type: 'outgoing', request: outgoingRequest } as const;
+
+        const acceptedRequest = friendRequests.find(
+          (req) =>
+            req.status === 'accepted' &&
+            ((req.sender_id === currentUserId && req.receiver_id === userId) ||
+              (req.sender_id === userId && req.receiver_id === currentUserId))
+        );
+        if (acceptedRequest) return { type: 'connected', request: acceptedRequest } as const;
+
+        return { type: 'none', request: null } as const;
+      },
+    [currentUserId, friendRequests]
+  );
+
   const emptyState = useMemo(
     () => (
       <div className="rounded-2xl border border-dashed border-soft-ivory bg-warm-light-grey/40 px-4 py-8 text-center text-almost-black-green/70">
@@ -118,27 +144,21 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
           </div>
 
           <div className="mt-4">
-            <label className="relative block items-center rounded-xl border border-soft-ivory bg-warm-light-grey focus-within:border-deep-red/40 focus-within:ring-2 focus-within:ring-deep-red/20">
-              <div
-                className="flex items-center gap-2 rounded-xl bg-warm-light-grey px-3 py-2"
-                style={ {boxShadow: "2px 2px 4px rgba(0, 0, 0, 0.1)", paddingTop: "0px", paddingBottom: "0px"} }
-                >
-                <Search className="h-4 w-4 text-almost-black-green/50" />
-                <input
-                  value={query}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setQuery(value);
-                    if (!value.trim()) {
-                      setResults([]);
-                      setHasSearched(false);
-                    }
-                  }}
-                  placeholder="Search by name or email"
-                  className="w-full bg-transparent text-sm text-almost-black-green/90 placeholder:text-almost-black-green/50 no-focus"
-                  style={ {borderColor: "none", borderWidth: "0px", boxShadow: "none"} }
-                />
-              </div>
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
+              <input
+                value={query}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setQuery(value);
+                  if (!value.trim()) {
+                    setResults([]);
+                    setHasSearched(false);
+                  }
+                }}
+                placeholder="Search by name or email"
+                className="w-full rounded-2xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm text-almost-black-green/90 placeholder:text-almost-black-green/50 focus:border-deep-red/40 focus:ring-2 focus:ring-deep-red/20"
+              />
             </label>
           </div>
 
@@ -178,8 +198,11 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                       <div className="flex gap-2 text-sm">
                         <button
                           type="button"
-                          onClick={() => acceptFriendRequest(req.id)}
-                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-3 py-2 font-semibold text-white hover:bg-emerald-600"
+                          onClick={async () => {
+                            await acceptFriendRequest(req.id);
+                            onClose();
+                          }}
+                          className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 font-semibold text-white shadow-sm hover:bg-dark-burgundy"
                         >
                           <Check className="h-4 w-4" /> Accept
                         </button>
@@ -202,21 +225,18 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
               <p className="text-sm text-almost-black-green/60">No people found</p>
             )}
             {results.map((user) => {
-              const incomingRequest = friendRequests.find(
-                (req) => req.sender_id === user.id && req.receiver_id === currentUserId && req.status === 'pending'
-              );
-              const outgoingRequest = friendRequests.find(
-                (req) => req.sender_id === currentUserId && req.receiver_id === user.id && req.status === 'pending'
-              );
-              const acceptedRequest = friendRequests.find(
-                (req) =>
-                  req.status === 'accepted' &&
-                  ((req.sender_id === currentUserId && req.receiver_id === user.id) ||
-                    (req.sender_id === user.id && req.receiver_id === currentUserId))
-              );
+              const relationship = relationshipState(user.id);
+              const state =
+                relationship.type !== 'none'
+                  ? relationship.type
+                  : user.is_friend
+                    ? 'connected'
+                    : user.has_pending_request
+                      ? 'outgoing'
+                      : 'none';
 
               return (
-                <div key={user.id} className="flex items-center justify-between rounded-2xl border border-soft-ivory px-4 py-3">
+                <div key={user.id} className="flex items-center justify-between rounded-2xl border border-soft-ivory bg-white px-4 py-3 shadow-sm">
                   <div className="flex items-center gap-3">
                     <UserAvatar user={user} size={40} />
                     <div>
@@ -230,36 +250,39 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                     </div>
                   </div>
                   <div className="flex gap-2 text-sm">
-                    {acceptedRequest ? (
+                    {state === 'connected' ? (
                       <button
                         type="button"
                         onClick={() => handleStartChat(user)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 font-semibold text-white hover:bg-dark-burgundy"
+                        className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 font-semibold text-white shadow-sm hover:bg-dark-burgundy"
                       >
-                        <Send className="h-4 w-4" /> Message
+                        <MessageSquare className="h-4 w-4" /> Message
                       </button>
-                    ) : incomingRequest ? (
+                    ) : state === 'incoming' && relationship.request ? (
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => acceptFriendRequest(incomingRequest.id)}
-                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-3 py-2 font-semibold text-white hover:bg-emerald-600"
+                          onClick={async () => {
+                            await acceptFriendRequest(relationship.request.id);
+                            onClose();
+                          }}
+                          className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 font-semibold text-white shadow-sm hover:bg-dark-burgundy"
                         >
                           <Check className="h-4 w-4" /> Accept
                         </button>
                         <button
                           type="button"
-                          onClick={() => declineFriendRequest(incomingRequest.id)}
+                          onClick={() => declineFriendRequest(relationship.request.id)}
                           className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 font-semibold text-deep-red hover:bg-soft-ivory"
                         >
                           <X className="h-4 w-4" /> Decline
                         </button>
                       </div>
-                    ) : outgoingRequest ? (
+                    ) : state === 'outgoing' ? (
                       <button
                         type="button"
                         disabled
-                        className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-3 py-2 font-semibold text-white opacity-80"
+                        className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 font-semibold text-almost-black-green/60"
                       >
                         <Check className="h-4 w-4" /> Sent
                       </button>
@@ -267,7 +290,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                       <button
                         type="button"
                         onClick={() => handleSendRequest(user)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 font-semibold text-deep-red hover:bg-soft-ivory"
+                        className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 font-semibold text-deep-red hover:border-deep-red/40 hover:bg-soft-ivory"
                       >
                         <UserPlus className="h-4 w-4" /> Connect
                       </button>
