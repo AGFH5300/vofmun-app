@@ -1,5 +1,6 @@
 import supabaseAdmin from '../../../../../../lib/supabaseAdmin';
 import { getSessionUserFromRequest } from '../../../../../../lib/chat/auth';
+import { fetchPeopleDetailsByIds } from '../../../../../../server/chat/people';
 
 const jsonResponse = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -16,46 +17,48 @@ const ensureDirectRoom = async (userA: string, userB: string) => {
   if (!supabaseAdmin) return null;
 
   try {
-    const { data: myMemberships } = await supabaseAdmin
-      .from('room_members')
-      .select('room_id')
-      .eq('user_id', userA);
+    const [first, second] = [userA, userB].sort();
+    const deterministicName = `dm:${first}:${second}`;
 
-    const roomIds = (myMemberships || []).map((m) => m.room_id).filter(Boolean);
-
-    if (roomIds.length > 0) {
-      const { data: mutualRooms } = await supabaseAdmin
-        .from('room_members')
-        .select('room_id')
-        .eq('user_id', userB)
-        .in('room_id', roomIds)
-        .limit(1);
-
-      const existing = mutualRooms?.[0]?.room_id;
-      if (existing) return existing;
-    }
-
-    const { data: createdRoom, error: createRoomError } = await supabaseAdmin
+    const { data: existingRoom } = await supabaseAdmin
       .from('chat_rooms')
-      .insert({ name: 'Direct message', description: null, is_private: true, created_by: userA })
       .select('id')
-      .single();
+      .eq('name', deterministicName)
+      .eq('is_private', true)
+      .maybeSingle();
 
-    if (createRoomError || !createdRoom) {
-      console.error('[friend-requests respond] failed to create dm room', createRoomError);
-      return null;
+    let roomId = existingRoom?.id || null;
+
+    if (!roomId) {
+      const { data: createdRoom, error: createRoomError } = await supabaseAdmin
+        .from('chat_rooms')
+        .insert({ name: deterministicName, description: null, is_private: true, created_by: userA })
+        .select('id')
+        .single();
+
+      if (createRoomError || !createdRoom) {
+        console.error('[friend-requests respond] failed to create dm room', createRoomError);
+        return null;
+      }
+
+      roomId = createdRoom.id as string;
     }
 
-    const { error: memberError } = await supabaseAdmin.from('room_members').insert([
-      { room_id: createdRoom.id, user_id: userA, role: 'member' },
-      { room_id: createdRoom.id, user_id: userB, role: 'member' },
-    ]);
+    const { error: memberError } = await supabaseAdmin
+      .from('room_members')
+      .upsert(
+        [
+          { room_id: roomId, user_id: userA, role: 'member' },
+          { room_id: roomId, user_id: userB, role: 'member' },
+        ],
+        { onConflict: 'room_id,user_id' }
+      );
 
     if (memberError) {
       console.error('[friend-requests respond] failed to add room members', memberError);
     }
 
-    return createdRoom.id as string;
+    return roomId;
   } catch (error) {
     console.error('[friend-requests respond] failed to ensure direct room', error);
     return null;
@@ -131,12 +134,25 @@ export async function POST(request: Request) {
 
       const roomId = await ensureDirectRoom(updated.sender_id, updated.receiver_id);
 
+      const peerId = updated.sender_id === sessionUser.id ? updated.receiver_id : updated.sender_id;
+      const peerProfiles = await fetchPeopleDetailsByIds([peerId]);
+      const peer = peerProfiles[peerId];
+
       return jsonResponse(
         {
           ok: true,
           status: 'accepted',
           friendshipId: friendship?.id || null,
           roomId: roomId || null,
+          peer: peer
+            ? {
+                id: peer.id,
+                role: peer.role,
+                firstname: peer.firstname,
+                lastname: peer.lastname,
+                email: peer.email,
+              }
+            : null,
           request: updated,
         },
         200
