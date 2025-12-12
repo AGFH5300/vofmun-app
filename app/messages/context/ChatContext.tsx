@@ -349,20 +349,22 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const createDirectRoom = useCallback(
     async (targetUserId: string) => {
       if (!userId) return null;
-      const response = await fetch(
-        `${CHAT_API_URL}/api/rooms/direct`,
-        withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
-      );
-      if (!response.ok) return null;
-      const room = (await response.json()) as RoomWithDetails;
-      setRooms((prev) => {
-        const existing = prev.find((r) => r.id === room.id);
-        const updated = existing ? prev.map((r) => (r.id === room.id ? room : r)) : [room, ...prev];
-        return updated.map((r) => ({ ...r, isPinned: pinnedRoomIds.has(r.id) }));
-      });
-      return room;
+
+      const findDirectRoom = (roomsList: RoomWithDetails[]) =>
+        roomsList.find(
+          (room) =>
+            room.room_type === 'dm' &&
+            room.members.some((member) => member.user_id === userId) &&
+            room.members.some((member) => member.user_id === targetUserId)
+        ) || null;
+
+      const existing = findDirectRoom(rooms);
+      if (existing) return existing;
+
+      const refreshed = await refreshRooms();
+      return findDirectRoom(refreshed);
     },
-    [pinnedRoomIds, userId, withAuthHeaders]
+    [refreshRooms, rooms, userId]
   );
 
   const createGroupRoom = useCallback(
@@ -520,34 +522,45 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           return updated ? [updated, ...remaining] : remaining;
         });
 
-        const updatedRooms = await refreshRooms();
-        if (json.roomId) {
-          const foundRoom = updatedRooms.find((room) => room.id === json.roomId);
-          if (foundRoom) {
-            await selectRoom(foundRoom);
-          } else {
-            const placeholderName = json.peer
-              ? `${json.peer.firstname || ''} ${json.peer.lastname || ''}`.trim() || 'Direct message'
-              : 'Direct message';
-            const placeholderRoom: RoomWithDetails = {
-              id: json.roomId,
-              name: placeholderName,
-              members: [],
-              is_private: true,
-              room_type: 'dm',
-            };
-            setRooms((prev) => {
-              if (prev.some((room) => room.id === json.roomId)) return prev;
-              return [{ ...placeholderRoom, isPinned: pinnedRoomIds.has(json.roomId) }, ...prev];
-            });
-            await selectRoom(placeholderRoom);
-          }
+        const request = friendRequests.find((req) => req.id === id) || json.request;
+        const peerId = json.peer?.id || (request ? (request.sender_id === userId ? request.receiver_id : request.sender_id) : null);
+
+        const syncRooms = await refreshRooms();
+        const targetRoom =
+          (json.roomId && syncRooms.find((room) => room.id === json.roomId)) ||
+          (peerId
+            ? syncRooms.find(
+                (room) =>
+                  room.room_type === 'dm' &&
+                  room.members.some((member) => member.user_id === userId) &&
+                  room.members.some((member) => member.user_id === peerId)
+              )
+            : null);
+
+        if (targetRoom) {
+          await selectRoom(targetRoom);
+        } else if (json.roomId) {
+          const placeholderName = json.peer
+            ? `${json.peer.firstname || ''} ${json.peer.lastname || ''}`.trim() || 'Direct message'
+            : 'Direct message';
+          const placeholderRoom: RoomWithDetails = {
+            id: json.roomId,
+            name: placeholderName,
+            members: [],
+            is_private: true,
+            room_type: 'dm',
+          };
+          setRooms((prev) => {
+            if (prev.some((room) => room.id === json.roomId)) return prev;
+            return [{ ...placeholderRoom, isPinned: pinnedRoomIds.has(json.roomId) }, ...prev];
+          });
+          await selectRoom(placeholderRoom);
         }
       } catch (error) {
         console.error('[ChatContext] respondToFriendRequest threw', error);
       }
     },
-    [pinnedRoomIds, refreshRooms, selectRoom, userId, withAuthHeaders]
+    [friendRequests, pinnedRoomIds, refreshRooms, selectRoom, userId, withAuthHeaders]
   );
 
   const declineFriendRequest = useCallback(
@@ -600,24 +613,28 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const openDirectMessageRoomForUser = useCallback(
     async (targetUserId: string) => {
       if (!userId) return;
-      const existingRoom = rooms.find(
-        (room) =>
-          room.room_type === 'dm' &&
-          room.members.some((member) => member.user_id === userId) &&
-          room.members.some((member) => member.user_id === targetUserId)
-      );
 
+      const findRoom = (list: RoomWithDetails[]) =>
+        list.find(
+          (room) =>
+            room.room_type === 'dm' &&
+            room.members.some((member) => member.user_id === userId) &&
+            room.members.some((member) => member.user_id === targetUserId)
+        );
+
+      const existingRoom = findRoom(rooms);
       if (existingRoom) {
         await selectRoom(existingRoom);
         return;
       }
 
-      const room = await createDirectRoom(targetUserId);
-      if (room) {
-        await selectRoom(room);
+      const updatedRooms = await refreshRooms();
+      const refreshedRoom = findRoom(updatedRooms);
+      if (refreshedRoom) {
+        await selectRoom(refreshedRoom);
       }
     },
-    [createDirectRoom, rooms, selectRoom, userId]
+    [refreshRooms, rooms, selectRoom, userId]
   );
 
   const value = useMemo<ChatContextValue>(
