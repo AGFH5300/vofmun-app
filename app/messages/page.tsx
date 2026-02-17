@@ -7,8 +7,7 @@ import MessageBubble from "./components/MessageBubble";
 import TypingIndicator from "./components/TypingIndicator";
 import UserAvatar from "./components/UserAvatar";
 import ConversationList from "./components/ConversationList";
-import NewChatModal from "./components/NewChatModal";
-import NewGroupModal from "./components/NewGroupModal";
+import NewConversationModal from "./components/NewConversationModal";
 import ConversationDetailsModal from "./components/ConversationDetailsModal";
 import {
   Circle,
@@ -55,8 +54,10 @@ const ChatShell: React.FC = () => {
 
   const [composer, setComposer] = useState("");
   const [search, setSearch] = useState("");
-  const [showNewChat, setShowNewChat] = useState(false);
-  const [showNewGroup, setShowNewGroup] = useState(false);
+  const [showNewConversation, setShowNewConversation] = useState(false);
+  const [conversationTab, setConversationTab] = useState<"direct" | "group">("direct");
+  const [sidebarWidth, setSidebarWidth] = useState(360);
+  const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -128,6 +129,24 @@ const ChatShell: React.FC = () => {
       : `${activeRoom.members.length} participants`
     : "Choose a conversation to start";
 
+  useEffect(() => {
+    if (!isDraggingDivider) return;
+
+    const onMove = (event: MouseEvent) => {
+      const next = Math.min(560, Math.max(280, event.clientX - 24));
+      setSidebarWidth(next);
+    };
+
+    const onUp = () => setIsDraggingDivider(false);
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [isDraggingDivider]);
+
   const onlineInRoom = useMemo(() => {
     if (!activeRoom) return 0;
     return activeRoom.members.filter((member) => onlineUsers.has(member.user_id))
@@ -156,14 +175,20 @@ const ChatShell: React.FC = () => {
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={() => setShowNewChat(true)}
+                onClick={() => {
+                  setConversationTab("direct");
+                  setShowNewConversation(true);
+                }}
                 className="rounded-xl border border-white/40 bg-white/10 px-4 py-3 text-sm font-semibold uppercase tracking-[0.08em] text-white backdrop-blur-sm transition hover:bg-white/20"
               >
                 New direct chat
               </button>
               <button
                 type="button"
-                onClick={() => setShowNewGroup(true)}
+                onClick={() => {
+                  setConversationTab("group");
+                  setShowNewConversation(true);
+                }}
                 className="rounded-xl border border-white/40 bg-white/10 px-4 py-3 text-sm font-semibold uppercase tracking-[0.08em] text-white backdrop-blur-sm transition hover:bg-white/20"
               >
                 New group room
@@ -181,8 +206,8 @@ const ChatShell: React.FC = () => {
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[360px,1fr]">
-          <aside className="surface-card flex min-h-[760px] flex-col overflow-hidden">
+        <section className="surface-card flex min-h-[760px] overflow-hidden">
+          <aside className="flex h-full flex-col overflow-hidden border-r border-soft-ivory" style={{ width: `${sidebarWidth}px` }}>
             <div className="border-b border-soft-ivory px-5 py-4">
               <p className="text-xs uppercase tracking-[0.28em] text-almost-black-green/60">
                 Conversations
@@ -302,13 +327,26 @@ const ChatShell: React.FC = () => {
                 onTogglePin={togglePin}
                 currentUserId={currentUserId}
                 onlineUsers={onlineUsers}
-                onNewChat={() => setShowNewChat(true)}
-                onNewGroup={() => setShowNewGroup(true)}
+                onNewChat={() => {
+                  setConversationTab("direct");
+                  setShowNewConversation(true);
+                }}
+                onNewGroup={() => {
+                  setConversationTab("group");
+                  setShowNewConversation(true);
+                }}
               />
             </div>
           </aside>
 
-          <section className="surface-card flex min-h-[760px] flex-col overflow-hidden">
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            onMouseDown={() => setIsDraggingDivider(true)}
+            className="hidden w-2 cursor-col-resize bg-soft-ivory/80 transition hover:bg-deep-red/20 lg:block"
+          />
+
+          <section className="flex min-h-[760px] min-w-0 flex-1 flex-col overflow-hidden">
             <header className="border-b border-soft-ivory px-6 py-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -458,15 +496,10 @@ const ChatShell: React.FC = () => {
           </section>
         </section>
 
-        <NewChatModal
-          open={showNewChat}
-          onClose={() => setShowNewChat(false)}
-          onConversationCreated={() => setShowNewChat(false)}
-        />
-        <NewGroupModal
-          open={showNewGroup}
-          onClose={() => setShowNewGroup(false)}
-          onCreated={() => setShowNewGroup(false)}
+        <NewConversationModal
+          open={showNewConversation}
+          initialTab={conversationTab}
+          onClose={() => setShowNewConversation(false)}
         />
         <ConversationDetailsModal
           room={activeRoom}
