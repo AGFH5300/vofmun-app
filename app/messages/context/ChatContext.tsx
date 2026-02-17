@@ -52,7 +52,7 @@ interface ChatContextValue {
   respondToFriendRequest: (id: string, action: 'accept' | 'reject') => Promise<void>;
   acceptFriendRequest: (id: string) => Promise<void>;
   declineFriendRequest: (id: string) => Promise<void>;
-  openDirectMessageRoomForUser: (userId: string) => Promise<void>;
+  openDirectMessageRoomForUser: (userId: string) => Promise<RoomWithDetails | null>;
 }
 
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
@@ -311,7 +311,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           const withoutTemp = list.filter((msg) => msg.id !== tempId && msg.id !== saved.id);
           return { ...prev, [roomId]: [...withoutTemp, { ...saved, status: 'delivered' }] };
         });
-      } catch (_error) {
+      } catch {
         setMessages((prev) => {
           const list = prev[roomId] || [];
           return {
@@ -362,9 +362,31 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (existing) return existing;
 
       const refreshed = await refreshRooms();
-      return findDirectRoom(refreshed);
+      const fromRefreshed = findDirectRoom(refreshed);
+      if (fromRefreshed) return fromRefreshed;
+
+      const response = await fetch(
+        `${CHAT_API_URL}/api/rooms/direct`,
+        withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
+      );
+      if (!response.ok) {
+        console.error('[ChatContext] failed to create direct room', {
+          status: response.status,
+          statusText: response.statusText,
+        });
+        return null;
+      }
+
+      const room = (await response.json()) as RoomWithDetails;
+      const normalizedRoom = { ...room, isPinned: pinnedRoomIds.has(room.id) };
+      setRooms((prev) => {
+        const withoutDuplicate = prev.filter((existingRoom) => existingRoom.id !== room.id);
+        return [normalizedRoom, ...withoutDuplicate];
+      });
+
+      return normalizedRoom;
     },
-    [refreshRooms, rooms, userId]
+    [pinnedRoomIds, refreshRooms, rooms, userId, withAuthHeaders]
   );
 
   const createGroupRoom = useCallback(
@@ -612,29 +634,15 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const openDirectMessageRoomForUser = useCallback(
     async (targetUserId: string) => {
-      if (!userId) return;
+      if (!userId) return null;
 
-      const findRoom = (list: RoomWithDetails[]) =>
-        list.find(
-          (room) =>
-            room.room_type === 'dm' &&
-            room.members.some((member) => member.user_id === userId) &&
-            room.members.some((member) => member.user_id === targetUserId)
-        );
+      const room = await createDirectRoom(targetUserId);
+      if (!room) return null;
 
-      const existingRoom = findRoom(rooms);
-      if (existingRoom) {
-        await selectRoom(existingRoom);
-        return;
-      }
-
-      const updatedRooms = await refreshRooms();
-      const refreshedRoom = findRoom(updatedRooms);
-      if (refreshedRoom) {
-        await selectRoom(refreshedRoom);
-      }
+      await selectRoom(room);
+      return room;
     },
-    [refreshRooms, rooms, selectRoom, userId]
+    [createDirectRoom, selectRoom, userId]
   );
 
   const value = useMemo<ChatContextValue>(

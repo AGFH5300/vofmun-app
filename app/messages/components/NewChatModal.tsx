@@ -66,7 +66,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
         console.log('[NewChatModal] search results', data);
         setResults(data);
         setHasSearched(true);
-      } catch (_err) {
+      } catch {
         setError('Something went wrong while searching.');
       } finally {
         setIsSearching(false);
@@ -77,8 +77,12 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
 
   const handleStartChat = async (user: UserSearchResult) => {
     setError(null);
-    await openDirectMessageRoomForUser(user.id);
-    onConversationCreated?.(user.id);
+    const room = await openDirectMessageRoomForUser(user.id);
+    if (!room) {
+      setError('Unable to open a direct message room right now.');
+      return;
+    }
+    onConversationCreated?.(room.id);
     onClose();
   };
 
@@ -202,7 +206,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                             await acceptFriendRequest(req.id);
                             onClose();
                           }}
-                          className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 font-semibold text-white shadow-sm hover:bg-dark-burgundy"
+                          className="inline-flex items-center gap-2 rounded-xl bg-[#701e1e] px-3 py-2 font-semibold text-white shadow-sm hover:bg-[#8b2424]"
                         >
                           <Check className="h-4 w-4" /> Accept
                         </button>
@@ -254,7 +258,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                       <button
                         type="button"
                         onClick={() => handleStartChat(user)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 font-semibold text-white shadow-sm hover:bg-dark-burgundy"
+                        className="inline-flex items-center gap-2 rounded-xl bg-[#701e1e] px-3 py-2 font-semibold text-white shadow-sm hover:bg-[#8b2424]"
                       >
                         <MessageSquare className="h-4 w-4" /> Message
                       </button>
@@ -266,7 +270,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                             await acceptFriendRequest(relationship.request.id);
                             onClose();
                           }}
-                          className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 font-semibold text-white shadow-sm hover:bg-dark-burgundy"
+                          className="inline-flex items-center gap-2 rounded-xl bg-[#701e1e] px-3 py-2 font-semibold text-white shadow-sm hover:bg-[#8b2424]"
                         >
                           <Check className="h-4 w-4" /> Accept
                         </button>
