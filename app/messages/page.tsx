@@ -45,6 +45,7 @@ const ChatShell: React.FC = () => {
     sendTyping,
     typingUsers,
     onlineUsers,
+    friendRequests,
     incomingRequests,
     acceptFriendRequest,
     declineFriendRequest,
@@ -152,6 +153,14 @@ const ChatShell: React.FC = () => {
     return activeRoom.members.filter((member) => onlineUsers.has(member.user_id))
       .length;
   }, [activeRoom, onlineUsers]);
+
+  const outgoingRequests = useMemo(
+    () =>
+      friendRequests.filter(
+        (req) => req.sender_id === currentUserId && req.status === "pending",
+      ),
+    [currentUserId, friendRequests],
+  );
 
   return (
     <div className="page-shell">
@@ -390,6 +399,57 @@ const ChatShell: React.FC = () => {
               </div>
             </header>
 
+            {(incomingRequests.length > 0 || outgoingRequests.length > 0) && (
+              <div className="border-b border-soft-ivory bg-warm-light-grey/35 px-6 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-almost-black-green/60">
+                    Friend requests
+                  </p>
+                  <span className="rounded-full bg-deep-red/10 px-2 py-1 text-[0.7rem] font-semibold text-deep-red">
+                    {incomingRequests.length} incoming • {outgoingRequests.length} sent
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {incomingRequests.slice(0, 2).map((req) => {
+                    const senderName =
+                      req.sender?.full_name ||
+                      `${req.sender?.firstname || ""} ${req.sender?.lastname || ""}`.trim() ||
+                      req.sender_id;
+
+                    return (
+                      <div
+                        key={req.id}
+                        className="rounded-2xl border border-soft-ivory bg-white px-3 py-2"
+                      >
+                        <p className="text-sm font-semibold text-deep-red">{senderName}</p>
+                        <p className="text-xs text-almost-black-green/65">
+                          Sent you a connection request.
+                        </p>
+                      </div>
+                    );
+                  })}
+                  {outgoingRequests.slice(0, 2).map((req) => {
+                    const recipientName =
+                      req.receiver?.full_name ||
+                      `${req.receiver?.firstname || ""} ${req.receiver?.lastname || ""}`.trim() ||
+                      req.receiver_id;
+
+                    return (
+                      <div
+                        key={req.id}
+                        className="rounded-2xl border border-soft-ivory bg-white px-3 py-2"
+                      >
+                        <p className="text-sm font-semibold text-deep-red">{recipientName}</p>
+                        <p className="text-xs text-almost-black-green/65">
+                          Awaiting response to your connection request.
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-1 flex-col bg-gradient-to-b from-white via-warm-light-grey/40 to-white">
               <div
                 ref={messagesContainerRef}
@@ -473,7 +533,7 @@ const ChatShell: React.FC = () => {
                         }}
                         placeholder="Type your message"
                         rows={1}
-                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm focus:outline-none"
+                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-almost-black-green placeholder:text-almost-black-green/45 focus:outline-none"
                       />
                       <button
                         type="button"

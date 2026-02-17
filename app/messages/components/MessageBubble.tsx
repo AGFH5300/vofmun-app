@@ -38,7 +38,7 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) =
           isOwn ? 'bg-deep-red text-white' : 'bg-white border border-soft-ivory text-almost-black-green'
         }`}
       >
-        <div className="flex items-center justify-between gap-3 text-xs font-semibold">
+        <div className={`flex items-center justify-between gap-3 text-xs font-semibold ${isOwn ? 'text-white' : 'text-deep-red'}`}>
           {showAuthor && <span>{message.user?.full_name ?? 'Unknown user'}</span>}
           <span className={`text-[0.7rem] ${isOwn ? 'text-white/70' : 'text-almost-black-green/60'}`}>{timestamp}</span>
         </div>
@@ -47,7 +47,7 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) =
             Replying to a previous message
           </div>
         )}
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+        <p className={`mt-2 whitespace-pre-wrap text-sm leading-relaxed ${isOwn ? 'text-white' : 'text-almost-black-green'}`}>{message.content}</p>
         {message.status && (
           <div
             className={`mt-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.7rem] uppercase tracking-tight ${

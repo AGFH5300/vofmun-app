@@ -72,7 +72,7 @@ const ConversationList: React.FC<Props> = ({
           <button
             type="button"
             onClick={onNewChat}
-            className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-xs font-semibold text-deep-red shadow-sm hover:border-deep-red/30 hover:bg-soft-ivory"
+            className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-xs font-semibold !text-deep-red shadow-sm hover:border-deep-red/30 hover:bg-soft-ivory"
           >
             <Plus className="h-4 w-4" /> New conversation
           </button>
