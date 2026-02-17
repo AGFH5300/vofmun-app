@@ -480,14 +480,19 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
 app.get('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
-    const { data: membership } = await supabaseAdmin
+    const { data: membershipRows, error: membershipError } = await supabaseAdmin
       .from('room_members')
       .select('id')
       .eq('room_id', roomId)
       .eq('user_id', req.userId!)
-      .single();
+      .limit(1);
 
-    if (!membership) {
+    if (membershipError) {
+      console.error('Error validating room membership', membershipError);
+      return res.status(500).json({ error: 'Failed to validate room membership' });
+    }
+
+    if (!membershipRows || membershipRows.length === 0) {
       return res.status(403).json({ error: 'Not a room member' });
     }
 
@@ -514,13 +519,19 @@ app.post('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, 
       return res.status(400).json({ error: 'Message content is required' });
     }
 
-    const { data: membership } = await supabaseAdmin
+    const { data: membershipRows, error: membershipError } = await supabaseAdmin
       .from('room_members')
       .select('id')
       .eq('room_id', roomId)
       .eq('user_id', req.userId!)
-      .single();
-    if (!membership) {
+      .limit(1);
+
+    if (membershipError) {
+      console.error('Error validating room membership', membershipError);
+      return res.status(500).json({ error: 'Failed to validate room membership' });
+    }
+
+    if (!membershipRows || membershipRows.length === 0) {
       return res.status(403).json({ error: 'Not a room member' });
     }
 
