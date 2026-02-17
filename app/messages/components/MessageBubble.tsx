@@ -26,6 +26,7 @@ const statusIcon: Record<string, React.ReactNode> = {
 };
 
 const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) => {
+  const isFailed = message.status === 'error';
   const timestamp = message.created_at
     ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
@@ -35,23 +36,31 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) =
       <UserAvatar user={message.user} size={36} />
       <div
         className={`group relative max-w-xl rounded-2xl px-4 py-3 shadow-sm ${
-          isOwn ? 'bg-deep-red text-white' : 'bg-white border border-soft-ivory text-almost-black-green'
+          isOwn
+            ? isFailed
+              ? 'border border-deep-red/30 bg-soft-ivory text-deep-red'
+              : 'bg-deep-red text-white'
+            : 'bg-white border border-soft-ivory text-almost-black-green'
         }`}
       >
-        <div className={`flex items-center justify-between gap-3 text-xs font-semibold ${isOwn ? 'text-white' : 'text-deep-red'}`}>
+        <div className={`flex items-center justify-between gap-3 text-xs font-semibold ${isOwn ? (isFailed ? 'text-deep-red' : 'text-white') : 'text-deep-red'}`}>
           {showAuthor && <span>{message.user?.full_name ?? 'Unknown user'}</span>}
-          <span className={`text-[0.7rem] ${isOwn ? 'text-white/70' : 'text-almost-black-green/60'}`}>{timestamp}</span>
+          <span className={`text-[0.7rem] ${isOwn ? (isFailed ? 'text-deep-red/70' : 'text-white/70') : 'text-almost-black-green/60'}`}>{timestamp}</span>
         </div>
         {message.reply_to && (
-          <div className={`mt-2 rounded-lg px-3 py-2 text-xs ${isOwn ? 'bg-white/10 text-white/80' : 'bg-black/5 text-almost-black-green/70'}`}>
+          <div className={`mt-2 rounded-lg px-3 py-2 text-xs ${isOwn ? (isFailed ? 'bg-deep-red/10 text-deep-red/80' : 'bg-white/10 text-white/80') : 'bg-black/5 text-almost-black-green/70'}`}>
             Replying to a previous message
           </div>
         )}
-        <p className={`mt-2 whitespace-pre-wrap text-sm leading-relaxed ${isOwn ? 'text-white' : 'text-almost-black-green'}`}>{message.content}</p>
+        <p className={`mt-2 whitespace-pre-wrap text-sm leading-relaxed ${isOwn ? (isFailed ? 'text-deep-red' : 'text-white') : 'text-almost-black-green'}`}>{message.content}</p>
         {message.status && (
           <div
             className={`mt-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.7rem] uppercase tracking-tight ${
-              isOwn ? 'bg-white/20 text-white' : 'bg-soft-ivory text-almost-black-green/70'
+              isOwn
+                ? isFailed
+                  ? 'bg-deep-red/10 text-deep-red'
+                  : 'bg-white/20 text-white'
+                : 'bg-soft-ivory text-almost-black-green/70'
             }`}
           >
             {statusIcon[message.status]}
