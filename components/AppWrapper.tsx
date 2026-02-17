@@ -1,8 +1,10 @@
+'use client';
+
 import { useSession } from "../app/context/sessionContext";
 import CustomNav from "@/components/ui/customnav";
 import SiteFooter from "@/components/ui/site-footer";
 import role from "@/lib/roles";
-import { useRouter } from "@/src/router";
+import { usePathname } from "next/navigation";
 
 interface AppWrapperProps {
   children: React.ReactNode;
@@ -10,7 +12,7 @@ interface AppWrapperProps {
 
 export default function AppWrapper({ children }: AppWrapperProps) {
   const { user: currentUser } = useSession();
-  const { pathname } = useRouter();
+  const pathname = usePathname();
   const userRole = role(currentUser);
   
   // Don't show navigation or footer on login page

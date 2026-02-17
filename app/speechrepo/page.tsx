@@ -1,4 +1,5 @@
-"use client";
+'use client';
+
 import React, { useEffect, useState } from "react";
 import { Chair, Delegate, Speech } from "@/db/types";
 import { useSession } from "../context/sessionContext";
@@ -9,7 +10,6 @@ import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
 import { AlertTriangle, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
-import { useRouter } from "@/src/router";
 
 type SpeechRow = Omit<Speech, "tags">;
 
@@ -51,7 +51,6 @@ const Page = () => {
   const { user: currentUser } = useSession();
   const userRole = role(currentUser);
   const editorRef = React.useRef<Editor | null>(null);
-  const { registerNavigationGuard } = useRouter();
   const [fetchedSpeeches, setFetchedSpeeches] = useState<Speech[]>([]);
   const [selectedSpeech, setSelectedSpeech] = useState<Speech | null>(null);
   const [title, setTitle] = useState<string>("");
@@ -139,11 +138,6 @@ const Page = () => {
       editorRef.current.commands.focus("end");
     }
   }, [confirmDiscardChanges, isBusy]);
-
-  useEffect(() => {
-    const unregister = registerNavigationGuard(() => confirmDiscardChanges());
-    return unregister;
-  }, [confirmDiscardChanges, registerNavigationGuard]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) {

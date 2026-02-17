@@ -1,5 +1,8 @@
+'use client';
+
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useRouter } from "@/src/router";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSession } from "@/app/context/sessionContext";
 import { useMobile } from "@/hooks/use-mobile";
 import {
@@ -29,7 +32,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   const { user: currentUser, logout } = useSession();
   const isMobile = useMobile();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { pathname } = useRouter();
+  const pathname = usePathname();
   const [pendingRequests, setPendingRequests] = useState(0);
 
   useEffect(() => {
@@ -154,7 +157,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
   const brand = (
     <Link
-      to="/home"
+      href="/home"
       className="flex items-center gap-3 text-slate-900"
       style={{ fontFamily: sansFontFamily }}
     >
@@ -231,7 +234,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                 return (
                   <Link
                     key={item.name}
-                    to={item.to}
+                    href={item.to}
                     className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
                       active
                         ? "border-slate-300 bg-slate-900 text-white"
@@ -291,7 +294,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
               return (
                 <Link
                   key={item.name}
-                  to={item.to}
+                  href={item.to}
                   className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                     active
                       ? "bg-slate-900 text-white shadow-[0_16px_32px_-28px_rgba(15,23,42,0.35)]"
@@ -344,7 +347,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
               return (
                 <Link
                   key={item.name}
-                  to={item.to}
+                  href={item.to}
                   className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
                     active
                       ? "border-slate-300 bg-slate-900 text-white"

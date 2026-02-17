@@ -1,6 +1,8 @@
+'use client';
+
 import React from "react";
 import { motion } from "framer-motion";
-import { useRouter } from "@/src/router";
+import { useRouter } from "next/navigation";
 import { useSession } from "../context/sessionContext";
 import TypeWriter from "@/components/ui/typewriter";
 import supabase from "@/lib/supabase";
@@ -13,7 +15,7 @@ const Login = () => {
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
-  const { navigate } = useRouter();
+  const router = useRouter();
   const { login } = useSession();
   const isMobile = useMobile();
   const brandDarkRed = "#701e1e";
@@ -42,7 +44,7 @@ const Login = () => {
         }
 
         login({ ...admin, role: "admin" });
-        navigate("/home");
+        router.push("/home");
         return;
       }
 
@@ -60,7 +62,7 @@ const Login = () => {
         }
 
         login({ ...chair, role: "chair" });
-        navigate("/home");
+        router.push("/home");
         return;
       }
 
@@ -88,7 +90,7 @@ const Login = () => {
         }
 
         login({ ...delegate, committee, role: "delegate" });
-        navigate("/home");
+        router.push("/home");
         return;
       }
 
@@ -106,7 +108,7 @@ const Login = () => {
         }
 
         login({ ...secretariat, role: "secretariat" });
-        navigate("/home");
+        router.push("/home");
         return;
       }
 

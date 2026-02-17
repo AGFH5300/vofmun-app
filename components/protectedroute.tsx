@@ -1,10 +1,12 @@
+'use client';
+
 import React, { useEffect } from "react";
 import { useSession } from "../app/context/sessionContext";
-import { useRouter } from "@/src/router";
+import { useRouter } from "next/navigation";
 
 const useRedirect = () => {
-  const { navigate } = useRouter();
-  return navigate;
+  const router = useRouter();
+  return (path: string) => router.push(path);
 };
 
 // this route protects from all unauthorized

@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react'
 import {AdminRoute} from '@/components/protectedroute'
 import {toast} from 'sonner'

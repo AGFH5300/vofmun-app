@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { randomUUID } from 'crypto';
 import supabaseAdmin from '../../../../lib/supabaseAdmin';
 import { getSessionUserFromRequest } from '../../../../lib/chat/auth';

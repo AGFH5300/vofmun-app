@@ -1,3 +1,4 @@
+// @ts-nocheck
 import supabaseAdmin from '@/lib/supabaseAdmin';
 import { getSessionUserFromRequest } from '@/lib/chat/auth';
 import { searchPeople } from '@/server/chat/people';

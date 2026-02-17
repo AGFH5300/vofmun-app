@@ -1,5 +1,7 @@
+'use client';
+
 import React from "react";
-import { Link } from "@/src/router";
+import Link from "next/link";
 
 const SiteFooter: React.FC = () => {
 
