@@ -16,9 +16,12 @@ interface Props {
 
 const getDisplayMeta = (room: RoomWithDetails, currentUserId?: string | null) => {
   if (room.room_type === 'dm') {
-    const other = room.members.find((m) => m.user_id !== currentUserId)?.user;
+    const me = room.members.find((m) => m.user_id === currentUserId || m.user?.id === currentUserId);
+    const otherMember =
+      room.members.find((m) => m.user_id !== me?.user_id) || room.members.find((m) => m.user_id !== currentUserId) || room.members[0];
+    const other = otherMember?.user;
     return {
-      name: other?.full_name || room.name,
+      name: other?.full_name || `${other?.firstname || ''} ${other?.lastname || ''}`.trim() || room.name,
       sub: other?.role_title || other?.committee || 'Direct message',
       avatarUser: other,
     };
@@ -36,14 +39,22 @@ const getDisplayMeta = (room: RoomWithDetails, currentUserId?: string | null) =>
 const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTogglePin, currentUserId, onlineUsers }) => {
   const meta = getDisplayMeta(room, currentUserId);
   const last = room.lastMessage;
-  const hasOnlinePresence = room.room_type === 'dm' && room.members.some((m) => onlineUsers.has(m.user_id));
+  const hasOnlinePresence =
+    room.room_type === 'dm' && room.members.some((m) => m.user_id !== currentUserId && onlineUsers.has(m.user_id));
 
   return (
     <li>
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => onSelect(room)}
-        className={`group w-full rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-deep-red/40 ${
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onSelect(room);
+          }
+        }}
+        className={`group w-full cursor-pointer rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-deep-red/40 ${
           isActive ? 'border-deep-red/40 bg-soft-rose/40 shadow-sm' : 'border-transparent hover:border-soft-ivory hover:bg-soft-ivory'
         }`}
       >
@@ -95,7 +106,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             ) : null}
           </div>
         </div>
-      </button>
+      </div>
     </li>
   );
 };

@@ -206,12 +206,17 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
                 {incomingRequestsList.length > 0 && (
                   <div className="space-y-2 rounded-2xl border border-soft-ivory bg-warm-light-grey/40 p-3">
-                    <p className="text-sm font-semibold text-deep-red">Incoming requests</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-deep-red">Incoming requests</p>
+                      <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#c62828] px-2 text-xs font-semibold text-white">
+                        {incomingRequestsList.length}
+                      </span>
+                    </div>
                     {incomingRequestsList.map((req) => (
                       <div key={req.id} className="flex items-center justify-between rounded-xl border border-soft-ivory bg-white px-3 py-2">
                         <p className="text-sm text-deep-red">{req.sender?.full_name || req.sender_id}</p>
                         <div className="flex gap-2">
-                          <button type="button" onClick={() => acceptFriendRequest(req.id)} className="rounded-lg bg-deep-red px-3 py-1 text-xs font-semibold text-white">Accept</button>
+                          <button type="button" onClick={() => acceptFriendRequest(req.id)} className="rounded-lg bg-[#701e1e] px-3 py-1 text-xs font-semibold text-white hover:bg-[#8b2424]">Accept</button>
                           <button type="button" onClick={() => declineFriendRequest(req.id)} className="rounded-lg border border-soft-ivory px-3 py-1 text-xs font-semibold text-deep-red">Decline</button>
                         </div>
                       </div>

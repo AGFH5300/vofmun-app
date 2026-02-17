@@ -122,11 +122,32 @@ const ChatShell: React.FC = () => {
     <TypingIndicator names={roomTypingNames} />
   ) : null;
 
+  const activeDmPeer = useMemo(() => {
+    if (!activeRoom || activeRoom.room_type !== "dm") return null;
+    const me = activeRoom.members.find(
+      (member) => member.user_id === currentUserId || member.user?.id === currentUserId,
+    );
+    return (
+      activeRoom.members.find((member) => member.user_id !== me?.user_id) ||
+      activeRoom.members.find((member) => member.user_id !== currentUserId) ||
+      activeRoom.members[0] ||
+      null
+    );
+  }, [activeRoom, currentUserId]);
+
+  const activeRoomTitle = activeRoom
+    ? activeRoom.room_type === "dm"
+      ? activeDmPeer?.user?.full_name ||
+        `${activeDmPeer?.user?.firstname || ""} ${activeDmPeer?.user?.lastname || ""}`.trim() ||
+        activeRoom.name
+      : activeRoom.name
+    : "Select a conversation";
+
   const headerSubtitle = activeRoom
     ? activeRoom.room_type === "dm"
-      ? activeRoom.members.find(
-          (m) => m.user_id !== currentUserId,
-        )?.user?.committee || "Delegate"
+      ? onlineUsers.has(activeDmPeer?.user_id || "")
+        ? "Online now"
+        : "Offline"
       : `${activeRoom.members.length} participants`
     : "Choose a conversation to start";
 
@@ -316,7 +337,7 @@ const ChatShell: React.FC = () => {
                             type="button"
                             onClick={handleAccept}
                             disabled={respondingId === req.id}
-                            className="flex-1 rounded-xl bg-deep-red px-3 py-2 text-white shadow-sm hover:bg-dark-burgundy disabled:opacity-60"
+                            className="flex-1 rounded-xl bg-[#701e1e] px-3 py-2 text-white shadow-sm hover:bg-[#8b2424] disabled:opacity-60"
                           >
                             Accept
                           </button>
@@ -363,7 +384,7 @@ const ChatShell: React.FC = () => {
                     Active room
                   </p>
                   <h2 className="!mb-1 text-2xl font-semibold text-deep-red">
-                    {activeRoom ? activeRoom.name : "Select a conversation"}
+                    {activeRoomTitle}
                   </h2>
                   <p className="text-sm text-almost-black-green/70">{headerSubtitle}</p>
                 </div>
