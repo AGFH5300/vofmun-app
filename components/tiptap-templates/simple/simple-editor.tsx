@@ -240,7 +240,7 @@ export const SimpleEditor = React.forwardRef(function SimpleEditor({ content, cl
         <div className={`editor-container ${className || ''}`} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           <div className="content-wrapper" style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
             <div style={{ 
-              position: isMobile ? 'sticky' : 'relative',
+              position: 'sticky',
               top: 0,
               zIndex: 1000,
               width: '100%'
@@ -248,15 +248,12 @@ export const SimpleEditor = React.forwardRef(function SimpleEditor({ content, cl
               <Toolbar
                 ref={toolbarRef}
                 className="tiptap-toolbar"
-                style={
-                  isMobile
-                    ? {
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 20
-                      }
-                    : {}
-                }
+                style={{
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 20,
+                  background: 'var(--tt-toolbar-bg-color)'
+                }}
               >
                 {mobileView === "main" ? (
                   <MainToolbarContent
