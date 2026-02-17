@@ -1000,8 +1000,11 @@ const Page = () => {
 
                 <div className="mb-4 rounded-xl border border-soft-ivory bg-warm-light-grey/50 px-4 py-3">
                   <label className="mb-2 block text-xs uppercase tracking-[0.25em] text-deep-red/70">
-                    External Document Link (Optional)
+                    Choose one: External Document Link OR Local Editor
                   </label>
+                  <p className="mb-2 text-xs text-almost-black-green/70">
+                    Add a Google Doc/Word link to use external-document mode. Leave this blank to write directly in the local editor.
+                  </p>
                   <input
                     type="url"
                     value={docLink}
@@ -1014,30 +1017,34 @@ const Page = () => {
 
                 {isExternalDocMode && (
                   <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-900">
-                    External document mode enabled. Local editor is read-only until the link is removed.
+                    External document mode enabled. The local editor is hidden while this link is present.
                   </div>
                 )}
 
-                <div className="mb-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setIsFullscreenEditor((prev) => !prev)}
-                    className="inline-flex items-center gap-2 rounded-full border border-deep-red/25 bg-white px-3 py-1.5 text-xs font-medium text-deep-red transition-colors hover:border-deep-red/50 hover:bg-deep-red/5"
-                  >
-                    {isFullscreenEditor ? <Minimize2 size={14} /> : <Expand size={14} />}
-                    {isFullscreenEditor ? "Exit Fullscreen" : "Fullscreen Editor"}
-                  </button>
-                </div>
+                {!isExternalDocMode && (
+                  <>
+                    <div className="mb-3 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setIsFullscreenEditor((prev) => !prev)}
+                        className="inline-flex items-center gap-2 rounded-full border border-deep-red/25 bg-white px-3 py-1.5 text-xs font-medium text-deep-red transition-colors hover:border-deep-red/50 hover:bg-deep-red/5"
+                      >
+                        {isFullscreenEditor ? <Minimize2 size={14} /> : <Expand size={14} />}
+                        {isFullscreenEditor ? "Exit Fullscreen" : "Fullscreen Editor"}
+                      </button>
+                    </div>
 
-                <div
-                  className={`overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isFullscreenEditor ? "min-h-[calc(100vh-20rem)]" : "flex-1"} ${isBusy || isExternalDocMode ? "pointer-events-none opacity-60" : ""}`}
-                >
-                  <SimpleEditor
-                    ref={editorRef}
-                    content={cleanedResoContent}
-                    className="h-full toolbar-fixed"
-                  />
-                </div>
+                    <div
+                      className={`overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isFullscreenEditor ? "min-h-[calc(100vh-20rem)]" : "flex-1"} ${isBusy ? "pointer-events-none opacity-60" : ""}`}
+                    >
+                      <SimpleEditor
+                        ref={editorRef}
+                        content={cleanedResoContent}
+                        className="h-full toolbar-fixed"
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div className="mt-4 flex flex-col gap-3 border-t border-soft-ivory pt-4 sm:flex-row sm:items-center sm:justify-between">
                   {selectedReso && (
