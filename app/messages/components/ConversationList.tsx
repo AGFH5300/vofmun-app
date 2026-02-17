@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { RoomWithDetails } from '@/lib/chat/types';
 import ConversationListItem from './ConversationListItem';
-import { MessageCircle, Plus, Sparkles } from 'lucide-react';
+import { MessageCircle, Plus } from 'lucide-react';
 
 interface Props {
   rooms: RoomWithDetails[];
@@ -74,14 +74,7 @@ const ConversationList: React.FC<Props> = ({
             onClick={onNewChat}
             className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-xs font-semibold text-deep-red shadow-sm hover:border-deep-red/30 hover:bg-soft-ivory"
           >
-            <Plus className="h-4 w-4" /> New chat
-          </button>
-          <button
-            type="button"
-            onClick={onNewGroup}
-            className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-white px-3 py-2 text-xs font-semibold text-deep-red hover:border-deep-red/30 hover:bg-soft-ivory"
-          >
-            <Sparkles className="h-4 w-4" /> New group
+            <Plus className="h-4 w-4" /> New conversation
           </button>
         </div>
       </div>
@@ -96,7 +89,7 @@ const ConversationList: React.FC<Props> = ({
             <MessageCircle className="text-deep-red/50" size={42} />
             <div>
               <p className="text-base font-semibold text-deep-red">You don’t have any conversations yet</p>
-              <p className="text-sm">Start a direct message or spin up a group for your committee.</p>
+              <p className="text-sm">Start a conversation or spin up a group for your committee.</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -104,14 +97,14 @@ const ConversationList: React.FC<Props> = ({
                 onClick={onNewChat}
                 className="rounded-xl bg-deep-red px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-dark-burgundy"
               >
-                Start a direct message
+                Start a conversation
               </button>
               <button
                 type="button"
                 onClick={onNewGroup}
                 className="rounded-xl border border-soft-ivory px-4 py-2 text-sm font-semibold text-deep-red hover:border-deep-red/30 hover:bg-soft-ivory"
               >
-                Create a group
+                Start as group
               </button>
             </div>
           </div>
