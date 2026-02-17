@@ -58,10 +58,8 @@ interface ChatContextValue {
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
 
 const getWebSocketUrl = () => {
-  if (CHAT_WS_URL) return CHAT_WS_URL;
-  const { protocol, host } = window.location;
-  const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${wsProtocol}//${host}/chat-ws`;
+  if (!CHAT_WS_URL) return null;
+  return CHAT_WS_URL;
 };
 
 export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
@@ -235,8 +233,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const connectSocket = useCallback(() => {
     if (!userId) return;
-    setIsConnecting(true);
     const url = getWebSocketUrl();
+    if (!url) {
+      setIsConnecting(false);
+      return;
+    }
+    setIsConnecting(true);
     const ws = new WebSocket(url);
     wsRef.current = ws;
 

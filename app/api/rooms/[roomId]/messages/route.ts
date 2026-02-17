@@ -17,12 +17,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ room
 
     const { roomId } = await params;
 
-    const { data: membership, error: membershipError } = await supabaseAdmin
+    const { data: membershipRows, error: membershipError } = await supabaseAdmin
       .from('room_members')
       .select('id')
       .eq('room_id', roomId)
       .eq('user_id', sessionUser.id)
-      .maybeSingle();
+      .limit(1);
 
     if (membershipError) {
       console.error('[api rooms messages] failed membership check', {
@@ -33,7 +33,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ room
       return NextResponse.json({ error: 'Failed to validate room membership' }, { status: 500 });
     }
 
-    if (!membership) {
+    if (!membershipRows || membershipRows.length === 0) {
       return NextResponse.json({ error: 'Not a room member' }, { status: 403 });
     }
 
@@ -74,14 +74,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
       return NextResponse.json({ error: 'Message content is required' }, { status: 400 });
     }
 
-    const { data: membership } = await supabaseAdmin
+    const { data: membershipRows, error: membershipError } = await supabaseAdmin
       .from('room_members')
       .select('id')
       .eq('room_id', roomId)
       .eq('user_id', sessionUser.id)
-      .single();
+      .limit(1);
 
-    if (!membership) {
+    if (membershipError) {
+      console.error('[api rooms messages] failed membership check before insert', {
+        roomId,
+        userId: sessionUser.id,
+        error: membershipError,
+      });
+      return NextResponse.json({ error: 'Failed to validate room membership' }, { status: 500 });
+    }
+
+    if (!membershipRows || membershipRows.length === 0) {
       return NextResponse.json({ error: 'Not a room member' }, { status: 403 });
     }
 
