@@ -142,6 +142,7 @@ const Page = () => {
     content: serializeDocument(),
   });
   const isBusy = isSaving || isDeleting;
+  const isExternalDocMode = docLink.trim().length > 0;
   const parsedResoContent = React.useMemo(
     () => parseResoContent(selectedReso?.content ?? null),
     [selectedReso]
@@ -418,9 +419,27 @@ const Page = () => {
 
   useEffect(() => {
     if (editorRef.current) {
-      editorRef.current.setEditable(!isBusy);
+      editorRef.current.setEditable(!isBusy && !isExternalDocMode);
     }
-  }, [isBusy]);
+  }, [isBusy, isExternalDocMode]);
+
+  useEffect(() => {
+    if (!isFullscreenEditor) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsFullscreenEditor(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isFullscreenEditor]);
 
   const confirmDiscardChanges = useCallback(() => {
     if (!hasUnsavedChanges) {
@@ -502,7 +521,8 @@ const Page = () => {
     if (!updatedUser) return;
 
     const updatedUserRole = role(updatedUser);
-    const isDelegateUser = updatedUserRole === "delegate" && updatedUser !== null;
+    const updatedUserIsDelegate =
+      updatedUserRole === "delegate" && updatedUser !== null;
 
     if (!editorRef.current) {
       toast.error("Editor not initialized");
@@ -515,17 +535,24 @@ const Page = () => {
       return;
     }
 
-    if (editorRef.current.getText().length === 0 && !trimmedDocLink) {
+    const hasLocalDraftText = editorRef.current.getText().trim().length > 0;
+
+    if (!hasLocalDraftText && !trimmedDocLink) {
       toast.error("Add text or provide an external document link.");
       return;
     }
 
-    if (!isDelegateUser && !selectedReso) {
+    if (hasLocalDraftText && trimmedDocLink) {
+      toast.error("Choose either a local draft or an external document link, not both.");
+      return;
+    }
+
+    if (!updatedUserIsDelegate && !selectedReso) {
       toast.error("Only delegates can post resolutions.");
       return;
     }
 
-    if (isDelegateUser) {
+    if (updatedUserIsDelegate) {
       const delegateUser = updatedUser as Delegate;
       if (!delegateUser.resoPerms["update:ownreso"] && selectedReso?.delegateID === delegateUser.delegateID) {
         toast.error("You do not have permission to post resolutions.");
@@ -554,7 +581,7 @@ const Page = () => {
     let delegateID = "0000";
     let committeeID = "";
 
-    if (isDelegateUser) {
+    if (updatedUserIsDelegate) {
       const delegateUser = updatedUser as Delegate;
       delegateID = delegateUser.delegateID;
       committeeID = committeeIdFor(delegateUser.committee.committeeID);
@@ -842,8 +869,9 @@ const Page = () => {
   return (
     <ParticipantRoute>
       <div className="page-shell">
-        <main className="page-maxwidth space-y-10">
-          <header className="surface-card is-emphasised overflow-hidden px-8 py-10 text-center">
+        <main className={`page-maxwidth ${isFullscreenEditor ? "space-y-4" : "space-y-10"}`}>
+          {!isFullscreenEditor && (
+            <header className="surface-card is-emphasised overflow-hidden px-8 py-10 text-center">
             <span className="badge-pill bg-white/15 text-white/80 inline-flex justify-center mx-auto mb-4">
               Collaborative Drafting
             </span>
@@ -851,9 +879,11 @@ const Page = () => {
             <p className="text-white/80 max-w-3xl mx-auto mt-3">
               Coordinate with your bloc, refine drafts, and push polished resolutions to the dais. Chairs can monitor progress and allocate editing permissions instantly.
             </p>
-          </header>
+            </header>
+          )}
 
-          <section className="flex flex-col lg:flex-row gap-6">
+          <section className={`flex flex-col gap-6 ${isFullscreenEditor ? "" : "lg:flex-row"}`}>
+            {!isFullscreenEditor && (
             <aside className="lg:w-1/3 space-y-4">
               <div className="surface-card p-6 max-h-[520px] overflow-y-auto">
                 <div className="flex items-center justify-between mb-4">
@@ -930,9 +960,10 @@ const Page = () => {
                 </div>
               )}
             </aside>
+            )}
 
             <div className="flex-1">
-              <div className="surface-card p-4 md:p-6 h-full flex flex-col">
+              <div className={`surface-card p-4 md:p-6 h-full flex flex-col ${isFullscreenEditor ? "min-h-[calc(100vh-8rem)]" : ""}`}>
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                   <div className="flex-1">
                     <label className="text-xs uppercase tracking-[0.3em] text-deep-red/70 block mb-2">Resolution Title</label>
@@ -981,6 +1012,12 @@ const Page = () => {
                   />
                 </div>
 
+                {isExternalDocMode && (
+                  <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-900">
+                    External document mode enabled. Local editor is read-only until the link is removed.
+                  </div>
+                )}
+
                 <div className="mb-3 flex justify-end">
                   <button
                     type="button"
@@ -993,7 +1030,7 @@ const Page = () => {
                 </div>
 
                 <div
-                  className={`overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isFullscreenEditor ? "fixed inset-6 z-50 h-[calc(100vh-3rem)]" : "flex-1"} ${isBusy ? "pointer-events-none opacity-60" : ""}`}
+                  className={`overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isFullscreenEditor ? "min-h-[calc(100vh-20rem)]" : "flex-1"} ${isBusy || isExternalDocMode ? "pointer-events-none opacity-60" : ""}`}
                 >
                   <SimpleEditor
                     ref={editorRef}
