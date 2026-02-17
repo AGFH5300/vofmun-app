@@ -524,18 +524,20 @@ const Page = () => {
     const updatedUserIsDelegate =
       updatedUserRole === "delegate" && updatedUser !== null;
 
-    if (!editorRef.current) {
-      toast.error("Editor not initialized");
-      return;
-    }
-
     const trimmedDocLink = docLink.trim();
     if (trimmedDocLink && !isNonEmptyHttpUrl(trimmedDocLink)) {
       toast.error("Please enter a valid document URL (http or https).");
       return;
     }
 
-    const hasLocalDraftText = editorRef.current.getText().trim().length > 0;
+    if (!trimmedDocLink && !editorRef.current) {
+      toast.error("Editor not initialized");
+      return;
+    }
+
+    const hasLocalDraftText = editorRef.current
+      ? editorRef.current.getText().trim().length > 0
+      : false;
 
     if (!hasLocalDraftText && !trimmedDocLink) {
       toast.error("Add text or provide an external document link.");
@@ -573,7 +575,7 @@ const Page = () => {
       return;
     }
 
-    const editorContent = editorRef.current.getJSON();
+    const editorContent = editorRef.current?.getJSON() ?? EMPTY_DOCUMENT;
     const content = trimmedDocLink
       ? addExternalDocBlock(editorContent, trimmedDocLink)
       : stripExternalDocBlock(editorContent);
