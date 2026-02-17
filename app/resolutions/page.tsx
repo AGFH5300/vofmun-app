@@ -1,4 +1,5 @@
-"use client";
+'use client';
+
 import React, { useEffect, useState, useCallback } from "react";
 import { Reso, Delegate, Chair, shortenedDel } from "@/db/types";
 import { useSession } from "../context/sessionContext";
@@ -9,7 +10,6 @@ import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
 import { AlertTriangle, ArrowRight, Expand, Loader2, Minimize2, Plus, Trash2 } from "lucide-react";
-import { useRouter } from "@/src/router";
 
 const EMPTY_DOCUMENT = { type: "doc", content: [{ type: "paragraph" }] };
 const serializeDocument = (content?: object | null) =>
@@ -123,7 +123,6 @@ const Page = () => {
   const { user: currentUser, login } = useSession();
   const userRole = role(currentUser);
   const editorRef = React.useRef<Editor | null>(null);
-  const { registerNavigationGuard } = useRouter();
   const [fetchedResos, setFetchedResos] = useState<Reso[]>([]);
   const [selectedReso, setSelectedReso] = useState<Reso | null>(null);
   const [delegates, setDelegates] = useState<shortenedDel[]>([]);
@@ -430,11 +429,6 @@ const Page = () => {
 
     return window.confirm(UNSAVED_CHANGES_MESSAGE);
   }, [hasUnsavedChanges]);
-
-  useEffect(() => {
-    const unregister = registerNavigationGuard(() => confirmDiscardChanges());
-    return unregister;
-  }, [confirmDiscardChanges, registerNavigationGuard]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) {

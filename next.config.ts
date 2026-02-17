@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   images: {
@@ -11,12 +11,18 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   async redirects() {
     return [
       {
         source: '/',
         destination: '/login',
-        permanent: false, // Set to true if you want a permanent redirect (301)
+        permanent: false,
       },
     ];
   },

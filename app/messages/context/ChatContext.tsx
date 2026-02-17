@@ -11,8 +11,8 @@ import {
 } from '@/lib/chat/types';
 import { useSession } from '@/app/context/sessionContext';
 
-const CHAT_WS_URL = import.meta.env.VITE_CHAT_WS_URL;
-const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '';
+const CHAT_WS_URL = process.env.NEXT_PUBLIC_CHAT_WS_URL;
+const CHAT_API_URL = process.env.NEXT_PUBLIC_CHAT_API_URL || '';
 
 type PeopleSearchResult = {
   id: string;

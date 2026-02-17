@@ -1,5 +1,7 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
-import { Link } from '@/src/router';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useSession } from '../context/sessionContext';
 import { ProtectedRoute } from '@/components/protectedroute';
@@ -117,11 +119,11 @@ const Page = () => {
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 mt-8">
-                  <Link to="/live-updates" className="primary-button">
+                  <Link href="/live-updates" className="primary-button">
                     <Bell size={18} />
                     Live Updates
                   </Link>
-                  <Link to="/speechrepo" className="ghost-button">
+                  <Link href="/speechrepo" className="ghost-button">
                     <FileText size={18} />
                     Upload Speech
                   </Link>
@@ -158,7 +160,7 @@ const Page = () => {
                   Navigate to the tools you’ll need for speeches, resolutions, and staying informed during committee.
                 </p>
               </div>
-              <Link to="/messages" className="ghost-button">
+              <Link href="/messages" className="ghost-button">
                 <MessageSquare size={16} />
                 Open Messages
               </Link>
@@ -173,7 +175,7 @@ const Page = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.55, delay: 0.1 * (index + 1) }}
                   >
-                    <Link to={action.href} className="group block h-full">
+                    <Link href={action.href} className="group block h-full">
                       <div className="surface-card h-full overflow-hidden p-6 transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-xl">
                         <div className="flex items-start justify-between mb-6">
                           <div className="flex items-center gap-4">
@@ -276,10 +278,10 @@ const Page = () => {
                   Access the glossary for parliamentary procedure or jump into the resolution workspace to keep drafting with your bloc.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Link to="/glossary" className="ghost-button !py-2 !px-4">
+                  <Link href="/glossary" className="ghost-button !py-2 !px-4">
                     <BookOpen size={16} /> Glossary
                   </Link>
-                  <Link to="/resolutions" className="ghost-button !py-2 !px-4">
+                  <Link href="/resolutions" className="ghost-button !py-2 !px-4">
                     <FileText size={16} /> Resolutions
                   </Link>
                 </div>
