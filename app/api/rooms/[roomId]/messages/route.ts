@@ -17,12 +17,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ room
 
     const { roomId } = await params;
 
-    const { data: membership } = await supabaseAdmin
+    const { data: membership, error: membershipError } = await supabaseAdmin
       .from('room_members')
       .select('id')
       .eq('room_id', roomId)
       .eq('user_id', sessionUser.id)
-      .single();
+      .maybeSingle();
+
+    if (membershipError) {
+      console.error('[api rooms messages] failed membership check', {
+        roomId,
+        userId: sessionUser.id,
+        error: membershipError,
+      });
+      return NextResponse.json({ error: 'Failed to validate room membership' }, { status: 500 });
+    }
 
     if (!membership) {
       return NextResponse.json({ error: 'Not a room member' }, { status: 403 });
@@ -83,13 +92,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
       .single();
 
     if (error || !inserted) {
-      return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
+      console.error('[api rooms messages] insert failed', {
+        roomId,
+        userId: sessionUser.id,
+        error,
+      });
+      return NextResponse.json({ error: 'Failed to send message', details: error?.message || null }, { status: 500 });
     }
 
-    const profiles = await fetchProfilesByIds([inserted.user_id]);
-    const payload: MessageWithUser = { ...inserted, user: profiles[inserted.user_id] };
-
-    return NextResponse.json(payload);
+    try {
+      const profiles = await fetchProfilesByIds([inserted.user_id]);
+      const payload: MessageWithUser = { ...inserted, user: profiles[inserted.user_id] };
+      return NextResponse.json(payload);
+    } catch (profileError) {
+      console.error('[api rooms messages] profile enrichment failed after insert', {
+        roomId,
+        userId: sessionUser.id,
+        insertedMessageId: inserted.id,
+        error: profileError,
+      });
+      return NextResponse.json(inserted);
+    }
   } catch (error) {
     console.error('[api rooms messages] failed to send message', error);
     return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
