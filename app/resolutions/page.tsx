@@ -8,7 +8,7 @@ import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
-import { AlertTriangle, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Expand, Loader2, Minimize2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "@/src/router";
 
 const EMPTY_DOCUMENT = { type: "doc", content: [{ type: "paragraph" }] };
@@ -16,6 +16,79 @@ const serializeDocument = (content?: object | null) =>
   JSON.stringify(content ?? EMPTY_DOCUMENT);
 const UNSAVED_CHANGES_MESSAGE =
   "You have unsaved changes. Do you want to leave without saving?";
+const EXTERNAL_DOC_LABEL = "External document link:";
+
+type TiptapContentNode = {
+  text?: string;
+  marks?: { type?: string; attrs?: { href?: string } }[];
+  content?: TiptapContentNode[];
+};
+
+const isNonEmptyHttpUrl = (value: string) => {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
+const readExternalDocLink = (content?: object | null) => {
+  const doc = content as { content?: TiptapContentNode[] } | undefined;
+  const firstNode = doc?.content?.[0];
+  const labelText = firstNode?.content?.[0]?.text;
+  const linkNode = firstNode?.content?.[1];
+  const href = linkNode?.marks?.find((mark) => mark.type === "link")?.attrs?.href;
+
+  if (labelText !== `${EXTERNAL_DOC_LABEL} ` || !href) {
+    return "";
+  }
+
+  return href;
+};
+
+const stripExternalDocBlock = (content?: object | null) => {
+  const doc = (content ?? EMPTY_DOCUMENT) as { content?: TiptapContentNode[] };
+  if (!Array.isArray(doc.content) || doc.content.length === 0) {
+    return EMPTY_DOCUMENT;
+  }
+
+  const firstNode = doc.content[0];
+  const labelText = firstNode?.content?.[0]?.text;
+  const linkNode = firstNode?.content?.[1];
+  const href = linkNode?.marks?.find((mark) => mark.type === "link")?.attrs?.href;
+
+  if (labelText !== `${EXTERNAL_DOC_LABEL} ` || !href) {
+    return doc;
+  }
+
+  const remainingContent = doc.content.slice(1);
+  return {
+    type: "doc",
+    content: remainingContent.length > 0 ? remainingContent : [{ type: "paragraph" }],
+  };
+};
+
+const addExternalDocBlock = (content: object, docLink: string) => {
+  const cleanedContent = stripExternalDocBlock(content) as { content?: TiptapContentNode[] };
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", text: `${EXTERNAL_DOC_LABEL} ` },
+          {
+            type: "text",
+            text: docLink,
+            marks: [{ type: "link", attrs: { href: docLink } }],
+          },
+        ],
+      },
+      ...(cleanedContent.content ?? []),
+    ],
+  };
+};
 
 const parseResoContent = (raw?: string | object | null) => {
   if (!raw) {
@@ -58,12 +131,15 @@ const Page = () => {
     { committeeID: string; committeeCode: string }[]
   >([]);
   const [title, setTitle] = useState<string>("");
+  const [docLink, setDocLink] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isFullscreenEditor, setIsFullscreenEditor] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const isDelegateUser = userRole === "delegate" && currentUser !== null;
   const initialStateRef = React.useRef({
     title: "",
+    docLink: "",
     content: serializeDocument(),
   });
   const isBusy = isSaving || isDeleting;
@@ -71,6 +147,17 @@ const Page = () => {
     () => parseResoContent(selectedReso?.content ?? null),
     [selectedReso]
   );
+  const cleanedResoContent = React.useMemo(
+    () => stripExternalDocBlock(parsedResoContent),
+    [parsedResoContent]
+  );
+  const delegateAlreadyHasReso = React.useMemo(() => {
+    if (!isDelegateUser || !currentUser || !("delegateID" in currentUser)) {
+      return false;
+    }
+
+    return fetchedResos.some((reso) => reso.delegateID === currentUser.delegateID);
+  }, [currentUser, fetchedResos, isDelegateUser]);
 
   const isValidUuid = useCallback((value: string) => {
     return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
@@ -122,9 +209,10 @@ const Page = () => {
     const snapshot = getEditorSnapshot();
     const dirty =
       snapshot !== initialStateRef.current.content ||
-      title !== initialStateRef.current.title;
+      title !== initialStateRef.current.title ||
+      docLink.trim() !== initialStateRef.current.docLink;
     setHasUnsavedChanges(dirty);
-  }, [getEditorSnapshot, title]);
+  }, [docLink, getEditorSnapshot, title]);
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -157,14 +245,17 @@ const Page = () => {
       }
 
       if (parsedContent) {
-        editorRef.current.commands.setContent(parsedContent, false);
+        editorRef.current.commands.setContent(stripExternalDocBlock(parsedContent), false);
+        setDocLink(readExternalDocLink(parsedContent));
       } else {
         editorRef.current.commands.clearContent(false);
+        setDocLink("");
       }
 
       const snapshot = getEditorSnapshot();
       initialStateRef.current = {
         title: baselineTitle,
+        docLink: readExternalDocLink(parsedContent),
         content: snapshot,
       };
       frame = null;
@@ -177,7 +268,8 @@ const Page = () => {
     } else {
       initialStateRef.current = {
         title: baselineTitle,
-        content: serializeDocument(parsedContent ?? null),
+        docLink: readExternalDocLink(parsedContent),
+        content: serializeDocument(stripExternalDocBlock(parsedContent ?? null)),
       };
       frame = window.requestAnimationFrame(applyBaseline);
     }
@@ -386,18 +478,29 @@ const Page = () => {
       return;
     }
 
+    if (isDelegateUser && delegateAlreadyHasReso) {
+      toast.error("You can only post one resolution as a delegate.");
+      return;
+    }
+
     if (!confirmDiscardChanges()) {
       return;
     }
 
     setSelectedReso(null);
+    setDocLink("");
     if (editorRef.current) {
       editorRef.current.commands.clearContent(false);
     }
-  }, [confirmDiscardChanges, isBusy]);
+  }, [confirmDiscardChanges, delegateAlreadyHasReso, isBusy, isDelegateUser]);
 
   const postReso = async () => {
     if (isBusy) {
+      return;
+    }
+
+    if (isDelegateUser && !selectedReso && delegateAlreadyHasReso) {
+      toast.error("You can only post one resolution as a delegate.");
       return;
     }
 
@@ -412,8 +515,14 @@ const Page = () => {
       return;
     }
 
-    if (editorRef.current.getText().length === 0) {
-      toast.error("Resolution length invalid");
+    const trimmedDocLink = docLink.trim();
+    if (trimmedDocLink && !isNonEmptyHttpUrl(trimmedDocLink)) {
+      toast.error("Please enter a valid document URL (http or https).");
+      return;
+    }
+
+    if (editorRef.current.getText().length === 0 && !trimmedDocLink) {
+      toast.error("Add text or provide an external document link.");
       return;
     }
 
@@ -443,7 +552,10 @@ const Page = () => {
       return;
     }
 
-    const content = editorRef.current.getJSON();
+    const editorContent = editorRef.current.getJSON();
+    const content = trimmedDocLink
+      ? addExternalDocBlock(editorContent, trimmedDocLink)
+      : stripExternalDocBlock(editorContent);
 
     let delegateID = "0000";
     let committeeID = "";
@@ -549,6 +661,7 @@ const Page = () => {
       const snapshot = getEditorSnapshot();
       initialStateRef.current = {
         title,
+        docLink: trimmedDocLink,
         content: snapshot,
       };
       setHasUnsavedChanges(false);
@@ -617,8 +730,10 @@ const Page = () => {
       } else {
         setSelectedReso(null);
         setTitle("");
+        setDocLink("");
         initialStateRef.current = {
           title: "",
+          docLink: "",
           content: serializeDocument(),
         };
         if (editorRef.current) {
@@ -839,12 +954,18 @@ const Page = () => {
                 <button
                   onClick={handleCreateNewReso}
                   className="inline-flex items-center gap-1.5 rounded-full border border-deep-red/20 bg-white px-3 py-1.5 text-xs font-medium text-deep-red transition-colors hover:border-deep-red/40 hover:bg-deep-red/5 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={isBusy}
+                  disabled={isBusy || (isDelegateUser && !selectedReso && delegateAlreadyHasReso)}
                 >
                   <Plus size={14} />
                   New Resolution
                 </button>
               </div>
+                {isDelegateUser && !selectedReso && delegateAlreadyHasReso && (
+                  <div className="mb-4 flex items-center gap-2 rounded-xl border border-deep-red/30 bg-deep-red/5 px-4 py-2 text-sm text-deep-red">
+                    <AlertTriangle size={16} className="shrink-0" />
+                    <span>You already submitted one resolution. Open it from the list to edit it.</span>
+                  </div>
+                )}
                 {hasUnsavedChanges && (
                   <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
                     <AlertTriangle size={16} className="shrink-0" />
@@ -852,12 +973,37 @@ const Page = () => {
                   </div>
                 )}
 
+                <div className="mb-4 rounded-xl border border-soft-ivory bg-warm-light-grey/50 px-4 py-3">
+                  <label className="mb-2 block text-xs uppercase tracking-[0.25em] text-deep-red/70">
+                    External Document Link (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    value={docLink}
+                    onChange={(e) => setDocLink(e.target.value)}
+                    placeholder="https://docs.google.com/... or https://.../resolution.docx"
+                    disabled={isBusy}
+                    className="w-full rounded-xl border border-soft-ivory bg-white px-3 py-2 text-sm text-almost-black-green shadow-inner transition focus:border-deep-red/70 focus:ring-2 focus:ring-deep-red/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                </div>
+
+                <div className="mb-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsFullscreenEditor((prev) => !prev)}
+                    className="inline-flex items-center gap-2 rounded-full border border-deep-red/25 bg-white px-3 py-1.5 text-xs font-medium text-deep-red transition-colors hover:border-deep-red/50 hover:bg-deep-red/5"
+                  >
+                    {isFullscreenEditor ? <Minimize2 size={14} /> : <Expand size={14} />}
+                    {isFullscreenEditor ? "Exit Fullscreen" : "Fullscreen Editor"}
+                  </button>
+                </div>
+
                 <div
-                  className={`flex-1 overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isBusy ? "pointer-events-none opacity-60" : ""}`}
+                  className={`overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isFullscreenEditor ? "fixed inset-6 z-50 h-[calc(100vh-3rem)]" : "flex-1"} ${isBusy ? "pointer-events-none opacity-60" : ""}`}
                 >
                   <SimpleEditor
                     ref={editorRef}
-                    content={parsedResoContent}
+                    content={cleanedResoContent}
                     className="h-full toolbar-fixed"
                   />
                 </div>
