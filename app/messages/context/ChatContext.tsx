@@ -74,10 +74,12 @@ const getWebSocketUrl = () => {
   try {
     const url = new URL(source);
     const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    const normalizedPath = url.pathname.replace(/\/$/, '');
+    const basePathWithoutApi = normalizedPath.endsWith('/api') ? normalizedPath.slice(0, -4) : normalizedPath;
     const hasSocketPath = /\/chat-ws\/?$/.test(url.pathname);
     const pathname = hasSocketPath
       ? url.pathname
-      : `${url.pathname.replace(/\/$/, '') || ''}/chat-ws`;
+      : `${basePathWithoutApi || ''}/chat-ws`;
     return `${protocol}//${url.host}${pathname}`;
   } catch {
     return source;
@@ -102,6 +104,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRoomJoinRef = useRef<string | null>(null);
   const activeRoomIdRef = useRef<string | null>(null);
   const roomsRef = useRef<RoomWithDetails[]>([]);
   const onlineUsersRef = useRef<Set<string>>(new Set());
@@ -274,6 +277,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const selectRoom = useCallback(
     async (room: RoomWithDetails) => {
       activeRoomIdRef.current = room.id;
+      pendingRoomJoinRef.current = room.id;
       setActiveRoom(rooms.find((candidate) => candidate.id === room.id) || room);
       await refreshRoomMessages(room.id);
       if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -312,10 +316,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       switch (payloadType) {
         case 'authenticated': {
           logChatDebug('socket:authenticated', { activeRoomId: activeRoomIdRef.current });
-          const roomId = activeRoomIdRef.current;
+          const roomId = pendingRoomJoinRef.current || activeRoomIdRef.current;
           if (roomId && wsRef.current?.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({ type: 'join_room', roomId } satisfies ChatSocketPayload));
             logChatDebug('socket:authenticated:join_room_sent', { roomId });
+            pendingRoomJoinRef.current = null;
           }
           break;
         }
@@ -411,6 +416,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const connectSocket = useCallback(() => {
     if (!userId) return;
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+      logChatDebug('socket:connect:skipped_existing_socket', { readyState: wsRef.current.readyState });
+      return;
+    }
     const url = getWebSocketUrl();
     logChatDebug('socket:connect:attempt', { userId, url });
     if (!url) {
@@ -424,6 +433,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
     ws.onopen = () => {
       setIsConnecting(false);
+      wsRef.current = ws;
       const authPayload: ChatSocketPayload = {
         type: 'auth',
         userId: userIdRef.current || userId || undefined,
@@ -437,6 +447,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     ws.onclose = () => {
       setIsConnecting(false);
       logChatDebug('socket:onclose', { readyState: ws.readyState, userId: userIdRef.current });
+      if (wsRef.current === ws) {
+        wsRef.current = null;
+      }
       if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
       reconnectTimeout.current = setTimeout(connectSocket, 1000);
       logChatDebug('socket:reconnect:scheduled', { delayMs: 1000 });
@@ -455,9 +468,20 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (reconnectTimeout.current) {
         clearTimeout(reconnectTimeout.current);
       }
-      wsRef.current?.close();
+      const socket = wsRef.current;
+      wsRef.current = null;
+      socket?.close();
     };
   }, [connectSocket, userId]);
+
+  useEffect(() => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    const roomId = pendingRoomJoinRef.current;
+    if (!roomId) return;
+    wsRef.current.send(JSON.stringify({ type: 'join_room', roomId } satisfies ChatSocketPayload));
+    logChatDebug('socket:flush_pending_join_room', { roomId });
+    pendingRoomJoinRef.current = null;
+  }, [isConnecting]);
 
   useEffect(() => {
     if (userId) {
