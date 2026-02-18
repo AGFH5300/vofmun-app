@@ -16,7 +16,7 @@ import {
   Plus,
   RefreshCw,
   Search,
-  SendHorizontal,
+  Send,
   Users,
 } from "lucide-react";
 import { RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
@@ -673,7 +673,7 @@ const ChatShell: React.FC = () => {
                       onClick={handleSend}
                       className="primary-button !rounded-xl !px-4 !py-3 !text-xs"
                     >
-                      <SendHorizontal className="h-4 w-4" /> Send
+                      <Send className="h-4 w-4" /> Send
                     </button>
                   </div>
                 </div>
