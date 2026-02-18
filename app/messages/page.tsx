@@ -88,6 +88,9 @@ const ChatShell: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const typingTimeoutRef = useRef<number | null>(null);
+  const [scrollMode, setScrollMode] = useState<"latest" | "unread">("latest");
+  const [shouldScrollOnLoad, setShouldScrollOnLoad] = useState(false);
 
   const filteredRooms = useMemo(() => {
     if (!search.trim()) return rooms;
@@ -124,15 +127,31 @@ const ChatShell: React.FC = () => {
 
   useEffect(() => {
     if (!activeRoom || !messagesContainerRef.current) return;
+
     const container = messagesContainerRef.current;
+    if (shouldScrollOnLoad) {
+      if (scrollMode === "latest") {
+        container.scrollTop = container.scrollHeight;
+      } else {
+        const unreadCount = activeRoom.unreadCount || 0;
+        const firstUnreadIndex = Math.max(0, activeMessages.length - unreadCount);
+        const firstUnreadMessage = activeMessages[firstUnreadIndex];
+        if (firstUnreadMessage) {
+          const target = container.querySelector<HTMLElement>(`[data-message-id="${firstUnreadMessage.id}"]`);
+          target?.scrollIntoView({ block: "center" });
+        }
+      }
+      setShouldScrollOnLoad(false);
+      return;
+    }
+
+    if (scrollMode !== "latest") return;
     const distanceFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight;
-    const shouldSnapToBottom = distanceFromBottom < 160;
-
-    if (shouldSnapToBottom) {
+    if (distanceFromBottom < 160) {
       container.scrollTop = container.scrollHeight;
     }
-  }, [activeMessages.length, activeRoom?.id]);
+  }, [activeMessages, activeRoom, shouldScrollOnLoad, scrollMode]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -174,24 +193,46 @@ const ChatShell: React.FC = () => {
     return () => window.clearInterval(interval);
   }, [refreshRooms]);
 
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        window.clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const roomTypingNames = useMemo(() => {
     if (!activeRoom) return [] as string[];
-    const activeTyping = Array.from(typingUsers[activeRoom.id] || []);
+    const activeTyping = Array.from(typingUsers[activeRoom.id] || []).filter(
+      (userId) => String(userId) !== String(currentUserId || ""),
+    );
     return activeTyping
-      .map(
-        (userId) =>
-          activeRoom.members.find((m) => m.user_id === userId)?.user?.full_name,
-      )
+      .map((userId) => {
+        const member = activeRoom.members.find((m) => m.user_id === userId);
+        return (
+          member?.user?.full_name ||
+          `${member?.user?.firstname || ""} ${member?.user?.lastname || ""}`.trim() ||
+          member?.user?.username ||
+          userId
+        );
+      })
       .filter(Boolean) as string[];
-  }, [activeRoom, typingUsers]);
+  }, [activeRoom, currentUserId, typingUsers]);
 
   const handleSend = async () => {
     if (!activeRoom || !composer.trim()) return;
+    if (typingTimeoutRef.current) {
+      window.clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    sendTyping(activeRoom.id, false);
     await sendMessage(activeRoom.id, composer);
     setComposer("");
   };
 
   const handleSelectRoom = async (room: RoomWithDetails) => {
+    setScrollMode(room.unreadCount ? "unread" : "latest");
+    setShouldScrollOnLoad(true);
     await selectRoom(room);
   };
 
@@ -236,12 +277,20 @@ const ChatShell: React.FC = () => {
       : activeRoom.name
     : "Select a conversation";
 
+  const isActivePeerOnline = Boolean(
+    activeRoom?.room_type === "dm" && activeDmPeer?.user_id && onlineUsers.has(activeDmPeer.user_id),
+  );
+
   const headerSubtitle = activeRoom
-    ? activeRoom.room_type === "dm"
-      ? onlineUsers.has(activeDmPeer?.user_id || "")
-        ? "Online now"
-        : formatLastSeenLabel(activeDmPeer?.user?.last_seen)
-      : `${activeRoom.members.length} participants`
+    ? roomTypingNames.length
+      ? roomTypingNames.length === 1
+        ? `${roomTypingNames[0]} is typing...`
+        : `${roomTypingNames.join(", ")} are typing...`
+      : activeRoom.room_type === "dm"
+        ? isActivePeerOnline
+          ? "Online"
+          : formatLastSeenLabel(activeDmPeer?.user?.last_seen)
+        : `${activeRoom.members.length} participants`
     : "Choose a conversation to start";
 
   useEffect(() => {
@@ -450,7 +499,7 @@ const ChatShell: React.FC = () => {
               </div>
             )}
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+            <div className="min-h-0 flex-1 overflow-y-auto pb-4">
               <ConversationList
                 rooms={filteredRooms}
                 activeRoomId={activeRoom?.id}
@@ -484,15 +533,25 @@ const ChatShell: React.FC = () => {
                   <h3 className="!mb-1 text-2xl font-semibold text-deep-red">
                     {activeRoomTitle}
                   </h3>
-                  <p
-                    className={`text-sm ${
-                      activeRoom?.room_type === "dm" && onlineUsers.has(activeDmPeer?.user_id || "")
-                        ? "font-medium text-emerald-600"
-                        : "text-almost-black-green/70"
-                    }`}
-                  >
-                    {headerSubtitle}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    {activeRoom?.room_type === "dm" && (
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${
+                          isActivePeerOnline ? "bg-emerald-500" : "bg-slate-400"
+                        }`}
+                        aria-hidden="true"
+                      />
+                    )}
+                    <p
+                      className={`text-sm ${
+                        roomTypingNames.length || isActivePeerOnline
+                          ? "font-medium text-emerald-600"
+                          : "text-almost-black-green/70"
+                      }`}
+                    >
+                      {headerSubtitle}
+                    </p>
+                  </div>
                 </div>
                 {activeRoom ? (
                   <div className="flex items-center gap-3">
@@ -603,12 +662,13 @@ const ChatShell: React.FC = () => {
                         (currentUserId != null &&
                           String(currentUserId) === String(message.user?.id || ""));
                       return (
-                        <MessageBubble
-                          key={item.id}
-                          message={message}
-                          isOwn={isOwn}
-                          showAuthor={activeRoom.room_type !== "dm"}
-                        />
+                        <div key={item.id} data-message-id={item.id}>
+                          <MessageBubble
+                            message={message}
+                            isOwn={isOwn}
+                            showAuthor={activeRoom.room_type !== "dm"}
+                          />
+                        </div>
                       );
                     })
                   ) : (
@@ -654,9 +714,25 @@ const ChatShell: React.FC = () => {
                     <div className="flex flex-1 items-center rounded-2xl border-soft-ivory bg-warm-light-grey transition focus-within:border-deep-red/40">
                       <textarea
                         value={composer}
-                        onChange={(event) => setComposer(event.target.value)}
+                        onChange={(event) => {
+                          setComposer(event.target.value);
+                          sendTyping(activeRoom.id, true);
+                          if (typingTimeoutRef.current) {
+                            window.clearTimeout(typingTimeoutRef.current);
+                          }
+                          typingTimeoutRef.current = window.setTimeout(() => {
+                            sendTyping(activeRoom.id, false);
+                            typingTimeoutRef.current = null;
+                          }, 1200);
+                        }}
                         onFocus={() => sendTyping(activeRoom.id, true)}
-                        onBlur={() => sendTyping(activeRoom.id, false)}
+                        onBlur={() => {
+                          if (typingTimeoutRef.current) {
+                            window.clearTimeout(typingTimeoutRef.current);
+                            typingTimeoutRef.current = null;
+                          }
+                          sendTyping(activeRoom.id, false);
+                        }}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" && !event.shiftKey) {
                             event.preventDefault();

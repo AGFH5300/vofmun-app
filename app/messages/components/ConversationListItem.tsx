@@ -56,8 +56,10 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             onSelect(room);
           }
         }}
-        className={`group w-full cursor-pointer rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-deep-red/40 ${
-          isActive ? 'border-deep-red/40 bg-soft-rose/40 shadow-sm' : 'border-transparent hover:border-soft-ivory hover:bg-soft-ivory'
+        className={`group w-full cursor-pointer rounded-xl border px-4 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-deep-red/40 ${
+          isActive
+            ? 'border-[#d0d0d0] bg-[#ece5dd] shadow-sm'
+            : 'border-[#efefef] bg-white hover:border-[#dfdfdf] hover:bg-[#f8f8f8]'
         }`}
       >
         <div className="flex items-start gap-3">
@@ -87,7 +89,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
                     onTogglePin(room.id);
                   }}
                   aria-label={room.isPinned ? 'Unpin conversation' : 'Pin conversation'}
-                  className={`rounded-full p-1 text-almost-black-green/50 hover:text-deep-red ${room.isPinned ? 'bg-soft-rose/50' : ''}`}
+                  className={`rounded-full p-1 text-almost-black-green/50 hover:text-deep-red ${room.isPinned ? 'bg-[#ddd4cb]' : ''}`}
                 >
                   {room.isPinned ? <Pin className="h-4 w-4" /> : <PinOff className="h-4 w-4" />}
                 </button>

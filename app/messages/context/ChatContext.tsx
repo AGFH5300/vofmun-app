@@ -243,6 +243,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           });
           break;
         }
+        case 'online_users': {
+          if (payload.onlineUserIds) {
+            setOnlineUsers(new Set(payload.onlineUserIds));
+          }
+          break;
+        }
         case 'user_online': {
           if (payload.userId) {
             setOnlineUsers((prev) => new Set(prev).add(payload.userId));
