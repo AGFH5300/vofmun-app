@@ -336,15 +336,16 @@ const ChatShell: React.FC = () => {
             </div>
 
             <div className="border-b border-soft-ivory px-5 py-4">
-              <label className="flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 focus-within:border-deep-red/40 focus-within:ring-2 focus-within:ring-deep-red/20">
-                <Search className="h-4 w-4 shrink-0 text-almost-black-green/50" />
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="w-full border-0 bg-transparent py-2.5 text-sm focus:outline-none"
+                  className="w-full border-0 bg-transparent py-2.5 pl-12 pr-3 text-sm focus:outline-none"
+                  style={{ paddingLeft:"30px" }}
                   placeholder="Search conversations"
                 />
-              </label>
+              </div>
             </div>
 
             <div className="border-b border-soft-ivory px-5 py-3">
