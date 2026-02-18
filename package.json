@@ -3,13 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev:hot": "concurrently -s last -n \"NEXT,WARM\" -c \"cyan,magenta\" \"next dev -p 5000\" \"node scripts/warmup-dev.mjs\"",
+    "dev": "tsx server/chat/server.ts",
+    "dev:hot": "concurrently -s last -n \"APP,WARM\" -c \"cyan,magenta\" \"tsx server/chat/server.ts\" \"node scripts/warmup-dev.mjs\"",
     "build": "next build",
-    "start": "next start -p $PORT",
+    "start": "NODE_ENV=production tsx server/chat/server.ts",
     "lint": "next lint",
-    "chat:server": "ts-node --transpile-only server/chat/server.ts",
-    "dev:hot:ws": "concurrently -s last -n \"NEXT,WARM,WS\" -c \"cyan,magenta,green\" \"next dev -p 5000\" \"node scripts/warmup-dev.mjs\" \"npm run chat:server\""
+    "chat:server": "tsx server/chat/server.ts"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.12",
@@ -30,9 +29,9 @@
     "@react-spring/web": "^10.0.1",
     "@supabase/supabase-js": "^2.49.8",
     "@tiptap/extension-highlight": "^2.14.0",
-    "@tiptap/extension-placeholder": "^2.14.0",
     "@tiptap/extension-image": "^2.14.0",
     "@tiptap/extension-link": "^2.14.0",
+    "@tiptap/extension-placeholder": "^2.14.0",
     "@tiptap/extension-subscript": "^2.14.0",
     "@tiptap/extension-superscript": "^2.14.0",
     "@tiptap/extension-task-item": "^2.14.0",
@@ -50,6 +49,7 @@
     "express": "^4.21.2",
     "fast-glob": "^3.3.3",
     "framer-motion": "^12.4.10",
+    "js-cookie": "^3.0.5",
     "lucide-react": "^0.479.0",
     "prisma": "^6.8.2",
     "react": "^19.0.0",
@@ -58,10 +58,10 @@
     "sonner": "^2.0.2",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
-    "js-cookie": "^3.0.5",
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.17.0",
     "@tailwindcss/postcss": "^4",
     "@types/draft-js": "^0.11.18",
     "@types/express": "^5.0.0",
@@ -72,12 +72,12 @@
     "draft-js": "^0.11.7",
     "eslint": "^9",
     "newsapi": "^2.4.1",
+    "next": "^15.3.3",
     "sass": "^1.89.2",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.8.3",
-    "next": "^15.3.3",
-    "@eslint/js": "^9.17.0",
     "typescript-eslint": "^8.19.1"
   }
 }
