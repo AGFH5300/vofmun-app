@@ -681,7 +681,15 @@ wss.on('connection', (socket, req) => {
       switch (data.type) {
         case 'auth': {
           if (authenticated) {
-            logServerDebug('socket:auth:ignored_already_authenticated', { userId: context.userId || null });
+            const onlineUserIds = Array.from(activeSockets)
+              .map((socketContext) => socketContext.userId)
+              .filter((id): id is string => Boolean(id));
+            logServerDebug('socket:auth:already_authenticated_resync_state', {
+              userId: context.userId || null,
+              onlineUserIds,
+            });
+            socket.send(JSON.stringify({ type: 'authenticated' } satisfies ChatSocketPayload));
+            socket.send(JSON.stringify({ type: 'online_users', onlineUserIds } satisfies ChatSocketPayload));
             return;
           }
           if (!authenticateFromCookie() && !(await authenticateFromPayload(data.userId))) {
