@@ -83,10 +83,11 @@ export interface UserSearchResult extends User {
 }
 
 export interface ChatSocketPayload {
-  type: 'auth' | 'authenticated' | 'join_room' | 'room_joined' | 'typing' | 'user_typing' | 'new_message' | 'user_online' | 'user_offline';
+  type: 'auth' | 'authenticated' | 'join_room' | 'room_joined' | 'typing' | 'user_typing' | 'new_message' | 'user_online' | 'user_offline' | 'online_users';
   token?: string;
   roomId?: string;
   message?: MessageWithUser;
   userId?: string;
   isTyping?: boolean;
+  onlineUserIds?: string[];
 }

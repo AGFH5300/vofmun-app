@@ -59,11 +59,14 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) =
           </div>
         )}
 
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-almost-black-green">{message.content}</p>
-
-        <div className="mt-2 flex w-full items-center justify-end gap-1 text-[0.72rem]">
-          <span className="text-almost-black-green/55">{timestamp}</span>
-          {message.status && <span className={statusClass[message.status] || 'text-almost-black-green/50'}>{statusIcon[message.status]}</span>}
+        <div className="mt-2 flex items-end justify-between gap-3">
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-almost-black-green">{message.content}</p>
+          <div className="shrink-0 self-end pb-0.5 text-[0.72rem]">
+            <div className="flex items-center justify-end gap-1">
+              <span className="text-almost-black-green/55">{timestamp}</span>
+              {message.status && <span className={statusClass[message.status] || 'text-almost-black-green/50'}>{statusIcon[message.status]}</span>}
+            </div>
+          </div>
         </div>
       </div>
     </div>

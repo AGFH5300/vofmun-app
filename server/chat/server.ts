@@ -617,6 +617,10 @@ wss.on('connection', (socket, req) => {
     authenticated = true;
     activeSockets.add(context as SocketContext);
     socket.send(JSON.stringify({ type: 'authenticated' } satisfies ChatSocketPayload));
+    const onlineUserIds = Array.from(activeSockets)
+      .map((socketContext) => socketContext.userId)
+      .filter((id): id is string => Boolean(id));
+    socket.send(JSON.stringify({ type: 'online_users', onlineUserIds } satisfies ChatSocketPayload));
     broadcast(() => true, { type: 'user_online', userId: sessionUser.id });
     return true;
   };

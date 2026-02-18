@@ -33,45 +33,32 @@ const ConversationList: React.FC<Props> = ({
   onNewChat,
   onNewGroup,
 }) => {
-  const { pinned, committees, dms, groups } = useMemo(() => {
+  const orderedRooms = useMemo(() => {
     const pinnedRooms = sortRooms(rooms.filter((room) => room.isPinned));
-    const committeesRooms = sortRooms(rooms.filter((room) => room.room_type === 'committee' && !room.isPinned));
-    const dmRooms = sortRooms(rooms.filter((room) => room.room_type === 'dm' && !room.isPinned));
-    const groupRooms = sortRooms(rooms.filter((room) => room.room_type !== 'dm' && room.room_type !== 'committee' && !room.isPinned));
-    return { pinned: pinnedRooms, committees: committeesRooms, dms: dmRooms, groups: groupRooms };
+    const nonPinned = sortRooms(rooms.filter((room) => !room.isPinned));
+    return [...pinnedRooms, ...nonPinned];
   }, [rooms]);
-
-  const renderSection = (title: string, list: RoomWithDetails[]) => {
-    if (!list.length) return null;
-    return (
-      <div className="space-y-3">
-        <div className="px-2 text-[0.7rem] uppercase tracking-[0.2em]">{title}</div>
-        <ul className="space-y-2">
-          {list.map((room) => (
-            <ConversationListItem
-              key={room.id}
-              room={room}
-              isActive={room.id === activeRoomId}
-              onSelect={onSelect}
-              onTogglePin={onTogglePin}
-              currentUserId={currentUserId}
-              onlineUsers={onlineUsers}
-            />
-          ))}
-        </ul>
-      </div>
-    );
-  };
 
   const hasAnyRooms = rooms.length > 0;
 
   return (
     <div className="h-full">
-      <div className="space-y-6 pb-6">
-        {renderSection('Pinned', pinned)}
-        {renderSection('Committees / Rooms', committees)}
-        {renderSection('Direct Messages', dms)}
-        {renderSection('Group Chats', groups)}
+      <div className="pb-6">
+        {hasAnyRooms && (
+          <ul className="space-y-1">
+            {orderedRooms.map((room) => (
+              <ConversationListItem
+                key={room.id}
+                room={room}
+                isActive={room.id === activeRoomId}
+                onSelect={onSelect}
+                onTogglePin={onTogglePin}
+                currentUserId={currentUserId}
+                onlineUsers={onlineUsers}
+              />
+            ))}
+          </ul>
+        )}
         {!hasAnyRooms && (
           <div className="mt-8 flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-soft-ivory px-6 py-10 text-center">
             <MessageCircle className="text-deep-red/50" size={42} />
