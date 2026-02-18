@@ -610,10 +610,8 @@ wss.on('connection', (socket, req) => {
   const context: Partial<SocketContext> = { socket };
   let authenticated = false;
 
-  const authenticateFromCookie = () => {
-    const sessionUser = getSessionUserFromCookieHeader(req.headers.cookie || '');
-    if (!sessionUser) return false;
-    context.userId = sessionUser.id;
+  const finishSocketAuthentication = (authenticatedUserId: string) => {
+    context.userId = authenticatedUserId;
     authenticated = true;
     activeSockets.add(context as SocketContext);
     socket.send(JSON.stringify({ type: 'authenticated' } satisfies ChatSocketPayload));
@@ -621,7 +619,21 @@ wss.on('connection', (socket, req) => {
       .map((socketContext) => socketContext.userId)
       .filter((id): id is string => Boolean(id));
     socket.send(JSON.stringify({ type: 'online_users', onlineUserIds } satisfies ChatSocketPayload));
-    broadcast(() => true, { type: 'user_online', userId: sessionUser.id });
+    broadcast(() => true, { type: 'user_online', userId: authenticatedUserId });
+  };
+
+  const authenticateFromCookie = () => {
+    const sessionUser = getSessionUserFromCookieHeader(req.headers.cookie || '');
+    if (!sessionUser) return false;
+    finishSocketAuthentication(sessionUser.id);
+    return true;
+  };
+
+  const authenticateFromPayload = async (socketUserId?: string) => {
+    if (!socketUserId) return false;
+    const contextUser = await getUserContext(socketUserId);
+    if (!contextUser) return false;
+    finishSocketAuthentication(contextUser.id);
     return true;
   };
 
@@ -640,7 +652,7 @@ wss.on('connection', (socket, req) => {
       switch (data.type) {
         case 'auth': {
           if (authenticated) return;
-          if (!authenticateFromCookie()) {
+          if (!authenticateFromCookie() && !(await authenticateFromPayload(data.userId))) {
             socket.close();
           }
           return;
