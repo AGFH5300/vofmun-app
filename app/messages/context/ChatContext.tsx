@@ -80,6 +80,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeRoomIdRef = useRef<string | null>(null);
 
   const withAuthHeaders = useCallback(
     (extra?: RequestInit): RequestInit => ({
@@ -116,6 +117,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     }
     setUserId(null);
   }, [user]);
+
+
+  useEffect(() => {
+    activeRoomIdRef.current = activeRoom?.id || null;
+  }, [activeRoom?.id]);
 
   const refreshRooms = useCallback(async () => {
     if (!userId) return [] as RoomWithDetails[];
@@ -162,14 +168,18 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const selectRoom = useCallback(
     async (room: RoomWithDetails) => {
-      setActiveRoom(room);
+      activeRoomIdRef.current = room.id;
+      setActiveRoom((previous) => {
+        const fromList = rooms.find((candidate) => candidate.id === room.id);
+        return fromList || previous || room;
+      });
       await fetchMessages(room.id);
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const payload: ChatSocketPayload = { type: 'join_room', roomId: room.id } as ChatSocketPayload;
         wsRef.current.send(JSON.stringify(payload));
       }
     },
-    [fetchMessages]
+    [fetchMessages, rooms]
   );
 
   const handleSocketMessage = useCallback(
@@ -177,22 +187,35 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const payload = JSON.parse(event.data) as ChatSocketPayload;
       switch (payload.type) {
         case 'authenticated': {
-          if (activeRoom && wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({ type: 'join_room', roomId: activeRoom.id } satisfies ChatSocketPayload));
+          const roomId = activeRoomIdRef.current;
+          if (roomId && wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: 'join_room', roomId } satisfies ChatSocketPayload));
           }
           break;
         }
         case 'new_message': {
-          const message = payload.message;
-          if (!message || !message.room_id) break;
+          const rawMessage = payload.message;
+          const roomId = rawMessage?.room_id || payload.roomId;
+          if (!rawMessage || !roomId) break;
+          const message = { ...rawMessage, room_id: roomId };
           setMessages((prev) => {
-            const list = prev[message.room_id] || [];
-            if (list.some((item) => item.id === message.id)) {
+            const list = prev[roomId] || [];
+            const withoutTemp = list.filter((item) => item.id !== message.id && item.tempId !== message.id);
+            if (withoutTemp.some((item) => item.id === message.id)) {
               return prev;
             }
-            const withoutTemp = list.filter((item) => item.id !== message.id && item.tempId !== message.id);
-            return { ...prev, [message.room_id]: [...withoutTemp, { ...message, status: 'delivered' as MessageStatus }] };
+            return { ...prev, [roomId]: [...withoutTemp, { ...message, status: 'delivered' as MessageStatus }] };
           });
+          setRooms((prev) =>
+            prev.map((room) =>
+              room.id === roomId
+                ? {
+                    ...room,
+                    lastMessage: message,
+                  }
+                : room
+            )
+          );
           break;
         }
         case 'user_typing': {
@@ -210,7 +233,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         }
         case 'user_online': {
           if (payload.userId) {
-            setOnlineUsers((prev) => new Set(prev).add(payload.userId!));
+            setOnlineUsers((prev) => new Set(prev).add(payload.userId));
           }
           break;
         }
@@ -218,7 +241,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           if (payload.userId) {
             setOnlineUsers((prev) => {
               const next = new Set(prev);
-              next.delete(payload.userId!);
+              next.delete(payload.userId);
               return next;
             });
           }
@@ -228,7 +251,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
       }
     },
-    [activeRoom]
+    []
   );
 
   const connectSocket = useCallback(() => {
