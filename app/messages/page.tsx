@@ -648,10 +648,10 @@ const ChatShell: React.FC = () => {
                     <ChevronDown className="h-5 w-5" />
                   </button>
                 )}
-                <div className="sticky bottom-0 border-t border-soft-ivory bg-white px-6 py-4">
+                <div className="sticky bottom-0 bg-white px-2 py-3">
                   {activeTypingDisplay}
-                  <div className="mt-3 flex items-end gap-3">
-                    <div className="flex flex-1 items-center rounded-2xl border border-soft-ivory bg-warm-light-grey px-3 transition focus-within:border-deep-red/40 focus-within:ring-2 focus-within:ring-deep-red/20">
+                  <div className="flex items-end gap-3">
+                    <div className="flex flex-1 items-center rounded-2xl border-soft-ivory bg-warm-light-grey transition focus-within:border-deep-red/40">
                       <textarea
                         value={composer}
                         onChange={(event) => setComposer(event.target.value)}
@@ -665,7 +665,7 @@ const ChatShell: React.FC = () => {
                         }}
                         placeholder="Type your message"
                         rows={1}
-                        className="max-h-32 min-h-[48px] flex-1 resize-none border-0 bg-transparent py-3 text-sm text-almost-black-green placeholder:text-almost-black-green/45 focus:outline-none"
+                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-almost-black-green placeholder:text-almost-black-green/45 focus:outline-none"
                       />
                     </div>
                     <button
