@@ -134,12 +134,15 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       isPinned: pinnedRoomIds.has(room.id),
     }));
     setRooms(enriched);
-    if (activeRoom) {
-      const updated = enriched.find((room) => room.id === activeRoom.id);
-      if (updated) setActiveRoom(updated);
+    const activeRoomId = activeRoomIdRef.current;
+    if (activeRoomId) {
+      const updated = enriched.find((room) => room.id === activeRoomId);
+      if (updated) {
+        setActiveRoom(updated);
+      }
     }
     return enriched;
-  }, [activeRoom, pinnedRoomIds, userId, withAuthHeaders]);
+  }, [pinnedRoomIds, userId, withAuthHeaders]);
 
   const refreshFriendRequests = useCallback(async () => {
     if (!userId) return;
@@ -170,10 +173,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const selectRoom = useCallback(
     async (room: RoomWithDetails) => {
       activeRoomIdRef.current = room.id;
-      setActiveRoom((previous) => {
-        const fromList = rooms.find((candidate) => candidate.id === room.id);
-        return fromList || previous || room;
-      });
+      setActiveRoom(rooms.find((candidate) => candidate.id === room.id) || room);
       await refreshRoomMessages(room.id);
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const payload: ChatSocketPayload = { type: 'join_room', roomId: room.id } as ChatSocketPayload;
