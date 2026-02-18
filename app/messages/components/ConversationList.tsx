@@ -45,7 +45,7 @@ const ConversationList: React.FC<Props> = ({
     <div className="h-full">
       <div className="pb-6">
         {hasAnyRooms && (
-          <ul className="space-y-1">
+          <ul>
             {orderedRooms.map((room) => (
               <ConversationListItem
                 key={room.id}

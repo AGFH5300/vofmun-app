@@ -197,6 +197,16 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const handleSocketMessage = useCallback(
     (event: MessageEvent) => {
       const payload = JSON.parse(event.data) as ChatSocketPayload;
+      const payloadWithLegacy = payload as ChatSocketPayload & {
+        room_id?: string | number;
+        user_id?: string | number;
+        is_typing?: boolean;
+        online_user_ids?: Array<string | number>;
+      };
+      const roomId = payload.roomId ? String(payload.roomId) : payloadWithLegacy.room_id ? String(payloadWithLegacy.room_id) : undefined;
+      const userId = payload.userId ? String(payload.userId) : payloadWithLegacy.user_id ? String(payloadWithLegacy.user_id) : undefined;
+      const isTyping = payload.isTyping ?? payloadWithLegacy.is_typing;
+
       switch (payload.type) {
         case 'authenticated': {
           const roomId = activeRoomIdRef.current;
@@ -231,35 +241,36 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
         }
         case 'user_typing': {
-          if (!payload.roomId || !payload.userId) break;
+          if (!roomId || !userId) break;
           setTypingUsers((prev) => {
-            const set = new Set(prev[payload.roomId] || []);
-            if (payload.isTyping) {
-              set.add(payload.userId);
+            const set = new Set(prev[roomId] || []);
+            if (isTyping) {
+              set.add(userId);
             } else {
-              set.delete(payload.userId);
+              set.delete(userId);
             }
-            return { ...prev, [payload.roomId]: set };
+            return { ...prev, [roomId]: set };
           });
           break;
         }
         case 'online_users': {
-          if (payload.onlineUserIds) {
-            setOnlineUsers(new Set(payload.onlineUserIds));
+          const users = payload.onlineUserIds || payloadWithLegacy.online_user_ids;
+          if (users) {
+            setOnlineUsers(new Set(users.map((id) => String(id))));
           }
           break;
         }
         case 'user_online': {
-          if (payload.userId) {
-            setOnlineUsers((prev) => new Set(prev).add(payload.userId));
+          if (userId) {
+            setOnlineUsers((prev) => new Set(prev).add(userId));
           }
           break;
         }
         case 'user_offline': {
-          if (payload.userId) {
+          if (userId) {
             setOnlineUsers((prev) => {
               const next = new Set(prev);
-              next.delete(payload.userId);
+              next.delete(userId);
               return next;
             });
           }

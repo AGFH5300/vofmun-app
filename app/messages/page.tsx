@@ -89,7 +89,6 @@ const ChatShell: React.FC = () => {
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const typingTimeoutRef = useRef<number | null>(null);
-  const [scrollMode, setScrollMode] = useState<"latest" | "unread">("latest");
   const [shouldScrollOnLoad, setShouldScrollOnLoad] = useState(false);
 
   const filteredRooms = useMemo(() => {
@@ -130,28 +129,23 @@ const ChatShell: React.FC = () => {
 
     const container = messagesContainerRef.current;
     if (shouldScrollOnLoad) {
-      if (scrollMode === "latest") {
-        container.scrollTop = container.scrollHeight;
-      } else {
-        const unreadCount = activeRoom.unreadCount || 0;
-        const firstUnreadIndex = Math.max(0, activeMessages.length - unreadCount);
-        const firstUnreadMessage = activeMessages[firstUnreadIndex];
-        if (firstUnreadMessage) {
-          const target = container.querySelector<HTMLElement>(`[data-message-id="${firstUnreadMessage.id}"]`);
-          target?.scrollIntoView({ block: "center" });
-        }
-      }
+      container.scrollTop = container.scrollHeight;
       setShouldScrollOnLoad(false);
       return;
     }
 
-    if (scrollMode !== "latest") return;
     const distanceFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight;
     if (distanceFromBottom < 160) {
       container.scrollTop = container.scrollHeight;
     }
-  }, [activeMessages, activeRoom, shouldScrollOnLoad, scrollMode]);
+  }, [activeMessages, activeRoom, shouldScrollOnLoad]);
+
+
+  useEffect(() => {
+    if (!activeRoom?.id) return;
+    setShouldScrollOnLoad(true);
+  }, [activeRoom?.id]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -231,7 +225,6 @@ const ChatShell: React.FC = () => {
   };
 
   const handleSelectRoom = async (room: RoomWithDetails) => {
-    setScrollMode(room.unreadCount ? "unread" : "latest");
     setShouldScrollOnLoad(true);
     await selectRoom(room);
   };
@@ -389,7 +382,7 @@ const ChatShell: React.FC = () => {
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="w-full border-0 bg-transparent py-2.5 pl-12 pr-3 text-sm focus:outline-none"
+                  className="w-full border-0 bg-transparent py-2.5 pl-12 pr-3 text-sm focus:outline-none focus:ring-0"
                   style={{ paddingLeft:"30px" }}
                   placeholder="Search conversations"
                 />

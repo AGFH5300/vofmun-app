@@ -29,20 +29,21 @@ const statusClass: Record<string, string> = {
 
 const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) => {
   const isFailed = message.status === 'error';
+  const resolvedStatus = isOwn ? message.status || 'sent' : undefined;
   const timestamp = message.created_at
     ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
 
   return (
-    <div className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`flex gap-2.5 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
       <UserAvatar user={message.user} size={36} />
       <div
-        className={`group relative max-w-xl rounded-2xl border px-4 py-3 shadow-sm ${
+        className={`group relative max-w-[72%] border px-3 py-2 shadow-sm md:max-w-[65%] ${
           isOwn
             ? isFailed
-              ? 'border-deep-red/30 bg-soft-rose/30 text-deep-red'
-              : 'border-[#dcc8bd] bg-[#efe3dc] text-almost-black-green'
-            : 'border-soft-ivory bg-white text-almost-black-green'
+              ? 'rounded-[8px] border-deep-red/30 bg-soft-rose/30 text-deep-red'
+              : 'rounded-[8px] border-[#0f8f67] bg-[#d9fdd3] text-almost-black-green'
+            : 'rounded-[8px] border-[#f1f1f1] bg-white text-almost-black-green'
         }`}
       >
         {showAuthor && (
@@ -59,12 +60,12 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) =
           </div>
         )}
 
-        <div className="mt-2 flex items-end justify-between gap-3">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-almost-black-green">{message.content}</p>
+        <div className="mt-1.5 flex items-end justify-between gap-2">
+          <p className="whitespace-pre-wrap text-[15px] leading-[1.35] text-almost-black-green">{message.content}</p>
           <div className="shrink-0 self-end pb-0.5 text-[0.72rem]">
             <div className="flex items-center justify-end gap-1">
               <span className="text-almost-black-green/55">{timestamp}</span>
-              {message.status && <span className={statusClass[message.status] || 'text-almost-black-green/50'}>{statusIcon[message.status]}</span>}
+              {resolvedStatus && <span className={statusClass[resolvedStatus] || 'text-almost-black-green/50'}>{statusIcon[resolvedStatus]}</span>}
             </div>
           </div>
         </div>
