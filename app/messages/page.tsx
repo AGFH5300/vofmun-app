@@ -17,7 +17,6 @@ import {
   RefreshCw,
   Search,
   SendHorizontal,
-  Sparkles,
   Users,
 } from "lucide-react";
 import { RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
