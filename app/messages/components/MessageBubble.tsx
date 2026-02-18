@@ -3,7 +3,7 @@
 import React from 'react';
 import { MessageWithUser } from '@/lib/chat/types';
 import UserAvatar from './UserAvatar';
-import { Check, Clock, AlertCircle } from 'lucide-react';
+import { AlertCircle, Check, CheckCheck, Clock } from 'lucide-react';
 
 interface Props {
   message: MessageWithUser;
@@ -11,18 +11,20 @@ interface Props {
   showAuthor?: boolean;
 }
 
-const statusCopy: Record<string, string> = {
-  pending: 'Sending...',
-  sent: 'Sent',
-  delivered: 'Delivered',
-  error: 'Error',
-};
-
 const statusIcon: Record<string, React.ReactNode> = {
   pending: <Clock className="h-3 w-3" />,
   sent: <Check className="h-3 w-3" />,
-  delivered: <Check className="h-3 w-3" />,
+  delivered: <CheckCheck className="h-3 w-3" />,
+  read: <CheckCheck className="h-3 w-3 text-sky-500" />,
   error: <AlertCircle className="h-3 w-3" />,
+};
+
+const statusClass: Record<string, string> = {
+  pending: 'text-almost-black-green/40',
+  sent: 'text-almost-black-green/50',
+  delivered: 'text-almost-black-green/50',
+  read: 'text-sky-500',
+  error: 'text-deep-red',
 };
 
 const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) => {
@@ -32,41 +34,37 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) =
     : '';
 
   return (
-    <div className={`flex gap-3 ${isOwn ? 'flex-row-reverse text-right' : 'flex-row'}`}>
+    <div className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
       <UserAvatar user={message.user} size={36} />
       <div
-        className={`group relative max-w-xl rounded-2xl px-4 py-3 shadow-sm ${
+        className={`group relative max-w-xl rounded-2xl border px-4 py-3 shadow-sm ${
           isOwn
             ? isFailed
-              ? 'border border-deep-red/30 bg-soft-ivory text-deep-red'
-              : 'bg-deep-red text-white'
-            : 'bg-white border border-soft-ivory text-almost-black-green'
+              ? 'border-deep-red/30 bg-soft-rose/30 text-deep-red'
+              : 'border-[#dcc8bd] bg-[#efe3dc] text-almost-black-green'
+            : 'border-soft-ivory bg-white text-almost-black-green'
         }`}
       >
-        <div className={`flex items-center justify-between gap-3 text-xs font-semibold ${isOwn ? (isFailed ? 'text-deep-red' : 'text-white') : 'text-deep-red'}`}>
-          {showAuthor && <span>{message.user?.full_name ?? 'Unknown user'}</span>}
-          <span className={`text-[0.7rem] ${isOwn ? (isFailed ? 'text-deep-red/70' : 'text-white/70') : 'text-almost-black-green/60'}`}>{timestamp}</span>
-        </div>
+        {showAuthor && (
+          <p className="text-xs font-semibold text-deep-red">{message.user?.full_name ?? 'Unknown user'}</p>
+        )}
+
         {message.reply_to && (
-          <div className={`mt-2 rounded-lg px-3 py-2 text-xs ${isOwn ? (isFailed ? 'bg-deep-red/10 text-deep-red/80' : 'bg-white/10 text-white/80') : 'bg-black/5 text-almost-black-green/70'}`}>
+          <div
+            className={`mt-2 rounded-lg px-3 py-2 text-xs ${
+              isOwn ? (isFailed ? 'bg-deep-red/10 text-deep-red/80' : 'bg-white/70 text-almost-black-green/75') : 'bg-black/5 text-almost-black-green/70'
+            }`}
+          >
             Replying to a previous message
           </div>
         )}
-        <p className={`mt-2 whitespace-pre-wrap text-sm leading-relaxed ${isOwn ? (isFailed ? 'text-deep-red' : 'text-white') : 'text-almost-black-green'}`}>{message.content}</p>
-        {message.status && (
-          <div
-            className={`mt-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.7rem] uppercase tracking-tight ${
-              isOwn
-                ? isFailed
-                  ? 'bg-deep-red/10 text-deep-red'
-                  : 'bg-white/20 text-white'
-                : 'bg-soft-ivory text-almost-black-green/70'
-            }`}
-          >
-            {statusIcon[message.status]}
-            <span>{statusCopy[message.status]}</span>
-          </div>
-        )}
+
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-almost-black-green">{message.content}</p>
+
+        <div className="mt-2 flex items-center justify-end gap-1 text-[0.72rem]">
+          <span className="text-almost-black-green/55">{timestamp}</span>
+          {message.status && <span className={statusClass[message.status] || 'text-almost-black-green/50'}>{statusIcon[message.status]}</span>}
+        </div>
       </div>
     </div>
   );

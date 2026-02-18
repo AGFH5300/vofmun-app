@@ -1,4 +1,4 @@
-export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'error';
+export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'error';
 
 export interface User {
   id: string;

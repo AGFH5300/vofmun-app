@@ -36,6 +36,7 @@ interface ChatContextValue {
   pinnedRoomIds: Set<string>;
   selectRoom: (room: RoomWithDetails) => Promise<void>;
   refreshRooms: () => Promise<RoomWithDetails[]>;
+  refreshRoomMessages: (roomId: string) => Promise<void>;
   sendMessage: (roomId: string, content: string, replyTo?: string | null) => Promise<void>;
   sendTyping: (roomId: string, isTyping: boolean) => void;
   togglePin: (roomId: string) => void;
@@ -155,7 +156,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     setFriendRequests(json.requests);
   }, [userId, withAuthHeaders]);
 
-  const fetchMessages = useCallback(
+  const refreshRoomMessages = useCallback(
     async (roomId: string) => {
       if (!userId) return;
       const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, withAuthHeaders());
@@ -173,13 +174,13 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         const fromList = rooms.find((candidate) => candidate.id === room.id);
         return fromList || previous || room;
       });
-      await fetchMessages(room.id);
+      await refreshRoomMessages(room.id);
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const payload: ChatSocketPayload = { type: 'join_room', roomId: room.id } as ChatSocketPayload;
         wsRef.current.send(JSON.stringify(payload));
       }
     },
-    [fetchMessages, rooms]
+    [refreshRoomMessages, rooms]
   );
 
   const handleSocketMessage = useCallback(
@@ -334,7 +335,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         setMessages((prev) => {
           const list = prev[roomId] || [];
           const withoutTemp = list.filter((msg) => msg.id !== tempId && msg.id !== saved.id);
-          return { ...prev, [roomId]: [...withoutTemp, { ...saved, status: 'delivered' }] };
+          return { ...prev, [roomId]: [...withoutTemp, { ...saved, status: 'sent' }] };
         });
       } catch {
         setMessages((prev) => {
@@ -684,6 +685,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       pinnedRoomIds,
       selectRoom,
       refreshRooms,
+      refreshRoomMessages,
       sendMessage,
       sendTyping,
       togglePin,
@@ -709,6 +711,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       pinnedRoomIds,
       selectRoom,
       refreshRooms,
+      refreshRoomMessages,
       sendMessage,
       sendTyping,
       togglePin,

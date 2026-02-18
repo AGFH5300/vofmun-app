@@ -16,7 +16,6 @@ import {
   RefreshCw,
   Search,
   SendHorizontal,
-  Smile,
   Sparkles,
   Users,
 } from "lucide-react";
@@ -34,9 +33,9 @@ const formatDateLabel = (dateString: string) => {
 };
 
 const formatLastSeenLabel = (lastSeen?: string | null) => {
-  if (!lastSeen) return "Last seen unavailable";
+  if (!lastSeen) return "Offline";
   const timestamp = new Date(lastSeen);
-  if (Number.isNaN(timestamp.getTime())) return "Last seen unavailable";
+  if (Number.isNaN(timestamp.getTime())) return "Offline";
 
   const now = new Date();
   const sameDay = now.toDateString() === timestamp.toDateString();
@@ -65,6 +64,7 @@ const ChatShell: React.FC = () => {
     messages,
     selectRoom,
     refreshRooms,
+    refreshRoomMessages,
     sendMessage,
     sendTyping,
     typingUsers,
@@ -91,8 +91,30 @@ const ChatShell: React.FC = () => {
   const filteredRooms = useMemo(() => {
     if (!search.trim()) return rooms;
     const q = search.toLowerCase();
-    return rooms.filter((room) => room.name.toLowerCase().includes(q));
-  }, [rooms, search]);
+
+    return rooms.filter((room) => {
+      const peer =
+        room.room_type === "dm"
+          ? room.members.find((member) => member.user_id !== currentUserId)?.user
+          : null;
+
+      const searchable = [
+        room.name,
+        peer?.full_name,
+        peer?.firstname,
+        peer?.lastname,
+        peer?.role_title,
+        peer?.role,
+        peer?.committee,
+        peer?.country,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchable.includes(q);
+    });
+  }, [rooms, search, currentUserId]);
 
   const activeMessages = useMemo(
     () => (activeRoom ? messages[activeRoom.id] || [] : []),
@@ -104,6 +126,17 @@ const ChatShell: React.FC = () => {
     messagesContainerRef.current.scrollTop =
       messagesContainerRef.current.scrollHeight;
   }, [activeMessages.length, activeRoom?.id]);
+
+  useEffect(() => {
+    if (!activeRoom?.id) return;
+
+    const interval = window.setInterval(() => {
+      refreshRoomMessages(activeRoom.id);
+      refreshRooms();
+    }, 2500);
+
+    return () => window.clearInterval(interval);
+  }, [activeRoom?.id, refreshRoomMessages, refreshRooms]);
 
   const roomTypingNames = useMemo(() => {
     if (!activeRoom) return [] as string[];
@@ -254,7 +287,7 @@ const ChatShell: React.FC = () => {
           </div>
         </section>
 
-        <section className="surface-card flex min-h-[760px] overflow-hidden">
+        <section className="surface-card flex h-[calc(100vh-230px)] min-h-[680px] max-h-[900px] overflow-hidden">
           <aside className="flex h-full flex-col overflow-hidden border-r border-soft-ivory" style={{ width: `${sidebarWidth}px` }}>
             <div className="border-b border-soft-ivory px-5 py-4">
               <p className="text-xs uppercase tracking-[0.28em] text-almost-black-green/60">
@@ -266,12 +299,12 @@ const ChatShell: React.FC = () => {
             </div>
 
             <div className="border-b border-soft-ivory px-5 py-4">
-              <label className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-almost-black-green/50" />
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-4 py-2.5 text-sm focus:border-deep-red/40 focus:ring-2 focus:ring-deep-red/20"
+                  className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey py-2.5 pl-10 pr-4 text-sm focus:border-deep-red/40 focus:ring-2 focus:ring-deep-red/20"
                   placeholder="Search conversations"
                 />
               </label>
@@ -518,7 +551,7 @@ const ChatShell: React.FC = () => {
                         return (
                           <div
                             key={`date-${item.label}`}
-                            className="sticky top-2 z-10 flex justify-center"
+                            className="flex justify-center"
                           >
                             <span className="rounded-full border border-soft-ivory bg-white px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-almost-black-green/60 shadow-sm">
                               {item.label}
@@ -573,13 +606,7 @@ const ChatShell: React.FC = () => {
                 <div className="border-t border-soft-ivory bg-white px-6 py-4">
                   {activeTypingDisplay}
                   <div className="mt-3 flex items-end gap-3">
-                    <div className="flex flex-1 items-center rounded-2xl border border-soft-ivory bg-warm-light-grey px-3">
-                      <button
-                        type="button"
-                        className="rounded-full p-2 text-almost-black-green/60 hover:text-deep-red"
-                      >
-                        <Smile className="h-5 w-5" />
-                      </button>
+                    <div className="flex flex-1 items-center rounded-2xl border border-soft-ivory bg-warm-light-grey px-3 transition focus-within:border-deep-red/40 focus-within:ring-2 focus-within:ring-deep-red/20">
                       <textarea
                         value={composer}
                         onChange={(event) => setComposer(event.target.value)}
@@ -593,7 +620,7 @@ const ChatShell: React.FC = () => {
                         }}
                         placeholder="Type your message"
                         rows={1}
-                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-almost-black-green placeholder:text-almost-black-green/45 focus:outline-none"
+                        className="max-h-32 min-h-[48px] flex-1 resize-none rounded-2xl bg-transparent py-3 text-sm text-almost-black-green placeholder:text-almost-black-green/45 focus:outline-none"
                       />
                     </div>
                     <button
