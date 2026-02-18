@@ -449,6 +449,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       } as ChatSocketPayload;
       logChatDebug('socket:onopen:send_auth', authPayload as unknown as Record<string, unknown>);
       ws.send(JSON.stringify(authPayload));
+
+      const roomId = pendingRoomJoinRef.current || activeRoomIdRef.current;
+      if (roomId) {
+        ws.send(JSON.stringify({ type: 'join_room', roomId } satisfies ChatSocketPayload));
+        logChatDebug('socket:onopen:join_room_sent', { roomId });
+      }
     };
 
     ws.onmessage = handleSocketMessage;
