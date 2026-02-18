@@ -295,16 +295,21 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       logChatDebug('socket:onmessage:raw', { data: event.data });
       const payload = JSON.parse(event.data) as ChatSocketPayload;
       const payloadWithLegacy = payload as ChatSocketPayload & {
+        event?: string;
+        action?: string;
         room_id?: string | number;
         user_id?: string | number;
         is_typing?: boolean;
         online_user_ids?: Array<string | number>;
+        online_users?: Array<string | number>;
+        onlineUsers?: Array<string | number>;
       };
+      const payloadType = payload.type || payloadWithLegacy.event || payloadWithLegacy.action;
       const roomId = payload.roomId ? String(payload.roomId) : payloadWithLegacy.room_id ? String(payloadWithLegacy.room_id) : undefined;
       const userId = payload.userId ? String(payload.userId) : payloadWithLegacy.user_id ? String(payloadWithLegacy.user_id) : undefined;
       const isTyping = payload.isTyping ?? payloadWithLegacy.is_typing;
 
-      switch (payload.type) {
+      switch (payloadType) {
         case 'authenticated': {
           logChatDebug('socket:authenticated', { activeRoomId: activeRoomIdRef.current });
           const roomId = activeRoomIdRef.current;
@@ -347,6 +352,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           );
           break;
         }
+        case 'typing':
         case 'user_typing': {
           if (!roomId || !userId) break;
           logChatDebug('socket:user_typing', { roomId, userId, isTyping });
@@ -362,7 +368,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
         }
         case 'online_users': {
-          const users = payload.onlineUserIds || payloadWithLegacy.online_user_ids;
+          const users = payload.onlineUserIds || payloadWithLegacy.online_user_ids || payloadWithLegacy.online_users || payloadWithLegacy.onlineUsers;
           if (users) {
             logChatDebug('socket:online_users', { users: users.map((id) => toComparableId(id)) });
             setOnlineUsers(new Set(users.map((id) => toComparableId(id))));
@@ -393,7 +399,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
         }
         default:
-          logChatDebug('socket:unhandled_payload', payload as unknown as Record<string, unknown>);
+          logChatDebug('socket:unhandled_payload', {
+            payloadType: payloadType || 'missing',
+            ...(payload as unknown as Record<string, unknown>),
+          });
           break;
       }
     },
@@ -415,7 +424,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
     ws.onopen = () => {
       setIsConnecting(false);
-      const authPayload: ChatSocketPayload = { type: 'auth', userId: userIdRef.current || undefined } as ChatSocketPayload;
+      const authPayload: ChatSocketPayload = {
+        type: 'auth',
+        userId: userIdRef.current || userId || undefined,
+      } as ChatSocketPayload;
       logChatDebug('socket:onopen:send_auth', authPayload as unknown as Record<string, unknown>);
       ws.send(JSON.stringify(authPayload));
     };
