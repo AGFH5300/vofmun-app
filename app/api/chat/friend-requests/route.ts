@@ -11,6 +11,8 @@ const jsonResponse = (body: Record<string, unknown>, status = 200) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
+const normalizeRequestStatus = (status: string) => (status === 'declined' ? 'rejected' : status);
+
 const mapProfileToUser = (profile: Awaited<ReturnType<typeof fetchPeopleDetailsByIds>>[string] | null | undefined) => {
   if (!profile) return null;
   const fullName = `${profile.firstname || ''} ${profile.lastname || ''}`.trim() || 'Unknown';
@@ -58,6 +60,7 @@ export async function GET(request: Request) {
 
     const enriched = requests.map((req) => ({
       ...req,
+      status: normalizeRequestStatus(req.status),
       sender: mapProfileToUser(profiles[req.sender_id]),
       receiver: mapProfileToUser(profiles[req.receiver_id]),
     }));
@@ -118,7 +121,12 @@ export async function POST(request: Request) {
     const blocker = (existing || []).find((item) => item.status === 'pending' || item.status === 'accepted');
     if (blocker) {
       return jsonResponse(
-        { ok: true, status: blocker.status, already_exists: true, request: blocker as FriendRequest },
+        {
+          ok: true,
+          status: normalizeRequestStatus(blocker.status),
+          already_exists: true,
+          request: { ...blocker, status: normalizeRequestStatus(blocker.status) } as FriendRequest,
+        },
         200
       );
     }

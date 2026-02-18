@@ -58,13 +58,20 @@ interface ChatContextValue {
 
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
 const CHAT_DEBUG_PREFIX = '[ChatDebug]';
+const isChatDebugEnabled = process.env.NEXT_PUBLIC_CHAT_DEBUG === '1' || process.env.NODE_ENV !== 'production';
+const TYPING_TRUE_THROTTLE_MS = 1000;
+const TYPING_IDLE_TIMEOUT_MS = 2500;
+const TYPING_REMOTE_EXPIRY_MS = 5000;
+const RECONNECT_BASE_DELAY_MS = 1000;
+const RECONNECT_MAX_DELAY_MS = 12000;
 
 const logChatDebug = (message: string, details?: Record<string, unknown>) => {
+  if (!isChatDebugEnabled) return;
   if (details) {
-    console.log(`${CHAT_DEBUG_PREFIX} ${message}`, details);
+    console.warn(`${CHAT_DEBUG_PREFIX} ${message}`, details);
     return;
   }
-  console.log(`${CHAT_DEBUG_PREFIX} ${message}`);
+  console.warn(`${CHAT_DEBUG_PREFIX} ${message}`);
 };
 
 const getWebSocketUrl = () => {
@@ -95,6 +102,8 @@ const getWebSocketUrl = () => {
   }
 };
 
+const normalizeFriendRequestStatus = (status?: string | null) => (status === 'declined' ? 'rejected' : status || 'pending');
+
 export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [rooms, setRooms] = useState<RoomWithDetails[]>([]);
   const [activeRoom, setActiveRoom] = useState<RoomWithDetails | null>(null);
@@ -113,11 +122,16 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptRef = useRef(0);
   const pendingRoomJoinRef = useRef<string | null>(null);
   const activeRoomIdRef = useRef<string | null>(null);
   const roomsRef = useRef<RoomWithDetails[]>([]);
   const onlineUsersRef = useRef<Set<string>>(new Set());
   const userIdRef = useRef<string | null>(null);
+  const shouldReconnectRef = useRef(true);
+  const typingThrottleRef = useRef<Map<string, number>>(new Map());
+  const typingIdleTimeoutRef = useRef<Map<string, number>>(new Map());
+  const typingExpiryRef = useRef<Map<string, Map<string, number>>>(new Map());
 
   const toComparableId = useCallback((value: string | number | null | undefined) => String(value ?? ''), []);
 
@@ -254,7 +268,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       console.error('[ChatContext] friend request response unexpected', json);
       return;
     }
-    setFriendRequests(json.requests);
+    setFriendRequests(json.requests.map((request) => ({ ...request, status: normalizeFriendRequestStatus(request.status) as FriendRequest['status'] })));
   }, [userId, withAuthHeaders]);
 
   const refreshRoomMessages = useCallback(
@@ -285,6 +299,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const selectRoom = useCallback(
     async (room: RoomWithDetails) => {
+      const previousRoomId = activeRoomIdRef.current;
+      if (previousRoomId && previousRoomId !== room.id) {
+        sendTyping(previousRoomId, false);
+      }
       activeRoomIdRef.current = room.id;
       pendingRoomJoinRef.current = room.id;
       setActiveRoom(rooms.find((candidate) => candidate.id === room.id) || room);
@@ -300,7 +318,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
       }
     },
-    [refreshRoomMessages, rooms]
+    [refreshRoomMessages, rooms, sendTyping]
   );
 
   const handleSocketMessage = useCallback(
@@ -324,6 +342,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
       switch (payloadType) {
         case 'authenticated': {
+          reconnectAttemptRef.current = 0;
           logChatDebug('socket:authenticated', { activeRoomId: activeRoomIdRef.current });
           const roomId = pendingRoomJoinRef.current || activeRoomIdRef.current;
           if (roomId && wsRef.current?.readyState === WebSocket.OPEN) {
@@ -331,6 +350,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             logChatDebug('socket:authenticated:join_room_sent', { roomId });
             pendingRoomJoinRef.current = null;
           }
+          break;
+        }
+        case 'auth_error': {
+          logChatDebug('socket:auth_error');
+          shouldReconnectRef.current = false;
+          wsRef.current?.close();
           break;
         }
         case 'new_message': {
@@ -370,6 +395,33 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         case 'user_typing': {
           if (!roomId || !userId) break;
           logChatDebug('socket:user_typing', { roomId, userId, isTyping });
+
+          const roomTypingExpiry = typingExpiryRef.current.get(roomId) || new Map<string, number>();
+          if (isTyping) {
+            const existingTimeout = roomTypingExpiry.get(userId);
+            if (existingTimeout) {
+              window.clearTimeout(existingTimeout);
+            }
+            const timeoutHandle = window.setTimeout(() => {
+              setTypingUsers((prev) => {
+                const set = new Set(prev[roomId] || []);
+                if (!set.has(userId)) return prev;
+                set.delete(userId);
+                return { ...prev, [roomId]: set };
+              });
+              const roomMap = typingExpiryRef.current.get(roomId);
+              roomMap?.delete(userId);
+            }, TYPING_REMOTE_EXPIRY_MS);
+            roomTypingExpiry.set(userId, timeoutHandle);
+            typingExpiryRef.current.set(roomId, roomTypingExpiry);
+          } else {
+            const existingTimeout = roomTypingExpiry.get(userId);
+            if (existingTimeout) {
+              window.clearTimeout(existingTimeout);
+              roomTypingExpiry.delete(userId);
+            }
+          }
+
           setTypingUsers((prev) => {
             const set = new Set(prev[roomId] || []);
             if (isTyping) {
@@ -443,10 +495,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     ws.onopen = () => {
       setIsConnecting(false);
       wsRef.current = ws;
-      const authPayload: ChatSocketPayload = {
-        type: 'auth',
-        userId: userIdRef.current || userId || undefined,
-      } as ChatSocketPayload;
+      const authPayload: ChatSocketPayload = { type: 'auth' } as ChatSocketPayload;
       logChatDebug('socket:onopen:send_auth', authPayload as unknown as Record<string, unknown>);
       ws.send(JSON.stringify(authPayload));
 
@@ -466,8 +515,18 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         wsRef.current = null;
       }
       if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
-      reconnectTimeout.current = setTimeout(connectSocket, 1000);
-      logChatDebug('socket:reconnect:scheduled', { delayMs: 1000 });
+
+      if (!shouldReconnectRef.current) {
+        logChatDebug('socket:reconnect:skipped_disabled');
+        return;
+      }
+
+      reconnectAttemptRef.current += 1;
+      const exponentialDelay = Math.min(RECONNECT_BASE_DELAY_MS * (2 ** (reconnectAttemptRef.current - 1)), RECONNECT_MAX_DELAY_MS);
+      const jitter = Math.floor(Math.random() * 350);
+      const delayMs = exponentialDelay + jitter;
+      reconnectTimeout.current = setTimeout(connectSocket, delayMs);
+      logChatDebug('socket:reconnect:scheduled', { delayMs, attempt: reconnectAttemptRef.current });
     };
 
     ws.onerror = (event) => {
@@ -478,11 +537,19 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   useEffect(() => {
     if (!userId) return;
+    shouldReconnectRef.current = true;
     connectSocket();
     return () => {
+      shouldReconnectRef.current = false;
       if (reconnectTimeout.current) {
         clearTimeout(reconnectTimeout.current);
       }
+      typingIdleTimeoutRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      typingIdleTimeoutRef.current.clear();
+      typingExpiryRef.current.forEach((roomMap) => {
+        roomMap.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      });
+      typingExpiryRef.current.clear();
       const socket = wsRef.current;
       wsRef.current = null;
       socket?.close();
@@ -541,9 +608,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         setMessages((prev) => {
           const list = prev[roomId] || [];
           const withoutTemp = list.filter((msg) => msg.id !== tempId && msg.id !== saved.id);
-          const resolved = resolveOwnMessageStatus(roomId, saved.user_id) || 'sent';
-          return { ...prev, [roomId]: [...withoutTemp, { ...saved, status: resolved }] };
+          return { ...prev, [roomId]: [...withoutTemp, { ...saved, status: 'sent' }] };
         });
+        window.setTimeout(reconcileOwnDmMessageStatuses, 0);
       } catch (error) {
         logChatDebug('sendMessage:error', {
           roomId,
@@ -558,7 +625,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
       }
     },
-    [resolveOwnMessageStatus, userId, withAuthHeaders]
+    [reconcileOwnDmMessageStatuses, userId, withAuthHeaders]
   );
 
   const sendTyping = useCallback(
@@ -577,9 +644,39 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
         return;
       }
+
+      if (isTyping) {
+        const now = Date.now();
+        const lastSentAt = typingThrottleRef.current.get(roomId) || 0;
+        if (now - lastSentAt < TYPING_TRUE_THROTTLE_MS) {
+          const existingIdle = typingIdleTimeoutRef.current.get(roomId);
+          if (existingIdle) window.clearTimeout(existingIdle);
+          const idleTimeout = window.setTimeout(() => {
+            sendTyping(roomId, false);
+            typingIdleTimeoutRef.current.delete(roomId);
+          }, TYPING_IDLE_TIMEOUT_MS);
+          typingIdleTimeoutRef.current.set(roomId, idleTimeout);
+          return;
+        }
+        typingThrottleRef.current.set(roomId, now);
+      }
+
       const payload: ChatSocketPayload = { type: 'typing', roomId, isTyping } as ChatSocketPayload;
       wsRef.current.send(JSON.stringify(payload));
       logChatDebug('sendTyping:sent', payload as unknown as Record<string, unknown>);
+
+      const existingIdle = typingIdleTimeoutRef.current.get(roomId);
+      if (existingIdle) window.clearTimeout(existingIdle);
+
+      if (isTyping) {
+        const idleTimeout = window.setTimeout(() => {
+          sendTyping(roomId, false);
+          typingIdleTimeoutRef.current.delete(roomId);
+        }, TYPING_IDLE_TIMEOUT_MS);
+        typingIdleTimeoutRef.current.set(roomId, idleTimeout);
+      } else {
+        typingIdleTimeoutRef.current.delete(roomId);
+      }
     },
     []
   );
@@ -661,7 +758,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (trimmed.length < 2) return [] as UserSearchResult[];
       try {
         const url = `/api/chat/people?query=${encodeURIComponent(trimmed)}`;
-        console.log('[ChatContext] searching people', url);
+        logChatDebug('searchUsers:query', { url });
         const response = await fetch(url, withAuthHeaders());
         if (!response.ok) {
           const errorText = await response.text();
@@ -724,7 +821,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         }
 
         if (json.request) {
-          const created = json.request;
+          const created = { ...json.request, status: normalizeFriendRequestStatus(json.request.status) as FriendRequest['status'] };
           setFriendRequests((prev) => {
             const withoutDupes = prev.filter(
               (req) => !(req.sender_id === created.sender_id && req.receiver_id === created.receiver_id && req.status === created.status)
@@ -789,7 +886,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
         setFriendRequests((prev) => {
           const remaining = prev.filter((req) => req.id !== id);
-          const updatedStatus = json.request?.status || json.status || 'accepted';
+          const updatedStatus = normalizeFriendRequestStatus(json.request?.status || json.status || 'accepted');
           const existing = prev.find((req) => req.id === id) || json.request;
           const updated = existing ? { ...existing, status: updatedStatus } : null;
           return updated ? [updated, ...remaining] : remaining;
@@ -845,7 +942,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           withAuthHeaders({
             method: 'POST',
             headers: { Accept: 'application/json' },
-            body: JSON.stringify({ action: 'decline' }),
+            body: JSON.stringify({ action: 'reject' }),
           })
         );
 
@@ -863,7 +960,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
         setFriendRequests((prev) => {
           const remaining = prev.filter((req) => req.id !== id);
-          const updatedStatus = json.request?.status || json.status || 'rejected';
+          const updatedStatus = normalizeFriendRequestStatus(json.request?.status || json.status || 'rejected');
           const existing = prev.find((req) => req.id === id) || json.request;
           const updated = existing ? { ...existing, status: updatedStatus } : null;
           return updated ? [updated, ...remaining] : remaining;

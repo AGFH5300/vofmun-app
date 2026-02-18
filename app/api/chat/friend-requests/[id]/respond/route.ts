@@ -102,13 +102,14 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => null);
-    const action = body?.action as 'accept' | 'decline' | undefined;
+    const action = body?.action as 'accept' | 'reject' | 'decline' | undefined;
+    const normalizedAction = action === 'decline' ? 'reject' : action;
 
-    if (!action || (action !== 'accept' && action !== 'decline')) {
+    if (!normalizedAction || (normalizedAction !== 'accept' && normalizedAction !== 'reject')) {
       return jsonResponse({ ok: false, error: 'Invalid action' }, 400);
     }
 
-    if (action === 'accept') {
+    if (normalizedAction === 'accept') {
       const { data: updated, error: updateError } = await supabaseAdmin
         .from('friend_requests')
         .update({ status: 'accepted', updated_at: new Date().toISOString() })
