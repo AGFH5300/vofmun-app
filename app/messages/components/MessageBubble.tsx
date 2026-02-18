@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { MessageWithUser } from '@/lib/chat/types';
 import UserAvatar from './UserAvatar';
 import { AlertCircle, Check, CheckCheck, Clock } from 'lucide-react';
@@ -31,6 +31,18 @@ const statusClass: Record<string, string> = {
 const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true, showAvatar = true }) => {
   const isFailed = message.status === 'error';
   const resolvedStatus = isOwn ? message.status || 'sent' : undefined;
+
+  useEffect(() => {
+    if (!isOwn) return;
+    console.log('[ChatDebug] message_bubble:status_render', {
+      messageId: message.id,
+      roomId: message.room_id,
+      rawStatus: message.status || null,
+      resolvedStatus: resolvedStatus || null,
+      hasStatusIcon: Boolean(resolvedStatus && statusIcon[resolvedStatus]),
+      createdAt: message.created_at || null,
+    });
+  }, [isOwn, message.created_at, message.id, message.room_id, message.status, resolvedStatus]);
   const timestamp = message.created_at
     ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';

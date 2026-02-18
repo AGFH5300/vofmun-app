@@ -57,6 +57,15 @@ interface ChatContextValue {
 }
 
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
+const CHAT_DEBUG_PREFIX = '[ChatDebug]';
+
+const logChatDebug = (message: string, details?: Record<string, unknown>) => {
+  if (details) {
+    console.log(`${CHAT_DEBUG_PREFIX} ${message}`, details);
+    return;
+  }
+  console.log(`${CHAT_DEBUG_PREFIX} ${message}`);
+};
 
 const getWebSocketUrl = () => {
   const source = CHAT_WS_URL || CHAT_API_URL || (typeof window !== 'undefined' ? window.location.origin : '');
@@ -163,6 +172,15 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       (member) => String(member.user_id) !== String(currentUserId) && onlineUsersRef.current.has(String(member.user_id))
     );
 
+    logChatDebug('resolveOwnMessageStatus', {
+      roomId,
+      messageUserId,
+      currentUserId,
+      memberIds: room.members.map((member) => String(member.user_id)),
+      onlineUsers: Array.from(onlineUsersRef.current),
+      status: hasOnlineRecipient ? 'delivered' : 'sent',
+    });
+
     return hasOnlineRecipient ? 'delivered' : 'sent';
   }, []);
 
@@ -189,9 +207,14 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const refreshRooms = useCallback(async () => {
     if (!userId) return [] as RoomWithDetails[];
+    logChatDebug('refreshRooms:start', { userId, endpoint: `${CHAT_API_URL}/api/rooms` });
     const response = await fetch(`${CHAT_API_URL}/api/rooms`, withAuthHeaders());
-    if (!response.ok) return [] as RoomWithDetails[];
+    if (!response.ok) {
+      logChatDebug('refreshRooms:failed', { status: response.status, statusText: response.statusText });
+      return [] as RoomWithDetails[];
+    }
     const data = (await response.json()) as RoomWithDetails[];
+    logChatDebug('refreshRooms:success', { count: data.length, roomIds: data.map((room) => room.id) });
     const enriched = data.map((room) => ({
       ...room,
       isPinned: pinnedRoomIds.has(room.id),
@@ -255,7 +278,13 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       await refreshRoomMessages(room.id);
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const payload: ChatSocketPayload = { type: 'join_room', roomId: room.id } as ChatSocketPayload;
+        logChatDebug('selectRoom:join_room', payload as unknown as Record<string, unknown>);
         wsRef.current.send(JSON.stringify(payload));
+      } else {
+        logChatDebug('selectRoom:join_room_skipped_socket_not_open', {
+          roomId: room.id,
+          readyState: wsRef.current?.readyState ?? 'missing',
+        });
       }
     },
     [refreshRoomMessages, rooms]
@@ -263,6 +292,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const handleSocketMessage = useCallback(
     (event: MessageEvent) => {
+      logChatDebug('socket:onmessage:raw', { data: event.data });
       const payload = JSON.parse(event.data) as ChatSocketPayload;
       const payloadWithLegacy = payload as ChatSocketPayload & {
         room_id?: string | number;
@@ -276,9 +306,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
       switch (payload.type) {
         case 'authenticated': {
+          logChatDebug('socket:authenticated', { activeRoomId: activeRoomIdRef.current });
           const roomId = activeRoomIdRef.current;
           if (roomId && wsRef.current?.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({ type: 'join_room', roomId } satisfies ChatSocketPayload));
+            logChatDebug('socket:authenticated:join_room_sent', { roomId });
           }
           break;
         }
@@ -288,6 +320,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           if (!rawMessage || !roomId) break;
           const normalizedRoomId = toComparableId(roomId);
           const message = { ...rawMessage, room_id: normalizedRoomId };
+          logChatDebug('socket:new_message', {
+            roomId: normalizedRoomId,
+            messageId: message.id,
+            fromUserId: message.user_id,
+            contentPreview: String(message.content || '').slice(0, 80),
+          });
           setMessages((prev) => {
             const list = prev[normalizedRoomId] || [];
             const withoutTemp = list.filter((item) => item.id !== message.id && item.tempId !== message.id);
@@ -311,6 +349,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         }
         case 'user_typing': {
           if (!roomId || !userId) break;
+          logChatDebug('socket:user_typing', { roomId, userId, isTyping });
           setTypingUsers((prev) => {
             const set = new Set(prev[roomId] || []);
             if (isTyping) {
@@ -325,6 +364,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         case 'online_users': {
           const users = payload.onlineUserIds || payloadWithLegacy.online_user_ids;
           if (users) {
+            logChatDebug('socket:online_users', { users: users.map((id) => toComparableId(id)) });
             setOnlineUsers(new Set(users.map((id) => toComparableId(id))));
             window.setTimeout(reconcileOwnDmMessageStatuses, 0);
           }
@@ -333,6 +373,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         case 'user_online': {
           if (userId) {
             const normalizedUserId = toComparableId(userId);
+            logChatDebug('socket:user_online', { userId: normalizedUserId });
             setOnlineUsers((prev) => new Set(prev).add(normalizedUserId));
             window.setTimeout(reconcileOwnDmMessageStatuses, 0);
           }
@@ -341,6 +382,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         case 'user_offline': {
           if (userId) {
             const normalizedUserId = toComparableId(userId);
+            logChatDebug('socket:user_offline', { userId: normalizedUserId });
             setOnlineUsers((prev) => {
               const next = new Set(prev);
               next.delete(normalizedUserId);
@@ -351,6 +393,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
         }
         default:
+          logChatDebug('socket:unhandled_payload', payload as unknown as Record<string, unknown>);
           break;
       }
     },
@@ -360,8 +403,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const connectSocket = useCallback(() => {
     if (!userId) return;
     const url = getWebSocketUrl();
+    logChatDebug('socket:connect:attempt', { userId, url });
     if (!url) {
       setIsConnecting(false);
+      logChatDebug('socket:connect:aborted_missing_url');
       return;
     }
     setIsConnecting(true);
@@ -371,6 +416,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     ws.onopen = () => {
       setIsConnecting(false);
       const authPayload: ChatSocketPayload = { type: 'auth', userId: userIdRef.current || undefined } as ChatSocketPayload;
+      logChatDebug('socket:onopen:send_auth', authPayload as unknown as Record<string, unknown>);
       ws.send(JSON.stringify(authPayload));
     };
 
@@ -378,11 +424,14 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
     ws.onclose = () => {
       setIsConnecting(false);
+      logChatDebug('socket:onclose', { readyState: ws.readyState, userId: userIdRef.current });
       if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
       reconnectTimeout.current = setTimeout(connectSocket, 1000);
+      logChatDebug('socket:reconnect:scheduled', { delayMs: 1000 });
     };
 
-    ws.onerror = () => {
+    ws.onerror = (event) => {
+      logChatDebug('socket:onerror', { eventType: event.type });
       ws.close();
     };
   }, [handleSocketMessage, userId]);
@@ -427,21 +476,28 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       };
       setMessages((prev) => ({ ...prev, [roomId]: [...(prev[roomId] || []), optimistic] }));
       try {
+        logChatDebug('sendMessage:attempt', { roomId, replyTo: replyTo || null, contentLength: trimmed.length });
         const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, withAuthHeaders({
           method: 'POST',
           body: JSON.stringify({ content: trimmed, reply_to: replyTo }),
         }));
         if (!response.ok) {
+          logChatDebug('sendMessage:failed_response', { status: response.status, statusText: response.statusText, roomId });
           throw new Error('Failed to send message');
         }
         const saved = (await response.json()) as MessageWithUser;
+        logChatDebug('sendMessage:success', { roomId, messageId: saved.id, status: saved.status || 'unknown' });
         setMessages((prev) => {
           const list = prev[roomId] || [];
           const withoutTemp = list.filter((msg) => msg.id !== tempId && msg.id !== saved.id);
           const resolved = resolveOwnMessageStatus(roomId, saved.user_id) || 'sent';
           return { ...prev, [roomId]: [...withoutTemp, { ...saved, status: resolved }] };
         });
-      } catch {
+      } catch (error) {
+        logChatDebug('sendMessage:error', {
+          roomId,
+          error: error instanceof Error ? error.message : 'unknown-error',
+        });
         setMessages((prev) => {
           const list = prev[roomId] || [];
           return {
@@ -456,9 +512,23 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const sendTyping = useCallback(
     (roomId: string, isTyping: boolean) => {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+      logChatDebug('sendTyping:attempt', {
+        roomId,
+        isTyping,
+        hasSocket: Boolean(wsRef.current),
+        readyState: wsRef.current?.readyState ?? 'missing',
+      });
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        logChatDebug('sendTyping:skipped_socket_not_open', {
+          roomId,
+          isTyping,
+          readyState: wsRef.current?.readyState ?? 'missing',
+        });
+        return;
+      }
       const payload: ChatSocketPayload = { type: 'typing', roomId, isTyping } as ChatSocketPayload;
       wsRef.current.send(JSON.stringify(payload));
+      logChatDebug('sendTyping:sent', payload as unknown as Record<string, unknown>);
     },
     []
   );
