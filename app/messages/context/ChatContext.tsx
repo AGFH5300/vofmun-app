@@ -258,17 +258,17 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const refreshFriendRequests = useCallback(async () => {
     if (!userId) return;
-    const response = await fetch(`/api/chat/friend-requests`, withAuthHeaders());
+    const response = await fetch(`${CHAT_API_URL}/api/friend-requests`, withAuthHeaders());
     if (!response.ok) {
       console.error('[ChatContext] failed to load friend requests', response.status, response.statusText);
       return;
     }
-    const json = (await response.json().catch(() => null)) as { ok?: boolean; requests?: FriendRequest[] } | null;
-    if (!json?.ok || !json.requests) {
-      console.error('[ChatContext] friend request response unexpected', json);
+    const json = (await response.json().catch(() => null)) as FriendRequest[] | null;
+    if (!json || !Array.isArray(json)) {
+      console.error('[ChatContext] friend request response unexpected', { json });
       return;
     }
-    setFriendRequests(json.requests.map((request) => ({ ...request, status: normalizeFriendRequestStatus(request.status) as FriendRequest['status'] })));
+    setFriendRequests(json.map((request) => ({ ...request, status: normalizeFriendRequestStatus(request.status) as FriendRequest['status'] })));
   }, [userId, withAuthHeaders]);
 
   const refreshRoomMessages = useCallback(
@@ -757,7 +757,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const trimmed = query.trim();
       if (trimmed.length < 2) return [] as UserSearchResult[];
       try {
-        const url = `/api/chat/people?query=${encodeURIComponent(trimmed)}`;
+        const url = `${CHAT_API_URL}/api/chat/people?query=${encodeURIComponent(trimmed)}`;
         logChatDebug('searchUsers:query', { url });
         const response = await fetch(url, withAuthHeaders());
         if (!response.ok) {
@@ -804,15 +804,13 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (!userId) return null;
       try {
         const response = await fetch(
-          '/api/chat/friend-requests',
-          withAuthHeaders({ method: 'POST', body: JSON.stringify({ receiverId: targetUserId }) })
+          `${CHAT_API_URL}/api/friend-requests`,
+          withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
         );
 
-        const json = (await response.json().catch(() => null)) as
-          | { ok: boolean; request?: FriendRequest; already_exists?: boolean; status?: string; error?: string }
-          | null;
+        const json = (await response.json().catch(() => null)) as FriendRequest | { error?: string } | null;
 
-        if (!response.ok || !json?.ok) {
+        if (!response.ok || !json || Array.isArray(json) || !('id' in json)) {
           console.error('[ChatContext] failed to send friend request', {
             status: response.status,
             json,
@@ -820,36 +818,18 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           return null;
         }
 
-        if (json.request) {
-          const created = { ...json.request, status: normalizeFriendRequestStatus(json.request.status) as FriendRequest['status'] };
-          setFriendRequests((prev) => {
-            const withoutDupes = prev.filter(
-              (req) => !(req.sender_id === created.sender_id && req.receiver_id === created.receiver_id && req.status === created.status)
-            );
-            return [created, ...withoutDupes];
-          });
-          return created;
-        }
-
-        if (json.already_exists) {
-          const existing = friendRequests.find(
-            (req) =>
-              (req.sender_id === targetUserId && req.receiver_id === userId) ||
-              (req.sender_id === userId && req.receiver_id === targetUserId)
-          );
-          if (existing) {
-            return existing;
-          }
-          await refreshFriendRequests();
-        }
-
-        return null;
+        const created = { ...json, status: normalizeFriendRequestStatus(json.status) as FriendRequest['status'] } as FriendRequest;
+        setFriendRequests((prev) => {
+          const withoutDupes = prev.filter((req) => req.id !== created.id);
+          return [created, ...withoutDupes];
+        });
+        return created;
       } catch (error) {
         console.error('[ChatContext] friend request threw', error);
         return null;
       }
     },
-    [friendRequests, refreshFriendRequests, userId, withAuthHeaders]
+    [userId, withAuthHeaders]
   );
 
   const acceptFriendRequest = useCallback(
@@ -857,7 +837,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (!userId) return;
       try {
         const response = await fetch(
-          `/api/chat/friend-requests/${id}/respond`,
+          `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
           withAuthHeaders({
             method: 'POST',
             headers: { Accept: 'application/json' },
@@ -865,18 +845,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           })
         );
 
-        const json = (await response.json().catch(() => null)) as
-          | {
-              ok?: boolean;
-              status?: string;
-              request?: FriendRequest;
-              roomId?: string | null;
-              peer?: { id: string; firstname?: string | null; lastname?: string | null; email?: string | null } | null;
-              error?: string;
-            }
-          | null;
+        const json = (await response.json().catch(() => null)) as { success?: boolean; error?: string } | null;
 
-        if (!response.ok || !json?.ok) {
+        if (!response.ok || !json?.success) {
           console.error('[ChatContext] failed to respond to request', {
             status: response.status,
             json,
@@ -884,20 +855,21 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           return;
         }
 
+        const acceptedRequest = friendRequests.find((req) => req.id === id) || null;
         setFriendRequests((prev) => {
           const remaining = prev.filter((req) => req.id !== id);
-          const updatedStatus = normalizeFriendRequestStatus(json.request?.status || json.status || 'accepted');
-          const existing = prev.find((req) => req.id === id) || json.request;
+          const updatedStatus = normalizeFriendRequestStatus('accepted');
+          const existing = prev.find((req) => req.id === id);
           const updated = existing ? { ...existing, status: updatedStatus } : null;
           return updated ? [updated, ...remaining] : remaining;
         });
 
-        const request = friendRequests.find((req) => req.id === id) || json.request;
-        const peerId = json.peer?.id || (request ? (request.sender_id === userId ? request.receiver_id : request.sender_id) : null);
+        const peerId = acceptedRequest
+          ? (acceptedRequest.sender_id === userId ? acceptedRequest.receiver_id : acceptedRequest.sender_id)
+          : null;
 
         const syncRooms = await refreshRooms();
         const targetRoom =
-          (json.roomId && syncRooms.find((room) => room.id === json.roomId)) ||
           (peerId
             ? syncRooms.find(
                 (room) =>
@@ -909,28 +881,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
         if (targetRoom) {
           await selectRoom(targetRoom);
-        } else if (json.roomId) {
-          const placeholderName = json.peer
-            ? `${json.peer.firstname || ''} ${json.peer.lastname || ''}`.trim() || 'Direct message'
-            : 'Direct message';
-          const placeholderRoom: RoomWithDetails = {
-            id: json.roomId,
-            name: placeholderName,
-            members: [],
-            is_private: true,
-            room_type: 'dm',
-          };
-          setRooms((prev) => {
-            if (prev.some((room) => room.id === json.roomId)) return prev;
-            return [{ ...placeholderRoom, isPinned: pinnedRoomIds.has(json.roomId) }, ...prev];
-          });
-          await selectRoom(placeholderRoom);
         }
       } catch (error) {
         console.error('[ChatContext] respondToFriendRequest threw', error);
       }
     },
-    [friendRequests, pinnedRoomIds, refreshRooms, selectRoom, userId, withAuthHeaders]
+    [friendRequests, refreshRooms, selectRoom, userId, withAuthHeaders]
   );
 
   const declineFriendRequest = useCallback(
@@ -938,7 +894,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (!userId) return;
       try {
         const response = await fetch(
-          `/api/chat/friend-requests/${id}/respond`,
+          `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
           withAuthHeaders({
             method: 'POST',
             headers: { Accept: 'application/json' },
@@ -946,11 +902,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           })
         );
 
-        const json = (await response.json().catch(() => null)) as
-          | { ok?: boolean; status?: string; request?: FriendRequest; error?: string }
-          | null;
+        const json = (await response.json().catch(() => null)) as { success?: boolean; error?: string } | null;
 
-        if (!response.ok || !json?.ok) {
+        if (!response.ok || !json?.success) {
           console.error('[ChatContext] failed to respond to request', {
             status: response.status,
             json,
@@ -960,8 +914,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
         setFriendRequests((prev) => {
           const remaining = prev.filter((req) => req.id !== id);
-          const updatedStatus = normalizeFriendRequestStatus(json.request?.status || json.status || 'rejected');
-          const existing = prev.find((req) => req.id === id) || json.request;
+          const updatedStatus = normalizeFriendRequestStatus('rejected');
+          const existing = prev.find((req) => req.id === id);
           const updated = existing ? { ...existing, status: updatedStatus } : null;
           return updated ? [updated, ...remaining] : remaining;
         });

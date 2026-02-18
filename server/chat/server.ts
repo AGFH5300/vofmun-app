@@ -2,10 +2,11 @@ import express, { NextFunction, Request, Response } from 'express';
 import http from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 import { randomUUID } from 'crypto';
-import supabaseAdmin from '../../lib/supabaseAdmin';
-import { getSessionUserFromCookieHeader } from '../../lib/chat/auth';
-import { ChatSocketPayload, FriendRequest, MessageWithUser, RoomMember, RoomWithDetails, RoomType, User } from '../../lib/chat/types';
-import { fetchPersonById, isVisibleToViewer, mapProfileForChat, searchPeople } from './people';
+import next from 'next';
+import supabaseAdmin from '../../lib/supabaseAdmin.ts';
+import { getSessionUserFromCookieHeader } from '../../lib/chat/auth.ts';
+import { ChatSocketPayload, FriendRequest, MessageWithUser, RoomMember, RoomWithDetails, RoomType, User } from '../../lib/chat/types.ts';
+import { fetchPersonById, isVisibleToViewer, mapProfileForChat, searchPeople } from './people.ts';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -644,7 +645,20 @@ app.delete('/api/rooms/:roomId', requireAuth, async (req: AuthedRequest, res: Re
   }
 });
 
-const server = http.createServer(app);
+const PORT = Number(process.env.PORT || process.env.CHAT_PORT || 5000);
+const isDev = process.env.NODE_ENV !== 'production';
+const nextApp = next({ dev: isDev, hostname: '0.0.0.0', port: PORT });
+const nextHandler = nextApp.getRequestHandler();
+
+const server = http.createServer((req, res) => {
+  const url = req.url || '';
+  if (url.startsWith('/api/')) {
+    app(req, res);
+    return;
+  }
+
+  nextHandler(req, res);
+});
 const wss = new WebSocketServer({ server, path: '/chat-ws' });
 
 wss.on('connection', (socket, req) => {
@@ -785,9 +799,16 @@ wss.on('connection', (socket, req) => {
   socket.on('error', disconnect);
 });
 
-const PORT = process.env.CHAT_PORT || 4000;
-server.listen(PORT, () => {
-  console.warn(`Chat server listening on http://localhost:${PORT}`);
+const start = async () => {
+  await nextApp.prepare();
+  server.listen(PORT, () => {
+    console.warn(`Unified Next + chat server listening on http://localhost:${PORT}`);
+  });
+};
+
+start().catch((error) => {
+  console.error('Failed to start unified server', error);
+  process.exit(1);
 });
 
 export default app;
