@@ -13,8 +13,6 @@ interface Props {
   initialTab?: 'direct' | 'group';
 }
 
-const emojiOptions = ['🗳️', '🕊️', '📜', '⚖️', '🏛️'];
-
 const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'direct' }) => {
   const {
     searchUsers,
@@ -40,7 +38,6 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
   const [selected, setSelected] = useState<UserSearchResult[]>([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [icon, setIcon] = useState('🗳️');
 
   const trimmedQuery = query.trim();
   const canSearch = trimmedQuery.length >= 2;
@@ -59,7 +56,6 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     setSelected([]);
     setName('');
     setDescription('');
-    setIcon('🗳️');
   }, [initialTab, open, refreshFriendRequests]);
 
   useEffect(() => {
@@ -148,7 +144,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
   const handleCreateGroup = async () => {
     const memberIds = selected.map((u) => u.id);
-    const room = await createGroupRoom({ name: name || 'Untitled group', description, icon, memberIds });
+    const room = await createGroupRoom({ name: name || 'Untitled group', description, memberIds });
     if (!room) return;
     await selectRoom(room);
     onClose();
@@ -259,14 +255,6 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   <div>
                     <label className="text-sm font-semibold text-almost-black-green">Group name</label>
                     <input value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-semibold text-almost-black-green">Icon</label>
-                    <div className="mt-1 flex gap-2">
-                      {emojiOptions.map((emoji) => (
-                        <button key={emoji} type="button" onClick={() => setIcon(emoji)} className={`rounded-full border px-2 py-1 ${icon === emoji ? 'border-deep-red bg-soft-rose/60' : 'border-soft-ivory'}`}>{emoji}</button>
-                      ))}
-                    </div>
                   </div>
                 </div>
 

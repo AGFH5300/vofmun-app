@@ -20,9 +20,11 @@ const getDisplayMeta = (room: RoomWithDetails, currentUserId?: string | null) =>
     const otherMember =
       room.members.find((m) => m.user_id !== me?.user_id) || room.members.find((m) => m.user_id !== currentUserId) || room.members[0];
     const other = otherMember?.user;
+    const delegation = other?.country || other?.committee;
+    const roleLabel = other?.role_title || other?.role || 'Delegate';
     return {
       name: other?.full_name || `${other?.firstname || ''} ${other?.lastname || ''}`.trim() || room.name,
-      sub: other?.role_title || other?.committee || 'Direct message',
+      sub: delegation ? `${roleLabel} · ${delegation}` : roleLabel,
       avatarUser: other,
     };
   }
