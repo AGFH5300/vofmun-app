@@ -90,7 +90,7 @@ const ConversationList: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={onNewGroup}
-                className="rounded-xl border border-soft-ivory bg-warm-light-grey px-4 py-2 text-sm font-semibold text-deep-red hover:border-deep-red/30 hover:bg-soft-ivory"
+                className="rounded-xl !bg-deep-red px-4 py-2 text-sm font-semibold !text-white shadow-sm hover:!bg-dark-burgundy"
               >
                 Start as group
               </button>

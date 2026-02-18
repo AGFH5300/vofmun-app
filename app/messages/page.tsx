@@ -317,7 +317,7 @@ const ChatShell: React.FC = () => {
           </div>
         </section>
 
-        <section className="surface-card flex h-[calc(100vh-190px)] min-h-[640px] overflow-hidden">
+        <section className="surface-card flex h-[calc(100vh-190px)] min-h-[640px] min-w-0 overflow-hidden">
           <aside className="flex h-full flex-col overflow-hidden border-r border-soft-ivory" style={{ width: `${sidebarWidth}px` }}>
             <div className="border-b border-soft-ivory px-5 py-4">
               <p className="text-xs uppercase tracking-[0.28em] text-almost-black-green/60">
@@ -443,7 +443,7 @@ const ChatShell: React.FC = () => {
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto px-3 pb-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
               <ConversationList
                 rooms={filteredRooms}
                 activeRoomId={activeRoom?.id}
@@ -569,7 +569,7 @@ const ChatShell: React.FC = () => {
               </div>
             )}
 
-            <div className="relative flex flex-1 flex-col bg-gradient-to-b from-white via-warm-light-grey/40 to-white">
+            <div className="relative flex min-h-0 flex-1 flex-col bg-gradient-to-b from-white via-warm-light-grey/40 to-white">
               <div
                 ref={messagesContainerRef}
                 className="flex-1 space-y-4 overflow-y-auto px-6 py-5"
@@ -661,7 +661,7 @@ const ChatShell: React.FC = () => {
                         }}
                         placeholder="Type your message"
                         rows={1}
-                        className="max-h-32 min-h-[48px] flex-1 resize-none rounded-2xl bg-transparent py-3 text-sm text-almost-black-green placeholder:text-almost-black-green/45 focus:outline-none"
+                        className="max-h-32 min-h-[48px] flex-1 resize-none border-0 bg-transparent py-3 text-sm text-almost-black-green placeholder:text-almost-black-green/45 focus:outline-none"
                       />
                     </div>
                     <button

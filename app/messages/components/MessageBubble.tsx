@@ -46,7 +46,7 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) =
         }`}
       >
         {showAuthor && (
-          <p className="text-xs font-semibold text-deep-red">{message.user?.full_name ?? 'Unknown user'}</p>
+          <p className="text-[0.66rem] font-medium uppercase tracking-[0.08em] text-deep-red/85">{message.user?.full_name ?? 'Unknown user'}</p>
         )}
 
         {message.reply_to && (
@@ -61,7 +61,7 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) =
 
         <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-almost-black-green">{message.content}</p>
 
-        <div className="mt-2 flex items-center justify-end gap-1 text-[0.72rem]">
+        <div className="mt-2 flex w-full items-center justify-end gap-1 text-[0.72rem]">
           <span className="text-almost-black-green/55">{timestamp}</span>
           {message.status && <span className={statusClass[message.status] || 'text-almost-black-green/50'}>{statusIcon[message.status]}</span>}
         </div>
