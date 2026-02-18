@@ -9,7 +9,6 @@ interface Props {
   message: MessageWithUser;
   isOwn: boolean;
   showAuthor?: boolean;
-  showAvatar?: boolean;
 }
 
 const statusIcon: Record<string, React.ReactNode> = {
@@ -28,7 +27,7 @@ const statusClass: Record<string, string> = {
   error: 'text-deep-red',
 };
 
-const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true, showAvatar = true }) => {
+const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) => {
   const isFailed = message.status === 'error';
   const resolvedStatus = isOwn ? message.status || 'sent' : undefined;
   const timestamp = message.created_at
@@ -36,14 +35,14 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true, sho
     : '';
 
   return (
-    <div className={`flex gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${showAvatar ? '' : 'px-1'}`}>
-      {showAvatar && <UserAvatar user={message.user} size={36} />}
+    <div className={`flex gap-2.5 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+      <UserAvatar user={message.user} size={36} />
       <div
-        className={`group relative max-w-[82%] border px-3 py-2 shadow-sm md:max-w-[74%] ${
+        className={`group relative max-w-[72%] border px-3 py-2 shadow-sm md:max-w-[65%] ${
           isOwn
             ? isFailed
               ? 'rounded-[8px] border-deep-red/30 bg-soft-rose/30 text-deep-red'
-              : 'rounded-[8px] border-soft-rose bg-soft-rose/35 text-almost-black-green'
+              : 'rounded-[8px] border-[#0f8f67] bg-[#d9fdd3] text-almost-black-green'
             : 'rounded-[8px] border-[#f1f1f1] bg-white text-almost-black-green'
         }`}
       >
@@ -61,10 +60,10 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true, sho
           </div>
         )}
 
-        <div className="mt-1 flex items-end justify-between gap-2">
-          <p className="whitespace-pre-wrap text-[15px] leading-[1.3] text-almost-black-green">{message.content}</p>
+        <div className="mt-1.5 flex items-end justify-between gap-2">
+          <p className="whitespace-pre-wrap text-[15px] leading-[1.35] text-almost-black-green">{message.content}</p>
           <div className="shrink-0 self-end pb-0.5 text-[0.72rem]">
-            <div className="flex items-center justify-end gap-0.5">
+            <div className="flex items-center justify-end gap-1">
               <span className="text-almost-black-green/55">{timestamp}</span>
               {resolvedStatus && <span className={statusClass[resolvedStatus] || 'text-almost-black-green/50'}>{statusIcon[resolvedStatus]}</span>}
             </div>
