@@ -82,6 +82,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeRoomIdRef = useRef<string | null>(null);
+  const roomsRef = useRef<RoomWithDetails[]>([]);
+  const onlineUsersRef = useRef<Set<string>>(new Set());
+  const userIdRef = useRef<string | null>(null);
 
   const withAuthHeaders = useCallback(
     (extra?: RequestInit): RequestInit => ({
@@ -124,6 +127,36 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     activeRoomIdRef.current = activeRoom?.id || null;
   }, [activeRoom?.id]);
 
+  useEffect(() => {
+    roomsRef.current = rooms;
+  }, [rooms]);
+
+  useEffect(() => {
+    onlineUsersRef.current = onlineUsers;
+  }, [onlineUsers]);
+
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+
+  const resolveOwnMessageStatus = useCallback((roomId: string, messageUserId?: string | null): MessageStatus | undefined => {
+    const currentUserId = userIdRef.current;
+    if (!currentUserId || !messageUserId || String(currentUserId) !== String(messageUserId)) {
+      return undefined;
+    }
+
+    const room = roomsRef.current.find((candidate) => candidate.id === roomId);
+    if (!room || room.room_type !== 'dm') {
+      return 'sent';
+    }
+
+    const hasOnlineRecipient = room.members.some(
+      (member) => String(member.user_id) !== String(currentUserId) && onlineUsersRef.current.has(String(member.user_id))
+    );
+
+    return hasOnlineRecipient ? 'delivered' : 'sent';
+  }, []);
+
   const refreshRooms = useCallback(async () => {
     if (!userId) return [] as RoomWithDetails[];
     const response = await fetch(`${CHAT_API_URL}/api/rooms`, withAuthHeaders());
@@ -165,12 +198,16 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, withAuthHeaders());
       if (!response.ok) return;
       const data = (await response.json()) as MessageWithUser[];
+      const withResolvedStatus = data.map((message) => ({
+        ...message,
+        status: resolveOwnMessageStatus(roomId, message.user_id) || message.status,
+      }));
       setMessages((prev) => {
         const existing = prev[roomId] || [];
         const pendingOrFailed = existing.filter(
-          (message) => (message.status === 'pending' || message.status === 'error') && !data.some((item) => item.id === message.id)
+          (message) => (message.status === 'pending' || message.status === 'error') && !withResolvedStatus.some((item) => item.id === message.id)
         );
-        const merged = [...data, ...pendingOrFailed].sort((a, b) => {
+        const merged = [...withResolvedStatus, ...pendingOrFailed].sort((a, b) => {
           const first = a.created_at ? new Date(a.created_at).getTime() : Number.MAX_SAFE_INTEGER;
           const second = b.created_at ? new Date(b.created_at).getTime() : Number.MAX_SAFE_INTEGER;
           return first - second;
@@ -178,7 +215,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         return { ...prev, [roomId]: merged };
       });
     },
-    [userId, withAuthHeaders]
+    [resolveOwnMessageStatus, userId, withAuthHeaders]
   );
 
   const selectRoom = useCallback(
@@ -226,7 +263,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             if (withoutTemp.some((item) => item.id === message.id)) {
               return prev;
             }
-            return { ...prev, [roomId]: [...withoutTemp, { ...message, status: 'delivered' as MessageStatus }] };
+            const status = resolveOwnMessageStatus(roomId, message.user_id);
+            return { ...prev, [roomId]: [...withoutTemp, { ...message, status }] };
           });
           setRooms((prev) =>
             prev.map((room) =>
@@ -280,7 +318,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
       }
     },
-    []
+    [resolveOwnMessageStatus]
   );
 
   const connectSocket = useCallback(() => {

@@ -660,6 +660,7 @@ const ChatShell: React.FC = () => {
                             message={message}
                             isOwn={isOwn}
                             showAuthor={activeRoom.room_type !== "dm"}
+                            showAvatar={activeRoom.room_type !== "dm"}
                           />
                         </div>
                       );

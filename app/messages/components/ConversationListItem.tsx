@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { RoomWithDetails } from '@/lib/chat/types';
-import UserAvatar from './UserAvatar';
 import { Pin, PinOff, UserRound, Users } from 'lucide-react';
 
 interface Props {
@@ -24,8 +23,7 @@ const getDisplayMeta = (room: RoomWithDetails, currentUserId?: string | null) =>
     const roleLabel = other?.role_title || other?.role || 'Delegate';
     return {
       name: other?.full_name || `${other?.firstname || ''} ${other?.lastname || ''}`.trim() || room.name,
-      sub: delegation ? `${roleLabel} · ${delegation}` : roleLabel,
-      avatarUser: other,
+      sub: delegation ? `${roleLabel} · ${delegation}` : roleLabel
     };
   }
 
@@ -33,8 +31,7 @@ const getDisplayMeta = (room: RoomWithDetails, currentUserId?: string | null) =>
   const label = room.room_type === 'committee' ? 'Committee room' : 'Group chat';
   return {
     name: room.name,
-    sub: `${label} · ${memberCount} member${memberCount === 1 ? '' : 's'}`,
-    avatarUser: undefined,
+    sub: `${label} · ${memberCount} member${memberCount === 1 ? '' : 's'}`
   };
 };
 
@@ -46,28 +43,30 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
 
   return (
     <li>
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => onSelect(room)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onSelect(room);
+          }
+        }}
         className={`group w-full cursor-pointer border-x-0 border-b border-t-0 px-4 py-3 text-left transition focus:outline-none focus-visible:outline-none ${
           isActive
             ? 'border-[#d9d9d9] bg-[#ece5dd]'
             : 'border-[#efefef] bg-white hover:bg-[#f8f8f8]'
         }`}
       >
-        <div className="flex items-start gap-3">
-          <div className="relative">
-            {room.room_type === 'dm' ? (
-              <UserAvatar user={meta.avatarUser} size={42} />
-            ) : (
+        <div className={`flex items-start ${room.room_type === 'dm' ? 'gap-0' : 'gap-3'}`}>
+          {room.room_type !== 'dm' && (
+            <div className="relative">
               <div className="flex h-[42px] w-[42px] items-center justify-center rounded-full bg-soft-ivory text-deep-red">
                 {room.room_type === 'committee' ? <Users className="h-4 w-4" /> : <UserRound className="h-4 w-4" />}
               </div>
-            )}
-            {hasOnlinePresence && (
-              <span className="absolute -right-1 -bottom-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
-            )}
-          </div>
+            </div>
+          )}
           <div className="flex-1">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -94,8 +93,11 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
               </div>
             </div>
             <p className="mt-1 line-clamp-1 text-xs text-almost-black-green/70">
-              {last ? `${last.user?.full_name ? `${last.user.full_name}: ` : ''}${last.content}` : 'No messages yet'}
+              {last
+                ? `${room.room_type === 'dm' ? '' : last.user?.full_name ? `${last.user.full_name}: ` : ''}${last.content}`
+                : 'No messages yet'}
             </p>
+            {room.room_type === 'dm' && hasOnlinePresence && <p className="mt-1 text-[0.68rem] font-medium text-emerald-600">online</p>}
             {room.unreadCount ? (
               <span className="mt-2 inline-flex items-center rounded-full bg-deep-red/10 px-2 py-0.5 text-[0.7rem] font-semibold text-deep-red">
                 {room.unreadCount} new
@@ -103,7 +105,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             ) : null}
           </div>
         </div>
-      </button>
+      </div>
     </li>
   );
 };

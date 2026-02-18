@@ -9,6 +9,7 @@ interface Props {
   message: MessageWithUser;
   isOwn: boolean;
   showAuthor?: boolean;
+  showAvatar?: boolean;
 }
 
 const statusIcon: Record<string, React.ReactNode> = {
@@ -27,7 +28,7 @@ const statusClass: Record<string, string> = {
   error: 'text-deep-red',
 };
 
-const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) => {
+const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true, showAvatar = true }) => {
   const isFailed = message.status === 'error';
   const resolvedStatus = isOwn ? message.status || 'sent' : undefined;
   const timestamp = message.created_at
@@ -35,14 +36,14 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true }) =
     : '';
 
   return (
-    <div className={`flex gap-2.5 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
-      <UserAvatar user={message.user} size={36} />
+    <div className={`flex gap-2.5 ${isOwn ? 'justify-end' : 'justify-start'} ${showAvatar ? '' : 'px-1'}`}>
+      {showAvatar && <UserAvatar user={message.user} size={36} />}
       <div
-        className={`group relative max-w-[72%] border px-3 py-2 shadow-sm md:max-w-[65%] ${
+        className={`group relative max-w-[80%] border px-3 py-2 shadow-sm md:max-w-[72%] ${
           isOwn
             ? isFailed
               ? 'rounded-[8px] border-deep-red/30 bg-soft-rose/30 text-deep-red'
-              : 'rounded-[8px] border-[#0f8f67] bg-[#d9fdd3] text-almost-black-green'
+              : 'rounded-[8px] border-soft-rose bg-soft-rose/35 text-almost-black-green'
             : 'rounded-[8px] border-[#f1f1f1] bg-white text-almost-black-green'
         }`}
       >
