@@ -297,6 +297,59 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     [resolveOwnMessageStatus, userId, withAuthHeaders]
   );
 
+  const sendTyping = useCallback(
+    (roomId: string, isTyping: boolean) => {
+      logChatDebug('sendTyping:attempt', {
+        roomId,
+        isTyping,
+        hasSocket: Boolean(wsRef.current),
+        readyState: wsRef.current?.readyState ?? 'missing',
+      });
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        logChatDebug('sendTyping:skipped_socket_not_open', {
+          roomId,
+          isTyping,
+          readyState: wsRef.current?.readyState ?? 'missing',
+        });
+        return;
+      }
+
+      if (isTyping) {
+        const now = Date.now();
+        const lastSentAt = typingThrottleRef.current.get(roomId) || 0;
+        if (now - lastSentAt < TYPING_TRUE_THROTTLE_MS) {
+          const existingIdle = typingIdleTimeoutRef.current.get(roomId);
+          if (existingIdle) window.clearTimeout(existingIdle);
+          const idleTimeout = window.setTimeout(() => {
+            sendTyping(roomId, false);
+            typingIdleTimeoutRef.current.delete(roomId);
+          }, TYPING_IDLE_TIMEOUT_MS);
+          typingIdleTimeoutRef.current.set(roomId, idleTimeout);
+          return;
+        }
+        typingThrottleRef.current.set(roomId, now);
+      }
+
+      const payload: ChatSocketPayload = { type: 'typing', roomId, isTyping } as ChatSocketPayload;
+      wsRef.current.send(JSON.stringify(payload));
+      logChatDebug('sendTyping:sent', payload as unknown as Record<string, unknown>);
+
+      const existingIdle = typingIdleTimeoutRef.current.get(roomId);
+      if (existingIdle) window.clearTimeout(existingIdle);
+
+      if (isTyping) {
+        const idleTimeout = window.setTimeout(() => {
+          sendTyping(roomId, false);
+          typingIdleTimeoutRef.current.delete(roomId);
+        }, TYPING_IDLE_TIMEOUT_MS);
+        typingIdleTimeoutRef.current.set(roomId, idleTimeout);
+      } else {
+        typingIdleTimeoutRef.current.delete(roomId);
+      }
+    },
+    []
+  );
+
   const selectRoom = useCallback(
     async (room: RoomWithDetails) => {
       const previousRoomId = activeRoomIdRef.current;
@@ -626,59 +679,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
     },
     [reconcileOwnDmMessageStatuses, userId, withAuthHeaders]
-  );
-
-  const sendTyping = useCallback(
-    (roomId: string, isTyping: boolean) => {
-      logChatDebug('sendTyping:attempt', {
-        roomId,
-        isTyping,
-        hasSocket: Boolean(wsRef.current),
-        readyState: wsRef.current?.readyState ?? 'missing',
-      });
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        logChatDebug('sendTyping:skipped_socket_not_open', {
-          roomId,
-          isTyping,
-          readyState: wsRef.current?.readyState ?? 'missing',
-        });
-        return;
-      }
-
-      if (isTyping) {
-        const now = Date.now();
-        const lastSentAt = typingThrottleRef.current.get(roomId) || 0;
-        if (now - lastSentAt < TYPING_TRUE_THROTTLE_MS) {
-          const existingIdle = typingIdleTimeoutRef.current.get(roomId);
-          if (existingIdle) window.clearTimeout(existingIdle);
-          const idleTimeout = window.setTimeout(() => {
-            sendTyping(roomId, false);
-            typingIdleTimeoutRef.current.delete(roomId);
-          }, TYPING_IDLE_TIMEOUT_MS);
-          typingIdleTimeoutRef.current.set(roomId, idleTimeout);
-          return;
-        }
-        typingThrottleRef.current.set(roomId, now);
-      }
-
-      const payload: ChatSocketPayload = { type: 'typing', roomId, isTyping } as ChatSocketPayload;
-      wsRef.current.send(JSON.stringify(payload));
-      logChatDebug('sendTyping:sent', payload as unknown as Record<string, unknown>);
-
-      const existingIdle = typingIdleTimeoutRef.current.get(roomId);
-      if (existingIdle) window.clearTimeout(existingIdle);
-
-      if (isTyping) {
-        const idleTimeout = window.setTimeout(() => {
-          sendTyping(roomId, false);
-          typingIdleTimeoutRef.current.delete(roomId);
-        }, TYPING_IDLE_TIMEOUT_MS);
-        typingIdleTimeoutRef.current.set(roomId, idleTimeout);
-      } else {
-        typingIdleTimeoutRef.current.delete(roomId);
-      }
-    },
-    []
   );
 
   const togglePin = useCallback((roomId: string) => {
