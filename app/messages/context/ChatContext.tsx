@@ -258,7 +258,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const refreshFriendRequests = useCallback(async () => {
     if (!userId) return;
-    const response = await fetch(`${CHAT_API_URL}/api/friend-requests`, withAuthHeaders());
+    const response = await fetch(`${CHAT_API_URL}/api/chat/friend-requests`, withAuthHeaders());
     if (!response.ok) {
       console.error('[ChatContext] failed to load friend requests', response.status, response.statusText);
       return;
@@ -804,7 +804,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (!userId) return null;
       try {
         const response = await fetch(
-          `${CHAT_API_URL}/api/friend-requests`,
+          `${CHAT_API_URL}/api/chat/friend-requests`,
           withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
         );
 
@@ -837,7 +837,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (!userId) return;
       try {
         const response = await fetch(
-          `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
+          `${CHAT_API_URL}/api/chat/friend-requests/${id}/respond`,
           withAuthHeaders({
             method: 'POST',
             headers: { Accept: 'application/json' },
@@ -894,7 +894,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (!userId) return;
       try {
         const response = await fetch(
-          `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
+          `${CHAT_API_URL}/api/chat/friend-requests/${id}/respond`,
           withAuthHeaders({
             method: 'POST',
             headers: { Accept: 'application/json' },
