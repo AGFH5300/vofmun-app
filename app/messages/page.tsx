@@ -162,11 +162,18 @@ const ChatShell: React.FC = () => {
 
     const interval = window.setInterval(() => {
       refreshRoomMessages(activeRoom.id);
-      refreshRooms();
-    }, 2500);
+    }, 1000);
 
     return () => window.clearInterval(interval);
-  }, [activeRoom?.id, refreshRoomMessages, refreshRooms]);
+  }, [activeRoom?.id, refreshRoomMessages]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      refreshRooms();
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [refreshRooms]);
 
   const roomTypingNames = useMemo(() => {
     if (!activeRoom) return [] as string[];
