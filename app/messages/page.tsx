@@ -213,6 +213,20 @@ const ChatShell: React.FC = () => {
       .filter(Boolean) as string[];
   }, [activeRoom, currentUserId, typingUsers]);
 
+  useEffect(() => {
+    if (!activeRoom) return;
+    console.log('[ChatDebug] page:active_room_snapshot', {
+      roomId: activeRoom.id,
+      roomType: activeRoom.room_type,
+      roomMemberIds: activeRoom.members.map((member) => String(member.user_id)),
+      currentUserId,
+      typingUserIds: Array.from(typingUsers[activeRoom.id] || []),
+      typingNames: roomTypingNames,
+      onlineUserIds: Array.from(onlineUsers),
+      activeDmPeerUserId: activeRoom.members.find((member) => String(member.user_id) !== String(currentUserId || ''))?.user_id || null,
+    });
+  }, [activeRoom, currentUserId, onlineUsers, roomTypingNames, typingUsers]);
+
   const handleSend = async () => {
     if (!activeRoom || !composer.trim()) return;
     if (typingTimeoutRef.current) {
@@ -273,6 +287,17 @@ const ChatShell: React.FC = () => {
   const isActivePeerOnline = Boolean(
     activeRoom?.room_type === "dm" && activeDmPeer?.user_id && onlineUsers.has(String(activeDmPeer.user_id)),
   );
+
+  useEffect(() => {
+    if (!activeRoom || activeRoom.room_type !== 'dm') return;
+    console.log('[ChatDebug] page:dm_presence_snapshot', {
+      roomId: activeRoom.id,
+      peerUserId: activeDmPeer?.user_id || null,
+      isPeerOnline: isActivePeerOnline,
+      onlineUsers: Array.from(onlineUsers),
+      headerTypingNames: roomTypingNames,
+    });
+  }, [activeDmPeer?.user_id, activeRoom, isActivePeerOnline, onlineUsers, roomTypingNames]);
 
   const headerSubtitle = activeRoom
     ? roomTypingNames.length

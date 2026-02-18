@@ -37,6 +37,15 @@ const requireAuth = (req: AuthedRequest, res: Response, next: NextFunction) => {
 };
 
 const activeSockets = new Set<SocketContext>();
+const CHAT_SERVER_DEBUG_PREFIX = '[ChatServerDebug]';
+
+const logServerDebug = (message: string, details?: Record<string, unknown>) => {
+  if (details) {
+    console.log(`${CHAT_SERVER_DEBUG_PREFIX} ${message}`, details);
+    return;
+  }
+  console.log(`${CHAT_SERVER_DEBUG_PREFIX} ${message}`);
+};
 
 const broadcast = (predicate: (ctx: SocketContext) => boolean, payload: ChatSocketPayload) => {
   const message = JSON.stringify(payload);
@@ -47,8 +56,10 @@ const broadcast = (predicate: (ctx: SocketContext) => boolean, payload: ChatSock
   });
 };
 
-const broadcastToRoom = (roomId: string, payload: ChatSocketPayload) =>
+const broadcastToRoom = (roomId: string, payload: ChatSocketPayload) => {
+  logServerDebug('broadcastToRoom', { roomId, type: payload.type });
   broadcast((ctx) => ctx.roomId === roomId, payload);
+};
 
 const canInteractWithUser = async (viewerId: string, targetUserId: string) => {
   const viewer = await getUserContext(viewerId);
@@ -607,10 +618,12 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/chat-ws' });
 
 wss.on('connection', (socket, req) => {
+  logServerDebug('socket:connection_opened', { hasCookie: Boolean(req.headers.cookie), url: req.url || null });
   const context: Partial<SocketContext> = { socket };
   let authenticated = false;
 
   const finishSocketAuthentication = (authenticatedUserId: string) => {
+    logServerDebug('socket:authenticated', { authenticatedUserId, activeSocketCountBefore: activeSockets.size });
     context.userId = authenticatedUserId;
     authenticated = true;
     activeSockets.add(context as SocketContext);
@@ -624,15 +637,24 @@ wss.on('connection', (socket, req) => {
 
   const authenticateFromCookie = () => {
     const sessionUser = getSessionUserFromCookieHeader(req.headers.cookie || '');
-    if (!sessionUser) return false;
+    if (!sessionUser) {
+      logServerDebug('socket:authenticateFromCookie:missing_session');
+      return false;
+    }
     finishSocketAuthentication(sessionUser.id);
     return true;
   };
 
   const authenticateFromPayload = async (socketUserId?: string) => {
-    if (!socketUserId) return false;
+    if (!socketUserId) {
+      logServerDebug('socket:authenticateFromPayload:missing_user_id');
+      return false;
+    }
     const contextUser = await getUserContext(socketUserId);
-    if (!contextUser) return false;
+    if (!contextUser) {
+      logServerDebug('socket:authenticateFromPayload:user_not_found', { socketUserId });
+      return false;
+    }
     finishSocketAuthentication(contextUser.id);
     return true;
   };
@@ -640,6 +662,7 @@ wss.on('connection', (socket, req) => {
   authenticateFromCookie();
 
   const disconnect = () => {
+    logServerDebug('socket:disconnect', { userId: context.userId || null, roomId: context.roomId || null, activeSocketCountBefore: activeSockets.size });
     if (authenticated && context.userId) {
       broadcast(() => true, { type: 'user_offline', userId: context.userId });
     }
@@ -649,29 +672,61 @@ wss.on('connection', (socket, req) => {
   socket.on('message', async (raw) => {
     try {
       const data = JSON.parse(raw.toString()) as ChatSocketPayload;
+      logServerDebug('socket:message_received', {
+        type: data.type,
+        userId: context.userId || null,
+        roomId: context.roomId || null,
+        payload: data,
+      });
       switch (data.type) {
         case 'auth': {
-          if (authenticated) return;
+          if (authenticated) {
+            logServerDebug('socket:auth:ignored_already_authenticated', { userId: context.userId || null });
+            return;
+          }
           if (!authenticateFromCookie() && !(await authenticateFromPayload(data.userId))) {
+            logServerDebug('socket:auth:failed_closing_socket', { dataUserId: data.userId || null });
             socket.close();
           }
           return;
         }
         case 'join_room': {
-          if (!authenticated || !context.userId || !data.roomId) return;
+          if (!authenticated || !context.userId || !data.roomId) {
+            logServerDebug('socket:join_room:rejected_precondition', { authenticated, userId: context.userId || null, roomId: data.roomId || null });
+            return;
+          }
           const { data: membership } = await supabaseAdmin
             .from('room_members')
             .select('id')
             .eq('room_id', data.roomId)
             .eq('user_id', context.userId)
             .single();
-          if (!membership) return;
+          if (!membership) {
+            logServerDebug('socket:join_room:not_member', { userId: context.userId, roomId: data.roomId });
+            return;
+          }
           context.roomId = data.roomId;
+          logServerDebug('socket:join_room:success', { userId: context.userId, roomId: data.roomId });
           socket.send(JSON.stringify({ type: 'room_joined', roomId: data.roomId } satisfies ChatSocketPayload));
           return;
         }
         case 'typing': {
-          if (!authenticated || !context.userId || !context.roomId) return;
+          if (!authenticated || !context.userId || !context.roomId) {
+            logServerDebug('socket:typing:rejected_precondition', {
+              authenticated,
+              userId: context.userId || null,
+              joinedRoomId: context.roomId || null,
+              incomingRoomId: data.roomId || null,
+              isTyping: data.isTyping ?? true,
+            });
+            return;
+          }
+          logServerDebug('socket:typing:broadcast', {
+            userId: context.userId,
+            joinedRoomId: context.roomId,
+            incomingRoomId: data.roomId || null,
+            isTyping: data.isTyping ?? true,
+          });
           broadcastToRoom(context.roomId, {
             type: 'user_typing',
             roomId: context.roomId,
@@ -681,10 +736,14 @@ wss.on('connection', (socket, req) => {
           return;
         }
         default:
+          logServerDebug('socket:unhandled_message_type', { type: data.type });
           return;
       }
     } catch (error) {
       console.error('WebSocket error', error);
+      logServerDebug('socket:message_parse_or_handle_error', {
+        error: error instanceof Error ? error.message : 'unknown-error',
+      });
     }
   });
 
