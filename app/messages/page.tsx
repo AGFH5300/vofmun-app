@@ -695,6 +695,7 @@ const ChatShell: React.FC = () => {
           room={activeRoom}
           open={showDetails}
           onClose={() => setShowDetails(false)}
+          currentUserId={currentUserId}
         />
       </div>
     </div>
