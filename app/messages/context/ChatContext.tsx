@@ -59,8 +59,20 @@ interface ChatContextValue {
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
 
 const getWebSocketUrl = () => {
-  if (!CHAT_WS_URL) return null;
-  return CHAT_WS_URL;
+  const source = CHAT_WS_URL || CHAT_API_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  if (!source) return null;
+
+  try {
+    const url = new URL(source);
+    const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    const hasSocketPath = /\/chat-ws\/?$/.test(url.pathname);
+    const pathname = hasSocketPath
+      ? url.pathname
+      : `${url.pathname.replace(/\/$/, '') || ''}/chat-ws`;
+    return `${protocol}//${url.host}${pathname}`;
+  } catch {
+    return source;
+  }
 };
 
 export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
@@ -105,20 +117,15 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       setUserId(null);
       return;
     }
-    if ('delegateID' in user && user.delegateID) {
-      setUserId(String(user.delegateID));
-      return;
-    }
-    if ('chairID' in user && user.chairID) {
-      setUserId(String(user.chairID));
-      return;
-    }
-    if ('adminID' in user && user.adminID) {
-      setUserId(String(user.adminID));
-      return;
-    }
-    if ('secretariatID' in user && user.secretariatID) {
-      setUserId(String(user.secretariatID));
+    const candidate =
+      ('delegateID' in user && user.delegateID ? user.delegateID : null) ||
+      ('chairID' in user && user.chairID ? user.chairID : null) ||
+      ('adminID' in user && user.adminID ? user.adminID : null) ||
+      ('secretariatID' in user && user.secretariatID ? user.secretariatID : null) ||
+      ('id' in user && user.id ? user.id : null);
+
+    if (candidate) {
+      setUserId(String(candidate));
       return;
     }
     setUserId(null);
@@ -363,7 +370,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
     ws.onopen = () => {
       setIsConnecting(false);
-      const authPayload: ChatSocketPayload = { type: 'auth' } as ChatSocketPayload;
+      const authPayload: ChatSocketPayload = { type: 'auth', userId: userIdRef.current || undefined } as ChatSocketPayload;
       ws.send(JSON.stringify(authPayload));
     };
 
