@@ -183,7 +183,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
           <div className="mt-4">
             {tab === 'direct' ? (
               <div className="space-y-3">
-                <label className="relative block">
+                <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
                   <input
                     value={query}
@@ -197,8 +197,10 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                     }}
                     placeholder="Search by name or email"
                     className="w-full rounded-2xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm"
+                    style={{ paddingLeft:"30px" }}
                   />
-                </label>
+                </div>
+
 
                 {incomingRequestsList.length > 0 && (
                   <div className="space-y-2 rounded-2xl border border-soft-ivory bg-warm-light-grey/40 p-3">
@@ -259,11 +261,10 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                 </div>
 
                 <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (optional)" className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-sm" />
-
-                <label className="relative block">
+                <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
-                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search people to add" className="w-full rounded-2xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm" />
-                </label>
+                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search people to add" className="w-full rounded-2xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm" style={{ paddingLeft:"30px" }}/>
+                </div>
 
                 <div className="max-h-60 space-y-2 overflow-y-auto">
                   {results.map((user) => {
