@@ -44,7 +44,7 @@ const ConversationList: React.FC<Props> = ({
   const renderSection = (title: string, list: RoomWithDetails[]) => {
     if (!list.length) return null;
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="px-2 text-[0.7rem] uppercase tracking-[0.2em]">{title}</div>
         <ul className="space-y-2">
           {list.map((room) => (
