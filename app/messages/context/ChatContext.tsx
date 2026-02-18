@@ -165,7 +165,18 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, withAuthHeaders());
       if (!response.ok) return;
       const data = (await response.json()) as MessageWithUser[];
-      setMessages((prev) => ({ ...prev, [roomId]: data }));
+      setMessages((prev) => {
+        const existing = prev[roomId] || [];
+        const pendingOrFailed = existing.filter(
+          (message) => (message.status === 'pending' || message.status === 'error') && !data.some((item) => item.id === message.id)
+        );
+        const merged = [...data, ...pendingOrFailed].sort((a, b) => {
+          const first = a.created_at ? new Date(a.created_at).getTime() : Number.MAX_SAFE_INTEGER;
+          const second = b.created_at ? new Date(b.created_at).getTime() : Number.MAX_SAFE_INTEGER;
+          return first - second;
+        });
+        return { ...prev, [roomId]: merged };
+      });
     },
     [userId, withAuthHeaders]
   );
