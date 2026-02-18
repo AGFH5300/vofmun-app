@@ -202,7 +202,7 @@ const ChatShell: React.FC = () => {
     );
     return activeTyping
       .map((userId) => {
-        const member = activeRoom.members.find((m) => m.user_id === userId);
+        const member = activeRoom.members.find((m) => String(m.user_id) === String(userId));
         return (
           member?.user?.full_name ||
           `${member?.user?.firstname || ""} ${member?.user?.lastname || ""}`.trim() ||
@@ -271,7 +271,7 @@ const ChatShell: React.FC = () => {
     : "Select a conversation";
 
   const isActivePeerOnline = Boolean(
-    activeRoom?.room_type === "dm" && activeDmPeer?.user_id && onlineUsers.has(activeDmPeer.user_id),
+    activeRoom?.room_type === "dm" && activeDmPeer?.user_id && onlineUsers.has(String(activeDmPeer.user_id)),
   );
 
   const headerSubtitle = activeRoom
@@ -628,16 +628,16 @@ const ChatShell: React.FC = () => {
             <div className="relative flex min-h-0 flex-1 flex-col bg-gradient-to-b from-white via-warm-light-grey/40 to-white">
               <div
                 ref={messagesContainerRef}
-                className="flex-1 space-y-4 overflow-y-auto px-6 py-5"
+                className="flex-1 overflow-y-auto px-6 py-5"
               >
                 {activeRoom ? (
                   activeMessages.length > 0 ? (
                     timeline.map((item) => {
                       if (item.type === "date") {
-                        return (
+                      return (
                           <div
                             key={`date-${item.label}`}
-                            className="flex justify-center"
+                            className="my-4 flex justify-center"
                           >
                             <span className="rounded-full border border-soft-ivory bg-white px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-almost-black-green/60 shadow-sm">
                               {item.label}
@@ -654,8 +654,18 @@ const ChatShell: React.FC = () => {
                           String(currentUserId) === String(message.user_id)) ||
                         (currentUserId != null &&
                           String(currentUserId) === String(message.user?.id || ""));
+                      const currentIndex = activeMessages.findIndex((msg) => msg.id === message.id);
+                      const nextMessage = currentIndex >= 0 ? activeMessages[currentIndex + 1] : undefined;
+                      const isSameSenderAsNext =
+                        Boolean(nextMessage) && String(nextMessage?.user_id) === String(message.user_id);
+                      const isSameDayAsNext =
+                        Boolean(nextMessage?.created_at && message.created_at) &&
+                        new Date(String(nextMessage?.created_at)).toDateString() ===
+                          new Date(String(message.created_at)).toDateString();
+                      const bubbleSpacing = isSameSenderAsNext && isSameDayAsNext ? "mb-1.5" : "mb-3";
+
                       return (
-                        <div key={item.id} data-message-id={item.id}>
+                        <div key={item.id} data-message-id={item.id} className={bubbleSpacing}>
                           <MessageBubble
                             message={message}
                             isOwn={isOwn}

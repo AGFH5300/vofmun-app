@@ -15,15 +15,24 @@ interface Props {
 
 const getDisplayMeta = (room: RoomWithDetails, currentUserId?: string | null) => {
   if (room.room_type === 'dm') {
-    const me = room.members.find((m) => m.user_id === currentUserId || m.user?.id === currentUserId);
+    const me = room.members.find((m) => String(m.user_id) === String(currentUserId || '') || String(m.user?.id || '') === String(currentUserId || ''));
     const otherMember =
-      room.members.find((m) => m.user_id !== me?.user_id) || room.members.find((m) => m.user_id !== currentUserId) || room.members[0];
+      room.members.find((m) => String(m.user_id) !== String(me?.user_id || '')) || room.members.find((m) => String(m.user_id) !== String(currentUserId || '')) || room.members[0];
     const other = otherMember?.user;
     const delegation = other?.country || other?.committee;
-    const roleLabel = other?.role_title || other?.role || 'Delegate';
+    const resolvedRoleLabel = (other?.role_title || other?.role || 'Delegate').toString();
+    const isDelegate =
+      String(other?.role || '').toLowerCase() === 'delegate' ||
+      resolvedRoleLabel.toLowerCase() === 'delegate';
+    const sub = isDelegate
+      ? delegation || ''
+      : delegation
+        ? `${resolvedRoleLabel} · ${delegation}`
+        : resolvedRoleLabel;
+
     return {
       name: other?.full_name || `${other?.firstname || ''} ${other?.lastname || ''}`.trim() || room.name,
-      sub: delegation ? `${roleLabel} · ${delegation}` : roleLabel
+      sub
     };
   }
 
@@ -39,7 +48,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
   const meta = getDisplayMeta(room, currentUserId);
   const last = room.lastMessage;
   const hasOnlinePresence =
-    room.room_type === 'dm' && room.members.some((m) => m.user_id !== currentUserId && onlineUsers.has(m.user_id));
+    room.room_type === 'dm' && room.members.some((m) => String(m.user_id) !== String(currentUserId || '') && onlineUsers.has(String(m.user_id)));
 
   return (
     <li>
@@ -71,7 +80,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-deep-red">{meta.name}</p>
-                <p className="text-[0.75rem] text-almost-black-green/60">{meta.sub}</p>
+                {meta.sub ? <p className="text-[0.75rem] text-almost-black-green/60">{meta.sub}</p> : null}
               </div>
               <div className="flex flex-col items-end gap-2">
                 <button
