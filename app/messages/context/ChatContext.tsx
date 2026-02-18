@@ -86,6 +86,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const onlineUsersRef = useRef<Set<string>>(new Set());
   const userIdRef = useRef<string | null>(null);
 
+  const toComparableId = useCallback((value: string | number | null | undefined) => String(value ?? ''), []);
+
   const withAuthHeaders = useCallback(
     (extra?: RequestInit): RequestInit => ({
       credentials: 'include',
@@ -156,6 +158,27 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
     return hasOnlineRecipient ? 'delivered' : 'sent';
   }, []);
+
+  const reconcileOwnDmMessageStatuses = useCallback(() => {
+    setMessages((prev) => {
+      let changed = false;
+      const next: Record<string, MessageWithUser[]> = {};
+
+      Object.entries(prev).forEach(([roomId, list]) => {
+        const updated = list.map((message) => {
+          const nextStatus = resolveOwnMessageStatus(roomId, message.user_id) || message.status;
+          if (nextStatus !== message.status) {
+            changed = true;
+            return { ...message, status: nextStatus };
+          }
+          return message;
+        });
+        next[roomId] = updated;
+      });
+
+      return changed ? next : prev;
+    });
+  }, [resolveOwnMessageStatus]);
 
   const refreshRooms = useCallback(async () => {
     if (!userId) return [] as RoomWithDetails[];
@@ -256,19 +279,20 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           const rawMessage = payload.message;
           const roomId = rawMessage?.room_id || payload.roomId;
           if (!rawMessage || !roomId) break;
-          const message = { ...rawMessage, room_id: roomId };
+          const normalizedRoomId = toComparableId(roomId);
+          const message = { ...rawMessage, room_id: normalizedRoomId };
           setMessages((prev) => {
-            const list = prev[roomId] || [];
+            const list = prev[normalizedRoomId] || [];
             const withoutTemp = list.filter((item) => item.id !== message.id && item.tempId !== message.id);
             if (withoutTemp.some((item) => item.id === message.id)) {
               return prev;
             }
-            const status = resolveOwnMessageStatus(roomId, message.user_id);
-            return { ...prev, [roomId]: [...withoutTemp, { ...message, status }] };
+            const status = resolveOwnMessageStatus(normalizedRoomId, message.user_id);
+            return { ...prev, [normalizedRoomId]: [...withoutTemp, { ...message, status }] };
           });
           setRooms((prev) =>
             prev.map((room) =>
-              room.id === roomId
+              room.id === normalizedRoomId
                 ? {
                     ...room,
                     lastMessage: message,
@@ -294,23 +318,28 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         case 'online_users': {
           const users = payload.onlineUserIds || payloadWithLegacy.online_user_ids;
           if (users) {
-            setOnlineUsers(new Set(users.map((id) => String(id))));
+            setOnlineUsers(new Set(users.map((id) => toComparableId(id))));
+            window.setTimeout(reconcileOwnDmMessageStatuses, 0);
           }
           break;
         }
         case 'user_online': {
           if (userId) {
-            setOnlineUsers((prev) => new Set(prev).add(userId));
+            const normalizedUserId = toComparableId(userId);
+            setOnlineUsers((prev) => new Set(prev).add(normalizedUserId));
+            window.setTimeout(reconcileOwnDmMessageStatuses, 0);
           }
           break;
         }
         case 'user_offline': {
           if (userId) {
+            const normalizedUserId = toComparableId(userId);
             setOnlineUsers((prev) => {
               const next = new Set(prev);
-              next.delete(userId);
+              next.delete(normalizedUserId);
               return next;
             });
+            window.setTimeout(reconcileOwnDmMessageStatuses, 0);
           }
           break;
         }
@@ -318,7 +347,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
       }
     },
-    [resolveOwnMessageStatus]
+    [reconcileOwnDmMessageStatuses, resolveOwnMessageStatus, toComparableId]
   );
 
   const connectSocket = useCallback(() => {
@@ -382,6 +411,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const tempId = `temp-${Date.now()}`;
       const optimistic: MessageWithUser = {
         id: tempId,
+        tempId,
         room_id: roomId,
         user_id: userId ?? 'me',
         content: trimmed,
@@ -401,7 +431,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         setMessages((prev) => {
           const list = prev[roomId] || [];
           const withoutTemp = list.filter((msg) => msg.id !== tempId && msg.id !== saved.id);
-          return { ...prev, [roomId]: [...withoutTemp, { ...saved, status: 'sent' }] };
+          const resolved = resolveOwnMessageStatus(roomId, saved.user_id) || 'sent';
+          return { ...prev, [roomId]: [...withoutTemp, { ...saved, status: resolved }] };
         });
       } catch {
         setMessages((prev) => {
@@ -413,7 +444,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
       }
     },
-    [userId, withAuthHeaders]
+    [resolveOwnMessageStatus, userId, withAuthHeaders]
   );
 
   const sendTyping = useCallback(
