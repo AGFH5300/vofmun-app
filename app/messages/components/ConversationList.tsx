@@ -77,20 +77,20 @@ const ConversationList: React.FC<Props> = ({
             <MessageCircle className="text-deep-red/50" size={42} />
             <div>
               <p className="text-base font-semibold text-deep-red">You don’t have any conversations yet</p>
-              <p className="text-sm">Start a conversation or spin up a group for your committee.</p>
+              <p className="text-sm">Start conversation or spin up a group for your committee.</p>
             </div>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={onNewChat}
-                className="rounded-xl bg-deep-red px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-dark-burgundy"
+                className="rounded-xl !bg-deep-red px-4 py-2 text-sm font-semibold !text-white shadow-sm hover:!bg-dark-burgundy"
               >
                 Start a conversation
               </button>
               <button
                 type="button"
                 onClick={onNewGroup}
-                className="rounded-xl border border-soft-ivory px-4 py-2 text-sm font-semibold text-deep-red hover:border-deep-red/30 hover:bg-soft-ivory"
+                className="rounded-xl border border-soft-ivory bg-warm-light-grey px-4 py-2 text-sm font-semibold text-deep-red hover:border-deep-red/30 hover:bg-soft-ivory"
               >
                 Start as group
               </button>

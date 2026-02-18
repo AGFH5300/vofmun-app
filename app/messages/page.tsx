@@ -10,6 +10,7 @@ import ConversationList from "./components/ConversationList";
 import NewConversationModal from "./components/NewConversationModal";
 import ConversationDetailsModal from "./components/ConversationDetailsModal";
 import {
+  ChevronDown,
   MessageSquare,
   MoreVertical,
   Plus,
@@ -87,6 +88,7 @@ const ChatShell: React.FC = () => {
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   const filteredRooms = useMemo(() => {
     if (!search.trim()) return rooms;
@@ -123,9 +125,37 @@ const ChatShell: React.FC = () => {
 
   useEffect(() => {
     if (!activeRoom || !messagesContainerRef.current) return;
-    messagesContainerRef.current.scrollTop =
-      messagesContainerRef.current.scrollHeight;
+    const container = messagesContainerRef.current;
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    const shouldSnapToBottom = distanceFromBottom < 160;
+
+    if (shouldSnapToBottom) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [activeMessages.length, activeRoom?.id]);
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const onScroll = () => {
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      setShowScrollToBottom(distanceFromBottom > 120);
+    };
+
+    onScroll();
+    container.addEventListener("scroll", onScroll);
+    return () => container.removeEventListener("scroll", onScroll);
+  }, [activeRoom?.id, activeMessages.length]);
+
+  const handleScrollToBottom = () => {
+    messagesContainerRef.current?.scrollTo({
+      top: messagesContainerRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  };
 
   useEffect(() => {
     if (!activeRoom?.id) return;
@@ -287,7 +317,7 @@ const ChatShell: React.FC = () => {
           </div>
         </section>
 
-        <section className="surface-card flex h-[calc(100vh-230px)] min-h-[680px] max-h-[900px] overflow-hidden">
+        <section className="surface-card flex h-[calc(100vh-190px)] min-h-[640px] overflow-hidden">
           <aside className="flex h-full flex-col overflow-hidden border-r border-soft-ivory" style={{ width: `${sidebarWidth}px` }}>
             <div className="border-b border-soft-ivory px-5 py-4">
               <p className="text-xs uppercase tracking-[0.28em] text-almost-black-green/60">
@@ -299,12 +329,12 @@ const ChatShell: React.FC = () => {
             </div>
 
             <div className="border-b border-soft-ivory px-5 py-4">
-              <label className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
+              <label className="flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 focus-within:border-deep-red/40 focus-within:ring-2 focus-within:ring-deep-red/20">
+                <Search className="h-4 w-4 shrink-0 text-almost-black-green/50" />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey py-2.5 pl-10 pr-4 text-sm focus:border-deep-red/40 focus:ring-2 focus:ring-deep-red/20"
+                  className="w-full border-0 bg-transparent py-2.5 text-sm focus:outline-none"
                   placeholder="Search conversations"
                 />
               </label>
@@ -440,7 +470,7 @@ const ChatShell: React.FC = () => {
             className="hidden w-2 cursor-col-resize bg-soft-ivory/80 transition hover:bg-deep-red/20 lg:block"
           />
 
-          <section className="flex min-h-[760px] min-w-0 flex-1 flex-col overflow-hidden">
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <header className="border-b border-soft-ivory px-6 py-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -539,7 +569,7 @@ const ChatShell: React.FC = () => {
               </div>
             )}
 
-            <div className="flex flex-1 flex-col bg-gradient-to-b from-white via-warm-light-grey/40 to-white">
+            <div className="relative flex flex-1 flex-col bg-gradient-to-b from-white via-warm-light-grey/40 to-white">
               <div
                 ref={messagesContainerRef}
                 className="flex-1 space-y-4 overflow-y-auto px-6 py-5"
@@ -603,7 +633,18 @@ const ChatShell: React.FC = () => {
               </div>
 
               {activeRoom && (
-                <div className="border-t border-soft-ivory bg-white px-6 py-4">
+                <>
+                {showScrollToBottom && (
+                  <button
+                    type="button"
+                    onClick={handleScrollToBottom}
+                    className="absolute bottom-24 right-6 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-soft-ivory bg-white text-deep-red shadow-md transition hover:bg-soft-ivory"
+                    aria-label="Scroll to latest message"
+                  >
+                    <ChevronDown className="h-5 w-5" />
+                  </button>
+                )}
+                <div className="sticky bottom-0 border-t border-soft-ivory bg-white px-6 py-4">
                   {activeTypingDisplay}
                   <div className="mt-3 flex items-end gap-3">
                     <div className="flex flex-1 items-center rounded-2xl border border-soft-ivory bg-warm-light-grey px-3 transition focus-within:border-deep-red/40 focus-within:ring-2 focus-within:ring-deep-red/20">
@@ -632,6 +673,7 @@ const ChatShell: React.FC = () => {
                     </button>
                   </div>
                 </div>
+                </>
               )}
             </div>
           </section>
