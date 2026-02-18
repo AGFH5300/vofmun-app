@@ -278,7 +278,7 @@ const ChatShell: React.FC = () => {
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl space-y-3">
               <span className="badge-pill bg-white/10 text-white">
-                <Sparkles className="h-4 w-4" /> Unified Delegate Messaging
+                Delegate Messaging
               </span>
               <h1 className="!mb-0 text-3xl font-bold text-white md:text-5xl">
                 Messaging Hub
