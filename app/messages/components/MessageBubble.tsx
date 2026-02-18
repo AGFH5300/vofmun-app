@@ -43,8 +43,8 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true, sho
           isOwn
             ? isFailed
               ? 'rounded-[8px] border-deep-red/30 bg-soft-rose/30 text-deep-red'
-              : 'rounded-[8px] border-soft-rose bg-soft-rose/35 text-almost-black-green'
-            : 'rounded-[8px] border-[#f1f1f1] bg-white text-almost-black-green'
+              : 'rounded-[8px] border-[#dcc8bd] bg-[#efe3dc] text-almost-black-green'
+            : 'rounded-[8px] border-soft-ivory bg-white text-almost-black-green'
         }`}
       >
         {showAuthor && (
