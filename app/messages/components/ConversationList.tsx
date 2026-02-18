@@ -45,7 +45,7 @@ const ConversationList: React.FC<Props> = ({
     if (!list.length) return null;
     return (
       <div className="space-y-2">
-        <div className="px-2 text-[0.7rem] uppercase tracking-[0.2em] text-almost-black-green/60">{title}</div>
+        <div className="px-2 text-[0.7rem] uppercase tracking-[0.2em]">{title}</div>
         <ul className="space-y-2">
           {list.map((room) => (
             <ConversationListItem
@@ -73,26 +73,25 @@ const ConversationList: React.FC<Props> = ({
         {renderSection('Direct Messages', dms)}
         {renderSection('Group Chats', groups)}
         {!hasAnyRooms && (
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-soft-ivory px-6 py-10 text-center text-almost-black-green/70">
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-soft-ivory px-6 py-10 text-center">
             <MessageCircle className="text-deep-red/50" size={42} />
             <div>
               <p className="text-base font-semibold text-deep-red">You don’t have any conversations yet</p>
-              <p className="text-sm">Start conversation or spin up a group for your committee.</p>
             </div>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={onNewChat}
-                className="rounded-xl !bg-deep-red px-4 py-2 text-sm font-semibold !text-white shadow-sm hover:!bg-dark-burgundy"
+                className="rounded-xl !bg-deep-red px-4 py-2 text-sm font-semibold text-almost-black-green/70 shadow-sm hover:!bg-dark-burgundy"
               >
                 Start a conversation
               </button>
               <button
                 type="button"
                 onClick={onNewGroup}
-                className="rounded-xl !bg-deep-red px-4 py-2 text-sm font-semibold !text-white shadow-sm hover:!bg-dark-burgundy"
+                className="rounded-xl !bg-deep-red px-4 py-2 text-sm font-semibold text-almost-black-green/70 shadow-sm hover:!bg-dark-burgundy"
               >
-                Start as group
+                Start a group
               </button>
             </div>
           </div>
