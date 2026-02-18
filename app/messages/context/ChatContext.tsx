@@ -72,17 +72,26 @@ const getWebSocketUrl = () => {
   if (!source) return null;
 
   try {
-    const url = new URL(source);
+    const baseOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+    const url = new URL(source, baseOrigin);
     const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     const normalizedPath = url.pathname.replace(/\/$/, '');
-    const basePathWithoutApi = normalizedPath.endsWith('/api') ? normalizedPath.slice(0, -4) : normalizedPath;
+    const basePathWithoutApi = normalizedPath.startsWith('/api')
+      ? ''
+      : normalizedPath.endsWith('/api')
+        ? normalizedPath.slice(0, -4)
+        : normalizedPath;
     const hasSocketPath = /\/chat-ws\/?$/.test(url.pathname);
     const pathname = hasSocketPath
       ? url.pathname
       : `${basePathWithoutApi || ''}/chat-ws`;
     return `${protocol}//${url.host}${pathname}`;
-  } catch {
-    return source;
+  } catch (error) {
+    console.error('[ChatContext] failed to derive WebSocket URL', {
+      source,
+      error: error instanceof Error ? error.message : 'unknown-error',
+    });
+    return null;
   }
 };
 
