@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { RoomWithDetails } from '@/lib/chat/types';
 import ConversationListItem from './ConversationListItem';
-import { MessageCircle, Plus } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 
 interface Props {
   rooms: RoomWithDetails[];
@@ -67,18 +67,6 @@ const ConversationList: React.FC<Props> = ({
 
   return (
     <div className="h-full">
-      <div className="flex items-center justify-between gap-3 px-2 pb-3">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onNewChat}
-            className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-xs font-semibold !text-deep-red shadow-sm hover:border-deep-red/30 hover:bg-soft-ivory"
-          >
-            <Plus className="h-4 w-4" /> New conversation
-          </button>
-        </div>
-      </div>
-
       <div className="space-y-6 pb-6">
         {renderSection('Pinned', pinned)}
         {renderSection('Committees / Rooms', committees)}

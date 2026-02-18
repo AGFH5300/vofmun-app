@@ -10,13 +10,12 @@ import ConversationList from "./components/ConversationList";
 import NewConversationModal from "./components/NewConversationModal";
 import ConversationDetailsModal from "./components/ConversationDetailsModal";
 import {
-  Circle,
-  File,
   MessageSquare,
   MoreVertical,
-  Paperclip,
+  Plus,
   RefreshCw,
   Search,
+  SendHorizontal,
   Smile,
   Sparkles,
   Users,
@@ -32,6 +31,31 @@ const formatDateLabel = (dateString: string) => {
   if (date.toDateString() === today.toDateString()) return "Today";
   if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+};
+
+const formatLastSeenLabel = (lastSeen?: string | null) => {
+  if (!lastSeen) return "Last seen unavailable";
+  const timestamp = new Date(lastSeen);
+  if (Number.isNaN(timestamp.getTime())) return "Last seen unavailable";
+
+  const now = new Date();
+  const sameDay = now.toDateString() === timestamp.toDateString();
+  if (sameDay) {
+    return `Last seen today at ${timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  }
+
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  if (yesterday.toDateString() === timestamp.toDateString()) {
+    return `Last seen yesterday at ${timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  }
+
+  return `Last seen ${timestamp.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
 };
 
 const ChatShell: React.FC = () => {
@@ -147,7 +171,7 @@ const ChatShell: React.FC = () => {
     ? activeRoom.room_type === "dm"
       ? onlineUsers.has(activeDmPeer?.user_id || "")
         ? "Online now"
-        : "Offline"
+        : formatLastSeenLabel(activeDmPeer?.user?.last_seen)
       : `${activeRoom.members.length} participants`
     : "Choose a conversation to start";
 
@@ -168,12 +192,6 @@ const ChatShell: React.FC = () => {
       window.removeEventListener("mouseup", onUp);
     };
   }, [isDraggingDivider]);
-
-  const onlineInRoom = useMemo(() => {
-    if (!activeRoom) return 0;
-    return activeRoom.members.filter((member) => onlineUsers.has(member.user_id))
-      .length;
-  }, [activeRoom, onlineUsers]);
 
   const outgoingRequests = useMemo(
     () =>
@@ -248,15 +266,28 @@ const ChatShell: React.FC = () => {
             </div>
 
             <div className="border-b border-soft-ivory px-5 py-4">
-              <label className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-almost-black-green/40" />
+              <label className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-almost-black-green/50" />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-9 py-2.5 text-sm focus:border-deep-red/40 focus:ring-2 focus:ring-deep-red/20"
+                  className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-4 py-2.5 text-sm focus:border-deep-red/40 focus:ring-2 focus:ring-deep-red/20"
                   placeholder="Search conversations"
                 />
               </label>
+            </div>
+
+            <div className="border-b border-soft-ivory px-5 py-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setConversationTab("direct");
+                  setShowNewConversation(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-xs font-semibold !text-deep-red shadow-sm hover:border-deep-red/30 hover:bg-soft-ivory"
+              >
+                <Plus className="h-4 w-4" /> New conversation
+              </button>
             </div>
 
             {incomingRequests.length > 0 && (
@@ -386,14 +417,18 @@ const ChatShell: React.FC = () => {
                   <h2 className="!mb-1 text-2xl font-semibold text-deep-red">
                     {activeRoomTitle}
                   </h2>
-                  <p className="text-sm text-almost-black-green/70">{headerSubtitle}</p>
+                  <p
+                    className={`text-sm ${
+                      activeRoom?.room_type === "dm" && onlineUsers.has(activeDmPeer?.user_id || "")
+                        ? "font-medium text-emerald-600"
+                        : "text-almost-black-green/70"
+                    }`}
+                  >
+                    {headerSubtitle}
+                  </p>
                 </div>
                 {activeRoom ? (
                   <div className="flex items-center gap-3">
-                    <div className="hidden items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-xs font-medium text-almost-black-green/70 sm:flex">
-                      <Circle className="h-2.5 w-2.5 fill-emerald-500 text-emerald-500" />
-                      {onlineInRoom} online now
-                    </div>
                     <div className="flex -space-x-2">
                       {activeRoom.members.map((member) => (
                         <div
@@ -495,7 +530,11 @@ const ChatShell: React.FC = () => {
                         (msg) => msg.id === item.id,
                       );
                       if (!message) return null;
-                      const isOwn = currentUserId === message.user_id;
+                      const isOwn =
+                        (currentUserId != null &&
+                          String(currentUserId) === String(message.user_id)) ||
+                        (currentUserId != null &&
+                          String(currentUserId) === String(message.user?.id || ""));
                       return (
                         <MessageBubble
                           key={item.id}
@@ -556,19 +595,13 @@ const ChatShell: React.FC = () => {
                         rows={1}
                         className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-almost-black-green placeholder:text-almost-black-green/45 focus:outline-none"
                       />
-                      <button
-                        type="button"
-                        className="rounded-full p-2 text-almost-black-green/60 hover:text-deep-red"
-                      >
-                        <Paperclip className="h-5 w-5" />
-                      </button>
                     </div>
                     <button
                       type="button"
                       onClick={handleSend}
                       className="primary-button !rounded-xl !px-4 !py-3 !text-xs"
                     >
-                      <File className="h-4 w-4" /> Send
+                      <SendHorizontal className="h-4 w-4" /> Send
                     </button>
                   </div>
                 </div>
