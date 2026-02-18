@@ -21,6 +21,17 @@ import {
 } from "lucide-react";
 import { RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
 
+const isChatDebugEnabled = process.env.NEXT_PUBLIC_CHAT_DEBUG === "1" || process.env.NODE_ENV !== "production";
+
+const logChatDebug = (message: string, details?: Record<string, unknown>) => {
+  if (!isChatDebugEnabled) return;
+  if (details) {
+    console.warn(`[ChatDebug] ${message}`, details);
+    return;
+  }
+  console.warn(`[ChatDebug] ${message}`);
+};
+
 const formatDateLabel = (dateString: string) => {
   const date = new Date(dateString);
   const today = new Date();
@@ -88,7 +99,6 @@ const ChatShell: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  const typingTimeoutRef = useRef<number | null>(null);
   const [shouldScrollOnLoad, setShouldScrollOnLoad] = useState(false);
 
   const filteredRooms = useMemo(() => {
@@ -123,6 +133,15 @@ const ChatShell: React.FC = () => {
     () => (activeRoom ? messages[activeRoom.id] || [] : []),
     [activeRoom, messages],
   );
+
+  useEffect(() => {
+    const roomId = activeRoom?.id;
+    return () => {
+      if (roomId) {
+        sendTyping(roomId, false);
+      }
+    };
+  }, [activeRoom?.id, sendTyping]);
 
   useEffect(() => {
     if (!activeRoom || !messagesContainerRef.current) return;
@@ -187,14 +206,6 @@ const ChatShell: React.FC = () => {
     return () => window.clearInterval(interval);
   }, [refreshRooms]);
 
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        window.clearTimeout(typingTimeoutRef.current);
-      }
-    };
-  }, []);
-
   const roomTypingNames = useMemo(() => {
     if (!activeRoom) return [] as string[];
     const activeTyping = Array.from(typingUsers[activeRoom.id] || []).filter(
@@ -215,7 +226,7 @@ const ChatShell: React.FC = () => {
 
   useEffect(() => {
     if (!activeRoom) return;
-    console.log('[ChatDebug] page:active_room_snapshot', {
+    logChatDebug('page:active_room_snapshot', {
       roomId: activeRoom.id,
       roomType: activeRoom.room_type,
       roomMemberIds: activeRoom.members.map((member) => String(member.user_id)),
@@ -229,10 +240,6 @@ const ChatShell: React.FC = () => {
 
   const handleSend = async () => {
     if (!activeRoom || !composer.trim()) return;
-    if (typingTimeoutRef.current) {
-      window.clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = null;
-    }
     sendTyping(activeRoom.id, false);
     await sendMessage(activeRoom.id, composer);
     setComposer("");
@@ -290,7 +297,7 @@ const ChatShell: React.FC = () => {
 
   useEffect(() => {
     if (!activeRoom || activeRoom.room_type !== 'dm') return;
-    console.log('[ChatDebug] page:dm_presence_snapshot', {
+    logChatDebug('page:dm_presence_snapshot', {
       roomId: activeRoom.id,
       peerUserId: activeDmPeer?.user_id || null,
       isPeerOnline: isActivePeerOnline,
@@ -746,22 +753,9 @@ const ChatShell: React.FC = () => {
                         onChange={(event) => {
                           setComposer(event.target.value);
                           sendTyping(activeRoom.id, true);
-                          if (typingTimeoutRef.current) {
-                            window.clearTimeout(typingTimeoutRef.current);
-                          }
-                          typingTimeoutRef.current = window.setTimeout(() => {
-                            sendTyping(activeRoom.id, false);
-                            typingTimeoutRef.current = null;
-                          }, 1200);
                         }}
                         onFocus={() => sendTyping(activeRoom.id, true)}
-                        onBlur={() => {
-                          if (typingTimeoutRef.current) {
-                            window.clearTimeout(typingTimeoutRef.current);
-                            typingTimeoutRef.current = null;
-                          }
-                          sendTyping(activeRoom.id, false);
-                        }}
+                        onBlur={() => sendTyping(activeRoom.id, false)}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" && !event.shiftKey) {
                             event.preventDefault();

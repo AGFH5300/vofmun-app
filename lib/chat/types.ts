@@ -64,7 +64,7 @@ export interface RoomWithDetails extends ChatRoom {
   unreadCount?: number;
 }
 
-export type FriendRequestStatus = 'pending' | 'accepted' | 'declined' | 'rejected';
+export type FriendRequestStatus = 'pending' | 'accepted' | 'rejected';
 
 export interface FriendRequest {
   id: string;
@@ -83,7 +83,7 @@ export interface UserSearchResult extends User {
 }
 
 export interface ChatSocketPayload {
-  type: 'auth' | 'authenticated' | 'join_room' | 'room_joined' | 'typing' | 'user_typing' | 'new_message' | 'user_online' | 'user_offline' | 'online_users';
+  type: 'auth' | 'authenticated' | 'auth_error' | 'join_room' | 'room_joined' | 'typing' | 'user_typing' | 'new_message' | 'user_online' | 'user_offline' | 'online_users';
   token?: string;
   roomId?: string;
   message?: MessageWithUser;

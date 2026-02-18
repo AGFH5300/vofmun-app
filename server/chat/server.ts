@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 import supabaseAdmin from '../../lib/supabaseAdmin';
 import { getSessionUserFromCookieHeader } from '../../lib/chat/auth';
 import { ChatSocketPayload, FriendRequest, MessageWithUser, RoomMember, RoomWithDetails, RoomType, User } from '../../lib/chat/types';
-import { fetchPersonById, getUserContext, isVisibleToViewer, mapProfileForChat, searchPeople } from './people';
+import { fetchPersonById, isVisibleToViewer, mapProfileForChat, searchPeople } from './people';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -38,13 +38,42 @@ const requireAuth = (req: AuthedRequest, res: Response, next: NextFunction) => {
 
 const activeSockets = new Set<SocketContext>();
 const CHAT_SERVER_DEBUG_PREFIX = '[ChatServerDebug]';
+const isServerDebugEnabled = process.env.CHAT_SERVER_DEBUG === '1' || process.env.NODE_ENV !== 'production';
+const userConnectionCounts = new Map<string, number>();
 
 const logServerDebug = (message: string, details?: Record<string, unknown>) => {
+  if (!isServerDebugEnabled) return;
   if (details) {
-    console.log(`${CHAT_SERVER_DEBUG_PREFIX} ${message}`, details);
+    console.warn(`${CHAT_SERVER_DEBUG_PREFIX} ${message}`, details);
     return;
   }
-  console.log(`${CHAT_SERVER_DEBUG_PREFIX} ${message}`);
+  console.warn(`${CHAT_SERVER_DEBUG_PREFIX} ${message}`);
+};
+
+const getOnlineUserIds = () => Array.from(userConnectionCounts.entries())
+  .filter(([, count]) => count > 0)
+  .map(([userId]) => userId);
+
+const sendOnlineUsersSnapshot = (target: WebSocket) => {
+  target.send(JSON.stringify({ type: 'online_users', onlineUserIds: getOnlineUserIds() } satisfies ChatSocketPayload));
+};
+
+const incrementUserConnection = (userId: string) => {
+  const nextCount = (userConnectionCounts.get(userId) || 0) + 1;
+  userConnectionCounts.set(userId, nextCount);
+  if (nextCount === 1) {
+    broadcast(() => true, { type: 'user_online', userId });
+  }
+};
+
+const decrementUserConnection = (userId: string) => {
+  const previous = userConnectionCounts.get(userId) || 0;
+  if (previous <= 1) {
+    userConnectionCounts.delete(userId);
+    broadcast(() => true, { type: 'user_offline', userId });
+    return;
+  }
+  userConnectionCounts.set(userId, previous - 1);
 };
 
 const broadcast = (predicate: (ctx: SocketContext) => boolean, payload: ChatSocketPayload) => {
@@ -349,10 +378,11 @@ app.get('/api/chat/friend-requests/pending', requireAuth, async (req: AuthedRequ
 app.post('/api/friend-requests/:id/respond', requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { action } = req.body as { action?: 'accept' | 'reject' };
+    const { action } = req.body as { action?: 'accept' | 'reject' | 'decline' };
     if (!action) return res.status(400).json({ error: 'Missing action' });
 
-    const status = action === 'accept' ? 'accepted' : 'declined';
+    const normalizedAction = action === 'decline' ? 'reject' : action;
+    const status = normalizedAction === 'accept' ? 'accepted' : 'rejected';
     const { data: updated } = await supabaseAdmin
       .from('friend_requests')
       .update({ status })
@@ -621,18 +651,22 @@ wss.on('connection', (socket, req) => {
   logServerDebug('socket:connection_opened', { hasCookie: Boolean(req.headers.cookie), url: req.url || null });
   const context: Partial<SocketContext> = { socket };
   let authenticated = false;
+  let disconnected = false;
+  const authTimeout = setTimeout(() => {
+    if (!authenticated) {
+      socket.send(JSON.stringify({ type: 'auth_error' } satisfies ChatSocketPayload));
+      socket.close();
+    }
+  }, 5000);
 
   const finishSocketAuthentication = (authenticatedUserId: string) => {
     logServerDebug('socket:authenticated', { authenticatedUserId, activeSocketCountBefore: activeSockets.size });
     context.userId = authenticatedUserId;
     authenticated = true;
     activeSockets.add(context as SocketContext);
+    incrementUserConnection(authenticatedUserId);
     socket.send(JSON.stringify({ type: 'authenticated' } satisfies ChatSocketPayload));
-    const onlineUserIds = Array.from(activeSockets)
-      .map((socketContext) => socketContext.userId)
-      .filter((id): id is string => Boolean(id));
-    socket.send(JSON.stringify({ type: 'online_users', onlineUserIds } satisfies ChatSocketPayload));
-    broadcast(() => true, { type: 'user_online', userId: authenticatedUserId });
+    sendOnlineUsersSnapshot(socket);
   };
 
   const authenticateFromCookie = () => {
@@ -645,26 +679,18 @@ wss.on('connection', (socket, req) => {
     return true;
   };
 
-  const authenticateFromPayload = async (socketUserId?: string) => {
-    if (!socketUserId) {
-      logServerDebug('socket:authenticateFromPayload:missing_user_id');
-      return false;
-    }
-    const contextUser = await getUserContext(socketUserId);
-    if (!contextUser) {
-      logServerDebug('socket:authenticateFromPayload:user_not_found', { socketUserId });
-      return false;
-    }
-    finishSocketAuthentication(contextUser.id);
-    return true;
-  };
-
   authenticateFromCookie();
+  if (authenticated) {
+    clearTimeout(authTimeout);
+  }
 
   const disconnect = () => {
+    if (disconnected) return;
+    disconnected = true;
+    clearTimeout(authTimeout);
     logServerDebug('socket:disconnect', { userId: context.userId || null, roomId: context.roomId || null, activeSocketCountBefore: activeSockets.size });
     if (authenticated && context.userId) {
-      broadcast(() => true, { type: 'user_offline', userId: context.userId });
+      decrementUserConnection(context.userId);
     }
     activeSockets.delete(context as SocketContext);
   };
@@ -681,21 +707,21 @@ wss.on('connection', (socket, req) => {
       switch (data.type) {
         case 'auth': {
           if (authenticated) {
-            const onlineUserIds = Array.from(activeSockets)
-              .map((socketContext) => socketContext.userId)
-              .filter((id): id is string => Boolean(id));
             logServerDebug('socket:auth:already_authenticated_resync_state', {
               userId: context.userId || null,
-              onlineUserIds,
+              onlineUserIds: getOnlineUserIds(),
             });
             socket.send(JSON.stringify({ type: 'authenticated' } satisfies ChatSocketPayload));
-            socket.send(JSON.stringify({ type: 'online_users', onlineUserIds } satisfies ChatSocketPayload));
+            sendOnlineUsersSnapshot(socket);
             return;
           }
-          if (!authenticateFromCookie() && !(await authenticateFromPayload(data.userId))) {
-            logServerDebug('socket:auth:failed_closing_socket', { dataUserId: data.userId || null });
+          if (!authenticateFromCookie()) {
+            logServerDebug('socket:auth:failed_closing_socket', { reason: 'missing_or_invalid_session_cookie' });
+            socket.send(JSON.stringify({ type: 'auth_error' } satisfies ChatSocketPayload));
             socket.close();
+            return;
           }
+          clearTimeout(authTimeout);
           return;
         }
         case 'join_room': {
@@ -719,7 +745,7 @@ wss.on('connection', (socket, req) => {
           return;
         }
         case 'typing': {
-          if (!authenticated || !context.userId || !context.roomId) {
+          if (!authenticated || !context.userId || !context.roomId || !data.roomId || data.roomId !== context.roomId) {
             logServerDebug('socket:typing:rejected_precondition', {
               authenticated,
               userId: context.userId || null,
@@ -761,7 +787,7 @@ wss.on('connection', (socket, req) => {
 
 const PORT = process.env.CHAT_PORT || 4000;
 server.listen(PORT, () => {
-  console.log(`Chat server listening on http://localhost:${PORT}`);
+  console.warn(`Chat server listening on http://localhost:${PORT}`);
 });
 
 export default app;

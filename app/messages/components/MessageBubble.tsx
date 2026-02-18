@@ -28,13 +28,15 @@ const statusClass: Record<string, string> = {
   error: 'text-deep-red',
 };
 
+const isChatDebugEnabled = process.env.NEXT_PUBLIC_CHAT_DEBUG === '1' || process.env.NODE_ENV !== 'production';
+
 const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true, showAvatar = true }) => {
   const isFailed = message.status === 'error';
   const resolvedStatus = isOwn ? message.status || 'sent' : undefined;
 
   useEffect(() => {
-    if (!isOwn) return;
-    console.log('[ChatDebug] message_bubble:status_render', {
+    if (!isOwn || !isChatDebugEnabled) return;
+    console.warn('[ChatDebug] message_bubble:status_render', {
       messageId: message.id,
       roomId: message.room_id,
       rawStatus: message.status || null,
