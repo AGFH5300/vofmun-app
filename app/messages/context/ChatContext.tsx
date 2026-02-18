@@ -104,6 +104,14 @@ const getWebSocketUrl = () => {
 
 const normalizeFriendRequestStatus = (status?: string | null) => (status === 'declined' ? 'rejected' : status || 'pending');
 
+const parseFriendRequestsResponse = (json: unknown): FriendRequest[] | null => {
+  if (Array.isArray(json)) return json as FriendRequest[];
+  if (json && typeof json === 'object' && 'requests' in json && Array.isArray((json as { requests?: unknown }).requests)) {
+    return (json as { requests: FriendRequest[] }).requests;
+  }
+  return null;
+};
+
 export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [rooms, setRooms] = useState<RoomWithDetails[]>([]);
   const [activeRoom, setActiveRoom] = useState<RoomWithDetails | null>(null);
@@ -263,12 +271,18 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       console.error('[ChatContext] failed to load friend requests', response.status, response.statusText);
       return;
     }
-    const json = (await response.json().catch(() => null)) as FriendRequest[] | null;
-    if (!json || !Array.isArray(json)) {
+    const json = (await response.json().catch(() => null)) as unknown;
+    const requests = parseFriendRequestsResponse(json);
+    if (!requests) {
       console.error('[ChatContext] friend request response unexpected', { json });
       return;
     }
-    setFriendRequests(json.map((request) => ({ ...request, status: normalizeFriendRequestStatus(request.status) as FriendRequest['status'] })));
+    setFriendRequests(
+      requests.map((request) => ({
+        ...request,
+        status: normalizeFriendRequestStatus(request.status) as FriendRequest['status'],
+      }))
+    );
   }, [userId, withAuthHeaders]);
 
   const refreshRoomMessages = useCallback(
