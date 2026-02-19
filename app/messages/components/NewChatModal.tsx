@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import { Check, MessageSquare, Search, UserPlus, X } from 'lucide-react';
+import { BadgeCheck, Check, Search, UserPlus, X } from 'lucide-react';
 import { UserSearchResult } from '@/lib/chat/types';
 import UserAvatar from './UserAvatar';
 import { useChat } from '../context/ChatContext';
@@ -260,7 +260,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                         onClick={() => handleStartChat(user)}
                         className="inline-flex items-center gap-2 rounded-xl bg-[#701e1e] px-3 py-2 font-semibold text-white shadow-sm hover:bg-[#8b2424]"
                       >
-                        <MessageSquare className="h-4 w-4" /> Message
+                        <BadgeCheck className="h-4 w-4 text-sky-500" /> In friends
                       </button>
                     ) : state === 'incoming' && relationship.request ? (
                       <div className="flex gap-2">

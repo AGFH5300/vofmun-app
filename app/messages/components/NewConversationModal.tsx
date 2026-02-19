@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import { Check, MessageSquare, Plus, Search, UserPlus, Users, X } from 'lucide-react';
+import { BadgeCheck, Check, Plus, Search, UserPlus, Users, X } from 'lucide-react';
 import { UserSearchResult } from '@/lib/chat/types';
 import UserAvatar from './UserAvatar';
 import { useChat } from '../context/ChatContext';
@@ -236,7 +236,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                         <p className="text-sm font-semibold text-deep-red">{user.full_name}</p>
                       </div>
                       {state === 'connected' ? (
-                        <button type="button" onClick={() => handleStartChat(user)} className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 text-xs font-semibold text-white"><MessageSquare className="h-4 w-4" />Message</button>
+                        <button type="button" onClick={() => handleStartChat(user)} className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 text-xs font-semibold text-white"><BadgeCheck className="h-4 w-4 text-sky-500" />In friends</button>
                       ) : state === 'incoming' && relationship.request ? (
                         <div className="flex gap-2">
                           <button type="button" onClick={() => acceptFriendRequest(relationship.request.id)} className="rounded-lg bg-deep-red px-3 py-1 text-xs font-semibold text-white"><Check className="h-3 w-3" /></button>
