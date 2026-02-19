@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { MessageWithUser } from '@/lib/chat/types';
 import UserAvatar from './UserAvatar';
-import { AlertCircle, Check, CheckCheck, Clock } from 'lucide-react';
+import { AlertCircle, Check, CheckCheck, CheckCircle2, Clock, Copy, Forward, Info, Pencil, Reply, Smile, Trash2 } from 'lucide-react';
 
 interface Props {
   message: MessageWithUser;
@@ -31,6 +31,7 @@ const statusClass: Record<string, string> = {
 const isChatDebugEnabled = process.env.NEXT_PUBLIC_CHAT_DEBUG === '1' || process.env.NODE_ENV !== 'production';
 
 const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true, showAvatar = true }) => {
+  const [contextMenuPosition, setContextMenuPosition] = React.useState<{ x: number; y: number } | null>(null);
   const isFailed = message.status === 'error';
   const resolvedStatus = isOwn ? message.status || 'sent' : undefined;
 
@@ -45,6 +46,26 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true, sho
       createdAt: message.created_at || null,
     });
   }, [isOwn, message.created_at, message.id, message.room_id, message.status, resolvedStatus]);
+
+  useEffect(() => {
+    if (!contextMenuPosition) return;
+
+    const closeMenu = () => setContextMenuPosition(null);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMenu();
+    };
+
+    window.addEventListener('click', closeMenu);
+    window.addEventListener('contextmenu', closeMenu);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('click', closeMenu);
+      window.removeEventListener('contextmenu', closeMenu);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [contextMenuPosition]);
+
   const timestamp = message.created_at
     ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
@@ -53,6 +74,11 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true, sho
     <div className={`flex gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${showAvatar ? '' : 'px-1'}`}>
       {showAvatar && <UserAvatar user={message.user} size={36} />}
       <div
+        onContextMenu={(event) => {
+          if (!isOwn) return;
+          event.preventDefault();
+          setContextMenuPosition({ x: event.clientX, y: event.clientY });
+        }}
         className={`group relative max-w-[82%] border px-3 py-2 shadow-sm md:max-w-[74%] ${
           isOwn
             ? isFailed
@@ -85,6 +111,48 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true, sho
           </div>
         </div>
       </div>
+      {contextMenuPosition && (
+        <div
+          className="fixed z-50 min-w-[250px] overflow-hidden rounded-xl border border-white/10 bg-[#141414] py-1 text-white shadow-2xl"
+          style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
+        >
+          {[
+            { icon: Reply, label: 'Reply' },
+            { icon: Smile, label: 'React' },
+            { icon: Forward, label: 'Forward' },
+            { icon: Copy, label: 'Copy' },
+            { icon: Pencil, label: 'Edit' },
+            { icon: Info, label: 'Info' },
+            { divider: true },
+            { icon: Trash2, label: 'Delete' },
+            { divider: true },
+            { icon: CheckCircle2, label: 'Select messages' },
+          ].map((entry, index) => {
+            if ('divider' in entry) {
+              return <div key={`divider-${index}`} className="my-1 border-t border-white/20" />;
+            }
+
+            const Icon = entry.icon;
+            return (
+              <button
+                key={entry.label}
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (entry.label === 'Copy') {
+                    void navigator.clipboard?.writeText(message.content || '');
+                  }
+                  setContextMenuPosition(null);
+                }}
+                className="flex w-full items-center gap-3 px-4 py-2 text-left text-[1.05rem] text-white/90 hover:bg-white/10"
+              >
+                <Icon className="h-4 w-4 text-white/80" />
+                <span>{entry.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

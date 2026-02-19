@@ -46,6 +46,7 @@ const getDisplayMeta = (room: RoomWithDetails, currentUserId?: string | null) =>
 };
 
 const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTogglePin, currentUserId, onlineUsers }) => {
+  const [contextMenuPosition, setContextMenuPosition] = React.useState<{ x: number; y: number } | null>(null);
   const meta = getDisplayMeta(room, currentUserId);
   const last = room.lastMessage;
   const dmPeer =
@@ -55,11 +56,34 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
   const hasOnlinePresence =
     room.room_type === 'dm' && room.members.some((m) => String(m.user_id) !== String(currentUserId || '') && onlineUsers.has(String(m.user_id)));
 
+  React.useEffect(() => {
+    if (!contextMenuPosition) return;
+
+    const closeMenu = () => setContextMenuPosition(null);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMenu();
+    };
+
+    window.addEventListener('click', closeMenu);
+    window.addEventListener('contextmenu', closeMenu);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('click', closeMenu);
+      window.removeEventListener('contextmenu', closeMenu);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [contextMenuPosition]);
+
   return (
     <li>
       <div
         role="button"
         tabIndex={0}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setContextMenuPosition({ x: event.clientX, y: event.clientY });
+        }}
         onClick={() => onSelect(room)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -90,20 +114,8 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-[1.03rem] font-semibold leading-5 text-deep-red">{meta.name}</p>
-                {meta.sub ? <p className="mt-0.5 text-[0.72rem] text-almost-black-green/60">{meta.sub}</p> : null}
               </div>
               <div className="flex flex-col items-end gap-2">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onTogglePin(room.id);
-                  }}
-                  aria-label={room.isPinned ? 'Unpin conversation' : 'Pin conversation'}
-                  className={`rounded-full p-1 text-almost-black-green/50 hover:text-deep-red focus:outline-none focus-visible:outline-none ${room.isPinned ? 'bg-[#ddd4cb]' : ''}`}
-                >
-                  {room.isPinned ? <Pin className="h-4 w-4" /> : <PinOff className="h-4 w-4" />}
-                </button>
                 {last?.created_at && (
                   <span className="text-[0.7rem] text-almost-black-green/50">
                     {new Date(last.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -124,6 +136,25 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
           </div>
         </div>
       </div>
+      {contextMenuPosition && (
+        <div
+          className="fixed z-50 min-w-[190px] overflow-hidden rounded-xl border border-soft-ivory bg-white p-1 shadow-2xl"
+          style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
+        >
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onTogglePin(room.id);
+              setContextMenuPosition(null);
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-almost-black-green hover:bg-warm-light-grey"
+          >
+            {room.isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+            <span>{room.isPinned ? 'Unpin chat' : 'Pin chat'}</span>
+          </button>
+        </div>
+      )}
     </li>
   );
 };
