@@ -13,6 +13,7 @@ import { useSession } from '@/app/context/sessionContext';
 
 const CHAT_WS_URL = process.env.NEXT_PUBLIC_CHAT_WS_URL;
 const CHAT_API_URL = process.env.NEXT_PUBLIC_CHAT_API_URL || '';
+const CHAT_WS_PATH = '/chat-ws'; // Canonical websocket path served by server/chat/server.ts
 
 type PeopleSearchResult = {
   id: string;
@@ -88,10 +89,10 @@ const getWebSocketUrl = () => {
       : normalizedPath.endsWith('/api')
         ? normalizedPath.slice(0, -4)
         : normalizedPath;
-    const hasSocketPath = /\/chat-ws\/?$/.test(url.pathname);
+    const hasSocketPath = new RegExp(`${CHAT_WS_PATH}/?$`).test(url.pathname);
     const pathname = hasSocketPath
       ? url.pathname
-      : `${basePathWithoutApi || ''}/chat-ws`;
+      : `${basePathWithoutApi || ''}${CHAT_WS_PATH}`;
     return `${protocol}//${url.host}${pathname}`;
   } catch (error) {
     console.error('[ChatContext] failed to derive WebSocket URL', {

@@ -16,9 +16,15 @@ const BASE = process.env.WARMUP_BASE || `http://${HOST}:${PORT}`;
 
 const MAX_CONCURRENCY = Number(process.env.WARMUP_CONCURRENCY || 6);
 
-// optional: if you need auth cookies to reach protected pages (not required to compile)
-// set COOKIE_HEADER="name=value; name2=value2"
-const COOKIE_HEADER = process.env.COOKIE_HEADER || "";
+// optional: if you need auth cookies to reach protected endpoints
+// set WARMUP_COOKIE="name=value; name2=value2"
+const COOKIE_HEADER = process.env.WARMUP_COOKIE || process.env.COOKIE_HEADER || "";
+const CHAT_SERVER_FILE = path.join(ROOT, "server", "chat", "server.ts");
+const API_PATH_ALIASES = {
+  "/api/chat/friend-requests": "/api/friend-requests",
+  "/api/chat/friend-requests/1/respond": "/api/friend-requests/1/respond",
+  "/api/rooms/direct": "/api/rooms/direct",
+};
 
 /** Wait until the dev server is listening on PORT. */
 function waitForPort(port, host, timeoutMs = 90_000) {
@@ -142,6 +148,37 @@ async function discoverRoutes() {
   return Array.from(urls).sort((a, b) => a.localeCompare(b));
 }
 
+function discoverExpressApiRoutes() {
+  if (!fs.existsSync(CHAT_SERVER_FILE)) return [];
+  const source = fs.readFileSync(CHAT_SERVER_FILE, "utf8");
+  const routes = [];
+  const routeRegex = /app\.(get|post|put|patch|delete)\(\s*["'`]([^"'`]+)["'`]\s*,([^\n]*)/g;
+
+  for (const match of source.matchAll(routeRegex)) {
+    const method = match[1].toUpperCase();
+    const routePath = match[2];
+    const args = match[3] || '';
+    if (!routePath.startsWith("/api/")) continue;
+
+    const warmPath = routePath.replace(/:([A-Za-z_][\w-]*)/g, (_m, name) => {
+      const map = { id: "1", roomId: "1", userId: "1" };
+      return map[name] || "1";
+    });
+
+    routes.push({
+      path: API_PATH_ALIASES[warmPath] || warmPath,
+      method,
+      protected: /\brequireAuth\b/.test(args),
+    });
+  }
+
+  const deduped = new Map();
+  for (const route of routes) {
+    deduped.set(`${route.method} ${route.path}`, route);
+  }
+  return Array.from(deduped.values()).sort((a, b) => a.path.localeCompare(b.path));
+}
+
 /** Simple promise pool */
 async function runPool(items, limit, worker) {
   const results = [];
@@ -168,6 +205,7 @@ async function runPool(items, limit, worker) {
 
 (async () => {
   const routes = await discoverRoutes();
+  const expressApiRoutes = discoverExpressApiRoutes();
 
   console.log(`[warmup] Discovered ${routes.length} route(s).`);
   routes.forEach((r) => console.log(" •", r));
@@ -181,23 +219,33 @@ async function runPool(items, limit, worker) {
 
   const apiRoutes = routes.filter((r) => r.startsWith("/api/"));
   const pageRoutes = routes.filter((r) => !r.startsWith("/api/"));
+  const hasExpressRoutes = expressApiRoutes.length > 0;
 
-  // hit pages first (GET), then APIs (HEAD to be gentle, falls back to GET)
+  if (hasExpressRoutes) {
+    console.log(`[warmup] Using ${expressApiRoutes.length} Express API route(s) discovered from server/chat/server.ts`);
+  }
+
+  const apiHits = (hasExpressRoutes
+    ? expressApiRoutes
+    : apiRoutes.map((r) => ({ path: r, method: "GET", protected: false }))
+  ).filter((route) => {
+    if (!route.protected || COOKIE_HEADER) return true;
+    console.log(`[warmup] Skipping protected route without cookie: ${route.method} ${route.path}`);
+    return false;
+  });
+
+  // hit pages first (GET), then APIs with discovered method
   const hits = [
     ...pageRoutes.map((r) => ({ url: new URL(r, BASE).toString(), method: "GET" })),
-    ...apiRoutes.map((r) => ({ url: new URL(r, BASE).toString(), method: "HEAD" })),
+    ...apiHits.map((r) => ({ url: new URL(r.path, BASE).toString(), method: r.method })),
   ];
 
   const started = Date.now();
 
   const results = await runPool(hits, MAX_CONCURRENCY, async ({ url, method }) => {
     try {
-      let res = await fetch(url, { method, headers });
-      // Some APIs may not support HEAD; retry with GET once.
-      if (!res.ok && method === "HEAD") {
-        res = await fetch(url, { method: "GET", headers });
-      }
-      return { url, status: res.status, ok: res.ok, method: res.status ? (method === "HEAD" && !res.ok ? "GET" : method) : method };
+      const res = await fetch(url, { method, headers });
+      return { url, status: res.status, ok: res.ok, method };
     } catch (e) {
       // Network error (connection refused during boot, etc.)
       return { url, status: 0, ok: false, method, error: e?.message || String(e) };
