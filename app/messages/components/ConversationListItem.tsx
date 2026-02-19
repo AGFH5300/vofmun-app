@@ -3,6 +3,7 @@
 import React from 'react';
 import { RoomWithDetails } from '@/lib/chat/types';
 import { Pin, PinOff, UserRound, Users } from 'lucide-react';
+import UserAvatar from './UserAvatar';
 
 interface Props {
   room: RoomWithDetails;
@@ -47,6 +48,10 @@ const getDisplayMeta = (room: RoomWithDetails, currentUserId?: string | null) =>
 const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTogglePin, currentUserId, onlineUsers }) => {
   const meta = getDisplayMeta(room, currentUserId);
   const last = room.lastMessage;
+  const dmPeer =
+    room.room_type === 'dm'
+      ? room.members.find((m) => String(m.user_id) !== String(currentUserId || ''))?.user || room.members[0]?.user
+      : undefined;
   const hasOnlinePresence =
     room.room_type === 'dm' && room.members.some((m) => String(m.user_id) !== String(currentUserId || '') && onlineUsers.has(String(m.user_id)));
 
@@ -68,8 +73,13 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             : 'border-[#efefef] bg-white hover:bg-[#f8f8f8]'
         }`}
       >
-        <div className={`flex items-start ${room.room_type === 'dm' ? 'gap-0' : 'gap-3'}`}>
-          {room.room_type !== 'dm' && (
+        <div className="flex items-start gap-3">
+          {room.room_type === 'dm' ? (
+            <div className="relative shrink-0 pt-0.5">
+              <UserAvatar user={dmPeer} size={40} />
+              {hasOnlinePresence && <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border border-white bg-emerald-500" />}
+            </div>
+          ) : (
             <div className="relative">
               <div className="flex h-[42px] w-[42px] items-center justify-center rounded-full bg-soft-ivory text-deep-red">
                 {room.room_type === 'committee' ? <Users className="h-4 w-4" /> : <UserRound className="h-4 w-4" />}
@@ -79,8 +89,8 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
           <div className="flex-1">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-sm font-semibold text-deep-red">{meta.name}</p>
-                {meta.sub ? <p className="text-[0.75rem] text-almost-black-green/60">{meta.sub}</p> : null}
+                <p className="text-[1.03rem] font-semibold leading-5 text-deep-red">{meta.name}</p>
+                {meta.sub ? <p className="mt-0.5 text-[0.72rem] text-almost-black-green/60">{meta.sub}</p> : null}
               </div>
               <div className="flex flex-col items-end gap-2">
                 <button
@@ -106,7 +116,6 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
                 ? `${room.room_type === 'dm' ? '' : last.user?.full_name ? `${last.user.full_name}: ` : ''}${last.content}`
                 : 'No messages yet'}
             </p>
-            {room.room_type === 'dm' && hasOnlinePresence && <p className="mt-1 text-[0.68rem] font-medium text-emerald-600">online</p>}
             {room.unreadCount ? (
               <span className="mt-2 inline-flex items-center rounded-full bg-deep-red/10 px-2 py-0.5 text-[0.7rem] font-semibold text-deep-red">
                 {room.unreadCount} new
