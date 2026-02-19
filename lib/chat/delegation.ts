@@ -7,7 +7,7 @@ const DELEGATION_SHORT_LABEL_OVERRIDES: Record<string, string> = {
   "people's republic of china": 'China',
   'democratic people\'s republic of korea': 'North Korea',
   'republic of korea': 'South Korea',
-  'united states of america': 'United States',
+  'united states of america': 'US',
   'russian federation': 'Russia',
   'french republic': 'France',
   'federal republic of germany': 'Germany',
@@ -15,8 +15,6 @@ const DELEGATION_SHORT_LABEL_OVERRIDES: Record<string, string> = {
   'arab republic of egypt': 'Egypt',
   'united mexican states': 'Mexico',
   'republic of türkiye': 'Türkiye',
-  'republic of turkey': 'Türkiye',
-  'socialist republic of viet nam': 'Vietnam',
   'socialist republic of vietnam': 'Vietnam',
   'people\'s republic of bangladesh': 'Bangladesh',
   'bolivarian republic of venezuela': 'Venezuela',
@@ -44,8 +42,7 @@ const DELEGATION_SHORT_LABEL_OVERRIDES: Record<string, string> = {
   'kingdom of morocco': 'Morocco',
   'kingdom of belgium': 'Belgium',
   'republic of south africa': 'South Africa',
-  'federal republic of nigeria': 'Nigeria',
-  'republic of nigeria': 'Nigeria'
+  'federal republic of nigeria': 'Nigeria'
 };
 
 export const getUserDelegationLabel = (user?: User | null) =>
