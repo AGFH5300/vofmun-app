@@ -213,54 +213,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     userIdRef.current = userId;
   }, [userId]);
 
-  const resolveOwnMessageStatus = useCallback((roomId: string, messageUserId?: string | null): MessageStatus | undefined => {
-    const currentUserId = userIdRef.current;
-    if (!currentUserId || !messageUserId || String(currentUserId) !== String(messageUserId)) {
-      return undefined;
-    }
-
-    const room = roomsRef.current.find((candidate) => candidate.id === roomId);
-    if (!room || room.room_type !== 'dm') {
-      return 'sent';
-    }
-
-    const hasOnlineRecipient = room.members.some(
-      (member) => String(member.user_id) !== String(currentUserId) && onlineUsersRef.current.has(String(member.user_id))
-    );
-
-    logChatDebug('resolveOwnMessageStatus', {
-      roomId,
-      messageUserId,
-      currentUserId,
-      memberIds: room.members.map((member) => String(member.user_id)),
-      onlineUsers: Array.from(onlineUsersRef.current),
-      status: hasOnlineRecipient ? 'delivered' : 'sent',
-    });
-
-    return hasOnlineRecipient ? 'delivered' : 'sent';
-  }, []);
-
-  const reconcileOwnDmMessageStatuses = useCallback(() => {
-    setMessages((prev) => {
-      let changed = false;
-      const next: Record<string, MessageWithUser[]> = {};
-
-      Object.entries(prev).forEach(([roomId, list]) => {
-        const updated = list.map((message) => {
-          const nextStatus = resolveOwnMessageStatus(roomId, message.user_id) || message.status;
-          if (nextStatus !== message.status) {
-            changed = true;
-            return { ...message, status: nextStatus };
-          }
-          return message;
-        });
-        next[roomId] = updated;
-      });
-
-      return changed ? next : prev;
-    });
-  }, [resolveOwnMessageStatus]);
-
   const refreshRooms = useCallback(async () => {
     if (!userId) return [] as RoomWithDetails[];
     logChatDebug('refreshRooms:start', { userId, endpoint: `${CHAT_API_URL}/api/rooms` });
@@ -288,7 +240,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const refreshFriendRequests = useCallback(async () => {
     if (!userId) return;
-    const response = await fetch(`${CHAT_API_URL}/api/chat/friend-requests`, withAuthHeaders());
+    const response = await fetch(`${CHAT_API_URL}/api/friend-requests`, withAuthHeaders());
     if (!response.ok) {
       console.error('[ChatContext] failed to load friend requests', response.status, response.statusText);
       return;
@@ -313,10 +265,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, withAuthHeaders());
       if (!response.ok) return;
       const data = (await response.json()) as MessageWithUser[];
-      const withResolvedStatus = data.map((message) => ({
-        ...message,
-        status: resolveOwnMessageStatus(roomId, message.user_id) || message.status,
-      }));
+      const withResolvedStatus = data.map((message) => ({ ...message }));
       setMessages((prev) => {
         const existing = prev[roomId] || [];
         const pendingOrFailed = existing.filter(
@@ -330,7 +279,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         return { ...prev, [roomId]: merged };
       });
     },
-    [resolveOwnMessageStatus, userId, withAuthHeaders]
+    [userId, withAuthHeaders]
   );
 
   const sendTyping = useCallback(
@@ -465,8 +414,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             if (withoutTemp.some((item) => item.id === message.id)) {
               return prev;
             }
-            const status = resolveOwnMessageStatus(normalizedRoomId, message.user_id);
-            return { ...prev, [normalizedRoomId]: [...withoutTemp, { ...message, status }] };
+            return { ...prev, [normalizedRoomId]: [...withoutTemp, message] };
           });
           setRooms((prev) =>
             prev.map((room) =>
@@ -527,7 +475,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           if (users) {
             logChatDebug('socket:online_users', { users: users.map((id) => toComparableId(id)) });
             setOnlineUsers(new Set(users.map((id) => toComparableId(id))));
-            window.setTimeout(reconcileOwnDmMessageStatuses, 0);
           }
           break;
         }
@@ -536,7 +483,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             const normalizedUserId = toComparableId(userId);
             logChatDebug('socket:user_online', { userId: normalizedUserId });
             setOnlineUsers((prev) => new Set(prev).add(normalizedUserId));
-            window.setTimeout(reconcileOwnDmMessageStatuses, 0);
           }
           break;
         }
@@ -549,7 +495,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
               next.delete(normalizedUserId);
               return next;
             });
-            window.setTimeout(reconcileOwnDmMessageStatuses, 0);
           }
           break;
         }
@@ -561,7 +506,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
       }
     },
-    [reconcileOwnDmMessageStatuses, resolveOwnMessageStatus, toComparableId]
+    [toComparableId]
   );
 
   const connectSocket = useCallback(() => {
@@ -699,7 +644,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           const withoutTemp = list.filter((msg) => msg.id !== tempId && msg.id !== saved.id);
           return { ...prev, [roomId]: [...withoutTemp, { ...saved, status: 'sent' }] };
         });
-        window.setTimeout(reconcileOwnDmMessageStatuses, 0);
       } catch (error) {
         logChatDebug('sendMessage:error', {
           roomId,
@@ -714,7 +658,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
       }
     },
-    [reconcileOwnDmMessageStatuses, userId, withAuthHeaders]
+    [userId, withAuthHeaders]
   );
 
   const togglePin = useCallback((roomId: string) => {
@@ -836,7 +780,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (!userId) return null;
       try {
         const response = await fetch(
-          `${CHAT_API_URL}/api/chat/friend-requests`,
+          `${CHAT_API_URL}/api/friend-requests`,
           withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
         );
 
@@ -869,7 +813,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (!userId) return;
       try {
         const response = await fetch(
-          `${CHAT_API_URL}/api/chat/friend-requests/${id}/respond`,
+          `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
           withAuthHeaders({
             method: 'POST',
             headers: { Accept: 'application/json' },
@@ -926,7 +870,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (!userId) return;
       try {
         const response = await fetch(
-          `${CHAT_API_URL}/api/chat/friend-requests/${id}/respond`,
+          `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
           withAuthHeaders({
             method: 'POST',
             headers: { Accept: 'application/json' },
