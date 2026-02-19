@@ -650,6 +650,8 @@ const isDev = process.env.NODE_ENV !== 'production';
 const nextApp = next({ dev: isDev, hostname: '0.0.0.0', port: PORT });
 const nextHandler = nextApp.getRequestHandler();
 
+const CHAT_WS_PATH = '/chat-ws'; // Keep in sync with app/messages/context/ChatContext.tsx
+
 const server = http.createServer((req, res) => {
   const url = req.url || '';
   if (url.startsWith('/api/')) {
@@ -659,7 +661,7 @@ const server = http.createServer((req, res) => {
 
   nextHandler(req, res);
 });
-const wss = new WebSocketServer({ server, path: '/chat-ws' });
+const wss = new WebSocketServer({ server, path: CHAT_WS_PATH });
 
 wss.on('connection', (socket, req) => {
   logServerDebug('socket:connection_opened', { hasCookie: Boolean(req.headers.cookie), url: req.url || null });

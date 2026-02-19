@@ -1,6 +1,12 @@
 import type { NextConfig } from 'next';
 
+const explicitDevOrigin = process.env.NEXT_ALLOWED_DEV_ORIGIN;
+
 const nextConfig: NextConfig = {
+  allowedDevOrigins: [
+    '*.sisko.replit.dev',
+    ...(explicitDevOrigin ? [explicitDevOrigin] : []),
+  ],
   images: {
     remotePatterns: [
       {
