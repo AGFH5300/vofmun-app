@@ -97,21 +97,23 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
   const relationshipState = useMemo(
     () =>
       (userId: string) => {
+        const normalizedCurrentUserId = String(currentUserId || '');
+        const normalizedUserId = String(userId);
         const incomingRequest = friendRequests.find(
-          (req) => req.sender_id === userId && req.receiver_id === currentUserId && req.status === 'pending'
+          (req) => String(req.sender_id) === normalizedUserId && String(req.receiver_id) === normalizedCurrentUserId && req.status === 'pending'
         );
         if (incomingRequest) return { type: 'incoming', request: incomingRequest } as const;
 
         const outgoingRequest = friendRequests.find(
-          (req) => req.sender_id === currentUserId && req.receiver_id === userId && req.status === 'pending'
+          (req) => String(req.sender_id) === normalizedCurrentUserId && String(req.receiver_id) === normalizedUserId && req.status === 'pending'
         );
         if (outgoingRequest) return { type: 'outgoing', request: outgoingRequest } as const;
 
         const acceptedRequest = friendRequests.find(
           (req) =>
             req.status === 'accepted' &&
-            ((req.sender_id === currentUserId && req.receiver_id === userId) ||
-              (req.sender_id === userId && req.receiver_id === currentUserId))
+            ((String(req.sender_id) === normalizedCurrentUserId && String(req.receiver_id) === normalizedUserId) ||
+              (String(req.sender_id) === normalizedUserId && String(req.receiver_id) === normalizedCurrentUserId))
         );
         if (acceptedRequest) return { type: 'connected', request: acceptedRequest } as const;
 

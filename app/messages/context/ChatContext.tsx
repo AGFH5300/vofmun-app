@@ -107,10 +107,12 @@ const normalizeFriendRequestStatus = (status?: string | null) => (status === 'de
 
 
 const getFriendRelationshipStatus = (requests: FriendRequest[], userId: string, otherUserId: string) => {
+  const normalizedUserId = String(userId);
+  const normalizedOtherUserId = String(otherUserId);
   const related = requests.filter(
     (req) =>
-      (req.sender_id === otherUserId && req.receiver_id === userId) ||
-      (req.receiver_id === otherUserId && req.sender_id === userId)
+      (String(req.sender_id) === normalizedOtherUserId && String(req.receiver_id) === normalizedUserId) ||
+      (String(req.receiver_id) === normalizedOtherUserId && String(req.sender_id) === normalizedUserId)
   );
 
   if (related.some((req) => normalizeFriendRequestStatus(req.status) === 'accepted')) {
