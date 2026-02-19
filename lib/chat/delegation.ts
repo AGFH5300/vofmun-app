@@ -42,7 +42,10 @@ const DELEGATION_SHORT_LABEL_OVERRIDES: Record<string, string> = {
   'kingdom of morocco': 'Morocco',
   'kingdom of belgium': 'Belgium',
   'republic of south africa': 'South Africa',
-  'federal republic of nigeria': 'Nigeria'
+  'federal republic of nigeria': 'Nigeria',
+  uk: 'United Kingdom',
+  'u.k.': 'United Kingdom',
+  'u.k': 'United Kingdom'
 };
 
 export const getUserDelegationLabel = (user?: User | null) =>
