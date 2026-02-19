@@ -20,6 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import { RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
+import { getUserDelegationLabel } from "@/lib/chat/delegation";
 
 const isChatDebugEnabled = process.env.NEXT_PUBLIC_CHAT_DEBUG === "1" || process.env.NODE_ENV !== "production";
 
@@ -294,6 +295,7 @@ const ChatShell: React.FC = () => {
   const isActivePeerOnline = Boolean(
     activeRoom?.room_type === "dm" && activeDmPeer?.user_id && onlineUsers.has(String(activeDmPeer.user_id)),
   );
+  const activePeerDelegation = getUserDelegationLabel(activeDmPeer?.user);
 
   useEffect(() => {
     if (!activeRoom || activeRoom.room_type !== 'dm') return;
@@ -558,24 +560,31 @@ const ChatShell: React.FC = () => {
                   <h3 className="!mb-1 text-2xl font-semibold text-deep-red">
                     {activeRoomTitle}
                   </h3>
-                  <div className="flex items-center gap-2">
-                    {activeRoom?.room_type === "dm" && (
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full ${
-                          isActivePeerOnline ? "bg-emerald-500" : "bg-slate-400"
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      {activeRoom?.room_type === "dm" && (
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full ${
+                            isActivePeerOnline ? "bg-emerald-500" : "bg-slate-400"
+                          }`}
+                          aria-hidden="true"
+                        />
+                      )}
+                      <p
+                        className={`text-sm ${
+                          roomTypingNames.length || isActivePeerOnline
+                            ? "font-medium text-emerald-600"
+                            : "text-almost-black-green/70"
                         }`}
-                        aria-hidden="true"
-                      />
+                      >
+                        {headerSubtitle}
+                      </p>
+                    </div>
+                    {activeRoom?.room_type === "dm" && activePeerDelegation && (
+                      <p className="text-xs font-medium text-almost-black-green/65">
+                        {activePeerDelegation}
+                      </p>
                     )}
-                    <p
-                      className={`text-sm ${
-                        roomTypingNames.length || isActivePeerOnline
-                          ? "font-medium text-emerald-600"
-                          : "text-almost-black-green/70"
-                      }`}
-                    >
-                      {headerSubtitle}
-                    </p>
                   </div>
                 </div>
                 {activeRoom ? (

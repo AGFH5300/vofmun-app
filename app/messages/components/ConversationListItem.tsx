@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { RoomWithDetails } from '@/lib/chat/types';
+import { abbreviateDelegationLabel, getUserDelegationLabel } from '@/lib/chat/delegation';
 import { Pin, PinOff, UserRound, Users } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 
@@ -20,7 +21,8 @@ const getDisplayMeta = (room: RoomWithDetails, currentUserId?: string | null) =>
     const otherMember =
       room.members.find((m) => String(m.user_id) !== String(me?.user_id || '')) || room.members.find((m) => String(m.user_id) !== String(currentUserId || '')) || room.members[0];
     const other = otherMember?.user;
-    const delegation = other?.country || other?.committee;
+    const delegation = getUserDelegationLabel(other);
+    const delegationShort = abbreviateDelegationLabel(delegation);
     const resolvedRoleLabel = (other?.role_title || other?.role || 'Delegate').toString();
     const isDelegate =
       String(other?.role || '').toLowerCase() === 'delegate' ||
@@ -33,6 +35,7 @@ const getDisplayMeta = (room: RoomWithDetails, currentUserId?: string | null) =>
 
     return {
       name: other?.full_name || `${other?.firstname || ''} ${other?.lastname || ''}`.trim() || room.name,
+      shortDelegation: delegationShort,
       sub
     };
   }
@@ -41,6 +44,7 @@ const getDisplayMeta = (room: RoomWithDetails, currentUserId?: string | null) =>
   const label = room.room_type === 'committee' ? 'Committee room' : 'Group chat';
   return {
     name: room.name,
+    shortDelegation: '',
     sub: `${label} · ${memberCount} member${memberCount === 1 ? '' : 's'}`
   };
 };
@@ -113,7 +117,10 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
           <div className="flex-1">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-[1.03rem] font-semibold leading-5 text-deep-red">{meta.name}</p>
+                <p className="text-[1.03rem] font-semibold leading-5 text-deep-red">
+                  {meta.name}
+                  {meta.shortDelegation ? ` (${meta.shortDelegation})` : ''}
+                </p>
               </div>
               <div className="flex flex-col items-end gap-2">
                 {last?.created_at && (
