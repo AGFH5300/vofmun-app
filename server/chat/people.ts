@@ -53,11 +53,24 @@ const logTableResult = (table: string, rows: unknown[]) => {
   console.log(`[people search] ${table} rows`, rows.length);
 };
 
+const countrySearchTokens = (country?: string | null) => {
+  if (!country) return '';
+
+  const normalizedCountry = country.toLowerCase();
+  const aliases: string[] = [];
+
+  if (normalizedCountry.includes('united kingdom') || normalizedCountry.includes('uk')) {
+    aliases.push('uk', 'united kingdom', 'united kindom');
+  }
+
+  return `${country} ${aliases.join(' ')}`.trim();
+};
+
 const matchesQuery = (person: ChatPerson, normalizedQuery: string) => {
   const haystacks = [
     person.displayName,
     person.email || '',
-    person.country || '',
+    countrySearchTokens(person.country),
     person.committeeCode || '',
   ]
     .join(' ')

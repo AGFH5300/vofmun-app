@@ -53,12 +53,43 @@ export async function GET(request: Request) {
     }
 
     const requests = data || [];
+
+    const { data: friendships, error: friendshipsError } = await supabaseAdmin
+      .from('friendships')
+      .select('*')
+      .or(`user1_id.eq.${sessionUser.id},user2_id.eq.${sessionUser.id}`)
+      .order('created_at', { ascending: false });
+
+    if (friendshipsError) {
+      console.error('[api chat friend-requests] failed to fetch friendships', friendshipsError);
+      return jsonResponse({ ok: false, error: 'Failed to load requests' }, 500);
+    }
+
+    const requestPairKeys = new Set(
+      requests.map((req) => [req.sender_id, req.receiver_id].sort().join('::'))
+    );
+
+    const acceptedFromFriendships = (friendships || [])
+      .filter((friendship) => friendship.user1_id && friendship.user2_id)
+      .filter((friendship) => !requestPairKeys.has([friendship.user1_id, friendship.user2_id].sort().join('::')))
+      .map((friendship) => ({
+        id: friendship.id,
+        sender_id: friendship.user1_id,
+        receiver_id: friendship.user2_id,
+        status: 'accepted',
+        created_at: friendship.created_at,
+      }));
+
+    const combinedRequests = [...requests, ...acceptedFromFriendships].sort(
+      (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
+
     const uniqueIds = Array.from(
-      new Set(requests.flatMap((req) => [req.sender_id, req.receiver_id]).filter(Boolean))
+      new Set(combinedRequests.flatMap((req) => [req.sender_id, req.receiver_id]).filter(Boolean))
     );
     const profiles = await fetchPeopleDetailsByIds(uniqueIds);
 
-    const enriched = requests.map((req) => ({
+    const enriched = combinedRequests.map((req) => ({
       ...req,
       status: normalizeRequestStatus(req.status),
       sender: mapProfileToUser(profiles[req.sender_id]),
