@@ -16,7 +16,12 @@ const statusIcon: Record<string, React.ReactNode> = {
   pending: <Clock className="h-3 w-3" />,
   sent: <Check className="h-3 w-3" />,
   delivered: <CheckCheck className="h-3 w-3" />,
-  read: <CheckCheck className="h-3 w-3 text-sky-500" />,
+  read: (
+    <span className="inline-flex items-center text-[#3b82f6]" aria-label="Read">
+      <Check className="h-3 w-3" />
+      <Check className="-ml-1 h-3 w-3" />
+    </span>
+  ),
   error: <AlertCircle className="h-3 w-3" />,
 };
 
