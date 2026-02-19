@@ -561,6 +561,11 @@ const ChatShell: React.FC = () => {
                     {activeRoomTitle}
                   </h3>
                   <div className="space-y-1">
+                    {activeRoom?.room_type === "dm" && activePeerDelegation && (
+                      <p className="text-xs font-medium text-almost-black-green/65">
+                        {activePeerDelegation}
+                      </p>
+                    )}
                     <div className="flex items-center gap-2">
                       {activeRoom?.room_type === "dm" && (
                         <span
@@ -580,11 +585,6 @@ const ChatShell: React.FC = () => {
                         {headerSubtitle}
                       </p>
                     </div>
-                    {activeRoom?.room_type === "dm" && activePeerDelegation && (
-                      <p className="text-xs font-medium text-almost-black-green/65">
-                        {activePeerDelegation}
-                      </p>
-                    )}
                   </div>
                 </div>
                 {activeRoom ? (

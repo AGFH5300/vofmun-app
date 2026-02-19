@@ -117,10 +117,10 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
           <div className="flex-1">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-[1.03rem] font-semibold leading-5 text-deep-red">
-                  {meta.name}
-                  {meta.shortDelegation ? ` (${meta.shortDelegation})` : ''}
-                </p>
+                <p className="text-base font-semibold leading-5 text-deep-red">{meta.name}</p>
+                {meta.shortDelegation ? (
+                  <p className="mt-0.5 text-sm font-medium leading-4 text-almost-black-green/70">({meta.shortDelegation})</p>
+                ) : null}
               </div>
               <div className="flex flex-col items-end gap-2">
                 {last?.created_at && (
