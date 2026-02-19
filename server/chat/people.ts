@@ -59,7 +59,11 @@ const countrySearchTokens = (country?: string | null) => {
   const normalizedCountry = country.toLowerCase();
   const aliases: string[] = [];
 
-  if (normalizedCountry.includes('united kingdom') || normalizedCountry.includes('uk')) {
+  if (
+    normalizedCountry.includes('united kingdom') ||
+    normalizedCountry.includes('united kindom') ||
+    normalizedCountry.includes('uk')
+  ) {
     aliases.push('uk', 'united kingdom', 'united kindom');
   }
 

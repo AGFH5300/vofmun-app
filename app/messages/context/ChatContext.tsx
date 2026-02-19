@@ -105,6 +105,25 @@ const getWebSocketUrl = () => {
 
 const normalizeFriendRequestStatus = (status?: string | null) => (status === 'declined' ? 'rejected' : status || 'pending');
 
+
+const getFriendRelationshipStatus = (requests: FriendRequest[], userId: string, otherUserId: string) => {
+  const related = requests.filter(
+    (req) =>
+      (req.sender_id === otherUserId && req.receiver_id === userId) ||
+      (req.receiver_id === otherUserId && req.sender_id === userId)
+  );
+
+  if (related.some((req) => normalizeFriendRequestStatus(req.status) === 'accepted')) {
+    return 'accepted';
+  }
+
+  if (related.some((req) => normalizeFriendRequestStatus(req.status) === 'pending')) {
+    return 'pending';
+  }
+
+  return 'none';
+};
+
 const parseFriendRequestsResponse = (json: unknown): FriendRequest[] | null => {
   if (Array.isArray(json)) return json as FriendRequest[];
   if (json && typeof json === 'object' && 'requests' in json && Array.isArray((json as { requests?: unknown }).requests)) {
@@ -788,11 +807,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         const mapped: UserSearchResult[] = data
           .filter((person) => person.id !== userId)
           .map((person) => {
-            const existingRequest = friendRequests.find(
-              (req) =>
-                (req.sender_id === person.id && req.receiver_id === userId) ||
-                (req.receiver_id === person.id && req.sender_id === userId)
-            );
+            const relationshipStatus = getFriendRelationshipStatus(friendRequests, userId, person.id);
 
             return {
               id: person.id,
@@ -801,8 +816,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
               role: person.role,
               committee: person.committeeCode || null,
               country: person.country || null,
-              is_friend: existingRequest?.status === 'accepted',
-              has_pending_request: existingRequest?.status === 'pending',
+              is_friend: relationshipStatus === 'accepted',
+              has_pending_request: relationshipStatus === 'pending',
             };
           });
         return mapped;
