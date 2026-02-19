@@ -260,7 +260,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                       <button
                         type="button"
                         onClick={() => handleStartChat(user)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-[#701e1e] px-3 py-2 font-semibold text-white shadow-sm hover:bg-[#8b2424]"
+                        className="inline-flex items-center gap-2 rounded-xl bg-[#701e1e] px-3 py-2 font-semibold text-almost-black-green shadow-sm hover:bg-[#8b2424]"
                       >
                         <BadgeCheck className="h-4 w-4 text-sky-500" /> In friends
                       </button>
