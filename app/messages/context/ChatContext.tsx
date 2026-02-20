@@ -10,6 +10,8 @@ import {
   UserSearchResult,
 } from '@/lib/chat/types';
 import { useSession } from '@/app/context/sessionContext';
+import supabase from '@/lib/supabase';
+import { normalizeMessageMeta, resolveOwnMessageStatus } from '@/lib/chat/messageMeta';
 
 const CHAT_WS_URL = process.env.NEXT_PUBLIC_CHAT_WS_URL;
 const CHAT_API_URL = process.env.NEXT_PUBLIC_CHAT_API_URL || '';
@@ -133,6 +135,18 @@ const parseFriendRequestsResponse = (json: unknown): FriendRequest[] | null => {
   }
   return null;
 };
+
+const getRoomMemberIds = (roomId: string, rooms: RoomWithDetails[]): string[] => {
+  const room = rooms.find((item) => item.id === roomId);
+  return room?.members.map((member) => String(member.user_id)) || [];
+};
+
+const hydrateMessage = (message: MessageWithUser, currentUserId: string | null, roomMemberIds: string[]): MessageWithUser => ({
+  ...message,
+  meta: normalizeMessageMeta(message.meta),
+  status: resolveOwnMessageStatus(message, currentUserId, roomMemberIds),
+});
+
 
 export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [rooms, setRooms] = useState<RoomWithDetails[]>([]);
@@ -259,13 +273,31 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     );
   }, [userId, withAuthHeaders]);
 
+  const markReceipts = useCallback(
+    async (roomId: string, messageIds: string[], markRead = false) => {
+      if (!userId || messageIds.length === 0) return;
+      await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/receipts`, withAuthHeaders({
+        method: 'POST',
+        body: JSON.stringify({ messageIds, markRead }),
+      }));
+    },
+    [userId, withAuthHeaders]
+  );
+
   const refreshRoomMessages = useCallback(
     async (roomId: string) => {
       if (!userId) return;
       const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, withAuthHeaders());
       if (!response.ok) return;
       const data = (await response.json()) as MessageWithUser[];
-      const withResolvedStatus = data.map((message) => ({ ...message }));
+      const roomMemberIds = getRoomMemberIds(roomId, roomsRef.current);
+      const withResolvedStatus = data.map((message) => hydrateMessage(message, userId, roomMemberIds));
+      const incomingMessageIds = withResolvedStatus
+        .filter((message) => message.user_id !== userId)
+        .map((message) => String(message.id));
+
+      void markReceipts(roomId, incomingMessageIds, false);
+
       setMessages((prev) => {
         const existing = prev[roomId] || [];
         const pendingOrFailed = existing.filter(
@@ -279,7 +311,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         return { ...prev, [roomId]: merged };
       });
     },
-    [userId, withAuthHeaders]
+    [markReceipts, userId, withAuthHeaders]
   );
 
   const sendTyping = useCallback(
@@ -401,7 +433,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           const roomId = rawMessage?.room_id || payload.roomId;
           if (!rawMessage || !roomId) break;
           const normalizedRoomId = toComparableId(roomId);
-          const message = { ...rawMessage, room_id: normalizedRoomId };
+          const memberIds = getRoomMemberIds(normalizedRoomId, roomsRef.current);
+          const message = hydrateMessage({ ...rawMessage, room_id: normalizedRoomId }, userIdRef.current, memberIds);
           logChatDebug('socket:new_message', {
             roomId: normalizedRoomId,
             messageId: message.id,
@@ -642,7 +675,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         setMessages((prev) => {
           const list = prev[roomId] || [];
           const withoutTemp = list.filter((msg) => msg.id !== tempId && msg.id !== saved.id);
-          return { ...prev, [roomId]: [...withoutTemp, { ...saved, status: 'sent' }] };
+          const memberIds = getRoomMemberIds(roomId, roomsRef.current);
+          return { ...prev, [roomId]: [...withoutTemp, hydrateMessage({ ...saved, status: 'sent' }, userIdRef.current, memberIds)] };
         });
       } catch (error) {
         logChatDebug('sendMessage:error', {
@@ -660,6 +694,76 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     },
     [userId, withAuthHeaders]
   );
+
+
+  useEffect(() => {
+    if (!activeRoom?.id || !userId) return;
+    const roomId = activeRoom.id;
+    const currentMessages = messages[roomId] || [];
+    const incomingMessageIds = currentMessages
+      .filter((message) => message.user_id !== userId)
+      .map((message) => String(message.id));
+
+    if (incomingMessageIds.length === 0) return;
+    void markReceipts(roomId, incomingMessageIds, true);
+  }, [activeRoom?.id, markReceipts, messages, userId]);
+
+  useEffect(() => {
+    if (!activeRoom?.id || !userId) return;
+
+    const onFocus = () => {
+      if (document.visibilityState === 'hidden') return;
+      const currentMessages = messages[activeRoom.id] || [];
+      const incomingMessageIds = currentMessages
+        .filter((message) => message.user_id !== userId)
+        .map((message) => String(message.id));
+      void markReceipts(activeRoom.id, incomingMessageIds, true);
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [activeRoom?.id, markReceipts, messages, userId]);
+
+  useEffect(() => {
+    if (!activeRoom?.id) return;
+    const roomId = activeRoom.id;
+    const channel = supabase
+      .channel(`messages:${roomId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages', filter: `room_id=eq.${roomId}` },
+        (payload) => {
+          const next = payload.new as MessageWithUser;
+          if (!next?.id) return;
+          const roomMemberIds = getRoomMemberIds(roomId, roomsRef.current);
+          const hydrated = hydrateMessage({ ...next, room_id: roomId }, userIdRef.current, roomMemberIds);
+          setMessages((prev) => {
+            const list = prev[roomId] || [];
+            const hasExisting = list.some((item) => item.id === hydrated.id);
+            const merged = hasExisting
+              ? list.map((item) => (item.id === hydrated.id ? { ...item, ...hydrated, user: item.user || hydrated.user } : item))
+              : [...list, hydrated];
+            return {
+              ...prev,
+              [roomId]: merged.sort((a, b) => {
+                const first = a.created_at ? new Date(a.created_at).getTime() : Number.MAX_SAFE_INTEGER;
+                const second = b.created_at ? new Date(b.created_at).getTime() : Number.MAX_SAFE_INTEGER;
+                return first - second;
+              }),
+            };
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [activeRoom?.id]);
 
   const togglePin = useCallback((roomId: string) => {
     setPinnedRoomIds((prev) => {

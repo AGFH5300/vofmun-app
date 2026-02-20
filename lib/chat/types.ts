@@ -49,6 +49,9 @@ export interface Message {
   edited_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  meta?: Record<string, unknown> | null;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 export interface MessageWithUser extends Message {

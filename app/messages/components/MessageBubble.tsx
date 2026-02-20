@@ -15,7 +15,7 @@ interface Props {
 const statusIcon: Record<string, React.ReactNode> = {
   pending: <Clock className="h-3 w-3" />,
   sent: <Check className="h-3 w-3" />,
-  delivered: <CheckCheck className="h-3 w-3 text-sky-500" />,
+  delivered: <CheckCheck className="h-3 w-3" />,
   read: (
     <span className="inline-flex items-center text-[#3b82f6]" aria-label="Read">
       <Check className="h-3 w-3" />
@@ -28,7 +28,7 @@ const statusIcon: Record<string, React.ReactNode> = {
 const statusClass: Record<string, string> = {
   pending: 'text-almost-black-green/40',
   sent: 'text-almost-black-green/50',
-  delivered: 'text-sky-500',
+  delivered: 'text-almost-black-green/55',
   read: 'text-sky-500',
   error: 'text-deep-red',
 };

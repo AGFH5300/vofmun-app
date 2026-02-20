@@ -3,6 +3,7 @@ import supabaseAdmin from '@/lib/supabaseAdmin';
 import { getSessionUserFromRequest } from '@/lib/chat/auth';
 import { fetchProfilesByIds } from '@/app/api/rooms/_lib/rooms';
 import { MessageWithUser } from '@/lib/chat/types';
+import { createDefaultMessageMeta } from '@/lib/chat/messageMeta';
 
 export async function GET(request: Request, { params }: { params: Promise<{ roomId: string }> }) {
   try {
@@ -96,7 +97,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
 
     const { data: inserted, error } = await supabaseAdmin
       .from('messages')
-      .insert({ room_id: roomId, user_id: sessionUser.id, content: content.trim(), reply_to: reply_to || null })
+      .insert({
+        room_id: roomId,
+        user_id: sessionUser.id,
+        content: content.trim(),
+        reply_to: reply_to || null,
+        meta: createDefaultMessageMeta(),
+      })
       .select('*')
       .single();
 
