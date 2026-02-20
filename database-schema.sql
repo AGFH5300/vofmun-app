@@ -163,7 +163,7 @@ create table public.room_members (
 ) TABLESPACE pg_default;
 
 create table public.messages (
-  id uuid not null default gen_random_uuid(),
+  id uuid not null default gen_random_uuid (),
   room_id uuid null,
   user_id character varying(255) null,
   content text not null,
@@ -172,6 +172,9 @@ create table public.messages (
   edited_at timestamp with time zone null,
   created_at timestamp with time zone null default now(),
   updated_at timestamp with time zone null default now(),
+  meta jsonb not null default '{}'::jsonb,
+  deleted_at timestamp with time zone null,
+  deleted_by character varying(255) null,
   constraint messages_pkey primary key (id),
   constraint messages_reply_to_fkey foreign key (reply_to) references messages (id) on delete set null,
   constraint messages_room_id_fkey foreign key (room_id) references chat_rooms (id) on delete cascade
