@@ -47,6 +47,15 @@ const requireAuth = (req: AuthedRequest, res: Response, nextFn: NextFunction) =>
   return nextFn();
 };
 
+const fetchRoomMemberUserIds = async (roomId: string): Promise<string[]> => {
+  const { data, error } = await supabaseAdmin.from('room_members').select('user_id').eq('room_id', roomId).limit(200);
+  if (error) {
+    console.error('[chat] failed to fetch room member user ids', { roomId, error: error.message || error });
+    return [];
+  }
+  return (data || []).map((row: any) => String(row.user_id)).filter(Boolean);
+};
+
 const activeSockets = new Set<SocketContext>();
 const CHAT_SERVER_DEBUG_PREFIX = '[ChatServerDebug]';
 const isServerDebugEnabled = process.env.CHAT_SERVER_DEBUG === '1' || process.env.NODE_ENV !== 'production';
@@ -627,97 +636,86 @@ app.post('/api/rooms/:roomId/receipts', requireAuth, async (req: AuthedRequest, 
       return res.status(403).json({ error: 'Not a room member' });
     }
 
+    const actorId = String(req.userId!);
+    const roomMemberUserIds = await fetchRoomMemberUserIds(roomId);
+
+    if (isReceiptsDebugEnabled) {
+      console.warn('[api rooms receipts] identity resolved', {
+        roomId,
+        resolvedActorId: actorId,
+        markRead: Boolean(markRead),
+        sampleRoomMemberUserIds: roomMemberUserIds.slice(0, 5),
+      });
+    }
+
     // RPC call
     const { data, error } = await supabaseAdmin.rpc('mark_message_receipts', {
       p_room_id: roomId,
       p_message_ids: ids,
-      p_user_id: req.userId!,
+      p_user_id: actorId,
       p_mark_read: Boolean(markRead),
     });
 
     if (error) {
-      console.error('[api rooms receipts] rpc failed', { roomId, userId: req.userId, error: error.message || error });
+      console.error('[api rooms receipts] rpc failed', { roomId, userId: actorId, error: error.message || error });
       return res.status(500).json({ error: 'Failed to mark receipts', details: error.message || String(error) });
     }
 
     const updatedIds = (data || []) as string[];
+    const nowIso = new Date().toISOString();
 
-    // PROBE: verify DB actually changed for at least one row (reliability > speed)
-    if (updatedIds.length > 0) {
-      const probeId = updatedIds[0];
-      const probe = await supabaseAdmin
-        .from('messages')
-        .select('id, room_id, user_id, meta')
-        .eq('id', probeId)
-        .single();
+    const rows = await supabaseAdmin
+      .from('messages')
+      .select('id, room_id, user_id, meta')
+      .in('id', updatedIds)
+      .eq('room_id', roomId);
 
-      const probeMeta = (probe.data?.meta ?? {}) as any;
-      const hasReceipts = Boolean(probeMeta?.receipts);
+    if (rows.error) {
+      console.error('[api rooms receipts] failed to load updated messages', { roomId, userId: actorId, error: rows.error.message || rows.error });
+      return res.status(500).json({ error: 'Failed to verify receipts update' });
+    }
 
-      if (isReceiptsDebugEnabled) {
-        console.warn('[api rooms receipts] probe after rpc', {
-          probeId,
-          probeRoom: probe.data?.room_id ?? null,
-          probeUser: probe.data?.user_id ?? null,
-          hasReceipts,
-          probeMeta,
-          probeErr: probe.error?.message ?? null,
+    let firstDeliveredKeys: string[] = [];
+    let firstReadKeys: string[] = [];
+
+    for (const row of rows.data || []) {
+      if (String((row as any).user_id) === actorId) continue;
+
+      const meta = (((row as any).meta ?? {}) as any);
+      meta.receipts ??= {};
+      meta.receipts.delivered ??= {};
+      meta.receipts.read ??= {};
+
+      if (!meta.receipts.delivered[actorId]) {
+        meta.receipts.delivered[actorId] = nowIso;
+      }
+      if (Boolean(markRead) && !meta.receipts.read[actorId]) {
+        meta.receipts.read[actorId] = nowIso;
+      }
+
+      const updateResult = await supabaseAdmin.from('messages').update({ meta }).eq('id', (row as any).id).eq('room_id', roomId);
+      if (updateResult.error) {
+        console.error('[api rooms receipts] fallback merge failed', {
+          roomId,
+          messageId: (row as any).id,
+          userId: actorId,
+          error: updateResult.error.message || updateResult.error,
         });
       }
 
-      // If it didn't actually update meta, do NOT lie to client.
-      // Optional emergency fallback: do a direct update to force receipts (slower, but correct).
-      if (!hasReceipts) {
-        const nowIso = new Date().toISOString();
-
-        // Update a small subset only (first 25) to avoid heavy load.
-        const fallbackIds = updatedIds.slice(0, 25);
-
-        for (const msgId of fallbackIds) {
-          const { data: msgRow, error: msgErr } = await supabaseAdmin
-            .from('messages')
-            .select('id, meta, user_id, room_id')
-            .eq('id', msgId)
-            .eq('room_id', roomId)
-            .single();
-
-          if (msgErr || !msgRow) continue;
-          if ((msgRow as any).user_id === req.userId) continue;
-
-          const meta = ((msgRow as any).meta ?? {}) as any;
-          meta.receipts ??= {};
-          meta.receipts.delivered ??= {};
-          meta.receipts.delivered[req.userId!] ??= nowIso;
-
-          if (Boolean(markRead)) {
-            meta.receipts.read ??= {};
-            meta.receipts.read[req.userId!] ??= nowIso;
-          }
-
-          await supabaseAdmin.from('messages').update({ meta }).eq('id', msgId);
-        }
-
-        // Probe again after fallback
-        const probe2 = await supabaseAdmin.from('messages').select('id, meta').eq('id', probeId).single();
-        const probe2Meta = (probe2.data?.meta ?? {}) as any;
-        const hasReceipts2 = Boolean(probe2Meta?.receipts);
-
-        if (isReceiptsDebugEnabled) {
-          console.warn('[api rooms receipts] probe after fallback', {
-            probeId,
-            hasReceipts2,
-            probe2Meta,
-            probe2Err: probe2.error?.message ?? null,
-          });
-        }
-
-        if (!hasReceipts2) {
-          return res.status(500).json({
-            error: 'Receipts could not be persisted (RPC + fallback failed). Check Supabase URL/project and service role runtime env.',
-            probeId,
-          });
-        }
+      if (firstDeliveredKeys.length === 0) {
+        firstDeliveredKeys = Object.keys(meta.receipts.delivered || {}).slice(0, 5);
+        firstReadKeys = Object.keys(meta.receipts.read || {}).slice(0, 5);
       }
+    }
+
+    if (isReceiptsDebugEnabled) {
+      console.warn('[api rooms receipts] receipts merge result sample', {
+        roomId,
+        resolvedActorId: actorId,
+        deliveredKeys: firstDeliveredKeys,
+        readKeys: firstReadKeys,
+      });
     }
 
     return res.json({ updated: updatedIds });
@@ -816,6 +814,7 @@ wss.on('connection', (socket, req) => {
       logServerDebug('socket:authenticateFromCookie:missing_session');
       return false;
     }
+    logServerDebug('socket:auth_identity_resolved', { resolvedActorId: sessionUser.id, role: sessionUser.role });
     finishSocketAuthentication(sessionUser.id);
     return true;
   };
@@ -872,6 +871,15 @@ wss.on('connection', (socket, req) => {
             .single();
 
           if (!membership) return;
+
+          if (isReceiptsDebugEnabled) {
+            const roomMemberIds = await fetchRoomMemberUserIds(data.roomId);
+            console.warn('[socket auth] join_room identity sample', {
+              roomId: data.roomId,
+              resolvedActorId: context.userId,
+              sampleRoomMemberUserIds: roomMemberIds.slice(0, 5),
+            });
+          }
 
           context.roomId = data.roomId;
           socket.send(JSON.stringify({ type: 'room_joined', roomId: data.roomId } satisfies ChatSocketPayload));

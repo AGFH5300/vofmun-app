@@ -15,6 +15,7 @@ interface Props {
   roomMemberIds?: string[];
   showAuthor?: boolean;
   showAvatar?: boolean;
+  presenceDeliveredHint?: boolean;
 }
 
 const statusIcon: Record<string, React.ReactNode> = {
@@ -38,7 +39,13 @@ const statusClass: Record<string, string> = {
   error: 'text-deep-red',
 };
 
-const resolveReceiptStatus = (message: MessageWithUser, isOwn: boolean, currentUserId: string | null, roomMemberIds: string[] = []) => {
+const resolveReceiptStatus = (
+  message: MessageWithUser,
+  isOwn: boolean,
+  currentUserId: string | null,
+  roomMemberIds: string[] = [],
+  presenceDeliveredHint = false
+) => {
   if (!isOwn) return undefined;
   if (message.status === 'pending' || message.status === 'error') return message.status;
 
@@ -61,21 +68,34 @@ const resolveReceiptStatus = (message: MessageWithUser, isOwn: boolean, currentU
   const isReadForAll = otherParticipants.every((memberId) => Boolean(readReceipts[String(memberId)]));
 
   if (isReadForAll) return 'read';
-  if (isDeliveredForAll) return 'delivered';
+  if (isDeliveredForAll || presenceDeliveredHint) return 'delivered';
   return 'sent';
 };
 
-const MessageBubble: React.FC<Props> = ({ message, isOwn, roomMemberIds = [], showAuthor = true, showAvatar = true }) => {
+const MessageBubble: React.FC<Props> = ({
+  message,
+  isOwn,
+  roomMemberIds = [],
+  showAuthor = true,
+  showAvatar = true,
+  presenceDeliveredHint = false,
+}) => {
   const { user } = useSession();
   const currentUserId =
-    ('id' in (user || {}) && user?.id ? user.id : null) ||
     ('delegateID' in (user || {}) && user?.delegateID ? user.delegateID : null) ||
     ('chairID' in (user || {}) && user?.chairID ? user.chairID : null) ||
     ('adminID' in (user || {}) && user?.adminID ? user.adminID : null) ||
-    ('secretariatID' in (user || {}) && user?.secretariatID ? user.secretariatID : null);
+    ('secretariatID' in (user || {}) && user?.secretariatID ? user.secretariatID : null) ||
+    ('id' in (user || {}) && user?.id ? user.id : null);
   const [contextMenuPosition, setContextMenuPosition] = React.useState<{ x: number; y: number } | null>(null);
   const isFailed = message.status === 'error';
-  const resolvedStatus = resolveReceiptStatus(message, isOwn, currentUserId ? String(currentUserId) : null, roomMemberIds);
+  const resolvedStatus = resolveReceiptStatus(
+    message,
+    isOwn,
+    currentUserId ? String(currentUserId) : null,
+    roomMemberIds,
+    presenceDeliveredHint
+  );
 
   useEffect(() => {
     if (!contextMenuPosition) return;
