@@ -214,6 +214,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const receiptDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingReceiptQueueRef = useRef<{ roomId: string; delivered: Set<string>; read: Set<string> } | null>(null);
   const lastReceiptKeyRef = useRef<string | null>(null);
+  const inFlightReceiptKeysRef = useRef<Set<string>>(new Set());
   const lastScheduledReadLogKeyRef = useRef<string | null>(null);
 
   const toComparableId = useCallback((value: string | number | null | undefined) => String(value ?? ''), []);
@@ -365,30 +366,35 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
       const normalizedMessageIds = Array.from(new Set(messageIds.map((id) => String(id)))).sort();
       const receiptKey = `${roomId}|${markRead ? 'read' : 'delivered'}|${normalizedMessageIds.join(',')}`;
-      if (lastReceiptKeyRef.current === receiptKey) {
+      if (lastReceiptKeyRef.current === receiptKey || inFlightReceiptKeysRef.current.has(receiptKey)) {
         logReceiptsDebug('receipt_post:deduped', { roomId, markRead, messageIds: normalizedMessageIds });
         return;
       }
 
+      inFlightReceiptKeysRef.current.add(receiptKey);
       const payload = { messageIds: normalizedMessageIds, markRead };
       logReceiptsDebug('receipt_post:request', { roomId, payload });
-      const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/receipts`, withAuthHeaders({
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }));
-      if (response.ok) {
-        lastReceiptKeyRef.current = receiptKey;
+      try {
+        const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/receipts`, withAuthHeaders({
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }));
+        if (response.ok) {
+          lastReceiptKeyRef.current = receiptKey;
+        }
+        const responseBody = await response
+          .clone()
+          .json()
+          .catch(() => null);
+        logReceiptsDebug('receipt_post:response', {
+          roomId,
+          status: response.status,
+          ok: response.ok,
+          body: responseBody,
+        });
+      } finally {
+        inFlightReceiptKeysRef.current.delete(receiptKey);
       }
-      const responseBody = await response
-        .clone()
-        .json()
-        .catch(() => null);
-      logReceiptsDebug('receipt_post:response', {
-        roomId,
-        status: response.status,
-        ok: response.ok,
-        body: responseBody,
-      });
     },
     [userId, withAuthHeaders]
   );
@@ -580,6 +586,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         online_user_ids?: Array<string | number>;
         online_users?: Array<string | number>;
         onlineUsers?: Array<string | number>;
+        actor_id?: string | number;
+        mark_read?: boolean;
+        message_ids?: Array<string | number>;
+        receipts_patch?: Record<string, MessageWithUser['meta']>;
       };
       const payloadType = payload.type || payloadWithLegacy.event || payloadWithLegacy.action;
       const roomId = payload.roomId ? String(payload.roomId) : payloadWithLegacy.room_id ? String(payloadWithLegacy.room_id) : undefined;
@@ -642,6 +652,61 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
               scheduleReceiptsForMessages(normalizedRoomId, roomMessages, true);
             }
           }
+          break;
+        }
+        case 'receipts_updated': {
+          const normalizedRoomId = roomId ? toComparableId(roomId) : undefined;
+          const messageIds = (payload.messageIds || payloadWithLegacy.message_ids || [])
+            .map((id) => toComparableId(id))
+            .filter(Boolean);
+          const receiptsPatch = payload.receiptsPatch || payloadWithLegacy.receipts_patch || {};
+          const actorId = payload.actorId ? toComparableId(payload.actorId) : payloadWithLegacy.actor_id ? toComparableId(payloadWithLegacy.actor_id) : null;
+          const markRead = Boolean(payload.markRead ?? payloadWithLegacy.mark_read);
+
+          if (!normalizedRoomId || (messageIds.length === 0 && Object.keys(receiptsPatch).length === 0)) break;
+
+          let updatedCount = 0;
+          setMessages((prev) => {
+            const roomMessages = prev[normalizedRoomId] || [];
+            if (roomMessages.length === 0) return prev;
+
+            const messageIdSet = new Set(messageIds);
+            const roomMemberIds = getRoomMemberIds(normalizedRoomId, roomsRef.current);
+            const nextRoomMessages = roomMessages.map((message) => {
+              const messageId = toComparableId(message.id);
+              const patchedMeta = receiptsPatch[messageId];
+
+              if (!patchedMeta && !messageIdSet.has(messageId)) {
+                return message;
+              }
+
+              const mergedMeta = mergeMessageMeta(message.meta, patchedMeta || {});
+              updatedCount += 1;
+
+              const mergedMessage = {
+                ...message,
+                meta: mergedMeta,
+              };
+
+              return {
+                ...mergedMessage,
+                status: resolveOwnMessageStatus(mergedMessage, userIdRef.current, roomMemberIds),
+              };
+            });
+
+            return {
+              ...prev,
+              [normalizedRoomId]: nextRoomMessages,
+            };
+          });
+
+          logReceiptsDebug('socket:receipts_updated', {
+            roomId: normalizedRoomId,
+            actorId,
+            markRead,
+            messageCount: messageIds.length,
+            updatedCount,
+          });
           break;
         }
         case 'typing':
