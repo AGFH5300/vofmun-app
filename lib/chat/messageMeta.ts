@@ -1,3 +1,5 @@
+// © 2026 Ansh Gupta. All rights reserved.
+// Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 import { MessageStatus, MessageWithUser } from '@/lib/chat/types';
 
 export type ReceiptMap = Record<string, string>;

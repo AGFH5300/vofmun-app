@@ -1,3 +1,5 @@
+// © 2026 Ansh Gupta. All rights reserved.
+// Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 import TiptapLink from "@tiptap/extension-link"
 import type { EditorView } from "@tiptap/pm/view"
 import { getMarkRange } from "@tiptap/react"
