@@ -50,6 +50,7 @@ const requireAuth = (req: AuthedRequest, res: Response, nextFn: NextFunction) =>
 const activeSockets = new Set<SocketContext>();
 const CHAT_SERVER_DEBUG_PREFIX = '[ChatServerDebug]';
 const isServerDebugEnabled = process.env.CHAT_SERVER_DEBUG === '1' || process.env.NODE_ENV !== 'production';
+const isReceiptsDebugEnabled = process.env.CHAT_RECEIPTS_DEBUG === '1';
 const userConnectionCounts = new Map<string, number>();
 
 const logServerDebug = (message: string, details?: Record<string, unknown>) => {
@@ -653,14 +654,16 @@ app.post('/api/rooms/:roomId/receipts', requireAuth, async (req: AuthedRequest, 
       const probeMeta = (probe.data?.meta ?? {}) as any;
       const hasReceipts = Boolean(probeMeta?.receipts);
 
-      console.warn('[api rooms receipts] probe after rpc', {
-        probeId,
-        probeRoom: probe.data?.room_id ?? null,
-        probeUser: probe.data?.user_id ?? null,
-        hasReceipts,
-        probeMeta,
-        probeErr: probe.error?.message ?? null,
-      });
+      if (isReceiptsDebugEnabled) {
+        console.warn('[api rooms receipts] probe after rpc', {
+          probeId,
+          probeRoom: probe.data?.room_id ?? null,
+          probeUser: probe.data?.user_id ?? null,
+          hasReceipts,
+          probeMeta,
+          probeErr: probe.error?.message ?? null,
+        });
+      }
 
       // If it didn't actually update meta, do NOT lie to client.
       // Optional emergency fallback: do a direct update to force receipts (slower, but correct).
@@ -699,12 +702,14 @@ app.post('/api/rooms/:roomId/receipts', requireAuth, async (req: AuthedRequest, 
         const probe2Meta = (probe2.data?.meta ?? {}) as any;
         const hasReceipts2 = Boolean(probe2Meta?.receipts);
 
-        console.warn('[api rooms receipts] probe after fallback', {
-          probeId,
-          hasReceipts2,
-          probe2Meta,
-          probe2Err: probe2.error?.message ?? null,
-        });
+        if (isReceiptsDebugEnabled) {
+          console.warn('[api rooms receipts] probe after fallback', {
+            probeId,
+            hasReceipts2,
+            probe2Meta,
+            probe2Err: probe2.error?.message ?? null,
+          });
+        }
 
         if (!hasReceipts2) {
           return res.status(500).json({

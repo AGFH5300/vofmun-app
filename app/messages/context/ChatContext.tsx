@@ -69,6 +69,9 @@ const TYPING_IDLE_TIMEOUT_MS = 2500;
 const TYPING_REMOTE_EXPIRY_MS = 5000;
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 12000;
+const RECEIPT_DEBOUNCE_MS = 300;
+
+const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 
 const logChatDebug = (message: string, details?: Record<string, unknown>) => {
   if (!isChatDebugEnabled) return;
@@ -149,6 +152,25 @@ const hydrateMessage = (message: MessageWithUser, currentUserId: string | null, 
   status: resolveOwnMessageStatus(message, currentUserId, roomMemberIds),
 });
 
+const mergeMessageMeta = (existingMeta: unknown, incomingMeta: unknown) => {
+  const existing = normalizeMessageMeta(existingMeta);
+  const incoming = normalizeMessageMeta(incomingMeta);
+  return {
+    ...existing,
+    ...incoming,
+    receipts: {
+      delivered: {
+        ...existing.receipts.delivered,
+        ...incoming.receipts.delivered,
+      },
+      read: {
+        ...existing.receipts.read,
+        ...incoming.receipts.read,
+      },
+    },
+  };
+};
+
 
 export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [rooms, setRooms] = useState<RoomWithDetails[]>([]);
@@ -173,11 +195,14 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const activeRoomIdRef = useRef<string | null>(null);
   const roomsRef = useRef<RoomWithDetails[]>([]);
   const onlineUsersRef = useRef<Set<string>>(new Set());
+  const messagesRef = useRef<Record<string, MessageWithUser[]>>({});
   const userIdRef = useRef<string | null>(null);
   const shouldReconnectRef = useRef(true);
   const typingThrottleRef = useRef<Map<string, number>>(new Map());
   const typingIdleTimeoutRef = useRef<Map<string, number>>(new Map());
   const typingExpiryRef = useRef<Map<string, Map<string, number>>>(new Map());
+  const receiptDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingReceiptQueueRef = useRef<{ roomId: string; delivered: Set<string>; read: Set<string> } | null>(null);
 
   const toComparableId = useCallback((value: string | number | null | undefined) => String(value ?? ''), []);
 
@@ -191,6 +216,28 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       },
     }),
     []
+  );
+
+  const collectReceiptCandidates = useCallback(
+    (roomMessages: MessageWithUser[], markRead: boolean) => {
+      if (!userId) return [] as string[];
+
+      return roomMessages
+        .filter((message) => {
+          if (String(message.user_id) === userId) return false;
+          const messageId = String(message.id ?? '');
+          if (!isUuid(messageId)) return false;
+
+          const meta = normalizeMessageMeta(message.meta);
+          const hasDelivered = Boolean(meta.receipts.delivered[userId]);
+          const hasRead = Boolean(meta.receipts.read[userId]);
+
+          if (markRead) return !hasRead;
+          return !hasDelivered;
+        })
+        .map((message) => String(message.id));
+    },
+    [userId]
   );
 
   useEffect(() => {
@@ -224,6 +271,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   useEffect(() => {
     onlineUsersRef.current = onlineUsers;
   }, [onlineUsers]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   useEffect(() => {
     userIdRef.current = userId;
@@ -286,6 +337,56 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     [userId, withAuthHeaders]
   );
 
+  const flushScheduledReceipts = useCallback(async () => {
+    const queued = pendingReceiptQueueRef.current;
+    pendingReceiptQueueRef.current = null;
+    if (!queued) return;
+
+    const deliveredIds = Array.from(queued.delivered);
+    const readIds = Array.from(queued.read);
+
+    if (deliveredIds.length > 0) {
+      await markReceipts(queued.roomId, deliveredIds, false);
+    }
+    if (readIds.length > 0) {
+      await markReceipts(queued.roomId, readIds, true);
+    }
+  }, [markReceipts]);
+
+  const scheduleReceiptsForMessages = useCallback(
+    (roomId: string, roomMessages: MessageWithUser[], markRead: boolean) => {
+      const ids = collectReceiptCandidates(roomMessages, markRead);
+      if (ids.length === 0) return;
+
+      const existingQueue = pendingReceiptQueueRef.current;
+      const queue =
+        existingQueue && existingQueue.roomId === roomId
+          ? existingQueue
+          : { roomId, delivered: new Set<string>(), read: new Set<string>() };
+
+      ids.forEach((id) => {
+        if (markRead) {
+          queue.read.add(id);
+          queue.delivered.add(id);
+          return;
+        }
+        queue.delivered.add(id);
+      });
+
+      pendingReceiptQueueRef.current = queue;
+
+      if (receiptDebounceTimerRef.current) {
+        clearTimeout(receiptDebounceTimerRef.current);
+      }
+
+      receiptDebounceTimerRef.current = setTimeout(() => {
+        receiptDebounceTimerRef.current = null;
+        void flushScheduledReceipts();
+      }, RECEIPT_DEBOUNCE_MS);
+    },
+    [collectReceiptCandidates, flushScheduledReceipts]
+  );
+
   const refreshRoomMessages = useCallback(
     async (roomId: string) => {
       if (!userId) return;
@@ -294,11 +395,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const data = (await response.json()) as MessageWithUser[];
       const roomMemberIds = getRoomMemberIds(roomId, roomsRef.current);
       const withResolvedStatus = data.map((message) => hydrateMessage(message, userId, roomMemberIds));
-      const incomingMessageIds = withResolvedStatus
-        .filter((message) => message.user_id !== userId)
-        .map((message) => String(message.id));
-
-      void markReceipts(roomId, incomingMessageIds, false);
+      scheduleReceiptsForMessages(roomId, withResolvedStatus, false);
+      if (typeof document !== 'undefined' && document.visibilityState !== 'hidden' && roomId === activeRoomIdRef.current) {
+        scheduleReceiptsForMessages(roomId, withResolvedStatus, true);
+      }
 
       setMessages((prev) => {
         const existing = prev[roomId] || [];
@@ -313,7 +413,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         return { ...prev, [roomId]: merged };
       });
     },
-    [markReceipts, userId, withAuthHeaders]
+    [scheduleReceiptsForMessages, userId, withAuthHeaders]
   );
 
   const sendTyping = useCallback(
@@ -461,6 +561,13 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
                 : room
             )
           );
+          if (normalizedRoomId === activeRoomIdRef.current) {
+            const roomMessages = [...(messagesRef.current[normalizedRoomId] || []), message];
+            scheduleReceiptsForMessages(normalizedRoomId, roomMessages, false);
+            if (typeof document !== 'undefined' && document.visibilityState !== 'hidden') {
+              scheduleReceiptsForMessages(normalizedRoomId, roomMessages, true);
+            }
+          }
           break;
         }
         case 'typing':
@@ -541,7 +648,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
       }
     },
-    [toComparableId]
+    [scheduleReceiptsForMessages, toComparableId]
   );
 
   const connectSocket = useCallback(() => {
@@ -619,6 +726,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         roomMap.forEach((timeoutId) => window.clearTimeout(timeoutId));
       });
       typingExpiryRef.current.clear();
+      if (receiptDebounceTimerRef.current) {
+        window.clearTimeout(receiptDebounceTimerRef.current);
+        receiptDebounceTimerRef.current = null;
+      }
+      pendingReceiptQueueRef.current = null;
       const socket = wsRef.current;
       wsRef.current = null;
       socket?.close();
@@ -697,29 +809,28 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     [userId, withAuthHeaders]
   );
 
+  const activeRoomMessageCount = activeRoom?.id ? (messages[activeRoom.id]?.length ?? 0) : 0;
+
 
   useEffect(() => {
     if (!activeRoom?.id || !userId) return;
     const roomId = activeRoom.id;
-    const currentMessages = messages[roomId] || [];
-    const incomingMessageIds = currentMessages
-      .filter((message) => message.user_id !== userId)
-      .map((message) => String(message.id));
+    const roomMessages = messages[roomId] || [];
+    if (roomMessages.length === 0) return;
 
-    if (incomingMessageIds.length === 0) return;
-    void markReceipts(roomId, incomingMessageIds, true);
-  }, [activeRoom?.id, markReceipts, messages, userId]);
+    scheduleReceiptsForMessages(roomId, roomMessages, false);
+    if (typeof document !== 'undefined' && document.visibilityState !== 'hidden') {
+      scheduleReceiptsForMessages(roomId, roomMessages, true);
+    }
+  }, [activeRoom?.id, activeRoomMessageCount, scheduleReceiptsForMessages, userId]);
 
   useEffect(() => {
     if (!activeRoom?.id || !userId) return;
 
     const onFocus = () => {
       if (document.visibilityState === 'hidden') return;
-      const currentMessages = messages[activeRoom.id] || [];
-      const incomingMessageIds = currentMessages
-        .filter((message) => message.user_id !== userId)
-        .map((message) => String(message.id));
-      void markReceipts(activeRoom.id, incomingMessageIds, true);
+      const currentMessages = messagesRef.current[activeRoom.id] || [];
+      scheduleReceiptsForMessages(activeRoom.id, currentMessages, true);
     };
 
     window.addEventListener('focus', onFocus);
@@ -728,7 +839,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
     };
-  }, [activeRoom?.id, markReceipts, messages, userId]);
+  }, [activeRoom?.id, scheduleReceiptsForMessages, userId]);
 
   useEffect(() => {
     if (!activeRoom?.id) return;
@@ -747,7 +858,16 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             const list = prev[roomId] || [];
             const hasExisting = list.some((item) => item.id === hydrated.id);
             const merged = hasExisting
-              ? list.map((item) => (item.id === hydrated.id ? { ...item, ...hydrated, user: item.user || hydrated.user } : item))
+              ? list.map((item) =>
+                  item.id === hydrated.id
+                    ? {
+                        ...item,
+                        ...hydrated,
+                        meta: mergeMessageMeta(item.meta, hydrated.meta),
+                        user: item.user || hydrated.user,
+                      }
+                    : item
+                )
               : [...list, hydrated];
             return {
               ...prev,
