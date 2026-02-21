@@ -256,11 +256,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       return;
     }
     const candidate =
+      ('id' in user && user.id ? user.id : null) ||
       ('delegateID' in user && user.delegateID ? user.delegateID : null) ||
       ('chairID' in user && user.chairID ? user.chairID : null) ||
       ('adminID' in user && user.adminID ? user.adminID : null) ||
-      ('secretariatID' in user && user.secretariatID ? user.secretariatID : null) ||
-      ('id' in user && user.id ? user.id : null);
+      ('secretariatID' in user && user.secretariatID ? user.secretariatID : null);
 
     if (candidate) {
       setUserId(String(candidate));
@@ -289,6 +289,27 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   useEffect(() => {
     userIdRef.current = userId;
   }, [userId]);
+
+  useEffect(() => {
+    if (!isReceiptsDebugEnabled || !userId) return;
+    const firstRoomMessageWithReceipts = Object.values(messages)
+      .flat()
+      .find((message) => {
+        const meta = normalizeMessageMeta(message.meta);
+        return Object.keys(meta.receipts.delivered).length > 0 || Object.keys(meta.receipts.read).length > 0;
+      });
+
+    const sampleMeta = firstRoomMessageWithReceipts ? normalizeMessageMeta(firstRoomMessageWithReceipts.meta) : null;
+    const sampleReceiptKeys = sampleMeta
+      ? Array.from(new Set([...Object.keys(sampleMeta.receipts.delivered), ...Object.keys(sampleMeta.receipts.read)]))
+      : [];
+
+    logReceiptsDebug('identity_alignment', {
+      currentUserId: userId,
+      sampleMessageId: firstRoomMessageWithReceipts?.id || null,
+      sampleReceiptKeys,
+    });
+  }, [messages, userId]);
 
   const refreshRooms = useCallback(async () => {
     if (!userId) return [] as RoomWithDetails[];
