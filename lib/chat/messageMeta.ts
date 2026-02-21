@@ -72,14 +72,8 @@ export const resolveOwnMessageStatus = (
   currentUserId: string | null,
   roomMemberIds: string[]
 ): MessageStatus => {
+  void roomMemberIds;
   if (message.status === 'pending' || message.status === 'error') return message.status;
-  if (!currentUserId || message.user_id !== currentUserId) return message.status || 'sent';
-
-  const meta = normalizeMessageMeta(message.meta);
-  const others = roomMemberIds.filter((id) => id !== currentUserId);
-  const anyRead = others.some((memberId) => Boolean(meta.receipts.read[memberId]));
-  if (anyRead) return 'read';
-  const anyDelivered = others.some((memberId) => Boolean(meta.receipts.delivered[memberId]));
-  if (anyDelivered) return 'delivered';
+  if (!currentUserId || String(message.user_id) !== String(currentUserId)) return message.status || 'sent';
   return 'sent';
 };

@@ -24,17 +24,6 @@ import {
 import { RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
 import { getUserDelegationLabel } from "@/lib/chat/delegation";
 
-const isChatDebugEnabled = process.env.NEXT_PUBLIC_CHAT_DEBUG === "1" || process.env.NODE_ENV !== "production";
-
-const logChatDebug = (message: string, details?: Record<string, unknown>) => {
-  if (!isChatDebugEnabled) return;
-  if (details) {
-    console.warn(`[ChatDebug] ${message}`, details);
-    return;
-  }
-  console.warn(`[ChatDebug] ${message}`);
-};
-
 const formatDateLabel = (dateString: string) => {
   const date = new Date(dateString);
   const today = new Date();
@@ -83,6 +72,7 @@ const ChatShell: React.FC = () => {
     sendTyping,
     typingUsers,
     onlineUsers,
+    isConnecting,
     friendRequests,
     incomingRequests,
     acceptFriendRequest,
@@ -103,6 +93,10 @@ const ChatShell: React.FC = () => {
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [shouldScrollOnLoad, setShouldScrollOnLoad] = useState(false);
+  const roomPollInFlightRef = useRef(false);
+  const roomPollBackoffRef = useRef(30000);
+  const roomsPollInFlightRef = useRef(false);
+  const roomsPollBackoffRef = useRef(60000);
 
   const filteredRooms = useMemo(() => {
     if (!search.trim()) return rooms;
@@ -194,20 +188,80 @@ const ChatShell: React.FC = () => {
   useEffect(() => {
     if (!activeRoom?.id) return;
 
-    const interval = window.setInterval(() => {
-      refreshRoomMessages(activeRoom.id);
-    }, 1000);
+    let timeoutId: number | null = null;
+    let cancelled = false;
 
-    return () => window.clearInterval(interval);
-  }, [activeRoom?.id, refreshRoomMessages]);
+    const schedule = (delay: number) => {
+      if (cancelled) return;
+      timeoutId = window.setTimeout(runPoll, delay);
+    };
+
+    const runPoll = async () => {
+      if (cancelled) return;
+      if (document.visibilityState === "hidden" || roomPollInFlightRef.current || isConnecting) {
+        schedule(roomPollBackoffRef.current);
+        return;
+      }
+
+      roomPollInFlightRef.current = true;
+      try {
+        await refreshRoomMessages(activeRoom.id);
+        roomPollBackoffRef.current = 30000;
+      } catch {
+        roomPollBackoffRef.current = Math.min(roomPollBackoffRef.current * 2, 120000);
+      } finally {
+        roomPollInFlightRef.current = false;
+        schedule(roomPollBackoffRef.current);
+      }
+    };
+
+    schedule(roomPollBackoffRef.current);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [activeRoom?.id, isConnecting, refreshRoomMessages]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      refreshRooms();
-    }, 5000);
+    let timeoutId: number | null = null;
+    let cancelled = false;
 
-    return () => window.clearInterval(interval);
-  }, [refreshRooms]);
+    const schedule = (delay: number) => {
+      if (cancelled) return;
+      timeoutId = window.setTimeout(runPoll, delay);
+    };
+
+    const runPoll = async () => {
+      if (cancelled) return;
+      if (document.visibilityState === "hidden" || roomsPollInFlightRef.current || isConnecting) {
+        schedule(roomsPollBackoffRef.current);
+        return;
+      }
+
+      roomsPollInFlightRef.current = true;
+      try {
+        await refreshRooms();
+        roomsPollBackoffRef.current = 60000;
+      } catch {
+        roomsPollBackoffRef.current = Math.min(roomsPollBackoffRef.current * 2, 240000);
+      } finally {
+        roomsPollInFlightRef.current = false;
+        schedule(roomsPollBackoffRef.current);
+      }
+    };
+
+    schedule(roomsPollBackoffRef.current);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [isConnecting, refreshRooms]);
 
   const roomTypingNames = useMemo(() => {
     if (!activeRoom) return [] as string[];
@@ -226,20 +280,6 @@ const ChatShell: React.FC = () => {
       })
       .filter(Boolean) as string[];
   }, [activeRoom, currentUserId, typingUsers]);
-
-  useEffect(() => {
-    if (!activeRoom) return;
-    logChatDebug('page:active_room_snapshot', {
-      roomId: activeRoom.id,
-      roomType: activeRoom.room_type,
-      roomMemberIds: activeRoom.members.map((member) => String(member.user_id)),
-      currentUserId,
-      typingUserIds: Array.from(typingUsers[activeRoom.id] || []),
-      typingNames: roomTypingNames,
-      onlineUserIds: Array.from(onlineUsers),
-      activeDmPeerUserId: activeRoom.members.find((member) => String(member.user_id) !== String(currentUserId || ''))?.user_id || null,
-    });
-  }, [activeRoom, currentUserId, onlineUsers, roomTypingNames, typingUsers]);
 
   const handleSend = async () => {
     if (!activeRoom || !composer.trim()) return;
@@ -298,17 +338,6 @@ const ChatShell: React.FC = () => {
     activeRoom?.room_type === "dm" && activeDmPeer?.user_id && onlineUsers.has(String(activeDmPeer.user_id)),
   );
   const activePeerDelegation = getUserDelegationLabel(activeDmPeer?.user);
-
-  useEffect(() => {
-    if (!activeRoom || activeRoom.room_type !== 'dm') return;
-    logChatDebug('page:dm_presence_snapshot', {
-      roomId: activeRoom.id,
-      peerUserId: activeDmPeer?.user_id || null,
-      isPeerOnline: isActivePeerOnline,
-      onlineUsers: Array.from(onlineUsers),
-      headerTypingNames: roomTypingNames,
-    });
-  }, [activeDmPeer?.user_id, activeRoom, isActivePeerOnline, onlineUsers, roomTypingNames]);
 
   const headerSubtitle = activeRoom
     ? roomTypingNames.length
@@ -712,6 +741,7 @@ const ChatShell: React.FC = () => {
                           <MessageBubble
                             message={message}
                             isOwn={isOwn}
+                            roomMemberIds={activeRoom.members.map((member) => String(member.user_id))}
                             showAuthor={activeRoom.room_type !== "dm"}
                             showAvatar={activeRoom.room_type !== "dm"}
                           />

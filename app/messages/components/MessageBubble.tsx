@@ -5,12 +5,14 @@
 import React, { useEffect } from 'react';
 import { MessageWithUser } from '@/lib/chat/types';
 import { useSession } from '@/app/context/sessionContext';
+import { normalizeMessageMeta } from '@/lib/chat/messageMeta';
 import UserAvatar from './UserAvatar';
 import { AlertCircle, Check, CheckCheck, CheckCircle2, Clock, Copy, Forward, Info, Pencil, Reply, Smile, Trash2 } from 'lucide-react';
 
 interface Props {
   message: MessageWithUser;
   isOwn: boolean;
+  roomMemberIds?: string[];
   showAuthor?: boolean;
   showAvatar?: boolean;
 }
@@ -36,15 +38,34 @@ const statusClass: Record<string, string> = {
   error: 'text-deep-red',
 };
 
-const isChatDebugEnabled = process.env.NEXT_PUBLIC_CHAT_DEBUG === '1' || process.env.NODE_ENV !== 'production';
-
-const resolveReceiptStatus = (message: MessageWithUser, isOwn: boolean) => {
+const resolveReceiptStatus = (message: MessageWithUser, isOwn: boolean, currentUserId: string | null, roomMemberIds: string[] = []) => {
   if (!isOwn) return undefined;
   if (message.status === 'pending' || message.status === 'error') return message.status;
-  return message.status || 'sent';
+
+  const normalizedCurrentUserId = currentUserId ? String(currentUserId) : null;
+  if (!normalizedCurrentUserId) return 'sent';
+
+  const meta = normalizeMessageMeta(message.meta);
+  const deliveredReceipts = meta.receipts?.delivered || {};
+  const readReceipts = meta.receipts?.read || {};
+
+  const otherParticipants = roomMemberIds
+    .map((id) => String(id))
+    .filter((id) => id && id !== normalizedCurrentUserId);
+
+  if (otherParticipants.length === 0) return 'sent';
+
+  const isDeliveredForAll = otherParticipants.every(
+    (memberId) => Boolean(deliveredReceipts[String(memberId)]) || Boolean(readReceipts[String(memberId)])
+  );
+  const isReadForAll = otherParticipants.every((memberId) => Boolean(readReceipts[String(memberId)]));
+
+  if (isReadForAll) return 'read';
+  if (isDeliveredForAll) return 'delivered';
+  return 'sent';
 };
 
-const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true, showAvatar = true }) => {
+const MessageBubble: React.FC<Props> = ({ message, isOwn, roomMemberIds = [], showAuthor = true, showAvatar = true }) => {
   const { user } = useSession();
   const currentUserId =
     ('id' in (user || {}) && user?.id ? user.id : null) ||
@@ -54,20 +75,7 @@ const MessageBubble: React.FC<Props> = ({ message, isOwn, showAuthor = true, sho
     ('secretariatID' in (user || {}) && user?.secretariatID ? user.secretariatID : null);
   const [contextMenuPosition, setContextMenuPosition] = React.useState<{ x: number; y: number } | null>(null);
   const isFailed = message.status === 'error';
-  const resolvedStatus = resolveReceiptStatus(message, isOwn);
-
-  useEffect(() => {
-    if (!isOwn || !isChatDebugEnabled) return;
-    console.warn('[ChatDebug] message_bubble:status_render', {
-      messageId: message.id,
-      roomId: message.room_id,
-      rawStatus: message.status || null,
-      resolvedStatus: resolvedStatus || null,
-      currentUserId: currentUserId ? String(currentUserId) : null,
-      hasStatusIcon: Boolean(resolvedStatus && statusIcon[resolvedStatus]),
-      createdAt: message.created_at || null,
-    });
-  }, [isOwn, message.created_at, message.id, message.room_id, message.status, resolvedStatus]);
+  const resolvedStatus = resolveReceiptStatus(message, isOwn, currentUserId ? String(currentUserId) : null, roomMemberIds);
 
   useEffect(() => {
     if (!contextMenuPosition) return;
