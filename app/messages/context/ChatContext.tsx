@@ -214,6 +214,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const receiptDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingReceiptQueueRef = useRef<{ roomId: string; delivered: Set<string>; read: Set<string> } | null>(null);
   const lastReceiptKeyRef = useRef<string | null>(null);
+  const lastScheduledReadLogKeyRef = useRef<string | null>(null);
 
   const toComparableId = useCallback((value: string | number | null | undefined) => String(value ?? ''), []);
 
@@ -257,11 +258,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       return;
     }
     const candidate =
-      ('id' in user && user.id ? user.id : null) ||
       ('delegateID' in user && user.delegateID ? user.delegateID : null) ||
       ('chairID' in user && user.chairID ? user.chairID : null) ||
       ('adminID' in user && user.adminID ? user.adminID : null) ||
-      ('secretariatID' in user && user.secretariatID ? user.secretariatID : null);
+      ('secretariatID' in user && user.secretariatID ? user.secretariatID : null) ||
+      ('id' in user && user.id ? user.id : null);
 
     if (candidate) {
       setUserId(String(candidate));
@@ -375,7 +376,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         method: 'POST',
         body: JSON.stringify(payload),
       }));
-      lastReceiptKeyRef.current = receiptKey;
+      if (response.ok) {
+        lastReceiptKeyRef.current = receiptKey;
+      }
       const responseBody = await response
         .clone()
         .json()
@@ -410,6 +413,19 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     (roomId: string, roomMessages: MessageWithUser[], markRead: boolean) => {
       const ids = collectReceiptCandidates(roomMessages, markRead);
       if (ids.length === 0) return;
+
+      if (markRead) {
+        const logKey = `${roomId}|${ids.join(',')}`;
+        if (lastScheduledReadLogKeyRef.current !== logKey) {
+          lastScheduledReadLogKeyRef.current = logKey;
+          logReceiptsDebug('receipt_schedule:mark_read_candidates', {
+            roomId,
+            candidateCount: ids.length,
+            candidateIds: ids.slice(0, 5),
+            currentUserId: userIdRef.current,
+          });
+        }
+      }
 
       const existingQueue = pendingReceiptQueueRef.current;
       const queue =
@@ -883,7 +899,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     if (typeof document !== 'undefined' && document.visibilityState !== 'hidden') {
       scheduleReceiptsForMessages(roomId, roomMessages, true);
     }
-  }, [activeRoom?.id, scheduleReceiptsForMessages, userId]);
+  }, [activeRoom?.id, messages, scheduleReceiptsForMessages, userId]);
 
   useEffect(() => {
     if (!activeRoom?.id || !userId) return;

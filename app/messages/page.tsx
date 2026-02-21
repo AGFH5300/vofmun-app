@@ -315,15 +315,25 @@ const ChatShell: React.FC = () => {
 
   const activeDmPeer = useMemo(() => {
     if (!activeRoom || activeRoom.room_type !== "dm") return null;
+    const normalizedCurrentUserId = String(currentUserId || "");
     const me = activeRoom.members.find(
-      (member) => member.user_id === currentUserId || member.user?.id === currentUserId,
+      (member) =>
+        String(member.user_id) === normalizedCurrentUserId ||
+        String(member.user?.id || "") === normalizedCurrentUserId,
     );
     return (
-      activeRoom.members.find((member) => member.user_id !== me?.user_id) ||
-      activeRoom.members.find((member) => member.user_id !== currentUserId) ||
+      activeRoom.members.find((member) => String(member.user_id) !== String(me?.user_id || "")) ||
+      activeRoom.members.find((member) => String(member.user_id) !== normalizedCurrentUserId) ||
       activeRoom.members[0] ||
       null
     );
+  }, [activeRoom, currentUserId]);
+
+  const allOtherMemberIds = useMemo(() => {
+    if (!activeRoom || !currentUserId) return [] as string[];
+    return activeRoom.members
+      .map((member) => String(member.user_id))
+      .filter((memberId) => memberId && memberId !== String(currentUserId));
   }, [activeRoom, currentUserId]);
 
   const activeRoomTitle = activeRoom
@@ -337,6 +347,11 @@ const ChatShell: React.FC = () => {
   const isActivePeerOnline = Boolean(
     activeRoom?.room_type === "dm" && activeDmPeer?.user_id && onlineUsers.has(String(activeDmPeer.user_id)),
   );
+  const areAllOtherMembersOnline =
+    allOtherMemberIds.length > 0 &&
+    allOtherMemberIds.every((memberId) => onlineUsers.has(String(memberId)));
+  const presenceDeliveredHint =
+    activeRoom?.room_type === "dm" ? isActivePeerOnline : areAllOtherMembersOnline;
   const activePeerDelegation = getUserDelegationLabel(activeDmPeer?.user);
 
   const headerSubtitle = activeRoom
@@ -744,6 +759,7 @@ const ChatShell: React.FC = () => {
                             roomMemberIds={activeRoom.members.map((member) => String(member.user_id))}
                             showAuthor={activeRoom.room_type !== "dm"}
                             showAvatar={activeRoom.room_type !== "dm"}
+                            presenceDeliveredHint={presenceDeliveredHint}
                           />
                         </div>
                       );
