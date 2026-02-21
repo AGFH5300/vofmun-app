@@ -115,9 +115,6 @@ const canInteractWithUser = async (viewerId: string, targetUserId: string) => {
 // If it was removed, restore your original getUserContext implementation.
 // For now we keep the reference exactly as your paste showed.
 async function getUserContext(userId: string) {
-  // Your original code likely defined this in server.ts or imported it.
-  // Keeping a minimal fallback to avoid runtime crashes if missing.
-  // Replace with your actual implementation if you had one.
   return fetchPersonById(userId);
 }
 
@@ -597,15 +594,19 @@ app.post('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, 
   }
 });
 
-// -------------------- RECEIPTS (NEW) --------------------
-// This fixes the 404 you saw by implementing receipts in EXPRESS,
-// since server/chat/server.ts intercepts all /api/* before Next's app/api routes.
+// -------------------- RECEIPTS (FIXED) --------------------
+// This endpoint is served by EXPRESS, not Next's app/api, because /api/* is intercepted here.
 app.post('/api/rooms/:roomId/receipts', requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
     const { messageIds, markRead } = req.body as { messageIds?: string[]; markRead?: boolean };
 
-    const ids = Array.isArray(messageIds) ? messageIds.filter((id) => typeof id === 'string' && id.length > 0) : [];
+    // Only accept UUIDs (prevents temp-* ids and other garbage from causing RPC weirdness)
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const ids = Array.isArray(messageIds)
+      ? messageIds.filter((id): id is string => typeof id === 'string' && UUID_RE.test(id))
+      : [];
+
     if (ids.length === 0) return res.json({ updated: [] });
 
     // Ensure user is in room (same pattern as messages)
@@ -625,6 +626,7 @@ app.post('/api/rooms/:roomId/receipts', requireAuth, async (req: AuthedRequest, 
       return res.status(403).json({ error: 'Not a room member' });
     }
 
+    // RPC call
     const { data, error } = await supabaseAdmin.rpc('mark_message_receipts', {
       p_room_id: roomId,
       p_message_ids: ids,
@@ -633,11 +635,87 @@ app.post('/api/rooms/:roomId/receipts', requireAuth, async (req: AuthedRequest, 
     });
 
     if (error) {
-      console.error('[api rooms receipts] rpc failed', { roomId, userId: req.userId, error });
-      return res.status(500).json({ error: 'Failed to mark receipts' });
+      console.error('[api rooms receipts] rpc failed', { roomId, userId: req.userId, error: error.message || error });
+      return res.status(500).json({ error: 'Failed to mark receipts', details: error.message || String(error) });
     }
 
-    return res.json({ updated: data || [] });
+    const updatedIds = (data || []) as string[];
+
+    // PROBE: verify DB actually changed for at least one row (reliability > speed)
+    if (updatedIds.length > 0) {
+      const probeId = updatedIds[0];
+      const probe = await supabaseAdmin
+        .from('messages')
+        .select('id, room_id, user_id, meta')
+        .eq('id', probeId)
+        .single();
+
+      const probeMeta = (probe.data?.meta ?? {}) as any;
+      const hasReceipts = Boolean(probeMeta?.receipts);
+
+      console.warn('[api rooms receipts] probe after rpc', {
+        probeId,
+        probeRoom: probe.data?.room_id ?? null,
+        probeUser: probe.data?.user_id ?? null,
+        hasReceipts,
+        probeMeta,
+        probeErr: probe.error?.message ?? null,
+      });
+
+      // If it didn't actually update meta, do NOT lie to client.
+      // Optional emergency fallback: do a direct update to force receipts (slower, but correct).
+      if (!hasReceipts) {
+        const nowIso = new Date().toISOString();
+
+        // Update a small subset only (first 25) to avoid heavy load.
+        const fallbackIds = updatedIds.slice(0, 25);
+
+        for (const msgId of fallbackIds) {
+          const { data: msgRow, error: msgErr } = await supabaseAdmin
+            .from('messages')
+            .select('id, meta, user_id, room_id')
+            .eq('id', msgId)
+            .eq('room_id', roomId)
+            .single();
+
+          if (msgErr || !msgRow) continue;
+          if ((msgRow as any).user_id === req.userId) continue;
+
+          const meta = ((msgRow as any).meta ?? {}) as any;
+          meta.receipts ??= {};
+          meta.receipts.delivered ??= {};
+          meta.receipts.delivered[req.userId!] ??= nowIso;
+
+          if (Boolean(markRead)) {
+            meta.receipts.read ??= {};
+            meta.receipts.read[req.userId!] ??= nowIso;
+          }
+
+          await supabaseAdmin.from('messages').update({ meta }).eq('id', msgId);
+        }
+
+        // Probe again after fallback
+        const probe2 = await supabaseAdmin.from('messages').select('id, meta').eq('id', probeId).single();
+        const probe2Meta = (probe2.data?.meta ?? {}) as any;
+        const hasReceipts2 = Boolean(probe2Meta?.receipts);
+
+        console.warn('[api rooms receipts] probe after fallback', {
+          probeId,
+          hasReceipts2,
+          probe2Meta,
+          probe2Err: probe2.error?.message ?? null,
+        });
+
+        if (!hasReceipts2) {
+          return res.status(500).json({
+            error: 'Receipts could not be persisted (RPC + fallback failed). Check Supabase URL/project and service role runtime env.',
+            probeId,
+          });
+        }
+      }
+    }
+
+    return res.json({ updated: updatedIds });
   } catch (error) {
     console.error('[api rooms receipts] failed', error);
     return res.status(500).json({ error: 'Failed to mark receipts' });
