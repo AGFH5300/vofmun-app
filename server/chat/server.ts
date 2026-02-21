@@ -114,6 +114,18 @@ const broadcastToRoom = (roomId: string, payload: ChatSocketPayload) => {
   broadcast((ctx) => ctx.roomId === roomId, payload);
 };
 
+const normalizeReceiptsMeta = (meta: unknown) => {
+  const source = meta && typeof meta === 'object' ? (meta as Record<string, unknown>) : {};
+  const receipts = source.receipts && typeof source.receipts === 'object' ? (source.receipts as Record<string, unknown>) : {};
+  return {
+    ...source,
+    receipts: {
+      delivered: receipts.delivered && typeof receipts.delivered === 'object' ? (receipts.delivered as Record<string, string>) : {},
+      read: receipts.read && typeof receipts.read === 'object' ? (receipts.read as Record<string, string>) : {},
+    },
+  };
+};
+
 const canInteractWithUser = async (viewerId: string, targetUserId: string) => {
   const viewer = await getUserContext(viewerId);
   const target = await fetchPersonById(targetUserId);
@@ -662,6 +674,14 @@ app.post('/api/rooms/:roomId/receipts', requireAuth, async (req: AuthedRequest, 
     }
 
     const updatedIds = (data || []) as string[];
+    if (isReceiptsDebugEnabled) {
+      console.warn('[api rooms receipts] write success', {
+        roomId,
+        actorId,
+        markRead: Boolean(markRead),
+        updatedCount: updatedIds.length,
+      });
+    }
     const nowIso = new Date().toISOString();
 
     const rows = await supabaseAdmin
@@ -677,9 +697,14 @@ app.post('/api/rooms/:roomId/receipts', requireAuth, async (req: AuthedRequest, 
 
     let firstDeliveredKeys: string[] = [];
     let firstReadKeys: string[] = [];
+    const receiptsPatch: Record<string, MessageWithUser['meta']> = {};
 
     for (const row of rows.data || []) {
-      if (String((row as any).user_id) === actorId) continue;
+      const rowId = String((row as any).id);
+      if (String((row as any).user_id) === actorId) {
+        receiptsPatch[rowId] = normalizeReceiptsMeta((row as any).meta);
+        continue;
+      }
 
       const meta = (((row as any).meta ?? {}) as any);
       meta.receipts ??= {};
@@ -703,6 +728,8 @@ app.post('/api/rooms/:roomId/receipts', requireAuth, async (req: AuthedRequest, 
         });
       }
 
+      receiptsPatch[rowId] = normalizeReceiptsMeta(meta);
+
       if (firstDeliveredKeys.length === 0) {
         firstDeliveredKeys = Object.keys(meta.receipts.delivered || {}).slice(0, 5);
         firstReadKeys = Object.keys(meta.receipts.read || {}).slice(0, 5);
@@ -715,6 +742,25 @@ app.post('/api/rooms/:roomId/receipts', requireAuth, async (req: AuthedRequest, 
         resolvedActorId: actorId,
         deliveredKeys: firstDeliveredKeys,
         readKeys: firstReadKeys,
+      });
+    }
+
+    broadcastToRoom(roomId, {
+      type: 'receipts_updated',
+      roomId,
+      actorId,
+      markRead: Boolean(markRead),
+      messageIds: updatedIds,
+      receiptsPatch,
+    });
+
+    if (isReceiptsDebugEnabled) {
+      console.warn('[api rooms receipts] receipts_updated broadcast', {
+        roomId,
+        actorId,
+        markRead: Boolean(markRead),
+        messageCount: updatedIds.length,
+        patchCount: Object.keys(receiptsPatch).length,
       });
     }
 

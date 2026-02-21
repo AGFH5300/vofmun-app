@@ -88,11 +88,27 @@ export interface UserSearchResult extends User {
 }
 
 export interface ChatSocketPayload {
-  type: 'auth' | 'authenticated' | 'auth_error' | 'join_room' | 'room_joined' | 'typing' | 'user_typing' | 'new_message' | 'user_online' | 'user_offline' | 'online_users';
+  type:
+    | 'auth'
+    | 'authenticated'
+    | 'auth_error'
+    | 'join_room'
+    | 'room_joined'
+    | 'typing'
+    | 'user_typing'
+    | 'new_message'
+    | 'user_online'
+    | 'user_offline'
+    | 'online_users'
+    | 'receipts_updated';
   token?: string;
   roomId?: string;
   message?: MessageWithUser;
   userId?: string;
   isTyping?: boolean;
   onlineUserIds?: string[];
+  actorId?: string;
+  markRead?: boolean;
+  messageIds?: string[];
+  receiptsPatch?: Record<string, MessageWithUser['meta']>;
 }
