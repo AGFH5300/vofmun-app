@@ -64,6 +64,7 @@ interface ChatContextValue {
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
 const CHAT_DEBUG_PREFIX = '[ChatDebug]';
 const isChatDebugEnabled = process.env.NEXT_PUBLIC_CHAT_DEBUG === '1' || process.env.NODE_ENV !== 'production';
+const isReceiptsDebugEnabled = process.env.NEXT_PUBLIC_CHAT_RECEIPTS_DEBUG === '1';
 const TYPING_TRUE_THROTTLE_MS = 1000;
 const TYPING_IDLE_TIMEOUT_MS = 2500;
 const TYPING_REMOTE_EXPIRY_MS = 5000;
@@ -80,6 +81,15 @@ const logChatDebug = (message: string, details?: Record<string, unknown>) => {
     return;
   }
   console.warn(`${CHAT_DEBUG_PREFIX} ${message}`);
+};
+
+const logReceiptsDebug = (message: string, details?: Record<string, unknown>) => {
+  if (!isReceiptsDebugEnabled) return;
+  if (details) {
+    console.warn(`[ChatReceiptsDebug] ${message}`, details);
+    return;
+  }
+  console.warn(`[ChatReceiptsDebug] ${message}`);
 };
 
 const getWebSocketUrl = () => {
@@ -329,10 +339,22 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const markReceipts = useCallback(
     async (roomId: string, messageIds: string[], markRead = false) => {
       if (!userId || messageIds.length === 0) return;
-      await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/receipts`, withAuthHeaders({
+      const payload = { messageIds, markRead };
+      logReceiptsDebug('receipt_post:request', { roomId, payload });
+      const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/receipts`, withAuthHeaders({
         method: 'POST',
-        body: JSON.stringify({ messageIds, markRead }),
+        body: JSON.stringify(payload),
       }));
+      const responseBody = await response
+        .clone()
+        .json()
+        .catch(() => null);
+      logReceiptsDebug('receipt_post:response', {
+        roomId,
+        status: response.status,
+        ok: response.ok,
+        body: responseBody,
+      });
     },
     [userId, withAuthHeaders]
   );
@@ -852,6 +874,13 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         (payload) => {
           const next = payload.new as MessageWithUser;
           if (!next?.id) return;
+          if (payload.eventType === 'UPDATE') {
+            logReceiptsDebug('realtime:update:meta_receipts', {
+              roomId,
+              messageId: next.id,
+              receipts: normalizeMessageMeta(next.meta).receipts,
+            });
+          }
           const roomMemberIds = getRoomMemberIds(roomId, roomsRef.current);
           const hydrated = hydrateMessage({ ...next, room_id: roomId }, userIdRef.current, roomMemberIds);
           setMessages((prev) => {
@@ -860,12 +889,19 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             const merged = hasExisting
               ? list.map((item) =>
                   item.id === hydrated.id
-                    ? {
-                        ...item,
-                        ...hydrated,
-                        meta: mergeMessageMeta(item.meta, hydrated.meta),
-                        user: item.user || hydrated.user,
-                      }
+                    ? (() => {
+                        const mergedMeta = mergeMessageMeta(item.meta, hydrated.meta);
+                        const mergedMessage = {
+                          ...item,
+                          ...hydrated,
+                          meta: mergedMeta,
+                          user: item.user || hydrated.user,
+                        };
+                        return {
+                          ...mergedMessage,
+                          status: resolveOwnMessageStatus(mergedMessage, userIdRef.current, roomMemberIds),
+                        };
+                      })()
                     : item
                 )
               : [...list, hydrated];
