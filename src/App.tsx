@@ -1,3 +1,5 @@
+// © 2026 Ansh Gupta. All rights reserved.
+// Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 import HomePage from '@/app/home/page';
 import LoginPage from '@/app/login/page';
 import LiveUpdatesPage from '@/app/live-updates/page';

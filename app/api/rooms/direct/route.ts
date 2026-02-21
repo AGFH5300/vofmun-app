@@ -1,3 +1,5 @@
+// © 2026 Ansh Gupta. All rights reserved.
+// Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 import { NextResponse } from 'next/server';
 import supabaseAdmin from '@/lib/supabaseAdmin';
 import { getSessionUserFromRequest } from '@/lib/chat/auth';
