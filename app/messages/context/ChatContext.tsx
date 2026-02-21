@@ -63,7 +63,7 @@ interface ChatContextValue {
 
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
 const CHAT_DEBUG_PREFIX = '[ChatDebug]';
-const isChatDebugEnabled = process.env.NEXT_PUBLIC_CHAT_DEBUG === '1' || process.env.NODE_ENV !== 'production';
+const isChatDebugEnabled = process.env.NEXT_PUBLIC_CHAT_DEBUG === '1';
 const isReceiptsDebugEnabled = process.env.NEXT_PUBLIC_CHAT_RECEIPTS_DEBUG === '1';
 const TYPING_TRUE_THROTTLE_MS = 1000;
 const TYPING_IDLE_TIMEOUT_MS = 2500;
@@ -213,6 +213,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const typingExpiryRef = useRef<Map<string, Map<string, number>>>(new Map());
   const receiptDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingReceiptQueueRef = useRef<{ roomId: string; delivered: Set<string>; read: Set<string> } | null>(null);
+  const lastReceiptKeyRef = useRef<string | null>(null);
 
   const toComparableId = useCallback((value: string | number | null | undefined) => String(value ?? ''), []);
 
@@ -360,12 +361,21 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const markReceipts = useCallback(
     async (roomId: string, messageIds: string[], markRead = false) => {
       if (!userId || messageIds.length === 0) return;
-      const payload = { messageIds, markRead };
+
+      const normalizedMessageIds = Array.from(new Set(messageIds.map((id) => String(id)))).sort();
+      const receiptKey = `${roomId}|${markRead ? 'read' : 'delivered'}|${normalizedMessageIds.join(',')}`;
+      if (lastReceiptKeyRef.current === receiptKey) {
+        logReceiptsDebug('receipt_post:deduped', { roomId, markRead, messageIds: normalizedMessageIds });
+        return;
+      }
+
+      const payload = { messageIds: normalizedMessageIds, markRead };
       logReceiptsDebug('receipt_post:request', { roomId, payload });
       const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/receipts`, withAuthHeaders({
         method: 'POST',
         body: JSON.stringify(payload),
       }));
+      lastReceiptKeyRef.current = receiptKey;
       const responseBody = await response
         .clone()
         .json()
@@ -539,7 +549,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const handleSocketMessage = useCallback(
     (event: MessageEvent) => {
       logChatDebug('socket:onmessage:raw', { data: event.data });
-      const payload = JSON.parse(event.data) as ChatSocketPayload;
+      let payload: ChatSocketPayload;
+      try {
+        payload = JSON.parse(event.data) as ChatSocketPayload;
+      } catch {
+        return;
+      }
       const payloadWithLegacy = payload as ChatSocketPayload & {
         event?: string;
         action?: string;
@@ -552,7 +567,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       };
       const payloadType = payload.type || payloadWithLegacy.event || payloadWithLegacy.action;
       const roomId = payload.roomId ? String(payload.roomId) : payloadWithLegacy.room_id ? String(payloadWithLegacy.room_id) : undefined;
-      const userId = payload.userId ? String(payload.userId) : payloadWithLegacy.user_id ? String(payloadWithLegacy.user_id) : undefined;
+      const payloadUserId = payload.userId ? String(payload.userId) : payloadWithLegacy.user_id ? String(payloadWithLegacy.user_id) : undefined;
       const isTyping = payload.isTyping ?? payloadWithLegacy.is_typing;
 
       switch (payloadType) {
@@ -615,41 +630,41 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         }
         case 'typing':
         case 'user_typing': {
-          if (!roomId || !userId) break;
-          logChatDebug('socket:user_typing', { roomId, userId, isTyping });
+          if (!roomId || !payloadUserId) break;
+          logChatDebug('socket:user_typing', { roomId, userId: payloadUserId, isTyping });
 
           const roomTypingExpiry = typingExpiryRef.current.get(roomId) || new Map<string, number>();
           if (isTyping) {
-            const existingTimeout = roomTypingExpiry.get(userId);
+            const existingTimeout = roomTypingExpiry.get(payloadUserId);
             if (existingTimeout) {
               window.clearTimeout(existingTimeout);
             }
             const timeoutHandle = window.setTimeout(() => {
               setTypingUsers((prev) => {
                 const set = new Set(prev[roomId] || []);
-                if (!set.has(userId)) return prev;
-                set.delete(userId);
+                if (!set.has(payloadUserId)) return prev;
+                set.delete(payloadUserId);
                 return { ...prev, [roomId]: set };
               });
               const roomMap = typingExpiryRef.current.get(roomId);
-              roomMap?.delete(userId);
+              roomMap?.delete(payloadUserId);
             }, TYPING_REMOTE_EXPIRY_MS);
-            roomTypingExpiry.set(userId, timeoutHandle);
+            roomTypingExpiry.set(payloadUserId, timeoutHandle);
             typingExpiryRef.current.set(roomId, roomTypingExpiry);
           } else {
-            const existingTimeout = roomTypingExpiry.get(userId);
+            const existingTimeout = roomTypingExpiry.get(payloadUserId);
             if (existingTimeout) {
               window.clearTimeout(existingTimeout);
-              roomTypingExpiry.delete(userId);
+              roomTypingExpiry.delete(payloadUserId);
             }
           }
 
           setTypingUsers((prev) => {
             const set = new Set(prev[roomId] || []);
             if (isTyping) {
-              set.add(userId);
+              set.add(payloadUserId);
             } else {
-              set.delete(userId);
+              set.delete(payloadUserId);
             }
             return { ...prev, [roomId]: set };
           });
@@ -664,16 +679,16 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
         }
         case 'user_online': {
-          if (userId) {
-            const normalizedUserId = toComparableId(userId);
+          if (payloadUserId) {
+            const normalizedUserId = toComparableId(payloadUserId);
             logChatDebug('socket:user_online', { userId: normalizedUserId });
             setOnlineUsers((prev) => new Set(prev).add(normalizedUserId));
           }
           break;
         }
         case 'user_offline': {
-          if (userId) {
-            const normalizedUserId = toComparableId(userId);
+          if (payloadUserId) {
+            const normalizedUserId = toComparableId(payloadUserId);
             logChatDebug('socket:user_offline', { userId: normalizedUserId });
             setOnlineUsers((prev) => {
               const next = new Set(prev);
@@ -729,6 +744,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
     ws.onclose = () => {
       setIsConnecting(false);
+      setOnlineUsers(new Set());
+      setTypingUsers({});
+      typingExpiryRef.current.forEach((roomMap) => {
+        roomMap.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      });
+      typingExpiryRef.current.clear();
       logChatDebug('socket:onclose', { readyState: ws.readyState, userId: userIdRef.current });
       if (wsRef.current === ws) {
         wsRef.current = null;
@@ -852,9 +873,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     [userId, withAuthHeaders]
   );
 
-  const activeRoomMessageCount = activeRoom?.id ? (messages[activeRoom.id]?.length ?? 0) : 0;
-
-
   useEffect(() => {
     if (!activeRoom?.id || !userId) return;
     const roomId = activeRoom.id;
@@ -865,7 +883,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     if (typeof document !== 'undefined' && document.visibilityState !== 'hidden') {
       scheduleReceiptsForMessages(roomId, roomMessages, true);
     }
-  }, [activeRoom?.id, activeRoomMessageCount, scheduleReceiptsForMessages, userId]);
+  }, [activeRoom?.id, scheduleReceiptsForMessages, userId]);
 
   useEffect(() => {
     if (!activeRoom?.id || !userId) return;
