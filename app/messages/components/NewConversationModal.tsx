@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { BadgeCheck, Check, Plus, Search, UserPlus, Users, X } from 'lucide-react';
 import { UserSearchResult } from '@/lib/chat/types';
+import { getUserDelegationLabel } from '@/lib/chat/delegation';
 import UserAvatar from './UserAvatar';
 import { useChat } from '../context/ChatContext';
 
@@ -232,12 +233,16 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
                 {results.map((user) => {
                   const relationship = relationshipState(user.id);
+                  const delegationLabel = getUserDelegationLabel(user);
                   const state = relationship.type !== 'none' ? relationship.type : user.is_friend ? 'connected' : user.has_pending_request ? 'outgoing' : 'none';
                   return (
                     <div key={user.id} className="flex items-center justify-between rounded-xl border border-soft-ivory bg-white px-3 py-2">
                       <div className="flex items-center gap-3">
                         <UserAvatar user={user} size={36} />
-                        <p className="text-sm font-semibold text-deep-red">{user.full_name}</p>
+                        <div>
+                          <p className="text-sm font-semibold text-deep-red">{user.full_name}</p>
+                          {delegationLabel && <p className="text-xs text-almost-black-green/60">{delegationLabel}</p>}
+                        </div>
                       </div>
                       {state === 'connected' ? (
                         <button type="button" onClick={() => handleStartChat(user)} className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 text-xs font-semibold text-almost-black-green"><BadgeCheck className="h-4 w-4 text-sky-500" />In friends</button>
