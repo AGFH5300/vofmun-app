@@ -769,14 +769,17 @@ const ChatShell: React.FC = () => {
                     </div>
                   )
                 ) : (
-                  <div className="flex h-full items-center justify-center bg-[#111b21] text-center text-white">
-                    <div className="space-y-5">
+                  <div className="flex h-full items-center justify-center bg-[#efeae2] px-6 text-center text-almost-black-green">
+                    <div className="w-full max-w-xl space-y-5 rounded-3xl border border-[#d8d3cb] bg-white/85 px-8 py-10 shadow-[0_8px_30px_rgba(17,27,33,0.08)] backdrop-blur-sm">
                       <img
                         src="/logo.svg"
                         alt="VOFMUN"
-                        className="mx-auto h-20 w-20 object-contain opacity-80"
+                        className="mx-auto h-20 w-20 object-contain opacity-85"
                       />
-                      <p className="text-5xl font-medium text-white/70">VOFMUN ONE</p>
+                      <p className="text-5xl font-medium text-almost-black-green/85">VOFMUN ONE</p>
+                      <p className="text-sm text-almost-black-green/60">
+                        Private conversations with your committee, delegations, and friends.
+                      </p>
                     </div>
                   </div>
                 )}
