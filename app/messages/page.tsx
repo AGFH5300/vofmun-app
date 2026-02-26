@@ -13,7 +13,6 @@ import NewConversationModal from "./components/NewConversationModal";
 import ConversationDetailsModal from "./components/ConversationDetailsModal";
 import {
   ChevronDown,
-  MessageSquare,
   MoreVertical,
   Plus,
   RefreshCw,
@@ -342,7 +341,7 @@ const ChatShell: React.FC = () => {
         `${activeDmPeer?.user?.firstname || ""} ${activeDmPeer?.user?.lastname || ""}`.trim() ||
         activeRoom.name
       : activeRoom.name
-    : "Select a conversation";
+    : "VOFMUN ONE";
 
   const isActivePeerOnline = Boolean(
     activeRoom?.room_type === "dm" && activeDmPeer?.user_id && onlineUsers.has(String(activeDmPeer.user_id)),
@@ -364,7 +363,7 @@ const ChatShell: React.FC = () => {
           ? "Online"
           : formatLastSeenLabel(activeDmPeer?.user?.last_seen)
         : `${activeRoom.members.length} participants`
-    : "Choose a conversation to start";
+    : "";
 
   useEffect(() => {
     if (!isDraggingDivider) return;
@@ -606,7 +605,7 @@ const ChatShell: React.FC = () => {
                   <h3 className="!mb-1 text-2xl font-semibold text-deep-red">
                     {activeRoomTitle}
                   </h3>
-                  <div className="space-y-1">
+                  {activeRoom && <div className="space-y-1">
                     {activeRoom?.room_type === "dm" && activePeerDelegation && (
                       <p className="text-xs font-medium text-almost-black-green/65">
                         {activePeerDelegation}
@@ -631,7 +630,7 @@ const ChatShell: React.FC = () => {
                         {headerSubtitle}
                       </p>
                     </div>
-                  </div>
+                  </div>}
                 </div>
                 {activeRoom ? (
                   <div className="flex items-center gap-3">
@@ -653,11 +652,7 @@ const ChatShell: React.FC = () => {
                       <MoreVertical className="h-4 w-4" />
                     </button>
                   </div>
-                ) : (
-                  <div className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-xs uppercase tracking-[0.12em] text-almost-black-green/60">
-                    <MessageSquare className="h-4 w-4" /> Waiting for selection
-                  </div>
-                )}
+                ) : null}
               </div>
             </header>
 
@@ -774,15 +769,14 @@ const ChatShell: React.FC = () => {
                     </div>
                   )
                 ) : (
-                  <div className="flex h-full items-center justify-center text-center text-almost-black-green/60">
-                    <div className="space-y-2 rounded-2xl border border-dashed border-soft-ivory bg-white/80 px-6 py-5">
-                      <Users className="mx-auto text-deep-red/40" size={44} />
-                      <p className="font-semibold text-deep-red">
-                        Select a conversation
-                      </p>
-                      <p className="text-sm">
-                        Choose a room from the left to view messages.
-                      </p>
+                  <div className="flex h-full items-center justify-center bg-[#111b21] text-center text-white">
+                    <div className="space-y-5">
+                      <img
+                        src="/logo.svg"
+                        alt="VOFMUN"
+                        className="mx-auto h-20 w-20 object-contain opacity-80"
+                      />
+                      <p className="text-5xl font-medium text-white/70">VOFMUN ONE</p>
                     </div>
                   </div>
                 )}
