@@ -311,6 +311,7 @@ const ChatShell: React.FC = () => {
   const activeTypingDisplay = roomTypingNames.length ? (
     <TypingIndicator names={roomTypingNames} />
   ) : null;
+  const canSendMessage = composer.trim().length > 0;
 
   const activeDmPeer = useMemo(() => {
     if (!activeRoom || activeRoom.room_type !== "dm") return null;
@@ -825,7 +826,12 @@ const ChatShell: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleSend}
-                      className="primary-button !rounded-xl !px-4 !py-3 !text-xs"
+                      disabled={!canSendMessage}
+                      className={`!rounded-xl !px-4 !py-3 !text-xs ${
+                        canSendMessage
+                          ? "primary-button"
+                          : "inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-[#d8d8d8] px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[#8a8a8a]"
+                      }`}
                     >
                       <Send className="h-4 w-4" /> Send
                     </button>
