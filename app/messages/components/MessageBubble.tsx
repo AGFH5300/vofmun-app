@@ -153,13 +153,25 @@ const MessageBubble: React.FC<Props> = ({
     .filter((entry) => entry.at)
     .sort((a, b) => new Date(String(b.at)).getTime() - new Date(String(a.at)).getTime());
 
+  const contextActions: Array<{ icon: typeof Reply; label: string } | { divider: true }> = [
+    { icon: Reply, label: 'Reply' },
+    { icon: Smile, label: 'React' },
+    { icon: Forward, label: 'Forward' },
+    { icon: Copy, label: 'Copy' },
+    ...(isOwn ? [{ icon: Pencil, label: 'Edit' }] : []),
+    { icon: Info, label: 'Info' },
+    { divider: true },
+    ...(isOwn ? [{ icon: Trash2, label: 'Delete' }] : []),
+    { icon: CheckCircle2, label: 'Select messages' },
+  ];
+
   return (
     <div className={`flex gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${showAvatar ? '' : 'px-1'}`}>
       {showAvatar && <UserAvatar user={message.user} size={36} />}
       <div
         onContextMenu={(event) => {
-          if (!isOwn) return;
           event.preventDefault();
+          event.stopPropagation();
           setContextMenuPosition({ x: event.clientX, y: event.clientY });
         }}
         className={`group relative max-w-[82%] border px-3 py-2 shadow-sm md:max-w-[74%] ${
@@ -199,18 +211,7 @@ const MessageBubble: React.FC<Props> = ({
           className="fixed z-50 min-w-[250px] overflow-hidden rounded-xl border border-white/10 bg-[#141414] py-1 text-white shadow-2xl"
           style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
         >
-          {[
-            { icon: Reply, label: 'Reply' },
-            { icon: Smile, label: 'React' },
-            { icon: Forward, label: 'Forward' },
-            { icon: Copy, label: 'Copy' },
-            { icon: Pencil, label: 'Edit' },
-            { icon: Info, label: 'Info' },
-            { divider: true },
-            { icon: Trash2, label: 'Delete' },
-            { divider: true },
-            { icon: CheckCircle2, label: 'Select messages' },
-          ].map((entry, index) => {
+          {contextActions.map((entry, index) => {
             if ('divider' in entry) {
               return <div key={`divider-${index}`} className="my-1 border-t border-white/20" />;
             }
