@@ -12,8 +12,14 @@ import ConversationList from "./components/ConversationList";
 import NewConversationModal from "./components/NewConversationModal";
 import ConversationDetailsModal from "./components/ConversationDetailsModal";
 import {
+  CalendarDays,
   ChevronDown,
+  CircleUser,
+  File,
+  Image,
+  Laugh,
   MoreVertical,
+  ChartNoAxesColumn,
   Plus,
   RefreshCw,
   Search,
@@ -59,6 +65,49 @@ const formatLastSeenLabel = (lastSeen?: string | null) => {
   })}`;
 };
 
+const EMOJI_RANGES: Array<[number, number]> = [
+  [0x231a, 0x231b],
+  [0x23e9, 0x23ec],
+  [0x23f0, 0x23f0],
+  [0x23f3, 0x23f3],
+  [0x25fd, 0x25fe],
+  [0x2614, 0x2615],
+  [0x2648, 0x2653],
+  [0x267f, 0x267f],
+  [0x2693, 0x2693],
+  [0x26a1, 0x26a1],
+  [0x26aa, 0x26ab],
+  [0x26bd, 0x26be],
+  [0x26c4, 0x26c5],
+  [0x26ce, 0x26ce],
+  [0x26d4, 0x26d4],
+  [0x26ea, 0x26ea],
+  [0x26f2, 0x26f5],
+  [0x26fa, 0x26fa],
+  [0x26fd, 0x26fd],
+  [0x2705, 0x2705],
+  [0x270a, 0x270b],
+  [0x2728, 0x2728],
+  [0x274c, 0x274c],
+  [0x274e, 0x274e],
+  [0x2753, 0x2755],
+  [0x2757, 0x2757],
+  [0x2795, 0x2797],
+  [0x27b0, 0x27b0],
+  [0x27bf, 0x27bf],
+  [0x2b1b, 0x2b1c],
+  [0x2b50, 0x2b50],
+  [0x2b55, 0x2b55],
+  [0x1f300, 0x1f5ff],
+  [0x1f600, 0x1f64f],
+  [0x1f680, 0x1f6ff],
+  [0x1f700, 0x1f77f],
+  [0x1f780, 0x1f7ff],
+  [0x1f800, 0x1f8ff],
+  [0x1f900, 0x1f9ff],
+  [0x1fa70, 0x1faff],
+];
+
 const ChatShell: React.FC = () => {
   const {
     rooms,
@@ -92,6 +141,8 @@ const ChatShell: React.FC = () => {
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [shouldScrollOnLoad, setShouldScrollOnLoad] = useState(false);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [showEmojiModal, setShowEmojiModal] = useState(false);
   const roomPollInFlightRef = useRef(false);
   const roomPollBackoffRef = useRef(30000);
   const roomsPollInFlightRef = useRef(false);
@@ -312,6 +363,28 @@ const ChatShell: React.FC = () => {
     <TypingIndicator names={roomTypingNames} />
   ) : null;
   const canSendMessage = composer.trim().length > 0;
+  const emojis = useMemo(() => {
+    const seen = new Set<string>();
+    const values: string[] = [];
+    EMOJI_RANGES.forEach(([start, end]) => {
+      for (let code = start; code <= end; code += 1) {
+        const symbol = String.fromCodePoint(code);
+        if (/\p{Emoji}/u.test(symbol) && !seen.has(symbol)) {
+          seen.add(symbol);
+          values.push(symbol);
+        }
+      }
+    });
+    return values;
+  }, []);
+
+  const attachmentOptions = [
+    { label: "File", icon: File, color: "text-[#1794d4]" },
+    { label: "Photos & videos", icon: Image, color: "text-[#2a77f1]" },
+    { label: "Contact", icon: CircleUser, color: "text-[#ed6b2f]" },
+    { label: "Poll", icon: ChartNoAxesColumn, color: "text-[#f4b53d]" },
+    { label: "Event", icon: CalendarDays, color: "text-[#f05068]" },
+  ];
 
   const activeDmPeer = useMemo(() => {
     if (!activeRoom || activeRoom.room_type !== "dm") return null;
@@ -802,8 +875,33 @@ const ChatShell: React.FC = () => {
                 )}
                 <div className="sticky bottom-0 bg-white px-2 py-3">
                   {activeTypingDisplay}
-                  <div className="flex items-end gap-3">
-                    <div className="flex flex-1 items-center rounded-2xl border-soft-ivory bg-warm-light-grey transition focus-within:border-deep-red/40">
+                  <div className="relative flex items-end gap-3">
+                    <div className="relative">
+                      {showAttachmentMenu && (
+                        <div className="absolute bottom-14 left-0 z-20 w-64 rounded-2xl border border-[#d7d8d9] bg-[#f2f2f4] p-2 shadow-[0_18px_40px_rgba(17,27,33,0.22)]">
+                          {attachmentOptions.map((option) => (
+                            <button
+                              key={option.label}
+                              type="button"
+                              onClick={() => setShowAttachmentMenu(false)}
+                              className="flex w-full items-center gap-4 rounded-xl px-3 py-2.5 text-left text-[2rem] font-medium text-[#222] transition hover:bg-white/80"
+                            >
+                              <option.icon className={`h-7 w-7 ${option.color}`} strokeWidth={2.2} />
+                              <span className="text-[2rem] leading-none">{option.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowAttachmentMenu((value) => !value)}
+                        className="inline-flex h-12 w-12 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#f0f0f0]"
+                        aria-label="Open attachment options"
+                      >
+                        <Plus className="h-9 w-9" strokeWidth={1.6} />
+                      </button>
+                    </div>
+                    <div className="flex flex-1 items-center rounded-full border border-[#d7d7d7] bg-[#f5f5f5] pl-4 pr-2 transition focus-within:border-[#c3c3c3]">
                       <textarea
                         value={composer}
                         onChange={(event) => {
@@ -820,23 +918,63 @@ const ChatShell: React.FC = () => {
                         }}
                         placeholder="Type your message"
                         rows={1}
-                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-almost-black-green placeholder:text-almost-black-green/45 focus:outline-none"
+                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-4xl text-[#202c33] placeholder:text-[#7a7f84] focus:outline-none"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowEmojiModal(true)}
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#ececec]"
+                        aria-label="Open emoji picker"
+                      >
+                        <Laugh className="h-7 w-7" strokeWidth={1.8} />
+                      </button>
                     </div>
                     <button
                       type="button"
                       onClick={handleSend}
                       disabled={!canSendMessage}
-                      className={`!rounded-xl !px-4 !py-3 !text-xs ${
+                      className={`inline-flex h-16 w-16 items-center justify-center rounded-full transition ${
                         canSendMessage
-                          ? "primary-button"
-                          : "inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-[#d8d8d8] px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[#8a8a8a]"
+                          ? "bg-[#25d366] text-white hover:bg-[#20bd5a]"
+                          : "cursor-not-allowed bg-[#d7d7d7] text-[#8f8f8f]"
                       }`}
+                      aria-label="Send message"
                     >
-                      <Send className="h-4 w-4" /> Send
+                      <Send className="h-7 w-7" />
                     </button>
                   </div>
                 </div>
+                {showEmojiModal && (
+                  <div className="absolute inset-0 z-30 flex items-end justify-center bg-black/30 p-4 md:items-center">
+                    <div className="w-full max-w-2xl rounded-3xl bg-white p-4 shadow-[0_25px_70px_rgba(17,27,33,0.35)]">
+                      <div className="mb-3 flex items-center justify-between">
+                        <p className="text-base font-semibold text-[#202c33]">Choose an emoji</p>
+                        <button
+                          type="button"
+                          onClick={() => setShowEmojiModal(false)}
+                          className="rounded-full px-3 py-1.5 text-sm text-[#6b6b6b] hover:bg-[#f2f2f2]"
+                        >
+                          Close
+                        </button>
+                      </div>
+                      <div className="grid max-h-[50vh] grid-cols-8 gap-1 overflow-y-auto rounded-2xl border border-[#e1e1e1] bg-[#fafafa] p-3 sm:grid-cols-10 md:grid-cols-12">
+                        {emojis.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => {
+                              setComposer((value) => `${value}${emoji}`);
+                              setShowEmojiModal(false);
+                            }}
+                            className="rounded-lg px-2 py-1 text-2xl transition hover:bg-white"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 </>
               )}
             </div>
