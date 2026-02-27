@@ -884,10 +884,10 @@ const ChatShell: React.FC = () => {
                               key={option.label}
                               type="button"
                               onClick={() => setShowAttachmentMenu(false)}
-                              className="flex w-full items-center gap-4 rounded-xl px-3 py-2.5 text-left text-[2rem] font-medium text-[#222] transition hover:bg-white/80"
+                              className="flex w-full items-center gap-4 rounded-xl px-3 py-2.5 text-left text-base font-medium text-[#222] transition hover:bg-white/80"
                             >
-                              <option.icon className={`h-7 w-7 ${option.color}`} strokeWidth={2.2} />
-                              <span className="text-[2rem] leading-none">{option.label}</span>
+                              <option.icon className={`h-6 w-6 ${option.color}`} strokeWidth={2.2} />
+                              <span className="text-base leading-none">{option.label}</span>
                             </button>
                           ))}
                         </div>
@@ -895,10 +895,10 @@ const ChatShell: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setShowAttachmentMenu((value) => !value)}
-                        className="inline-flex h-12 w-12 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#f0f0f0]"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#f0f0f0]"
                         aria-label="Open attachment options"
                       >
-                        <Plus className="h-9 w-9" strokeWidth={1.6} />
+                        <Plus className="h-8 w-8" strokeWidth={1.6} />
                       </button>
                     </div>
                     <div className="flex flex-1 items-center rounded-full border border-[#d7d7d7] bg-[#f5f5f5] pl-4 pr-2 transition focus-within:border-[#c3c3c3]">
@@ -918,29 +918,29 @@ const ChatShell: React.FC = () => {
                         }}
                         placeholder="Type your message"
                         rows={1}
-                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-4xl text-[#202c33] placeholder:text-[#7a7f84] focus:outline-none"
+                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-[#202c33] placeholder:text-[#7a7f84] focus:outline-none"
                       />
                       <button
                         type="button"
                         onClick={() => setShowEmojiModal(true)}
-                        className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#ececec]"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#ececec]"
                         aria-label="Open emoji picker"
                       >
-                        <Laugh className="h-7 w-7" strokeWidth={1.8} />
+                        <Laugh className="h-5 w-5" strokeWidth={1.8} />
                       </button>
                     </div>
                     <button
                       type="button"
                       onClick={handleSend}
                       disabled={!canSendMessage}
-                      className={`inline-flex h-16 w-16 items-center justify-center rounded-full transition ${
+                      className={`inline-flex h-12 w-12 items-center justify-center rounded-full transition ${
                         canSendMessage
                           ? "bg-[#25d366] text-white hover:bg-[#20bd5a]"
                           : "cursor-not-allowed bg-[#d7d7d7] text-[#8f8f8f]"
                       }`}
                       aria-label="Send message"
                     >
-                      <Send className="h-7 w-7" />
+                      <Send className="h-5 w-5" />
                     </button>
                   </div>
                 </div>
