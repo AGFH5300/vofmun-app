@@ -46,15 +46,11 @@ const formatReceiptTime = (value: string | null) => {
   const timestamp = new Date(value);
   if (Number.isNaN(timestamp.getTime())) return null;
 
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const messageDay = new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate());
-  const dayDelta = Math.round((today.getTime() - messageDay.getTime()) / (1000 * 60 * 60 * 24));
-
+  const day = String(timestamp.getDate()).padStart(2, '0');
+  const month = String(timestamp.getMonth() + 1).padStart(2, '0');
+  const year = timestamp.getFullYear();
   const timeLabel = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-  if (dayDelta === 0) return `today ${timeLabel}`;
-  if (dayDelta === 1) return `yesterday ${timeLabel}`;
-  return `${timestamp.toLocaleDateString([], { day: '2-digit', month: 'short' }).toLowerCase()} ${timeLabel}`;
+  return `${day}/${month}/${year} ${timeLabel}`;
 };
 
 const resolveReceiptStatus = (
@@ -94,7 +90,6 @@ const MessageBubble: React.FC<Props> = ({
   message,
   isOwn,
   roomMemberIds = [],
-  roomMembers: _roomMembers = [],
   showAuthor = true,
   showAvatar = true,
   presenceDeliveredHint = false,
@@ -154,13 +149,13 @@ const MessageBubble: React.FC<Props> = ({
   const openInfoPanel = React.useCallback(() => {
     const bubbleRect = bubbleRef.current?.getBoundingClientRect();
     if (!bubbleRect) {
-      setInfoPanelPosition(clampPosition(window.innerWidth / 2 - 140, window.innerHeight / 2 - 80, 280, 152));
+      setInfoPanelPosition(clampPosition(window.innerWidth / 2 - 138, window.innerHeight / 2 - 60, 275, 120));
       setShowInfoSheet(true);
       return;
     }
 
-    const panelWidth = 320;
-    const panelHeight = 156;
+    const panelWidth = 275;
+    const panelHeight = 120;
     const gap = 12;
     const horizontalOffset = isOwn ? bubbleRect.left - panelWidth - gap : bubbleRect.right + gap;
     const verticalOffset = bubbleRect.top;
@@ -175,8 +170,6 @@ const MessageBubble: React.FC<Props> = ({
   const receiptMeta = normalizeMessageMeta(message.meta);
   const resolvedCurrentUserId = currentUserId ? String(currentUserId) : null;
   const participantIds = roomMemberIds.filter((id) => id && id !== resolvedCurrentUserId);
-
-  const hasKnownMembers = _roomMembers.length > 0;
 
   const deliveredEntries = participantIds
     .map((memberId) => ({
@@ -255,12 +248,12 @@ const MessageBubble: React.FC<Props> = ({
       </div>
       {contextMenuPosition && (
         <div
-          className="fixed z-50 min-w-[220px] overflow-hidden rounded-2xl border border-white/20 bg-[#111b21] py-1 text-white shadow-2xl"
+          className="fixed z-50 min-w-[220px] overflow-hidden rounded-2xl border border-[#d8d8d8] bg-[#f8f8f8] py-1 text-[#111b21] shadow-2xl"
           style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
         >
           {contextActions.map((entry, index) => {
             if ('divider' in entry) {
-              return <div key={`divider-${index}`} className="my-1 border-t border-white/20" />;
+              return <div key={`divider-${index}`} className="my-1 border-t border-[#d9d9d9]" />;
             }
 
             const Icon = entry.icon;
@@ -278,9 +271,9 @@ const MessageBubble: React.FC<Props> = ({
                   }
                   setContextMenuPosition(null);
                 }}
-                className="flex w-full items-center gap-3 px-4 py-1.5 text-left text-[0.8rem] font-medium text-white/90 hover:bg-white/10"
+                className="flex w-full items-center gap-3 px-4 py-1.5 text-left text-[0.8rem] font-medium text-[#111b21]/90 hover:bg-[#ececec]"
               >
-                <Icon className="h-4 w-4 shrink-0 text-white/80" />
+                <Icon className="h-4 w-4 shrink-0 text-[#111b21]/75" />
                 <span>{entry.label}</span>
               </button>
             );
@@ -293,7 +286,7 @@ const MessageBubble: React.FC<Props> = ({
           onClick={() => setShowInfoSheet(false)}
         >
           <div
-            className="w-full max-w-[320px] rounded-2xl border border-[#d8d8d8] bg-[#f3f3f3] text-[#111b21] shadow-xl"
+            className="w-full max-w-[275px] rounded-xl border border-[#d8d8d8] bg-[#f3f3f3] text-[#111b21] shadow-xl"
             style={
               infoPanelPosition
                 ? {
@@ -306,18 +299,18 @@ const MessageBubble: React.FC<Props> = ({
             onClick={(event) => event.stopPropagation()}
           >
             <div className="divide-y divide-[#d0d0d0]">
-              <div className="flex items-center gap-3 px-4 py-3">
-                <CheckCheck className="h-5 w-5 text-[#58c8ff]" />
-                <span className="text-[1.1rem] font-medium leading-none">Read</span>
-                <span className="ml-auto text-sm font-medium text-[#2f3a40]/85">
+              <div className="flex items-center gap-2.5 px-3 py-2.5">
+                <CheckCheck className="h-4 w-4 text-[#58c8ff]" />
+                <span className="text-[0.95rem] font-medium leading-none">Read</span>
+                <span className="ml-auto text-xs font-medium text-[#2f3a40]/85">
                   {readAt ? formatReceiptTime(readAt) : '•••'}
                 </span>
               </div>
-              <div className="flex items-center gap-3 px-4 py-3">
-                <CheckCheck className="h-5 w-5 text-[#707070]" />
-                <span className="text-[1.1rem] font-medium leading-none text-[#111b21]/90">Delivered</span>
-                <span className="ml-auto text-sm font-medium text-[#2f3a40]/80">
-                  {deliveredAt ? formatReceiptTime(deliveredAt) : hasKnownMembers ? 'pending' : 'sent'}
+              <div className="flex items-center gap-2.5 px-3 py-2.5">
+                <CheckCheck className="h-4 w-4 text-[#707070]" />
+                <span className="text-[0.95rem] font-medium leading-none text-[#111b21]/90">Delivered</span>
+                <span className="ml-auto text-xs font-medium text-[#2f3a40]/80">
+                  {deliveredAt ? formatReceiptTime(deliveredAt) : '•••'}
                 </span>
               </div>
             </div>
