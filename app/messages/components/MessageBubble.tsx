@@ -40,6 +40,23 @@ const statusClass: Record<string, string> = {
   error: 'text-deep-red',
 };
 
+const formatReceiptTime = (value: string | null) => {
+  if (!value) return null;
+
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) return null;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const messageDay = new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate());
+  const dayDelta = Math.round((today.getTime() - messageDay.getTime()) / (1000 * 60 * 60 * 24));
+
+  const timeLabel = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  if (dayDelta === 0) return `today ${timeLabel}`;
+  if (dayDelta === 1) return `yesterday ${timeLabel}`;
+  return `${timestamp.toLocaleDateString([], { day: '2-digit', month: 'short' }).toLowerCase()} ${timeLabel}`;
+};
+
 const resolveReceiptStatus = (
   message: MessageWithUser,
   isOwn: boolean,
@@ -77,7 +94,7 @@ const MessageBubble: React.FC<Props> = ({
   message,
   isOwn,
   roomMemberIds = [],
-  roomMembers = [],
+  roomMembers: _roomMembers = [],
   showAuthor = true,
   showAvatar = true,
   presenceDeliveredHint = false,
@@ -127,15 +144,7 @@ const MessageBubble: React.FC<Props> = ({
   const resolvedCurrentUserId = currentUserId ? String(currentUserId) : null;
   const participantIds = roomMemberIds.filter((id) => id && id !== resolvedCurrentUserId);
 
-  const resolveName = (memberId: string) => {
-    const member = roomMembers.find((entry) => String(entry.user_id) === String(memberId));
-    return (
-      member?.user?.full_name ||
-      `${member?.user?.firstname || ''} ${member?.user?.lastname || ''}`.trim() ||
-      member?.user?.username ||
-      `User ${memberId.slice(0, 6)}`
-    );
-  };
+  const hasKnownMembers = _roomMembers.length > 0;
 
   const deliveredEntries = participantIds
     .map((memberId) => ({
@@ -152,6 +161,9 @@ const MessageBubble: React.FC<Props> = ({
     }))
     .filter((entry) => entry.at)
     .sort((a, b) => new Date(String(b.at)).getTime() - new Date(String(a.at)).getTime());
+
+  const deliveredAt = deliveredEntries[0]?.at ? String(deliveredEntries[0].at) : null;
+  const readAt = readEntries[0]?.at ? String(readEntries[0].at) : null;
 
   const contextActions: Array<{ icon: typeof Reply; label: string } | { divider: true }> = [
     { icon: Reply, label: 'Reply' },
@@ -246,53 +258,25 @@ const MessageBubble: React.FC<Props> = ({
           onClick={() => setShowInfoSheet(false)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl bg-white p-5 text-almost-black-green shadow-2xl"
+            className="w-full max-w-[640px] rounded-[14px] border border-white/10 bg-[#2f2f2f] text-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-deep-red/80">Message info</p>
-            <p className="mt-1 text-xs text-almost-black-green/60">Created at {message.created_at ? new Date(message.created_at).toLocaleString() : 'Unknown'}</p>
-
-            <div className="mt-4 space-y-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-almost-black-green/60">Delivered</p>
-                {deliveredEntries.length > 0 ? (
-                  <ul className="mt-1 space-y-1 text-sm">
-                    {deliveredEntries.map((entry) => (
-                      <li key={`delivered-${entry.memberId}`} className="flex justify-between gap-2">
-                        <span>{resolveName(entry.memberId)}</span>
-                        <span className="text-almost-black-green/65">{new Date(String(entry.at)).toLocaleString()}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-1 text-sm text-almost-black-green/65">Not delivered yet.</p>
-                )}
+            <div className="divide-y divide-white/10">
+              <div className="flex items-center gap-3 px-5 py-4">
+                <CheckCheck className="h-7 w-7 text-[#58c8ff]" />
+                <span className="text-3xl font-medium leading-none tracking-tight sm:text-[2.1rem]">Read</span>
+                <span className="ml-auto text-sm font-medium text-white/85 sm:text-base">
+                  {readAt ? formatReceiptTime(readAt) : '•••'}
+                </span>
               </div>
-
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-almost-black-green/60">Read</p>
-                {readEntries.length > 0 ? (
-                  <ul className="mt-1 space-y-1 text-sm">
-                    {readEntries.map((entry) => (
-                      <li key={`read-${entry.memberId}`} className="flex justify-between gap-2">
-                        <span>{resolveName(entry.memberId)}</span>
-                        <span className="text-almost-black-green/65">{new Date(String(entry.at)).toLocaleString()}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-1 text-sm text-almost-black-green/65">Not read yet.</p>
-                )}
+              <div className="flex items-center gap-3 px-5 py-4">
+                <CheckCheck className="h-7 w-7 text-white/55" />
+                <span className="text-3xl font-medium leading-none tracking-tight text-white/90 sm:text-[2.1rem]">Delivered</span>
+                <span className="ml-auto text-sm font-medium text-white/75 sm:text-base">
+                  {deliveredAt ? formatReceiptTime(deliveredAt) : hasKnownMembers ? 'pending' : 'sent'}
+                </span>
               </div>
             </div>
-
-            <button
-              type="button"
-              className="mt-4 w-full rounded-lg bg-deep-red px-3 py-2 text-sm font-semibold text-white"
-              onClick={() => setShowInfoSheet(false)}
-            >
-              Close
-            </button>
           </div>
         </div>
       )}
