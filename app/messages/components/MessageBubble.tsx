@@ -161,8 +161,9 @@ const MessageBubble: React.FC<Props> = ({
 
     const panelWidth = 320;
     const panelHeight = 156;
-    const horizontalOffset = isOwn ? bubbleRect.right - panelWidth : bubbleRect.left;
-    const verticalOffset = bubbleRect.top - panelHeight - 8;
+    const gap = 12;
+    const horizontalOffset = isOwn ? bubbleRect.left - panelWidth - gap : bubbleRect.right + gap;
+    const verticalOffset = bubbleRect.top;
     setInfoPanelPosition(clampPosition(horizontalOffset, verticalOffset, panelWidth, panelHeight));
     setShowInfoSheet(true);
   }, [clampPosition, isOwn]);
@@ -292,7 +293,7 @@ const MessageBubble: React.FC<Props> = ({
           onClick={() => setShowInfoSheet(false)}
         >
           <div
-            className="w-full max-w-[320px] rounded-2xl border border-white/20 bg-[#2d3136] text-white shadow-2xl"
+            className="w-full max-w-[320px] rounded-2xl border border-[#d8d8d8] bg-[#f3f3f3] text-[#111b21] shadow-xl"
             style={
               infoPanelPosition
                 ? {
@@ -304,18 +305,18 @@ const MessageBubble: React.FC<Props> = ({
             }
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="divide-y divide-white/10">
+            <div className="divide-y divide-[#d0d0d0]">
               <div className="flex items-center gap-3 px-4 py-3">
                 <CheckCheck className="h-5 w-5 text-[#58c8ff]" />
                 <span className="text-[1.1rem] font-medium leading-none">Read</span>
-                <span className="ml-auto text-sm font-medium text-white/85">
+                <span className="ml-auto text-sm font-medium text-[#2f3a40]/85">
                   {readAt ? formatReceiptTime(readAt) : '•••'}
                 </span>
               </div>
               <div className="flex items-center gap-3 px-4 py-3">
-                <CheckCheck className="h-5 w-5 text-white/55" />
-                <span className="text-[1.1rem] font-medium leading-none text-white/90">Delivered</span>
-                <span className="ml-auto text-sm font-medium text-white/75">
+                <CheckCheck className="h-5 w-5 text-[#707070]" />
+                <span className="text-[1.1rem] font-medium leading-none text-[#111b21]/90">Delivered</span>
+                <span className="ml-auto text-sm font-medium text-[#2f3a40]/80">
                   {deliveredAt ? formatReceiptTime(deliveredAt) : hasKnownMembers ? 'pending' : 'sent'}
                 </span>
               </div>
