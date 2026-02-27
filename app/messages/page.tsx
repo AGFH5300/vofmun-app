@@ -975,7 +975,7 @@ const ChatShell: React.FC = () => {
                       disabled={!canSendMessage}
                       className={`inline-flex h-12 w-12 items-center justify-center rounded-full transition ${
                         canSendMessage
-                          ? "bg-deep-red text-white hover:bg-deep-red/90"
+                          ? "bg-text-deep-red text-white hover:bg-deep-red/90 background-deep-red"
                           : "cursor-not-allowed bg-[#d7d7d7] text-[#8f8f8f]"
                       }`}
                       aria-label="Send message"
