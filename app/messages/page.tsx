@@ -214,6 +214,29 @@ const ChatShell: React.FC = () => {
   }, [activeRoom?.id]);
 
   useEffect(() => {
+    if (!showAttachmentMenu && !showEmojiModal) return;
+
+    const closeFloatingMenus = () => {
+      setShowAttachmentMenu(false);
+      setShowEmojiModal(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeFloatingMenus();
+      }
+    };
+
+    window.addEventListener("contextmenu", closeFloatingMenus);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("contextmenu", closeFloatingMenus);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showAttachmentMenu, showEmojiModal]);
+
+  useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
 
@@ -338,7 +361,24 @@ const ChatShell: React.FC = () => {
     setComposer("");
   };
 
+  const toggleAttachmentMenu = () => {
+    setShowAttachmentMenu((value) => {
+      const next = !value;
+      if (next) {
+        setShowEmojiModal(false);
+      }
+      return next;
+    });
+  };
+
+  const openEmojiModal = () => {
+    setShowAttachmentMenu(false);
+    setShowEmojiModal(true);
+  };
+
   const handleSelectRoom = async (room: RoomWithDetails) => {
+    setShowAttachmentMenu(false);
+    setShowEmojiModal(false);
     setShouldScrollOnLoad(true);
     await selectRoom(room);
   };
@@ -894,7 +934,7 @@ const ChatShell: React.FC = () => {
                       )}
                       <button
                         type="button"
-                        onClick={() => setShowAttachmentMenu((value) => !value)}
+                        onClick={toggleAttachmentMenu}
                         className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#f0f0f0]"
                         aria-label="Open attachment options"
                       >
@@ -922,7 +962,7 @@ const ChatShell: React.FC = () => {
                       />
                       <button
                         type="button"
-                        onClick={() => setShowEmojiModal(true)}
+                        onClick={openEmojiModal}
                         className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#ececec]"
                         aria-label="Open emoji picker"
                       >
@@ -935,7 +975,7 @@ const ChatShell: React.FC = () => {
                       disabled={!canSendMessage}
                       className={`inline-flex h-12 w-12 items-center justify-center rounded-full transition ${
                         canSendMessage
-                          ? "bg-[#25d366] text-white hover:bg-[#20bd5a]"
+                          ? "bg-deep-red text-white hover:bg-deep-red/90"
                           : "cursor-not-allowed bg-[#d7d7d7] text-[#8f8f8f]"
                       }`}
                       aria-label="Send message"

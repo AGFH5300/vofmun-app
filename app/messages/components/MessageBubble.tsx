@@ -102,6 +102,7 @@ const MessageBubble: React.FC<Props> = ({
     ('secretariatID' in (user || {}) && user?.secretariatID ? user.secretariatID : null) ||
     ('id' in (user || {}) && user?.id ? user.id : null);
   const [contextMenuPosition, setContextMenuPosition] = React.useState<{ x: number; y: number } | null>(null);
+  const bubbleMenuId = React.useMemo(() => `message-menu-${message.id}`, [message.id]);
   const [infoPanelPosition, setInfoPanelPosition] = React.useState<{ x: number; y: number } | null>(null);
   const [showInfoSheet, setShowInfoSheet] = React.useState(false);
   const bubbleRef = React.useRef<HTMLDivElement | null>(null);
@@ -135,6 +136,19 @@ const MessageBubble: React.FC<Props> = ({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [contextMenuPosition, showInfoSheet]);
+
+  useEffect(() => {
+    const handleAnotherMenuOpen = (event: Event) => {
+      const customEvent = event as CustomEvent<{ id?: string }>;
+      if (customEvent.detail?.id !== bubbleMenuId) {
+        setContextMenuPosition(null);
+        setShowInfoSheet(false);
+      }
+    };
+
+    window.addEventListener('vofmun-message-menu-opened', handleAnotherMenuOpen);
+    return () => window.removeEventListener('vofmun-message-menu-opened', handleAnotherMenuOpen);
+  }, [bubbleMenuId]);
 
   const clampPosition = React.useCallback((x: number, y: number, width: number, height: number) => {
     const spacing = 12;
@@ -210,6 +224,7 @@ const MessageBubble: React.FC<Props> = ({
         onContextMenu={(event) => {
           event.preventDefault();
           event.stopPropagation();
+          window.dispatchEvent(new CustomEvent('vofmun-message-menu-opened', { detail: { id: bubbleMenuId } }));
           const menuWidth = 220;
           const menuHeight = isOwn ? 314 : 264;
           setContextMenuPosition(clampPosition(event.clientX, event.clientY, menuWidth, menuHeight));
