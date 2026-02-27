@@ -929,30 +929,28 @@ const ChatShell: React.FC = () => {
                   </div>
                 </div>
                 {showEmojiModal && (
-                  <div className="absolute inset-0 z-30 flex items-end justify-center bg-black/30 p-4 md:items-center">
-                    <div className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white p-3 shadow-[0_25px_70px_rgba(17,27,33,0.35)]">
-                      <div className="mb-3 flex items-center justify-between px-2">
-                        <p className="text-sm font-semibold text-[#202c33]">Choose an emoji</p>
-                        <button
-                          type="button"
-                          onClick={() => setShowEmojiModal(false)}
-                          className="rounded-full px-3 py-1 text-xs font-medium text-[#5d646a] transition hover:bg-[#f2f2f4]"
-                        >
-                          Close
-                        </button>
-                      </div>
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Close emoji picker"
+                      className="absolute inset-0 z-20 cursor-default bg-transparent"
+                      onClick={() => setShowEmojiModal(false)}
+                    />
+                    <div className="absolute bottom-20 right-6 z-30 w-[min(370px,calc(100%-2rem))] overflow-hidden rounded-2xl border border-[#d7d7d7] bg-white shadow-[0_18px_45px_rgba(17,27,33,0.24)]">
                       <EmojiPicker
                         theme={Theme.LIGHT}
                         width="100%"
-                        height={420}
-                        lazyLoadEmojis
+                        height={380}
+                        previewConfig={{ showPreview: false }}
+                        skinTonesDisabled
+                        searchDisabled={false}
                         onEmojiClick={(emojiData: EmojiClickData) => {
                           setComposer((value) => `${value}${emojiData.emoji}`);
                           setShowEmojiModal(false);
                         }}
                       />
                     </div>
-                  </div>
+                  </>
                 )}
                 </>
               )}
