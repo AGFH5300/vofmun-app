@@ -784,3 +784,7 @@ a:focus-visible {
   border: none !important;
   box-shadow: none !important;
 }
+
+.background-deep-red {
+  background-color: var(--deep-red)
+}
