@@ -752,6 +752,7 @@ const ChatShell: React.FC = () => {
                             message={message}
                             isOwn={isOwn}
                             roomMemberIds={activeRoom.members.map((member) => String(member.user_id))}
+                            roomMembers={activeRoom.members}
                             showAuthor={activeRoom.room_type !== "dm"}
                             showAvatar={activeRoom.room_type !== "dm"}
                             presenceDeliveredHint={presenceDeliveredHint}

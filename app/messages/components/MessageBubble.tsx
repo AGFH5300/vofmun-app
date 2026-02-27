@@ -3,7 +3,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { MessageWithUser } from '@/lib/chat/types';
+import { MessageWithUser, RoomMember } from '@/lib/chat/types';
 import { useSession } from '@/app/context/sessionContext';
 import { normalizeMessageMeta } from '@/lib/chat/messageMeta';
 import UserAvatar from './UserAvatar';
@@ -13,6 +13,7 @@ interface Props {
   message: MessageWithUser;
   isOwn: boolean;
   roomMemberIds?: string[];
+  roomMembers?: RoomMember[];
   showAuthor?: boolean;
   showAvatar?: boolean;
   presenceDeliveredHint?: boolean;
@@ -76,6 +77,7 @@ const MessageBubble: React.FC<Props> = ({
   message,
   isOwn,
   roomMemberIds = [],
+  roomMembers = [],
   showAuthor = true,
   showAvatar = true,
   presenceDeliveredHint = false,
@@ -88,6 +90,7 @@ const MessageBubble: React.FC<Props> = ({
     ('secretariatID' in (user || {}) && user?.secretariatID ? user.secretariatID : null) ||
     ('id' in (user || {}) && user?.id ? user.id : null);
   const [contextMenuPosition, setContextMenuPosition] = React.useState<{ x: number; y: number } | null>(null);
+  const [showInfoSheet, setShowInfoSheet] = React.useState(false);
   const isFailed = message.status === 'error';
   const resolvedStatus = resolveReceiptStatus(
     message,
@@ -119,6 +122,36 @@ const MessageBubble: React.FC<Props> = ({
   const timestamp = message.created_at
     ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
+
+  const receiptMeta = normalizeMessageMeta(message.meta);
+  const resolvedCurrentUserId = currentUserId ? String(currentUserId) : null;
+  const participantIds = roomMemberIds.filter((id) => id && id !== resolvedCurrentUserId);
+
+  const resolveName = (memberId: string) => {
+    const member = roomMembers.find((entry) => String(entry.user_id) === String(memberId));
+    return (
+      member?.user?.full_name ||
+      `${member?.user?.firstname || ''} ${member?.user?.lastname || ''}`.trim() ||
+      member?.user?.username ||
+      `User ${memberId.slice(0, 6)}`
+    );
+  };
+
+  const deliveredEntries = participantIds
+    .map((memberId) => ({
+      memberId,
+      at: receiptMeta.receipts.delivered[String(memberId)] || receiptMeta.receipts.read[String(memberId)] || null,
+    }))
+    .filter((entry) => entry.at)
+    .sort((a, b) => new Date(String(b.at)).getTime() - new Date(String(a.at)).getTime());
+
+  const readEntries = participantIds
+    .map((memberId) => ({
+      memberId,
+      at: receiptMeta.receipts.read[String(memberId)] || null,
+    }))
+    .filter((entry) => entry.at)
+    .sort((a, b) => new Date(String(b.at)).getTime() - new Date(String(a.at)).getTime());
 
   return (
     <div className={`flex gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${showAvatar ? '' : 'px-1'}`}>
@@ -192,6 +225,9 @@ const MessageBubble: React.FC<Props> = ({
                   if (entry.label === 'Copy') {
                     void navigator.clipboard?.writeText(message.content || '');
                   }
+                  if (entry.label === 'Info') {
+                    setShowInfoSheet(true);
+                  }
                   setContextMenuPosition(null);
                 }}
                 className="flex w-full items-center gap-3 px-4 py-2 text-left text-[1.05rem] text-white/90 hover:bg-white/10"
@@ -201,6 +237,62 @@ const MessageBubble: React.FC<Props> = ({
               </button>
             );
           })}
+        </div>
+      )}
+      {showInfoSheet && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 px-4"
+          onClick={() => setShowInfoSheet(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 text-almost-black-green shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-deep-red/80">Message info</p>
+            <p className="mt-1 text-xs text-almost-black-green/60">Created at {message.created_at ? new Date(message.created_at).toLocaleString() : 'Unknown'}</p>
+
+            <div className="mt-4 space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-almost-black-green/60">Delivered</p>
+                {deliveredEntries.length > 0 ? (
+                  <ul className="mt-1 space-y-1 text-sm">
+                    {deliveredEntries.map((entry) => (
+                      <li key={`delivered-${entry.memberId}`} className="flex justify-between gap-2">
+                        <span>{resolveName(entry.memberId)}</span>
+                        <span className="text-almost-black-green/65">{new Date(String(entry.at)).toLocaleString()}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-sm text-almost-black-green/65">Not delivered yet.</p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-almost-black-green/60">Read</p>
+                {readEntries.length > 0 ? (
+                  <ul className="mt-1 space-y-1 text-sm">
+                    {readEntries.map((entry) => (
+                      <li key={`read-${entry.memberId}`} className="flex justify-between gap-2">
+                        <span>{resolveName(entry.memberId)}</span>
+                        <span className="text-almost-black-green/65">{new Date(String(entry.at)).toLocaleString()}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-sm text-almost-black-green/65">Not read yet.</p>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="mt-4 w-full rounded-lg bg-deep-red px-3 py-2 text-sm font-semibold text-white"
+              onClick={() => setShowInfoSheet(false)}
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
     </div>
