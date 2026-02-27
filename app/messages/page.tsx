@@ -3,6 +3,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import data from "@emoji-mart/data";
+import { Picker } from "emoji-mart";
 import { ParticipantRoute } from "@/components/protectedroute";
 import { ChatProvider, useChat } from "./context/ChatContext";
 import MessageBubble from "./components/MessageBubble";
@@ -64,49 +66,6 @@ const formatLastSeenLabel = (lastSeen?: string | null) => {
     minute: "2-digit",
   })}`;
 };
-
-const EMOJI_RANGES: Array<[number, number]> = [
-  [0x231a, 0x231b],
-  [0x23e9, 0x23ec],
-  [0x23f0, 0x23f0],
-  [0x23f3, 0x23f3],
-  [0x25fd, 0x25fe],
-  [0x2614, 0x2615],
-  [0x2648, 0x2653],
-  [0x267f, 0x267f],
-  [0x2693, 0x2693],
-  [0x26a1, 0x26a1],
-  [0x26aa, 0x26ab],
-  [0x26bd, 0x26be],
-  [0x26c4, 0x26c5],
-  [0x26ce, 0x26ce],
-  [0x26d4, 0x26d4],
-  [0x26ea, 0x26ea],
-  [0x26f2, 0x26f5],
-  [0x26fa, 0x26fa],
-  [0x26fd, 0x26fd],
-  [0x2705, 0x2705],
-  [0x270a, 0x270b],
-  [0x2728, 0x2728],
-  [0x274c, 0x274c],
-  [0x274e, 0x274e],
-  [0x2753, 0x2755],
-  [0x2757, 0x2757],
-  [0x2795, 0x2797],
-  [0x27b0, 0x27b0],
-  [0x27bf, 0x27bf],
-  [0x2b1b, 0x2b1c],
-  [0x2b50, 0x2b50],
-  [0x2b55, 0x2b55],
-  [0x1f300, 0x1f5ff],
-  [0x1f600, 0x1f64f],
-  [0x1f680, 0x1f6ff],
-  [0x1f700, 0x1f77f],
-  [0x1f780, 0x1f7ff],
-  [0x1f800, 0x1f8ff],
-  [0x1f900, 0x1f9ff],
-  [0x1fa70, 0x1faff],
-];
 
 const ChatShell: React.FC = () => {
   const {
@@ -403,21 +362,6 @@ const ChatShell: React.FC = () => {
     <TypingIndicator names={roomTypingNames} />
   ) : null;
   const canSendMessage = composer.trim().length > 0;
-  const emojis = useMemo(() => {
-    const seen = new Set<string>();
-    const values: string[] = [];
-    EMOJI_RANGES.forEach(([start, end]) => {
-      for (let code = start; code <= end; code += 1) {
-        const symbol = String.fromCodePoint(code);
-        if (/\p{Emoji}/u.test(symbol) && !seen.has(symbol)) {
-          seen.add(symbol);
-          values.push(symbol);
-        }
-      }
-    });
-    return values;
-  }, []);
-
   const attachmentOptions = [
     { label: "File", icon: File, color: "text-[#1794d4]" },
     { label: "Photos & videos", icon: Image, color: "text-[#2a77f1]" },
@@ -986,32 +930,20 @@ const ChatShell: React.FC = () => {
                 </div>
                 {showEmojiModal && (
                   <div className="absolute inset-0 z-30 flex items-end justify-center bg-black/30 p-4 md:items-center">
-                    <div className="w-full max-w-2xl rounded-3xl bg-white p-4 shadow-[0_25px_70px_rgba(17,27,33,0.35)]">
-                      <div className="mb-3 flex items-center justify-between">
-                        <p className="text-base font-semibold text-[#202c33]">Choose an emoji</p>
-                        <button
-                          type="button"
-                          onClick={() => setShowEmojiModal(false)}
-                          className="rounded-full px-3 py-1.5 text-sm text-[#6b6b6b] hover:bg-[#f2f2f2]"
-                        >
-                          Close
-                        </button>
-                      </div>
-                      <div className="grid max-h-[50vh] grid-cols-8 gap-1 overflow-y-auto rounded-2xl border border-[#e1e1e1] bg-[#fafafa] p-3 sm:grid-cols-10 md:grid-cols-12">
-                        {emojis.map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => {
-                              setComposer((value) => `${value}${emoji}`);
-                              setShowEmojiModal(false);
-                            }}
-                            className="rounded-lg px-2 py-1 text-2xl transition hover:bg-white"
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
+                    <div className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white p-3 shadow-[0_25px_70px_rgba(17,27,33,0.35)]">
+                      <Picker
+                        data={data}
+                        theme="light"
+                        previewPosition="none"
+                        searchPosition="sticky"
+                        skinTonePosition="search"
+                        perLine={9}
+                        onEmojiSelect={(emoji: { native?: string }) => {
+                          if (!emoji.native) return;
+                          setComposer((value) => `${value}${emoji.native}`);
+                          setShowEmojiModal(false);
+                        }}
+                      />
                     </div>
                   </div>
                 )}
