@@ -3,8 +3,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import data from "@emoji-mart/data";
-import { Picker } from "emoji-mart";
+import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
 import { ParticipantRoute } from "@/components/protectedroute";
 import { ChatProvider, useChat } from "./context/ChatContext";
 import MessageBubble from "./components/MessageBubble";
@@ -66,6 +65,7 @@ const formatLastSeenLabel = (lastSeen?: string | null) => {
     minute: "2-digit",
   })}`;
 };
+
 
 const ChatShell: React.FC = () => {
   const {
@@ -931,16 +931,23 @@ const ChatShell: React.FC = () => {
                 {showEmojiModal && (
                   <div className="absolute inset-0 z-30 flex items-end justify-center bg-black/30 p-4 md:items-center">
                     <div className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white p-3 shadow-[0_25px_70px_rgba(17,27,33,0.35)]">
-                      <Picker
-                        data={data}
-                        theme="light"
-                        previewPosition="none"
-                        searchPosition="sticky"
-                        skinTonePosition="search"
-                        perLine={9}
-                        onEmojiSelect={(emoji: { native?: string }) => {
-                          if (!emoji.native) return;
-                          setComposer((value) => `${value}${emoji.native}`);
+                      <div className="mb-3 flex items-center justify-between px-2">
+                        <p className="text-sm font-semibold text-[#202c33]">Choose an emoji</p>
+                        <button
+                          type="button"
+                          onClick={() => setShowEmojiModal(false)}
+                          className="rounded-full px-3 py-1 text-xs font-medium text-[#5d646a] transition hover:bg-[#f2f2f4]"
+                        >
+                          Close
+                        </button>
+                      </div>
+                      <EmojiPicker
+                        theme={Theme.LIGHT}
+                        width="100%"
+                        height={420}
+                        lazyLoadEmojis
+                        onEmojiClick={(emojiData: EmojiClickData) => {
+                          setComposer((value) => `${value}${emojiData.emoji}`);
                           setShowEmojiModal(false);
                         }}
                       />
