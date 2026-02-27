@@ -107,7 +107,9 @@ const MessageBubble: React.FC<Props> = ({
     ('secretariatID' in (user || {}) && user?.secretariatID ? user.secretariatID : null) ||
     ('id' in (user || {}) && user?.id ? user.id : null);
   const [contextMenuPosition, setContextMenuPosition] = React.useState<{ x: number; y: number } | null>(null);
+  const [infoPanelPosition, setInfoPanelPosition] = React.useState<{ x: number; y: number } | null>(null);
   const [showInfoSheet, setShowInfoSheet] = React.useState(false);
+  const bubbleRef = React.useRef<HTMLDivElement | null>(null);
   const isFailed = message.status === 'error';
   const resolvedStatus = resolveReceiptStatus(
     message,
@@ -118,9 +120,12 @@ const MessageBubble: React.FC<Props> = ({
   );
 
   useEffect(() => {
-    if (!contextMenuPosition) return;
+    if (!contextMenuPosition && !showInfoSheet) return;
 
-    const closeMenu = () => setContextMenuPosition(null);
+    const closeMenu = () => {
+      setContextMenuPosition(null);
+      setShowInfoSheet(false);
+    };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') closeMenu();
     };
@@ -134,7 +139,33 @@ const MessageBubble: React.FC<Props> = ({
       window.removeEventListener('contextmenu', closeMenu);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [contextMenuPosition]);
+  }, [contextMenuPosition, showInfoSheet]);
+
+  const clampPosition = React.useCallback((x: number, y: number, width: number, height: number) => {
+    const spacing = 12;
+    const maxX = Math.max(spacing, window.innerWidth - width - spacing);
+    const maxY = Math.max(spacing, window.innerHeight - height - spacing);
+    return {
+      x: Math.min(Math.max(x, spacing), maxX),
+      y: Math.min(Math.max(y, spacing), maxY),
+    };
+  }, []);
+
+  const openInfoPanel = React.useCallback(() => {
+    const bubbleRect = bubbleRef.current?.getBoundingClientRect();
+    if (!bubbleRect) {
+      setInfoPanelPosition(clampPosition(window.innerWidth / 2 - 140, window.innerHeight / 2 - 80, 280, 152));
+      setShowInfoSheet(true);
+      return;
+    }
+
+    const panelWidth = 320;
+    const panelHeight = 156;
+    const horizontalOffset = isOwn ? bubbleRect.right - panelWidth : bubbleRect.left;
+    const verticalOffset = bubbleRect.top - panelHeight - 8;
+    setInfoPanelPosition(clampPosition(horizontalOffset, verticalOffset, panelWidth, panelHeight));
+    setShowInfoSheet(true);
+  }, [clampPosition, isOwn]);
 
   const timestamp = message.created_at
     ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -181,10 +212,13 @@ const MessageBubble: React.FC<Props> = ({
     <div className={`flex gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${showAvatar ? '' : 'px-1'}`}>
       {showAvatar && <UserAvatar user={message.user} size={36} />}
       <div
+        ref={bubbleRef}
         onContextMenu={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          setContextMenuPosition({ x: event.clientX, y: event.clientY });
+          const menuWidth = 220;
+          const menuHeight = isOwn ? 314 : 264;
+          setContextMenuPosition(clampPosition(event.clientX, event.clientY, menuWidth, menuHeight));
         }}
         className={`group relative max-w-[82%] border px-3 py-2 shadow-sm md:max-w-[74%] ${
           isOwn
@@ -220,7 +254,7 @@ const MessageBubble: React.FC<Props> = ({
       </div>
       {contextMenuPosition && (
         <div
-          className="fixed z-50 min-w-[250px] overflow-hidden rounded-xl border border-white/10 bg-[#141414] py-1 text-white shadow-2xl"
+          className="fixed z-50 min-w-[220px] overflow-hidden rounded-2xl border border-white/20 bg-[#111b21] py-1 text-white shadow-2xl"
           style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
         >
           {contextActions.map((entry, index) => {
@@ -239,13 +273,13 @@ const MessageBubble: React.FC<Props> = ({
                     void navigator.clipboard?.writeText(message.content || '');
                   }
                   if (entry.label === 'Info') {
-                    setShowInfoSheet(true);
+                    openInfoPanel();
                   }
                   setContextMenuPosition(null);
                 }}
-                className="flex w-full items-center gap-3 px-4 py-2 text-left text-[1.05rem] text-white/90 hover:bg-white/10"
+                className="flex w-full items-center gap-3 px-4 py-1.5 text-left text-[0.8rem] font-medium text-white/90 hover:bg-white/10"
               >
-                <Icon className="h-4 w-4 text-white/80" />
+                <Icon className="h-4 w-4 shrink-0 text-white/80" />
                 <span>{entry.label}</span>
               </button>
             );
@@ -254,25 +288,34 @@ const MessageBubble: React.FC<Props> = ({
       )}
       {showInfoSheet && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 px-4"
+          className="fixed inset-0 z-[60]"
           onClick={() => setShowInfoSheet(false)}
         >
           <div
-            className="w-full max-w-[640px] rounded-[14px] border border-white/10 bg-[#2f2f2f] text-white shadow-2xl"
+            className="w-full max-w-[320px] rounded-2xl border border-white/20 bg-[#2d3136] text-white shadow-2xl"
+            style={
+              infoPanelPosition
+                ? {
+                    left: infoPanelPosition.x,
+                    top: infoPanelPosition.y,
+                    position: 'fixed',
+                  }
+                : undefined
+            }
             onClick={(event) => event.stopPropagation()}
           >
             <div className="divide-y divide-white/10">
-              <div className="flex items-center gap-3 px-5 py-4">
-                <CheckCheck className="h-7 w-7 text-[#58c8ff]" />
-                <span className="text-3xl font-medium leading-none tracking-tight sm:text-[2.1rem]">Read</span>
-                <span className="ml-auto text-sm font-medium text-white/85 sm:text-base">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <CheckCheck className="h-5 w-5 text-[#58c8ff]" />
+                <span className="text-[1.1rem] font-medium leading-none">Read</span>
+                <span className="ml-auto text-sm font-medium text-white/85">
                   {readAt ? formatReceiptTime(readAt) : '•••'}
                 </span>
               </div>
-              <div className="flex items-center gap-3 px-5 py-4">
-                <CheckCheck className="h-7 w-7 text-white/55" />
-                <span className="text-3xl font-medium leading-none tracking-tight text-white/90 sm:text-[2.1rem]">Delivered</span>
-                <span className="ml-auto text-sm font-medium text-white/75 sm:text-base">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <CheckCheck className="h-5 w-5 text-white/55" />
+                <span className="text-[1.1rem] font-medium leading-none text-white/90">Delivered</span>
+                <span className="ml-auto text-sm font-medium text-white/75">
                   {deliveredAt ? formatReceiptTime(deliveredAt) : hasKnownMembers ? 'pending' : 'sent'}
                 </span>
               </div>
