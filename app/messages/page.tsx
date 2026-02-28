@@ -66,6 +66,29 @@ const formatLastSeenLabel = (lastSeen?: string | null) => {
   })}`;
 };
 
+const EMOJI_SHORTCODES: Array<{ shortcode: string; emoji: string }> = [
+  { shortcode: "grinning", emoji: "😀" },
+  { shortcode: "joy", emoji: "😂" },
+  { shortcode: "smile", emoji: "😄" },
+  { shortcode: "wink", emoji: "😉" },
+  { shortcode: "heart_eyes", emoji: "😍" },
+  { shortcode: "thinking", emoji: "🤔" },
+  { shortcode: "neutral_face", emoji: "😐" },
+  { shortcode: "sob", emoji: "😭" },
+  { shortcode: "cry", emoji: "😢" },
+  { shortcode: "angry", emoji: "😠" },
+  { shortcode: "fire", emoji: "🔥" },
+  { shortcode: "thumbsup", emoji: "👍" },
+  { shortcode: "thumbsdown", emoji: "👎" },
+  { shortcode: "clap", emoji: "👏" },
+  { shortcode: "pray", emoji: "🙏" },
+  { shortcode: "ok_hand", emoji: "👌" },
+  { shortcode: "party", emoji: "🥳" },
+  { shortcode: "rocket", emoji: "🚀" },
+  { shortcode: "eyes", emoji: "👀" },
+  { shortcode: "check", emoji: "✅" },
+];
+
 
 const ChatShell: React.FC = () => {
   const {
@@ -98,6 +121,11 @@ const ChatShell: React.FC = () => {
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const attachmentMenuRef = useRef<HTMLDivElement | null>(null);
+  const attachmentButtonRef = useRef<HTMLButtonElement | null>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement | null>(null);
+  const emojiModalRef = useRef<HTMLDivElement | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [shouldScrollOnLoad, setShouldScrollOnLoad] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
@@ -140,6 +168,16 @@ const ChatShell: React.FC = () => {
     () => (activeRoom ? messages[activeRoom.id] || [] : []),
     [activeRoom, messages],
   );
+
+  const emojiQuery = useMemo(() => {
+    const match = composer.match(/(?:^|\s):([a-z0-9_+-]{1,32})$/i);
+    return match?.[1]?.toLowerCase() ?? "";
+  }, [composer]);
+
+  const emojiSuggestions = useMemo(() => {
+    if (!emojiQuery) return [];
+    return EMOJI_SHORTCODES.filter(({ shortcode }) => shortcode.includes(emojiQuery)).slice(0, 6);
+  }, [emojiQuery]);
 
   useEffect(() => {
     const roomId = activeRoom?.id;
@@ -190,9 +228,27 @@ const ChatShell: React.FC = () => {
     window.addEventListener("contextmenu", closeFloatingMenus);
     window.addEventListener("keydown", handleKeyDown);
 
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const clickedEmojiButton = emojiButtonRef.current?.contains(target);
+      const clickedEmojiModal = emojiModalRef.current?.contains(target);
+      const clickedAttachmentButton = attachmentButtonRef.current?.contains(target);
+      const clickedAttachmentMenu = attachmentMenuRef.current?.contains(target);
+
+      if (showEmojiModal && !clickedEmojiButton && !clickedEmojiModal) {
+        setShowEmojiModal(false);
+      }
+      if (showAttachmentMenu && !clickedAttachmentButton && !clickedAttachmentMenu) {
+        setShowAttachmentMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+
     return () => {
       window.removeEventListener("contextmenu", closeFloatingMenus);
       window.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handlePointerDown);
     };
   }, [showAttachmentMenu, showEmojiModal]);
 
@@ -373,6 +429,13 @@ const ChatShell: React.FC = () => {
     <TypingIndicator names={roomTypingNames} />
   ) : null;
   const canSendMessage = composer.trim().length > 0;
+
+  const applyEmojiSuggestion = (shortcode: string, emoji: string) => {
+    setComposer((value) => value.replace(new RegExp(`:${shortcode}$`, "i"), `${emoji} `));
+    window.requestAnimationFrame(() => {
+      composerRef.current?.focus();
+    });
+  };
   const attachmentOptions = [
     { label: "File", icon: File, color: "text-[#1794d4]" },
     { label: "Photos & videos", icon: Image, color: "text-[#2a77f1]" },
@@ -871,9 +934,27 @@ const ChatShell: React.FC = () => {
                 <div className="sticky bottom-0 bg-white px-2 py-3">
                   {activeTypingDisplay}
                   <div className="relative flex items-end gap-3">
-                    <div className="relative">
+                    {emojiSuggestions.length > 0 && (
+                      <div className="absolute -top-20 left-4 z-30 min-w-44 rounded-2xl border border-[#d7d7d7] bg-white p-1.5 shadow-[0_14px_30px_rgba(17,27,33,0.2)]">
+                        {emojiSuggestions.map((item) => (
+                          <button
+                            key={item.shortcode}
+                            type="button"
+                            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-[#202c33] transition hover:bg-[#f4f4f4]"
+                            onClick={() => applyEmojiSuggestion(item.shortcode, item.emoji)}
+                          >
+                            <span className="text-xl leading-none">{item.emoji}</span>
+                            <span className="font-medium">:{item.shortcode}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="relative flex flex-1 items-end rounded-full border border-[#d7d7d7] bg-[#f5f5f5] pl-1 pr-2 transition focus-within:border-[#bfbfbf]">
                       {showAttachmentMenu && (
-                        <div className="absolute bottom-14 left-0 z-20 w-64 rounded-2xl border border-[#d7d8d9] bg-[#f2f2f4] p-2 shadow-[0_18px_40px_rgba(17,27,33,0.22)]">
+                        <div
+                          ref={attachmentMenuRef}
+                          className="absolute bottom-14 left-0 z-20 w-64 rounded-2xl border border-[#d7d8d9] bg-[#f2f2f4] p-2 shadow-[0_18px_40px_rgba(17,27,33,0.22)]"
+                        >
                           {attachmentOptions.map((option) => (
                             <button
                               key={option.label}
@@ -888,16 +969,16 @@ const ChatShell: React.FC = () => {
                         </div>
                       )}
                       <button
+                        ref={attachmentButtonRef}
                         type="button"
                         onClick={toggleAttachmentMenu}
-                        className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#f0f0f0]"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#ececec]"
                         aria-label="Open attachment options"
                       >
-                        <Plus className="h-8 w-8" strokeWidth={1.6} />
+                        <Plus className="h-7 w-7" strokeWidth={1.8} />
                       </button>
-                    </div>
-                    <div className="flex flex-1 items-center rounded-full border border-[#d7d7d7] bg-[#f5f5f5] pl-4 pr-2 transition focus-within:border-[#c3c3c3]">
                       <textarea
+                        ref={composerRef}
                         value={composer}
                         onChange={(event) => {
                           setComposer(event.target.value);
@@ -913,9 +994,11 @@ const ChatShell: React.FC = () => {
                         }}
                         placeholder="Type your message"
                         rows={1}
+                        style={{ border: "none", boxShadow: "none" }}
                         className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-[#202c33] placeholder:text-[#7a7f84] focus:outline-none"
                       />
                       <button
+                        ref={emojiButtonRef}
                         type="button"
                         onClick={openEmojiModal}
                         className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#ececec]"
@@ -952,36 +1035,29 @@ const ChatShell: React.FC = () => {
                   </div>
                 )}
                 {showEmojiModal && (
-                  <>
-                    <button
-                      type="button"
-                      aria-label="Close emoji picker"
-                      className="absolute inset-0 z-20 cursor-default bg-transparent"
-                      onClick={() => setShowEmojiModal(false)}
-                    />
-                    <div
-                      className="absolute bottom-20 right-6 z-30 w-[min(370px,calc(100%-2rem))] overflow-hidden rounded-2xl border border-[#d7d7d7] bg-white shadow-[0_18px_45px_rgba(17,27,33,0.24)]"
-                      style={{
-                        ["--epr-emoji-size" as string]: "20px",
-                        ["--epr-search-input-padding" as string]: "0 28px",
-                        ["--epr-font-size" as string]: "13px",
+                  <div
+                    ref={emojiModalRef}
+                    className="absolute bottom-20 right-6 z-30 w-[min(330px,calc(100%-2rem))] overflow-hidden rounded-2xl border border-[#d7d7d7] bg-white shadow-[0_18px_45px_rgba(17,27,33,0.24)]"
+                    style={{
+                      ["--epr-emoji-size" as string]: "20px",
+                      ["--epr-search-input-padding" as string]: "0 28px",
+                      ["--epr-font-size" as string]: "13px",
+                    }}
+                  >
+                    <EmojiPicker
+                      theme={Theme.LIGHT}
+                      width="100%"
+                      height={320}
+                      lazyLoadEmojis={false}
+                      previewConfig={{ showPreview: false }}
+                      skinTonesDisabled
+                      searchDisabled={false}
+                      onEmojiClick={(emojiData: EmojiClickData) => {
+                        setComposer((value) => `${value}${emojiData.emoji}`);
+                        setShowEmojiModal(false);
                       }}
-                    >
-                      <EmojiPicker
-                        theme={Theme.LIGHT}
-                        width="100%"
-                        height={360}
-                        lazyLoadEmojis={false}
-                        previewConfig={{ showPreview: false }}
-                        skinTonesDisabled
-                        searchDisabled={false}
-                        onEmojiClick={(emojiData: EmojiClickData) => {
-                          setComposer((value) => `${value}${emojiData.emoji}`);
-                          setShowEmojiModal(false);
-                        }}
-                      />
-                    </div>
-                  </>
+                    />
+                  </div>
                 )}
                 </>
               )}
