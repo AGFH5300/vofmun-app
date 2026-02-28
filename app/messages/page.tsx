@@ -102,6 +102,7 @@ const ChatShell: React.FC = () => {
   const [shouldScrollOnLoad, setShouldScrollOnLoad] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [showEmojiModal, setShowEmojiModal] = useState(false);
+  const [warmEmojiPicker, setWarmEmojiPicker] = useState(false);
   const roomPollInFlightRef = useRef(false);
   const roomPollBackoffRef = useRef(30000);
   const roomsPollInFlightRef = useRef(false);
@@ -194,6 +195,16 @@ const ChatShell: React.FC = () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [showAttachmentMenu, showEmojiModal]);
+
+  useEffect(() => {
+    const warmup = window.setTimeout(() => {
+      setWarmEmojiPicker(true);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(warmup);
+    };
+  }, []);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -928,6 +939,18 @@ const ChatShell: React.FC = () => {
                     </button>
                   </div>
                 </div>
+                {warmEmojiPicker && (
+                  <div className="pointer-events-none absolute -left-[9999px] -top-[9999px] h-0 w-0 overflow-hidden opacity-0" aria-hidden>
+                    <EmojiPicker
+                      theme={Theme.LIGHT}
+                      width={1}
+                      height={1}
+                      lazyLoadEmojis={false}
+                      previewConfig={{ showPreview: false }}
+                      skinTonesDisabled
+                    />
+                  </div>
+                )}
                 {showEmojiModal && (
                   <>
                     <button
@@ -936,11 +959,19 @@ const ChatShell: React.FC = () => {
                       className="absolute inset-0 z-20 cursor-default bg-transparent"
                       onClick={() => setShowEmojiModal(false)}
                     />
-                    <div className="absolute bottom-20 right-6 z-30 w-[min(370px,calc(100%-2rem))] overflow-hidden rounded-2xl border border-[#d7d7d7] bg-white shadow-[0_18px_45px_rgba(17,27,33,0.24)]">
+                    <div
+                      className="absolute bottom-20 right-6 z-30 w-[min(370px,calc(100%-2rem))] overflow-hidden rounded-2xl border border-[#d7d7d7] bg-white shadow-[0_18px_45px_rgba(17,27,33,0.24)]"
+                      style={{
+                        ["--epr-emoji-size" as string]: "20px",
+                        ["--epr-search-input-padding" as string]: "0 28px",
+                        ["--epr-font-size" as string]: "13px",
+                      }}
+                    >
                       <EmojiPicker
                         theme={Theme.LIGHT}
                         width="100%"
-                        height={380}
+                        height={360}
+                        lazyLoadEmojis={false}
                         previewConfig={{ showPreview: false }}
                         skinTonesDisabled
                         searchDisabled={false}
