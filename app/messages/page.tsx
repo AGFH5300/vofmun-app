@@ -988,17 +988,17 @@ const ChatShell: React.FC = () => {
                       {showAttachmentMenu && (
                         <div
                           ref={attachmentMenuRef}
-                          className="absolute bottom-14 left-0 z-20 w-64 rounded-2xl border border-[#d7d8d9] bg-[#f2f2f4] p-2 shadow-[0_18px_40px_rgba(17,27,33,0.22)]"
+                          className="absolute bottom-14 left-0 z-20 w-56 rounded-2xl border border-[#d7d8d9] bg-[#f2f2f4] p-1.5 shadow-[0_18px_40px_rgba(17,27,33,0.22)]"
                         >
                           {attachmentOptions.map((option) => (
                             <button
                               key={option.label}
                               type="button"
                               onClick={() => setShowAttachmentMenu(false)}
-                              className="flex w-full items-center gap-4 rounded-xl px-3 py-2.5 text-left text-base font-medium text-[#222] transition hover:bg-white/80"
+                              className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-sm font-medium text-[#222] transition hover:bg-white/80"
                             >
-                              <option.icon className={`h-6 w-6 ${option.color}`} strokeWidth={2.2} />
-                              <span className="text-base leading-none">{option.label}</span>
+                              <option.icon className={`h-5 w-5 ${option.color}`} strokeWidth={2.1} />
+                              <span className="text-sm leading-none">{option.label}</span>
                             </button>
                           ))}
                         </div>
