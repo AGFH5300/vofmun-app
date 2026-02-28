@@ -3,8 +3,9 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
-import emojiDataset from "emoji-picker-react/dist/data/emojis-en.json";
+import dynamic from "next/dynamic";
+import type { EmojiClickData } from "emoji-picker-react";
+import emojiDataset from "emoji-picker-react/dist/data/emojis-en";
 import { ParticipantRoute } from "@/components/protectedroute";
 import { ChatProvider, useChat } from "./context/ChatContext";
 import MessageBubble from "./components/MessageBubble";
@@ -42,6 +43,8 @@ const formatDateLabel = (dateString: string) => {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 };
 
+const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
+
 const formatLastSeenLabel = (lastSeen?: string | null) => {
   if (!lastSeen) return "Offline";
   const timestamp = new Date(lastSeen);
@@ -69,10 +72,15 @@ const formatLastSeenLabel = (lastSeen?: string | null) => {
 
 type EmojiEntry = { n?: string[]; u?: string };
 type EmojiDataset = { emojis: Record<string, EmojiEntry[]> };
+type EmojiDatasetModule = EmojiDataset | { default: EmojiDataset };
 type EmojiSuggestion = { shortcode: string; emoji: string; searchText: string };
 
 const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
-  const source = (emojiDataset as EmojiDataset).emojis || {};
+  const resolvedEmojiDataset = (emojiDataset as EmojiDatasetModule) as EmojiDatasetModule;
+  const source =
+    "emojis" in resolvedEmojiDataset
+      ? resolvedEmojiDataset.emojis || {}
+      : resolvedEmojiDataset.default?.emojis || {};
   const suggestions: EmojiSuggestion[] = [];
   const seen = new Set<string>();
 
@@ -1049,7 +1057,7 @@ const ChatShell: React.FC = () => {
                 {warmEmojiPicker && (
                   <div className="pointer-events-none absolute -left-[9999px] -top-[9999px] h-0 w-0 overflow-hidden opacity-0" aria-hidden>
                     <EmojiPicker
-                      theme={Theme.LIGHT}
+                      theme="light"
                       width={1}
                       height={1}
                       lazyLoadEmojis={false}
@@ -1069,7 +1077,7 @@ const ChatShell: React.FC = () => {
                     }}
                   >
                     <EmojiPicker
-                      theme={Theme.LIGHT}
+                      theme="light"
                       width="100%"
                       height={320}
                       lazyLoadEmojis={false}
