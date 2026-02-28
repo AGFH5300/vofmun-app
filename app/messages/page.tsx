@@ -82,7 +82,7 @@ const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
       ? resolvedEmojiDataset.emojis || {}
       : resolvedEmojiDataset.default?.emojis || {};
   const suggestions: EmojiSuggestion[] = [];
-  const seen = new Set<string>();
+  const seenShortcodes = new Set<string>();
 
   const toEmoji = (unicodeCodepoints: string) => {
     const points = unicodeCodepoints
@@ -103,9 +103,8 @@ const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
       const shortcode = rawShortcode.toLowerCase().replace(/\s+/g, "_");
       if (!shortcode) return;
 
-      const id = `${entry.u}:${shortcode}`;
-      if (seen.has(id)) return;
-      seen.add(id);
+      if (seenShortcodes.has(shortcode)) return;
+      seenShortcodes.add(shortcode);
 
       suggestions.push({
         shortcode,
@@ -462,8 +461,12 @@ const ChatShell: React.FC = () => {
   ) : null;
   const canSendMessage = composer.trim().length > 0;
 
-  const applyEmojiSuggestion = (shortcode: string, emoji: string) => {
-    setComposer((value) => value.replace(new RegExp(`:${shortcode}$`, "i"), `${emoji} `));
+  const applyEmojiSuggestion = (emoji: string) => {
+    setComposer((value) =>
+      value.replace(/(?:^|\s):[a-z0-9_+-]{1,32}$/i, (match) =>
+        match.startsWith(" ") ? ` ${emoji} ` : `${emoji} `,
+      ),
+    );
     window.requestAnimationFrame(() => {
       composerRef.current?.focus();
     });
@@ -973,7 +976,7 @@ const ChatShell: React.FC = () => {
                             key={item.shortcode}
                             type="button"
                             className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-[#202c33] transition hover:bg-[#f4f4f4]"
-                            onClick={() => applyEmojiSuggestion(item.shortcode, item.emoji)}
+                            onClick={() => applyEmojiSuggestion(item.emoji)}
                           >
                             <span className="text-xl leading-none">{item.emoji}</span>
                             <span className="font-medium">:{item.shortcode}</span>
