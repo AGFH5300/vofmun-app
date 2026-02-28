@@ -82,7 +82,7 @@ const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
       ? resolvedEmojiDataset.emojis || {}
       : resolvedEmojiDataset.default?.emojis || {};
   const suggestions: EmojiSuggestion[] = [];
-  const seen = new Set<string>();
+  const seenShortcodes = new Set<string>();
 
   const toEmoji = (unicodeCodepoints: string) => {
     const points = unicodeCodepoints
@@ -103,9 +103,8 @@ const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
       const shortcode = rawShortcode.toLowerCase().replace(/\s+/g, "_");
       if (!shortcode) return;
 
-      const id = `${entry.u}:${shortcode}`;
-      if (seen.has(id)) return;
-      seen.add(id);
+      if (seenShortcodes.has(shortcode)) return;
+      seenShortcodes.add(shortcode);
 
       suggestions.push({
         shortcode,
