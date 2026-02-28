@@ -4,6 +4,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
+import emojiDataset from "emoji-picker-react/dist/data/emojis-en.json";
 import { ParticipantRoute } from "@/components/protectedroute";
 import { ChatProvider, useChat } from "./context/ChatContext";
 import MessageBubble from "./components/MessageBubble";
@@ -66,28 +67,48 @@ const formatLastSeenLabel = (lastSeen?: string | null) => {
   })}`;
 };
 
-const EMOJI_SHORTCODES: Array<{ shortcode: string; emoji: string }> = [
-  { shortcode: "grinning", emoji: "😀" },
-  { shortcode: "joy", emoji: "😂" },
-  { shortcode: "smile", emoji: "😄" },
-  { shortcode: "wink", emoji: "😉" },
-  { shortcode: "heart_eyes", emoji: "😍" },
-  { shortcode: "thinking", emoji: "🤔" },
-  { shortcode: "neutral_face", emoji: "😐" },
-  { shortcode: "sob", emoji: "😭" },
-  { shortcode: "cry", emoji: "😢" },
-  { shortcode: "angry", emoji: "😠" },
-  { shortcode: "fire", emoji: "🔥" },
-  { shortcode: "thumbsup", emoji: "👍" },
-  { shortcode: "thumbsdown", emoji: "👎" },
-  { shortcode: "clap", emoji: "👏" },
-  { shortcode: "pray", emoji: "🙏" },
-  { shortcode: "ok_hand", emoji: "👌" },
-  { shortcode: "party", emoji: "🥳" },
-  { shortcode: "rocket", emoji: "🚀" },
-  { shortcode: "eyes", emoji: "👀" },
-  { shortcode: "check", emoji: "✅" },
-];
+type EmojiEntry = { n?: string[]; u?: string };
+type EmojiDataset = { emojis: Record<string, EmojiEntry[]> };
+type EmojiSuggestion = { shortcode: string; emoji: string; searchText: string };
+
+const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
+  const source = (emojiDataset as EmojiDataset).emojis || {};
+  const suggestions: EmojiSuggestion[] = [];
+  const seen = new Set<string>();
+
+  const toEmoji = (unicodeCodepoints: string) => {
+    const points = unicodeCodepoints
+      .split("-")
+      .map((part) => Number.parseInt(part, 16))
+      .filter((point) => Number.isFinite(point));
+    return points.length ? String.fromCodePoint(...points) : "";
+  };
+
+  Object.values(source).forEach((entries) => {
+    entries.forEach((entry) => {
+      if (!entry?.u) return;
+      const emoji = toEmoji(entry.u);
+      if (!emoji) return;
+
+      const names = (entry.n || []).filter(Boolean);
+      const rawShortcode = names[1] || names[0] || "";
+      const shortcode = rawShortcode.toLowerCase().replace(/\s+/g, "_");
+      if (!shortcode) return;
+
+      const id = `${entry.u}:${shortcode}`;
+      if (seen.has(id)) return;
+      seen.add(id);
+
+      suggestions.push({
+        shortcode,
+        emoji,
+        searchText: names.join(" ").toLowerCase(),
+      });
+    });
+  });
+
+  return suggestions;
+})();
 
 
 const ChatShell: React.FC = () => {
@@ -176,7 +197,10 @@ const ChatShell: React.FC = () => {
 
   const emojiSuggestions = useMemo(() => {
     if (!emojiQuery) return [];
-    return EMOJI_SHORTCODES.filter(({ shortcode }) => shortcode.includes(emojiQuery)).slice(0, 6);
+    return EMOJI_SHORTCODES.filter(
+      ({ shortcode, searchText }) =>
+        shortcode.includes(emojiQuery) || searchText.includes(emojiQuery.replace(/_/g, " ")),
+    ).slice(0, 6);
   }, [emojiQuery]);
 
   useEffect(() => {
