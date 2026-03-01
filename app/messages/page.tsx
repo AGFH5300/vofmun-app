@@ -175,6 +175,7 @@ const ChatShell: React.FC = () => {
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [showEmojiModal, setShowEmojiModal] = useState(false);
   const [warmEmojiPicker, setWarmEmojiPicker] = useState(false);
+  const [activeEmojiIndex, setActiveEmojiIndex] = useState(0);
   const roomPollInFlightRef = useRef(false);
   const roomPollBackoffRef = useRef(30000);
   const roomsPollInFlightRef = useRef(false);
@@ -222,11 +223,26 @@ const ChatShell: React.FC = () => {
 
   const emojiSuggestions = useMemo(() => {
     if (!emojiQuery) return [];
-    return emojiShortcodes.filter(
-      ({ shortcode, searchText }) =>
-        shortcode.includes(emojiQuery) || searchText.includes(emojiQuery.replace(/_/g, " ")),
-    ).slice(0, 6);
+
+    const seenEmojis = new Set<string>();
+    return emojiShortcodes
+      .filter(
+        ({ shortcode, searchText }) =>
+          shortcode.includes(emojiQuery) || searchText.includes(emojiQuery.replace(/_/g, " ")),
+      )
+      .filter(({ emoji }) => {
+        if (seenEmojis.has(emoji)) {
+          return false;
+        }
+        seenEmojis.add(emoji);
+        return true;
+      })
+      .slice(0, 6);
   }, [emojiQuery, emojiShortcodes]);
+
+  useEffect(() => {
+    setActiveEmojiIndex(0);
+  }, [emojiQuery]);
 
   useEffect(() => {
     const roomId = activeRoom?.id;
@@ -988,18 +1004,21 @@ const ChatShell: React.FC = () => {
                   {activeTypingDisplay}
                   <div className="relative flex items-end gap-3">
                     {emojiSuggestions.length > 0 && (
-                      <div className="absolute -top-20 left-4 z-30 min-w-44 rounded-2xl border border-[#d7d7d7] bg-white p-1.5 shadow-[0_14px_30px_rgba(17,27,33,0.2)]">
-                        {emojiSuggestions.map((item) => (
-                          <button
-                            key={item.shortcode}
-                            type="button"
-                            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-[#202c33] transition hover:bg-[#f4f4f4]"
-                            onClick={() => applyEmojiSuggestion(item.emoji)}
-                          >
-                            <span className="text-xl leading-none">{item.emoji}</span>
-                            <span className="font-medium">:{item.shortcode}</span>
-                          </button>
-                        ))}
+                      <div className="absolute -top-20 left-4 z-30 max-w-[calc(100%-2rem)] rounded-2xl border border-[#d7d7d7] bg-white p-1.5 shadow-[0_14px_30px_rgba(17,27,33,0.2)]">
+                        <div className="flex items-center gap-1 overflow-x-auto">
+                          {emojiSuggestions.map((item, index) => (
+                            <button
+                              key={item.emoji}
+                              type="button"
+                              className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl leading-none text-[#202c33] transition hover:bg-[#f4f4f4] ${
+                                activeEmojiIndex === index ? "bg-[#f4f4f4]" : ""
+                              }`}
+                              onClick={() => applyEmojiSuggestion(item.emoji)}
+                            >
+                              <span className="leading-none">{item.emoji}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
                     <div className="relative flex flex-1 items-end rounded-full border border-[#d7d7d7] bg-[#f5f5f5] pl-1 pr-2 transition focus-within:border-[#bfbfbf]">
@@ -1040,8 +1059,34 @@ const ChatShell: React.FC = () => {
                         onFocus={() => sendTyping(activeRoom.id, true)}
                         onBlur={() => sendTyping(activeRoom.id, false)}
                         onKeyDown={(event) => {
+                          if (emojiSuggestions.length > 0 && event.key === "ArrowLeft") {
+                            event.preventDefault();
+                            setActiveEmojiIndex((prev) =>
+                              prev === 0 ? emojiSuggestions.length - 1 : prev - 1,
+                            );
+                            return;
+                          }
+
+                          if (emojiSuggestions.length > 0 && event.key === "ArrowRight") {
+                            event.preventDefault();
+                            setActiveEmojiIndex((prev) =>
+                              prev === emojiSuggestions.length - 1 ? 0 : prev + 1,
+                            );
+                            return;
+                          }
+
                           if (event.key === "Enter" && !event.shiftKey) {
                             event.preventDefault();
+                            if (emojiSuggestions.length > 0) {
+                              const activeEmoji =
+                                emojiSuggestions[
+                                  Math.min(activeEmojiIndex, emojiSuggestions.length - 1)
+                                ]?.emoji;
+                              if (activeEmoji) {
+                                applyEmojiSuggestion(activeEmoji);
+                              }
+                              return;
+                            }
                             handleSend();
                           }
                         }}
