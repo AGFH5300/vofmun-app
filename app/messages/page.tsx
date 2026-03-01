@@ -98,24 +98,40 @@ const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
       const emoji = toEmoji(entry.u);
       if (!emoji) return;
 
-      const names = (entry.n || []).filter(Boolean);
-      const rawShortcode = names[1] || names[0] || "";
-      const shortcode = rawShortcode.toLowerCase().replace(/\s+/g, "_");
-      if (!shortcode) return;
+      const names = (entry.n || [])
+        .filter((name): name is string => Boolean(name))
+        .map((name) => name.toLowerCase());
+      if (names.length === 0) return;
 
-      if (seenShortcodes.has(shortcode)) return;
-      seenShortcodes.add(shortcode);
+      const searchText = names.join(" ");
+      const pushSuggestion = (shortcode: string) => {
+        if (!/^[a-z0-9_+-]{1,32}$/i.test(shortcode)) return;
+        if (seenShortcodes.has(shortcode)) return;
+        seenShortcodes.add(shortcode);
 
-      suggestions.push({
-        shortcode,
-        emoji,
-        searchText: names.join(" ").toLowerCase(),
+        suggestions.push({ shortcode, emoji, searchText });
+      };
+
+      names.forEach((keyword) => {
+        if (keyword.includes(" ")) return;
+        pushSuggestion(keyword);
       });
+
+      const longName = names[names.length - 1]?.replace(/\s+/g, "_");
+      if (longName) {
+        pushSuggestion(longName);
+      }
     });
   });
 
   return suggestions;
 })();
+
+if (process.env.NODE_ENV !== "production") {
+  const sobSuggestion = EMOJI_SHORTCODES.find(({ shortcode }) => shortcode === "sob");
+  // eslint-disable-next-line no-console
+  console.log("[emoji-shortcodes] sob available:", Boolean(sobSuggestion), sobSuggestion?.emoji);
+}
 
 
 const ChatShell: React.FC = () => {
@@ -202,13 +218,15 @@ const ChatShell: React.FC = () => {
     return match?.[1]?.toLowerCase() ?? "";
   }, [composer]);
 
+  const emojiShortcodes = useMemo(() => EMOJI_SHORTCODES, []);
+
   const emojiSuggestions = useMemo(() => {
     if (!emojiQuery) return [];
-    return EMOJI_SHORTCODES.filter(
+    return emojiShortcodes.filter(
       ({ shortcode, searchText }) =>
         shortcode.includes(emojiQuery) || searchText.includes(emojiQuery.replace(/_/g, " ")),
     ).slice(0, 6);
-  }, [emojiQuery]);
+  }, [emojiQuery, emojiShortcodes]);
 
   useEffect(() => {
     const roomId = activeRoom?.id;
