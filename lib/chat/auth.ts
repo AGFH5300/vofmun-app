@@ -19,12 +19,47 @@ const parseCookieHeader = (cookieHeader?: string | null): Record<string, string>
   }, {});
 };
 
+const LEGACY_CHAT_ID_PREFIX_RE = /^(del|delegate|chair|admin|secretariat)[_-]/i;
+
+export const isLegacyChatIdentity = (value: string | null | undefined) => {
+  if (!value) return false;
+  return LEGACY_CHAT_ID_PREFIX_RE.test(String(value).trim());
+};
+
+export const assertNoLegacyChatIdentityDev = (identity: string, context: string) => {
+  if (process.env.NODE_ENV === 'production') return;
+  if (!isLegacyChatIdentity(identity)) return;
+
+  const message = `[chat auth] Legacy identity blocked in ${context}: ${identity}. Expected Supabase auth user.id (uuid-like).`;
+  console.error(message);
+  throw new Error(message);
+};
+
 const mapRawUserToSession = (raw: any): SessionAuthUser | null => {
   if (!raw) return null;
-  if (raw.delegateID) return { id: String(raw.delegateID), role: 'delegate' };
-  if (raw.chairID) return { id: String(raw.chairID), role: 'chair' };
-  if (raw.adminID) return { id: String(raw.adminID), role: 'admin' };
-  if (raw.secretariatID) return { id: String(raw.secretariatID), role: 'secretariat' };
+  const authUserId = raw.id ? String(raw.id) : null;
+  if (!authUserId) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[chat auth] Missing auth user.id in session cookie payload for chat identity mapping.', {
+        hasDelegateId: Boolean(raw.delegateID),
+        hasChairId: Boolean(raw.chairID),
+        hasAdminId: Boolean(raw.adminID),
+        hasSecretariatId: Boolean(raw.secretariatID),
+      });
+    }
+    return null;
+  }
+
+  assertNoLegacyChatIdentityDev(authUserId, 'mapRawUserToSession');
+
+  if (raw.role && ['delegate', 'chair', 'admin', 'secretariat'].includes(String(raw.role))) {
+    return { id: authUserId, role: String(raw.role) as SessionRole };
+  }
+
+  if (raw.delegateID) return { id: authUserId, role: 'delegate' };
+  if (raw.chairID) return { id: authUserId, role: 'chair' };
+  if (raw.adminID) return { id: authUserId, role: 'admin' };
+  if (raw.secretariatID) return { id: authUserId, role: 'secretariat' };
   return null;
 };
 

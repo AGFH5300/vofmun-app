@@ -4,8 +4,31 @@ import { NextResponse } from 'next/server';
 import supabaseAdmin from '@/lib/supabaseAdmin';
 import { getSessionUserFromRequest } from '@/lib/chat/auth';
 import { fetchProfilesByIds } from '@/app/api/rooms/_lib/rooms';
-import { MessageWithUser } from '@/lib/chat/types';
+import { MessageAttachmentInput, MessageWithUser } from '@/lib/chat/types';
 import { createDefaultMessageMeta } from '@/lib/chat/messageMeta';
+import { assertNoLegacyChatIdentityDev } from '@/lib/chat/auth';
+
+const sanitizeAttachmentName = (name: string) => {
+  const normalized = name
+    .normalize('NFKD')
+    .replace(/[^a-zA-Z0-9._-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  return normalized.slice(0, 120) || 'file';
+};
+
+const UUID_SEGMENT_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isAllowedAttachmentPath = (roomId: string, path: string) => {
+  const segments = String(path || '').split('/').filter(Boolean);
+  if (segments.length < 3) return false;
+  if (segments[0] !== `room_${roomId}`) return false;
+  if (!UUID_SEGMENT_RE.test(segments[1])) return false;
+
+  const filename = segments.slice(2).join('/');
+  return filename.length > 0 && /^[a-zA-Z0-9._-]{1,120}$/.test(filename);
+};
 
 export async function GET(request: Request, { params }: { params: Promise<{ roomId: string }> }) {
   try {
@@ -46,8 +69,31 @@ export async function GET(request: Request, { params }: { params: Promise<{ room
       .eq('room_id', roomId)
       .order('created_at', { ascending: true });
 
+    const messageIds = (messages || []).map((message) => String(message.id));
+    let attachments: Record<string, unknown>[] = [];
+
+    if (messageIds.length > 0) {
+      const { data: attachmentRows } = await supabaseAdmin
+        .from('message_attachments')
+        .select('*')
+        .eq('room_id', roomId)
+        .in('message_id', messageIds)
+        .order('created_at', { ascending: true });
+      attachments = (attachmentRows as Record<string, unknown>[] | null) || [];
+    }
+
+    const attachmentMap = attachments.reduce<Record<string, Record<string, unknown>[]>>((acc, attachment) => {
+      const key = String(attachment.message_id || '');
+      if (!key) return acc;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(attachment);
+      return acc;
+    }, {});
+
     const profiles = await fetchProfilesByIds((messages || []).map((msg) => msg.user_id));
-    const formatted = (messages || []).map((msg) => ({ ...msg, user: profiles[msg.user_id] } as MessageWithUser));
+    const formatted = (messages || []).map(
+      (msg) => ({ ...msg, user: profiles[msg.user_id], attachments: attachmentMap[String(msg.id)] || [] } as MessageWithUser)
+    );
 
     return NextResponse.json(formatted);
   } catch (error) {
@@ -68,13 +114,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
     }
 
     const { roomId } = await params;
-    const { content, reply_to } = (await request.json().catch(() => ({}))) as {
+    const { content, reply_to, attachments = [] } = (await request.json().catch(() => ({}))) as {
       content?: string;
       reply_to?: string | null;
+      attachments?: MessageAttachmentInput[];
     };
 
-    if (!content || !content.trim()) {
-      return NextResponse.json({ error: 'Message content is required' }, { status: 400 });
+    const trimmedContent = content?.trim() || '';
+    const normalizedAttachments = Array.isArray(attachments) ? attachments : [];
+
+    assertNoLegacyChatIdentityDev(sessionUser.id, 'messages:insert:user_id');
+
+    if (!trimmedContent && normalizedAttachments.length === 0) {
+      return NextResponse.json({ error: 'Message content or attachments are required' }, { status: 400 });
+    }
+
+    if (
+      normalizedAttachments.some(
+        (attachment) =>
+          attachment.bucket !== 'chat-attachments' ||
+          !isAllowedAttachmentPath(roomId, String(attachment.path || ''))
+      )
+    ) {
+      return NextResponse.json({ error: 'Invalid attachment bucket or path format' }, { status: 400 });
     }
 
     const { data: membershipRows, error: membershipError } = await supabaseAdmin
@@ -102,7 +164,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
       .insert({
         room_id: roomId,
         user_id: sessionUser.id,
-        content: content.trim(),
+        content: trimmedContent,
         reply_to: reply_to || null,
         meta: createDefaultMessageMeta(),
       })
@@ -118,9 +180,41 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
       return NextResponse.json({ error: 'Failed to send message', details: error?.message || null }, { status: 500 });
     }
 
+    if (normalizedAttachments.length > 0) {
+      const attachmentRows = normalizedAttachments.map((attachment) => ({
+        message_id: inserted.id,
+        room_id: roomId,
+        bucket: String(attachment.bucket || 'chat-attachments'),
+        path: String(attachment.path || ''),
+        original_name: sanitizeAttachmentName(String(attachment.original_name || 'file')),
+        mime_type: attachment.mime_type || null,
+        size_bytes: Number(attachment.size_bytes || 0),
+        created_by: sessionUser.id,
+      }));
+
+      const { error: attachmentError } = await supabaseAdmin.from('message_attachments').insert(attachmentRows);
+      if (attachmentError) {
+        console.error('[api rooms messages] attachment insert failed', {
+          roomId,
+          userId: sessionUser.id,
+          messageId: inserted.id,
+          error: attachmentError,
+        });
+        await supabaseAdmin.from('message_attachments').delete().eq('message_id', inserted.id);
+        await supabaseAdmin.from('messages').delete().eq('id', inserted.id);
+        return NextResponse.json({ error: 'Failed to save attachments' }, { status: 500 });
+      }
+    }
+
     try {
       const profiles = await fetchProfilesByIds([inserted.user_id]);
-      const payload: MessageWithUser = { ...inserted, user: profiles[inserted.user_id] };
+      const { data: attachmentRows } = await supabaseAdmin
+        .from('message_attachments')
+        .select('*')
+        .eq('message_id', inserted.id)
+        .order('created_at', { ascending: true });
+
+      const payload: MessageWithUser = { ...inserted, user: profiles[inserted.user_id], attachments: attachmentRows || [] };
       return NextResponse.json(payload);
     } catch (profileError) {
       console.error('[api rooms messages] profile enrichment failed after insert', {
