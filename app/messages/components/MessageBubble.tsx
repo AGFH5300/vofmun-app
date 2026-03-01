@@ -3,11 +3,12 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { MessageWithUser, RoomMember } from '@/lib/chat/types';
+import { MessageAttachment, MessageWithUser, RoomMember } from '@/lib/chat/types';
+import supabase from '@/lib/supabase';
 import { useSession } from '@/app/context/sessionContext';
 import { normalizeMessageMeta } from '@/lib/chat/messageMeta';
 import UserAvatar from './UserAvatar';
-import { AlertCircle, Check, CheckCheck, CheckCircle2, Clock, Copy, Forward, Info, Pencil, Reply, Smile, Trash2 } from 'lucide-react';
+import { AlertCircle, Check, CheckCheck, CheckCircle2, Clock, Copy, Download, FileText, Forward, Info, Pencil, Reply, Smile, Trash2 } from 'lucide-react';
 
 interface Props {
   message: MessageWithUser;
@@ -52,6 +53,20 @@ const formatReceiptTime = (value: string | null) => {
   const timeLabel = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   return `${day}/${month}/${year} ${timeLabel}`;
 };
+
+
+
+const SIGNED_URL_TTL_SECONDS = 60;
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+const formatAttachmentSize = (sizeBytes: number) => {
+  if (!Number.isFinite(sizeBytes) || sizeBytes < 0) return '0 B';
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const isImageAttachment = (attachment: MessageAttachment) => String(attachment.mime_type || '').startsWith('image/');
 
 const resolveReceiptStatus = (
   message: MessageWithUser,
@@ -204,6 +219,56 @@ const MessageBubble: React.FC<Props> = ({
   const deliveredAt = deliveredEntries[0]?.at ? String(deliveredEntries[0].at) : null;
   const readAt = readEntries[0]?.at ? String(readEntries[0].at) : null;
 
+
+  const [attachmentUrls, setAttachmentUrls] = React.useState<Record<string, string>>({});
+  const attachments = message.attachments || [];
+
+  useEffect(() => {
+    if (attachments.length === 0) {
+      setAttachmentUrls({});
+      return;
+    }
+
+    let cancelled = false;
+    const hydrateAttachmentUrls = async () => {
+      const now = Date.now();
+      const nextMap: Record<string, string> = {};
+
+      await Promise.all(
+        attachments.map(async (attachment) => {
+          const cacheKey = `${attachment.bucket}:${attachment.path}`;
+          const cached = signedUrlCache.get(cacheKey);
+          if (cached && cached.expiresAt > now + 5_000) {
+            nextMap[attachment.path] = cached.url;
+            return;
+          }
+
+          const { data, error } = await supabase.storage
+            .from(attachment.bucket)
+            .createSignedUrl(attachment.path, SIGNED_URL_TTL_SECONDS);
+
+          if (!error && data?.signedUrl) {
+            signedUrlCache.set(cacheKey, {
+              url: data.signedUrl,
+              expiresAt: now + SIGNED_URL_TTL_SECONDS * 1000,
+            });
+            nextMap[attachment.path] = data.signedUrl;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setAttachmentUrls(nextMap);
+      }
+    };
+
+    void hydrateAttachmentUrls();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attachments]);
+
   const contextActions: Array<{ icon: typeof Reply; label: string } | { divider: true }> = [
     { icon: Reply, label: 'Reply' },
     { icon: Smile, label: 'React' },
@@ -251,8 +316,61 @@ const MessageBubble: React.FC<Props> = ({
           </div>
         )}
 
+        {attachments.length > 0 && (
+          <div className="mt-2 space-y-2">
+            {attachments.map((attachment) => {
+              const url = attachmentUrls[attachment.path];
+              const isImage = isImageAttachment(attachment);
+
+              if (isImage) {
+                return (
+                  <a
+                    key={attachment.id || attachment.path}
+                    href={url || '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block overflow-hidden rounded-lg border border-black/10 bg-white/60"
+                  >
+                    {url ? (
+                      <img
+                        src={url}
+                        alt={attachment.original_name}
+                        className="max-h-56 w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-24 items-center justify-center text-xs text-almost-black-green/60">Loading preview…</div>
+                    )}
+                  </a>
+                );
+              }
+
+              return (
+                <div
+                  key={attachment.id || attachment.path}
+                  className="flex items-center gap-2 rounded-lg border border-black/10 bg-white/70 px-2.5 py-2"
+                >
+                  <FileText className="h-4 w-4 shrink-0 text-almost-black-green/70" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-almost-black-green">{attachment.original_name}</p>
+                    <p className="text-[11px] text-almost-black-green/60">{formatAttachmentSize(Number(attachment.size_bytes || 0))}</p>
+                  </div>
+                  <a
+                    href={url || '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/10 text-almost-black-green/70 hover:bg-white"
+                    aria-label={`Download ${attachment.original_name}`}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </a>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div className="mt-1 flex items-end justify-between gap-2">
-          <p className="whitespace-pre-wrap text-[15px] leading-[1.3] text-almost-black-green">{message.content}</p>
+          {message.content ? <p className="whitespace-pre-wrap text-[15px] leading-[1.3] text-almost-black-green">{message.content}</p> : <span />}
           <div className="shrink-0 self-end pb-0.5 text-[0.72rem]">
             <div className="flex items-center justify-end gap-0.5">
               <span className="text-almost-black-green/55">{timestamp}</span>

@@ -6,6 +6,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import {
   ChatSocketPayload,
   FriendRequest,
+  LEGACY_CHAT_ID_PREFIX_RE,
+  MessageAttachmentInput,
   MessageStatus,
   MessageWithUser,
   RoomWithDetails,
@@ -42,7 +44,7 @@ interface ChatContextValue {
   selectRoom: (room: RoomWithDetails) => Promise<void>;
   refreshRooms: () => Promise<RoomWithDetails[]>;
   refreshRoomMessages: (roomId: string) => Promise<void>;
-  sendMessage: (roomId: string, content: string, replyTo?: string | null) => Promise<void>;
+  sendMessage: (roomId: string, content: string, attachments?: MessageAttachmentInput[], replyTo?: string | null) => Promise<void>;
   sendTyping: (roomId: string, isTyping: boolean) => void;
   togglePin: (roomId: string) => void;
   createDirectRoom: (targetUserId: string) => Promise<RoomWithDetails | null>;
@@ -905,9 +907,17 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   }, [pinnedRoomIds]);
 
   const sendMessage = useCallback(
-    async (roomId: string, content: string, replyTo?: string | null) => {
+    async (roomId: string, content: string, attachments: MessageAttachmentInput[] = [], replyTo?: string | null) => {
       const trimmed = content.trim();
-      if (!trimmed) return;
+      if (!trimmed && attachments.length === 0) return;
+
+      if (process.env.NODE_ENV !== 'production' && userId && LEGACY_CHAT_ID_PREFIX_RE.test(String(userId))) {
+        console.error('[ChatContext] Legacy chat identity detected for sendMessage userId. Expected Supabase auth user.id.', {
+          userId,
+          roomId,
+        });
+      }
+
       const tempId = `temp-${Date.now()}`;
       const optimistic: MessageWithUser = {
         id: tempId,
@@ -916,14 +926,20 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         user_id: userId ?? 'me',
         content: trimmed,
         reply_to: replyTo,
+        attachments,
         status: 'pending',
       };
       setMessages((prev) => ({ ...prev, [roomId]: [...(prev[roomId] || []), optimistic] }));
       try {
-        logChatDebug('sendMessage:attempt', { roomId, replyTo: replyTo || null, contentLength: trimmed.length });
+        logChatDebug('sendMessage:attempt', {
+          roomId,
+          replyTo: replyTo || null,
+          contentLength: trimmed.length,
+          attachmentCount: attachments.length,
+        });
         const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, withAuthHeaders({
           method: 'POST',
-          body: JSON.stringify({ content: trimmed, reply_to: replyTo }),
+          body: JSON.stringify({ content: trimmed, reply_to: replyTo, attachments }),
         }));
         if (!response.ok) {
           logChatDebug('sendMessage:failed_response', { status: response.status, statusText: response.statusText, roomId });

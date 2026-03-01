@@ -29,7 +29,8 @@ import {
   Send,
   Users,
 } from "lucide-react";
-import { RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
+import { MessageAttachmentInput, RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
+import supabase from "@/lib/supabase";
 import { getUserDelegationLabel } from "@/lib/chat/delegation";
 
 const formatDateLabel = (dateString: string) => {
@@ -74,6 +75,13 @@ type EmojiEntry = { n?: string[]; u?: string };
 type EmojiDataset = { emojis: Record<string, EmojiEntry[]> };
 type EmojiDatasetModule = EmojiDataset | { default: EmojiDataset };
 type EmojiSuggestion = { shortcode: string; emoji: string; searchText: string };
+
+type AttachmentOption = {
+  label: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number | string }>;
+  color: string;
+  action?: () => void;
+};
 
 const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
   const resolvedEmojiDataset = (emojiDataset as EmojiDatasetModule) as EmojiDatasetModule;
@@ -168,11 +176,16 @@ const ChatShell: React.FC = () => {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const attachmentMenuRef = useRef<HTMLDivElement | null>(null);
   const attachmentButtonRef = useRef<HTMLButtonElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const emojiButtonRef = useRef<HTMLButtonElement | null>(null);
   const emojiModalRef = useRef<HTMLDivElement | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [shouldScrollOnLoad, setShouldScrollOnLoad] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState<MessageAttachmentInput[]>([]);
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
+  const [attachmentUploadError, setAttachmentUploadError] = useState<string | null>(null);
   const [showEmojiModal, setShowEmojiModal] = useState(false);
   const [warmEmojiPicker, setWarmEmojiPicker] = useState(false);
   const [activeEmojiIndex, setActiveEmojiIndex] = useState(0);
@@ -427,6 +440,29 @@ const ChatShell: React.FC = () => {
     };
   }, [isConnecting, refreshRooms]);
 
+  const maxAttachmentsPerMessage = Number.parseInt(process.env.NEXT_PUBLIC_CHAT_ATTACHMENT_MAX_FILES || "10", 10);
+  const maxAttachmentSizeBytes = Number.parseInt(
+    process.env.NEXT_PUBLIC_CHAT_ATTACHMENT_MAX_SIZE_BYTES || `${25 * 1024 * 1024}`,
+    10,
+  );
+
+  const sanitizeFileName = (name: string) => {
+    const normalized = name
+      .normalize("NFKD")
+      .replace(/[^a-zA-Z0-9._-]+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+
+    return (normalized || "file").slice(0, 120);
+  };
+
+  const formatSize = (sizeBytes: number) => {
+    if (!Number.isFinite(sizeBytes) || sizeBytes < 0) return "0 B";
+    if (sizeBytes < 1024) return `${sizeBytes} B`;
+    if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`;
+    return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   const roomTypingNames = useMemo(() => {
     if (!activeRoom) return [] as string[];
     const activeTyping = Array.from(typingUsers[activeRoom.id] || []).filter(
@@ -445,11 +481,73 @@ const ChatShell: React.FC = () => {
       .filter(Boolean) as string[];
   }, [activeRoom, currentUserId, typingUsers]);
 
+  const handleAttachmentSelect = async (selectedFiles: FileList | null) => {
+    if (!activeRoom || !selectedFiles || selectedFiles.length === 0) return;
+    const files = Array.from(selectedFiles);
+    setAttachmentUploadError(null);
+
+    const total = pendingAttachments.length + files.length;
+    if (total > maxAttachmentsPerMessage) {
+      setAttachmentUploadError(`You can attach up to ${maxAttachmentsPerMessage} files per message.`);
+      return;
+    }
+
+    const oversized = files.find((file) => file.size > maxAttachmentSizeBytes);
+    if (oversized) {
+      setAttachmentUploadError(`"${oversized.name}" is larger than ${formatSize(maxAttachmentSizeBytes)}.`);
+      return;
+    }
+
+    setIsUploadingAttachments(true);
+    const uploadedPaths: { bucket: string; path: string }[] = [];
+
+    try {
+      const uploaded = await Promise.all(
+        files.map(async (file) => {
+          const sanitized = sanitizeFileName(file.name);
+          const path = `room_${activeRoom.id}/${crypto.randomUUID()}/${sanitized}`;
+          const { error } = await supabase.storage.from("chat-attachments").upload(path, file, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: file.type || undefined,
+          });
+
+          if (error) {
+            throw new Error(`Failed to upload ${file.name}`);
+          }
+
+          uploadedPaths.push({ bucket: "chat-attachments", path });
+
+          return {
+            room_id: activeRoom.id,
+            bucket: "chat-attachments",
+            path,
+            original_name: file.name,
+            mime_type: file.type || "application/octet-stream",
+            size_bytes: file.size,
+          } as MessageAttachmentInput;
+        }),
+      );
+
+      setPendingAttachments((prev) => [...prev, ...uploaded]);
+      setShowAttachmentMenu(false);
+    } catch (error) {
+      await Promise.all(
+        uploadedPaths.map(({ bucket, path }) => supabase.storage.from(bucket).remove([path])),
+      );
+      setAttachmentUploadError(error instanceof Error ? error.message : "Failed to upload attachments.");
+    } finally {
+      setIsUploadingAttachments(false);
+    }
+  };
+
   const handleSend = async () => {
-    if (!activeRoom || !composer.trim()) return;
+    if (!activeRoom || (composer.trim().length === 0 && pendingAttachments.length === 0) || isUploadingAttachments) return;
     sendTyping(activeRoom.id, false);
-    await sendMessage(activeRoom.id, composer);
+    await sendMessage(activeRoom.id, composer, pendingAttachments);
     setComposer("");
+    setPendingAttachments([]);
+    setAttachmentUploadError(null);
   };
 
   const toggleAttachmentMenu = () => {
@@ -493,7 +591,7 @@ const ChatShell: React.FC = () => {
   const activeTypingDisplay = roomTypingNames.length ? (
     <TypingIndicator names={roomTypingNames} />
   ) : null;
-  const canSendMessage = composer.trim().length > 0;
+  const canSendMessage = (composer.trim().length > 0 || pendingAttachments.length > 0) && !isUploadingAttachments;
 
   const applyEmojiSuggestion = (emoji: string) => {
     setComposer((value) =>
@@ -505,9 +603,9 @@ const ChatShell: React.FC = () => {
       composerRef.current?.focus();
     });
   };
-  const attachmentOptions = [
-    { label: "File", icon: File, color: "text-[#1794d4]" },
-    { label: "Photos & videos", icon: Image, color: "text-[#2a77f1]" },
+  const attachmentOptions: AttachmentOption[] = [
+    { label: "File", icon: File, color: "text-[#1794d4]", action: () => fileInputRef.current?.click() },
+    { label: "Photos & videos", icon: Image, color: "text-[#2a77f1]", action: () => mediaInputRef.current?.click() },
     { label: "Contact", icon: CircleUser, color: "text-[#ed6b2f]" },
     { label: "Poll", icon: ChartNoAxesColumn, color: "text-[#f4b53d]" },
     { label: "Event", icon: CalendarDays, color: "text-[#f05068]" },
@@ -1002,6 +1100,42 @@ const ChatShell: React.FC = () => {
                 )}
                 <div className="sticky bottom-0 bg-white px-2 py-3">
                   {activeTypingDisplay}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    multiple
+                    onChange={(event) => {
+                      void handleAttachmentSelect(event.target.files);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                  <input
+                    ref={mediaInputRef}
+                    type="file"
+                    className="hidden"
+                    multiple
+                    accept="image/*,video/*"
+                    onChange={(event) => {
+                      void handleAttachmentSelect(event.target.files);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                  {(isUploadingAttachments || pendingAttachments.length > 0 || attachmentUploadError) && (
+                    <div className="mb-2 rounded-xl border border-[#d7d7d7] bg-[#f7f7f7] px-3 py-2 text-xs text-[#4b4f53]">
+                      {isUploadingAttachments ? "Uploading attachments…" : null}
+                      {pendingAttachments.length > 0 ? (
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {pendingAttachments.map((attachment) => (
+                            <span key={attachment.path} className="rounded-full bg-white px-2 py-1 text-[11px]">
+                              {attachment.original_name} · {formatSize(attachment.size_bytes)}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      {attachmentUploadError ? <p className="mt-1 text-deep-red">{attachmentUploadError}</p> : null}
+                    </div>
+                  )}
                   <div className="relative flex items-end gap-3">
                     {emojiSuggestions.length > 0 && (
                       <div className="absolute -top-20 left-4 z-30 max-w-[calc(100%-2rem)] rounded-2xl border border-[#d7d7d7] bg-white p-1.5 shadow-[0_14px_30px_rgba(17,27,33,0.2)]">
@@ -1031,7 +1165,12 @@ const ChatShell: React.FC = () => {
                             <button
                               key={option.label}
                               type="button"
-                              onClick={() => setShowAttachmentMenu(false)}
+                              onClick={() => {
+                                option.action?.();
+                                if (!option.action) {
+                                  setShowAttachmentMenu(false);
+                                }
+                              }}
                               className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-sm font-medium text-[#222] transition hover:bg-white/80"
                             >
                               <option.icon className={`h-5 w-5 ${option.color}`} strokeWidth={2.1} />
@@ -1044,6 +1183,7 @@ const ChatShell: React.FC = () => {
                         ref={attachmentButtonRef}
                         type="button"
                         onClick={toggleAttachmentMenu}
+                        disabled={isUploadingAttachments}
                         className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#ececec]"
                         aria-label="Open attachment options"
                       >

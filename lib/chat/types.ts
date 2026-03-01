@@ -56,10 +56,28 @@ export interface Message {
   deleted_by?: string | null;
 }
 
+export interface MessageAttachment {
+  id: string;
+  message_id: string;
+  room_id: string;
+  bucket: string;
+  path: string;
+  original_name: string;
+  mime_type: string | null;
+  size_bytes: number;
+  created_by: string;
+  created_at?: string | null;
+}
+
+export type MessageAttachmentInput = Omit<MessageAttachment, 'id' | 'message_id' | 'created_at' | 'created_by'>;
+
+export const LEGACY_CHAT_ID_PREFIX_RE = /^(del|delegate|chair|admin|secretariat)[_-]/i;
+
 export interface MessageWithUser extends Message {
   user?: User;
   status?: MessageStatus;
   tempId?: string;
+  attachments?: MessageAttachment[];
 }
 
 export interface RoomWithDetails extends ChatRoom {
