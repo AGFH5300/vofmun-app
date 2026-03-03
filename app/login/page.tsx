@@ -4,6 +4,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "../context/sessionContext";
 import TypeWriter from "@/components/ui/typewriter";
@@ -17,11 +18,12 @@ const Login = () => {
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
+  const [forgotLoading, setForgotLoading] = React.useState(false);
+  const [forgotMessage, setForgotMessage] = React.useState("");
   const router = useRouter();
   const { login } = useSession();
   const isMobile = useMobile();
   const brandDarkRed = "#701e1e";
-  const serifHeadingFont = "var(--font-dm-serif-display, 'DM Serif Display', serif)";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,6 +122,38 @@ const Login = () => {
       setError("An error occurred during login. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError("");
+    setForgotMessage("");
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedEmail) {
+      setError("Enter your email address first to receive a reset link.");
+      return;
+    }
+
+    setForgotLoading(true);
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined;
+
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo,
+      });
+
+      if (resetError) {
+        setError(resetError.message || "Could not send password reset link.");
+        return;
+      }
+
+      setForgotMessage("If an account exists for this email, a password reset link has been sent.");
+    } catch (err) {
+      console.error("Forgot password error:", err);
+      setError("Could not send password reset link. Please try again.");
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -272,6 +306,16 @@ const Login = () => {
                 </motion.div>
               )}
 
+              {forgotMessage && (
+                <motion.div
+                  className="rounded-xl border border-emerald-200 bg-emerald-50 p-4"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                >
+                  <p className="text-sm font-medium text-emerald-700">{forgotMessage}</p>
+                </motion.div>
+              )}
+
               {/* Submit Button */}
               <button
                 type="submit"
@@ -295,6 +339,23 @@ const Login = () => {
               <p className="text-center text-xs font-medium uppercase tracking-[0.3em] text-[#000000]/90">
                 Secure Conference Access
               </p>
+
+              <div className="flex flex-col items-center gap-3 text-center">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={forgotLoading}
+                  className="text-sm font-semibold text-[#701E1E] underline underline-offset-4 transition-colors hover:text-[#8B2424] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {forgotLoading ? "Sending reset link..." : "Forgot password? Send reset link"}
+                </button>
+                <Link
+                  href="/reset-password"
+                  className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8B2424]"
+                >
+                  Have a recovery link? Reset password here
+                </Link>
+              </div>
             </motion.form>
           </div>
         </motion.div>
