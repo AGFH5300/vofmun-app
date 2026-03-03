@@ -251,13 +251,13 @@ const Login = () => {
                       <label className="mb-3 block text-xs font-semibold uppercase tracking-[0.2em] text-[#8B2424]">
                         Email Address
                       </label>
-                      <input
-                        type="email"
-                        placeholder="Your Email Address"
-                        className="w-full rounded-xl border border-[#e5e4e3] bg-[#f2f2f2] px-4 py-3 text-[#1C1C1C] shadow-[0_8px_18px_-12px_rgba(139,36,36,0.6)] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-[#8B2424] focus:ring-4 focus:ring-[#8B2424]/30"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                      />
+                    <input
+                      type="email"
+                      placeholder="Your Email Address"
+                      className="w-full rounded-xl border border-[#e5e4e3] bg-[#f2f2f2] px-4 py-3 text-[#1C1C1C] shadow-[0_8px_18px_-12px_rgba(139,36,36,0.6)] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-[#8B2424] focus:ring-4 focus:ring-[#8B2424]/30"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
                     </div>
 
                     {forgotMessage && (
@@ -344,7 +344,6 @@ const Login = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     data-testid="input-email"
-                    style={ { backgroundColor: "#f2f2f2", borderColor: "#e5e4e3" } }
                   />
                 </div>
               </div>
@@ -358,11 +357,10 @@ const Login = () => {
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Your Password"
-                    className="w-full rounded-xl border border-[#F1BBA3] bg-[#FFFDFB] px-4 py-3 pr-12 text-[#1C1C1C] shadow-[0_8px_18px_-12px_rgba(139,36,36,0.6)] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-[#8B2424] focus:ring-4 focus:ring-[#8B2424]/30"
+                    className="w-full rounded-xl border border-[#e5e4e3] bg-[#f2f2f2] px-4 py-3 pr-12 text-[#1C1C1C] shadow-[0_8px_18px_-12px_rgba(139,36,36,0.6)] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-[#8B2424] focus:ring-4 focus:ring-[#8B2424]/30"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     data-testid="input-password"
-                    style={ { backgroundColor: "#f2f2f2", borderColor: "#e5e4e3" } }
                   />
                   <button
                     type="button"
