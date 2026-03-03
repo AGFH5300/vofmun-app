@@ -160,74 +160,15 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="flex min-h-screen flex-col lg:flex-row">
-        {/* Left Side - Branding / Forgot Password */}
+        {/* Left Side - Branding */}
         <div className="relative overflow-hidden lg:w-1/2 bg-gradient-to-br from-deep-red to-dark-burgundy">
-          <AnimatePresence mode="wait">
-            {showForgotPanel ? (
-              <motion.div
-                key="forgot-panel"
-                className="relative flex h-full min-h-[45vh] flex-col justify-center p-8 lg:p-12"
-                initial={{ opacity: 0, x: isMobile ? 0 : -60 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: isMobile ? 0 : -60 }}
-                transition={{ duration: 0.45, ease: "easeOut" }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-transparent via-black/10 to-black/20"></div>
-                <div className="relative z-10 mx-auto w-full max-w-md rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-sm lg:p-8">
-                  <h2 className="text-2xl font-semibold text-white lg:text-3xl">Forgot Password</h2>
-                  <p className="mt-2 text-sm text-white/90">
-                    Enter your email and we&apos;ll send you a secure password reset link.
-                  </p>
-                  <div className="mt-6">
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-white/90">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="Your Email Address"
-                      className="w-full rounded-xl border border-white/20 bg-white/95 px-4 py-3 text-[#1C1C1C] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-white focus:ring-4 focus:ring-white/30"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </div>
-
-                  {forgotMessage && (
-                    <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                      <p className="text-sm font-medium text-emerald-700">{forgotMessage}</p>
-                    </div>
-                  )}
-
-                  <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={handleForgotPassword}
-                      disabled={forgotLoading}
-                      className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#701E1E] transition-colors hover:bg-[#f4efeb] disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {forgotLoading ? "Sending reset link..." : "Send reset link"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setForgotMessage("");
-                        setShowForgotPanel(false);
-                      }}
-                      className="rounded-xl border border-white/40 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-                    >
-                      Back to login
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="brand-panel"
-                className="relative flex h-full min-h-[45vh] flex-col items-center justify-center p-8 lg:p-12"
-                initial={{ opacity: 0, x: isMobile ? 0 : -50 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: isMobile ? 0 : -50 }}
-                transition={{ duration: 0.8 }}
-              >
+          <motion.div
+            key="brand-panel"
+            className="relative flex h-full min-h-[45vh] flex-col items-center justify-center p-8 lg:p-12"
+            initial={{ opacity: 0, x: isMobile ? 0 : -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+          >
                 {/* Background decoration */}
                 <div className="absolute inset-0 bg-gradient-to-br from-transparent via-black/10 to-black/20"></div>
                 <div className="absolute top-10 left-10 h-32 w-32 rounded-full bg-white/10 blur-xl"></div>
@@ -267,9 +208,7 @@ const Login = () => {
                     debate, and international cooperation.
                   </motion.p>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          </motion.div>
         </div>
 
         {/* Right Side - Login Form */}
@@ -280,34 +219,118 @@ const Login = () => {
           transition={{ duration: 0.8, delay: 0.2 }}
         >
           <div className="mx-auto w-full max-w-md">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="mb-10 text-center"
-            >
-              <span className="inline-flex items-center justify-center rounded-full bg-[#8B2424]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-[#8B2424]">
-                Official Access
-              </span>
-              <h1
-                className="mt-6 text-4xl lg:text-5xl font-heading font-semibold text-deep-red"
-                data-testid="text-login-header"
-                style={{ color: brandDarkRed, }}
-              >
-                VOFMUN Portal
-              </h1>
-              <p className="mt-3 text-base text-[#701E1E]/80">
-                Sign in to manage your conference experience and stay connected.
-              </p>
-            </motion.div>
+            <AnimatePresence mode="wait">
+              {showForgotPanel ? (
+                <motion.div
+                  key="forgot-panel"
+                  initial={{ opacity: 0, x: isMobile ? 0 : 60 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: isMobile ? 0 : 60 }}
+                  transition={{ duration: 0.45, ease: "easeOut" }}
+                  className="space-y-6"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="mb-10 text-center"
+                  >
+                    <span className="inline-flex items-center justify-center rounded-full bg-[#8B2424]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-[#8B2424]">
+                      Password Recovery
+                    </span>
+                    <h1 className="mt-6 text-4xl lg:text-5xl font-heading font-semibold text-deep-red" style={{ color: brandDarkRed }}>
+                      Reset Password
+                    </h1>
+                    <p className="mt-3 text-base text-[#701E1E]/80">
+                      Enter your email and we&apos;ll send you a secure password reset link.
+                    </p>
+                  </motion.div>
 
-            <motion.form
-              onSubmit={handleSubmit}
-              className="space-y-6 rounded-3xl border border-[#e5e4e3] bg-[#FFFDFB] p-8 shadow-[0_20px_45px_-20px_rgba(112,30,30,0.45)]"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
-            >
+                  <div className="space-y-6 rounded-3xl border border-[#e5e4e3] bg-[#FFFDFB] p-8 shadow-[0_20px_45px_-20px_rgba(112,30,30,0.45)]">
+                    <div>
+                      <label className="mb-3 block text-xs font-semibold uppercase tracking-[0.2em] text-[#8B2424]">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="Your Email Address"
+                        className="w-full rounded-xl border border-[#e5e4e3] bg-[#f2f2f2] px-4 py-3 text-[#1C1C1C] shadow-[0_8px_18px_-12px_rgba(139,36,36,0.6)] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-[#8B2424] focus:ring-4 focus:ring-[#8B2424]/30"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                    </div>
+
+                    {forgotMessage && (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                        <p className="text-sm font-medium text-emerald-700">{forgotMessage}</p>
+                      </div>
+                    )}
+
+                    {error && (
+                      <div className="rounded-xl border border-[#F5A3A3] bg-[#FDECEC] p-4">
+                        <p className="text-sm font-medium text-[#8B2424]">{error}</p>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={handleForgotPassword}
+                        disabled={forgotLoading}
+                        className="rounded-xl bg-[#701E1E] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#8B2424] disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {forgotLoading ? "Sending reset link..." : "Send reset link"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError("");
+                          setForgotMessage("");
+                          setShowForgotPanel(false);
+                        }}
+                        className="rounded-xl border border-[#8B2424]/30 px-5 py-3 text-sm font-semibold text-[#701E1E] transition-colors hover:bg-[#8B2424]/5"
+                      >
+                        Back to login
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="login-panel"
+                  initial={{ opacity: 0, x: isMobile ? 0 : 60 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: isMobile ? 0 : 60 }}
+                  transition={{ duration: 0.45, ease: "easeOut" }}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.2 }}
+                    className="mb-10 text-center"
+                  >
+                    <span className="inline-flex items-center justify-center rounded-full bg-[#8B2424]/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-[#8B2424]">
+                      Official Access
+                    </span>
+                    <h1
+                      className="mt-6 text-4xl lg:text-5xl font-heading font-semibold text-deep-red"
+                      data-testid="text-login-header"
+                      style={{ color: brandDarkRed, }}
+                    >
+                      VOFMUN Portal
+                    </h1>
+                    <p className="mt-3 text-base text-[#701E1E]/80">
+                      Sign in to manage your conference experience and stay connected.
+                    </p>
+                  </motion.div>
+
+                  <motion.form
+                    onSubmit={handleSubmit}
+                    className="space-y-6 rounded-3xl border border-[#e5e4e3] bg-[#FFFDFB] p-8 shadow-[0_20px_45px_-20px_rgba(112,30,30,0.45)]"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.4 }}
+                  >
               {/* Email Field */}
               <div>
                 <label className="mb-3 block text-xs font-semibold uppercase tracking-[0.2em] text-[#8B2424]">
@@ -407,7 +430,10 @@ const Login = () => {
                   Forgot password?
                 </button>
               </div>
-            </motion.form>
+                  </motion.form>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </motion.div>
       </div>
