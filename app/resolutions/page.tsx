@@ -292,21 +292,37 @@ const Page = () => {
     }
 
     if (userRole === "delegate") {
-      const {data : newPerms, error : permsError} = await supabase
-        .from("Delegate")
-        .select("resoPerms")
-        .eq("delegateID", (currentUser as Delegate).delegateID)
-        .single();
-      if (permsError) {
-        console.error("Failed to fetch delegate permissions:", permsError);
-        toast.error("Failed to fetch delegate permissions");
-        return null;
+      const delegateUser = currentUser as Delegate;
+      let latestPerms = delegateUser.resoPerms;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: appUserPerms, error: appUserPermsError } = await (supabase as any)
+        .from("app_users")
+        .select("reso_perms")
+        .eq("id", delegateUser.delegateID)
+        .maybeSingle();
+
+      if (!appUserPermsError && appUserPerms?.reso_perms) {
+        latestPerms = appUserPerms.reso_perms;
+      } else {
+        const { data: legacyPerms, error: legacyPermsError } = await supabase
+          .from("Delegate")
+          .select("resoPerms")
+          .eq("delegateID", delegateUser.delegateID)
+          .maybeSingle();
+
+        if (legacyPermsError) {
+          console.error("Failed to fetch delegate permissions:", legacyPermsError);
+          toast.error("Failed to fetch delegate permissions");
+          return null;
+        }
+
+        latestPerms = legacyPerms?.resoPerms || latestPerms;
       }
 
-      const delegateUser = currentUser as Delegate;
       const enrichedUser: Delegate = {
         ...delegateUser,
-        resoPerms: newPerms.resoPerms || {
+        resoPerms: latestPerms || {
           "view:ownreso": false,
           "view:allreso": false,
           "update:ownreso": false,
@@ -328,15 +344,28 @@ const Page = () => {
       try {
         const chairUser = currentUser as Chair;
         const { data, error } = await supabase
-          .from<shortenedDel>("Delegate")
-          .select("delegateID, firstname, lastname, resoPerms")
-          .eq("committeeID", chairUser.committee.committeeID);
+          .from("app_users")
+          .select("id, first_name, last_name, reso_perms")
+          .eq("committee_id", chairUser.committee.committeeID)
+          .eq("role", "delegate");
 
         if (error) {
           throw error;
         }
 
-        setDelegates(data ?? []);
+        const mappedDelegates = (data || []).map((delegate) => ({
+          delegateID: delegate.id,
+          firstname: delegate.first_name || "",
+          lastname: delegate.last_name || "",
+          resoPerms: delegate.reso_perms || {
+            "view:ownreso": false,
+            "view:allreso": false,
+            "update:ownreso": false,
+            "update:reso": [],
+          },
+        }));
+
+        setDelegates(mappedDelegates);
       } catch (error) {
         console.error("Failed to fetch delegates:", error);
         toast.error("Failed to fetch delegates");
@@ -808,10 +837,11 @@ const Page = () => {
         };
       }
 
-      const { error: updateError } = await supabase
-        .from("Delegate")
-        .update({ resoPerms: updatedPermissions })
-        .eq("delegateID", delegateID);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: updateError } = await (supabase as any)
+        .from("app_users")
+        .update({ reso_perms: updatedPermissions })
+        .eq("id", delegateID);
 
       if (updateError) {
         throw updateError;

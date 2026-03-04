@@ -11,16 +11,40 @@ export interface Chair {
   chairID: string;
   firstname: string;
   lastname: string;
-  password: string;
+  password?: string;
   email: string;
+  id?: string;
+  role?: AppUserRole;
 }
 
 export interface Secretariat {
   secretariatID: string;
   firstname: string;
   lastname: string;
-  password: string;
+  password?: string;
   email: string;
+  id?: string;
+  role?: AppUserRole;
+}
+
+export type AppUserRole = 'delegate' | 'chair' | 'secretariat' | 'admin';
+
+export interface AppUser {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  role: AppUserRole;
+  committee_id: string | null;
+  country: string | null;
+  reso_perms: {
+    "view:ownreso": boolean;
+    "view:allreso": boolean;
+    "update:ownreso": boolean;
+    "update:reso": string[];
+  };
+  created_at?: string;
+  updated_at?: string;
 }
 
 export type UserType = Delegate | Admin | Chair | Secretariat | null;
@@ -59,11 +83,13 @@ export interface Delegate {
   delegateID: string;
   firstname: string;
   lastname: string;
-  password: string;
+  password?: string;
   email: string;
   country: string | null;
   committeeID: string | null;
   committee?: Committee | null;
+  id?: string;
+  role?: AppUserRole;
   resoPerms: {
     "view:ownreso": boolean;
     "view:allreso": boolean;
@@ -103,8 +129,10 @@ export interface Admin {
   adminID :string;
   firstname: string;
   lastname: string;
-  password: string;
+  password?: string;
   email: string;
+  id?: string;
+  role?: AppUserRole;
 }
 
 export interface Reso {
@@ -112,6 +140,6 @@ export interface Reso {
   title:string;
   delegateID: string;
   committeeID: string;
-  content: Object;
+  content: object;
   isNew: boolean;
 }
