@@ -323,6 +323,28 @@ CREATE TABLE public."Updates" (
 );
 
 
+
+
+--
+-- Name: app_users; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.app_users (
+    id uuid NOT NULL,
+    email text,
+    first_name text,
+    last_name text,
+    role text DEFAULT 'delegate'::text NOT NULL,
+    committee_id uuid,
+    country text,
+    reso_perms jsonb DEFAULT '{"update:reso": [], "view:allreso": false, "view:ownreso": true, "update:ownreso": true}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT app_users_email_key UNIQUE (email),
+    CONSTRAINT app_users_pkey PRIMARY KEY (id),
+    CONSTRAINT app_users_role_check CHECK ((role = ANY (ARRAY['delegate'::text, 'chair'::text, 'secretariat'::text, 'admin'::text])))
+);
+
 --
 -- Name: chat_rooms; Type: TABLE; Schema: public; Owner: -
 --
@@ -741,6 +763,14 @@ CREATE INDEX idx_room_members_room_id ON public.room_members USING btree (room_i
 CREATE INDEX idx_room_members_user_id ON public.room_members USING btree (user_id);
 
 
+
+--
+-- Name: app_users app_users_set_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER app_users_set_updated_at BEFORE UPDATE ON public.app_users FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
 --
 -- Name: chat_rooms add_room_creator_as_admin_trigger; Type: TRIGGER; Schema: public; Owner: -
 --
@@ -776,6 +806,23 @@ ALTER TABLE ONLY public."Chair-Speech"
 
 ALTER TABLE ONLY public."Chair-Speech"
     ADD CONSTRAINT "Chair-Speech_speechID_fkey" FOREIGN KEY ("speechID") REFERENCES public."Speech"("speechID") ON DELETE CASCADE;
+
+
+
+--
+-- Name: app_users app_users_committee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.app_users
+    ADD CONSTRAINT app_users_committee_id_fkey FOREIGN KEY (committee_id) REFERENCES public."Committee"("committeeID") ON UPDATE CASCADE ON DELETE SET NULL;
+
+
+--
+-- Name: app_users app_users_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.app_users
+    ADD CONSTRAINT app_users_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --

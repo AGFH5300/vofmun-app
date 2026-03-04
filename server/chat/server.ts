@@ -150,14 +150,66 @@ const deriveRoomType = (room: { is_private?: boolean | null; name?: string | nul
 const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, User>> => {
   if (ids.length === 0) return {};
   const uniqueIds = Array.from(new Set(ids));
+
+  // Primary user source: unified app_users table linked to auth.users IDs.
+  const { data: appUsers, error: appUsersError } = await supabaseAdmin
+    .from('app_users')
+    .select('id, email, first_name, last_name, role, committee_id, country')
+    .in('id', uniqueIds);
+
+  if (appUsersError) {
+    console.error('[chat] failed to load profiles from app_users', appUsersError);
+  }
+
+  const appUserCommitteeIds = new Set<string>();
+  (appUsers || []).forEach((row: any) => {
+    if (row.committee_id) appUserCommitteeIds.add(row.committee_id);
+  });
+
+  const appUserCommitteeMap = new Map<string, string | null>();
+  if (appUserCommitteeIds.size > 0) {
+    const { data: committees, error } = await supabaseAdmin
+      .from('Committee')
+      .select('committeeID, committeeCode, name')
+      .in('committeeID', Array.from(appUserCommitteeIds));
+
+    if (error) {
+      console.error('[chat] failed to load app_users committees', error);
+    }
+
+    (committees || []).forEach((committee: any) => {
+      appUserCommitteeMap.set(committee.committeeID, committee.committeeCode || committee.name || null);
+    });
+  }
+
+  const map: Record<string, User> = {};
+  (appUsers || []).forEach((row: any) => {
+    const role = String(row.role || 'delegate') as User['role'];
+    map[row.id] = {
+      id: row.id,
+      email: row.email || '',
+      full_name: `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Unknown',
+      role,
+      role_title: role.charAt(0).toUpperCase() + role.slice(1),
+      committee: row.committee_id ? appUserCommitteeMap.get(row.committee_id) || null : null,
+      country: row.country || null,
+    };
+  });
+
+  // Backwards compatibility: if some IDs still belong to legacy role tables, resolve them too.
+  const unresolvedIds = uniqueIds.filter((id) => !map[id]);
+  if (unresolvedIds.length === 0) {
+    return map;
+  }
+
   const [admins, chairs, delegates, secs] = await Promise.all([
-    supabaseAdmin.from('Admin').select('adminID, firstname, lastname, email').in('adminID', uniqueIds),
-    supabaseAdmin.from('Chair').select('chairID, firstname, lastname, email').in('chairID', uniqueIds),
+    supabaseAdmin.from('Admin').select('adminID, firstname, lastname, email').in('adminID', unresolvedIds),
+    supabaseAdmin.from('Chair').select('chairID, firstname, lastname, email').in('chairID', unresolvedIds),
     supabaseAdmin
       .from('Delegate')
       .select('delegateID, firstname, lastname, email, country, committeeID')
-      .in('delegateID', uniqueIds),
-    supabaseAdmin.from('Secretariat').select('secretariatID, firstname, lastname, email').in('secretariatID', uniqueIds),
+      .in('delegateID', unresolvedIds),
+    supabaseAdmin.from('Secretariat').select('secretariatID, firstname, lastname, email').in('secretariatID', unresolvedIds),
   ]);
 
   const delegateCommitteeIds = new Set<string>();
@@ -206,7 +258,6 @@ const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, User>> 
     });
   }
 
-  const map: Record<string, User> = {};
   (admins.data || []).forEach((row: any) => {
     const profile = mapProfileForChat(row, 'admin');
     map[profile.id] = profile;
