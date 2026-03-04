@@ -33,10 +33,26 @@ const ResetPasswordPage = () => {
       }
 
       const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
-      const params = new URLSearchParams(hash);
-      const type = params.get('type');
-      const access_token = params.get('access_token');
-      const refresh_token = params.get('refresh_token');
+      const hashParams = new URLSearchParams(hash);
+      const searchParams = new URLSearchParams(window.location.search);
+
+      const type = hashParams.get('type') ?? searchParams.get('type');
+      const access_token = hashParams.get('access_token') ?? searchParams.get('access_token');
+      const refresh_token = hashParams.get('refresh_token') ?? searchParams.get('refresh_token');
+      const code = searchParams.get('code');
+
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+        if (exchangeError) {
+          setStatus('invalid');
+          setError(exchangeError.message || 'Unable to verify your recovery link. Please request a new one.');
+          return;
+        }
+
+        setStatus('ready');
+        return;
+      }
 
       if (type !== 'recovery') {
         setStatus('invalid');
