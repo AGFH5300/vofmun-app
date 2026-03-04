@@ -35,15 +35,28 @@ const formatDisplayName = (first?: string | null, last?: string | null) =>
   `${first || ''} ${last || ''}`.trim() || 'Unknown';
 
 export const mapProfileForChat = (
-  row: { adminID?: string; chairID?: string; delegateID?: string; secretariatID?: string; firstname?: string | null; lastname?: string | null; email?: string | null },
+  row: {
+    id?: string;
+    adminID?: string;
+    chairID?: string;
+    delegateID?: string;
+    secretariatID?: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    firstname?: string | null;
+    lastname?: string | null;
+    email?: string | null;
+  },
   role: ChatPersonRole,
   extras?: { committee?: string | null; country?: string | null }
 ): User => {
-  const id = row.adminID || row.chairID || row.delegateID || row.secretariatID || '';
+  const id = row.id || row.adminID || row.chairID || row.delegateID || row.secretariatID || '';
+  const first = row.first_name ?? row.firstname ?? null;
+  const last = row.last_name ?? row.lastname ?? null;
   return {
     id,
     email: row.email || '',
-    full_name: formatDisplayName(row.firstname, row.lastname),
+    full_name: formatDisplayName(first, last),
     role,
     role_title: role.charAt(0).toUpperCase() + role.slice(1),
     committee: extras?.committee || null,
@@ -140,61 +153,28 @@ export const fetchPeopleDetailsByIds = async (ids: string[]): Promise<Record<str
 
   const uniqueIds = Array.from(new Set(ids));
 
-  const [admins, chairs, delegates, secretariat] = await Promise.all([
-    supabaseAdmin.from('Admin').select('adminID, firstname, lastname, email').in('adminID', uniqueIds),
-    supabaseAdmin.from('Chair').select('chairID, firstname, lastname, email').in('chairID', uniqueIds),
-    supabaseAdmin
-      .from('Delegate')
-      .select('delegateID, firstname, lastname, email, country, committeeID')
-      .in('delegateID', uniqueIds),
-    supabaseAdmin.from('Secretariat').select('secretariatID, firstname, lastname, email').in('secretariatID', uniqueIds),
-  ]);
+  const { data: appUsers, error } = await supabaseAdmin
+    .from('app_users')
+    .select('id, role, first_name, last_name, email, country, committee_id')
+    .in('id', uniqueIds);
 
-  const chairCommitteeMap = await fetchChairCommitteeMap((chairs.data || []).map((row) => row.chairID));
-  const delegateCommitteeMap = await mapCommitteeCodes((delegates.data || []).map((row) => row.committeeID));
+  if (error) {
+    console.error('[people search] app_users lookup error', error);
+    return {};
+  }
+
+  const committeeMap = await mapCommitteeCodes((appUsers || []).map((row) => row.committee_id));
 
   const map: Record<string, ChatPersonDetails> = {};
-
-  (admins.data || []).forEach((row) => {
-    map[row.adminID] = {
-      id: row.adminID,
-      role: 'admin',
-      firstname: row.firstname || null,
-      lastname: row.lastname || null,
-      email: row.email || null,
-    };
-  });
-
-  (chairs.data || []).forEach((row) => {
-    map[row.chairID] = {
-      id: row.chairID,
-      role: 'chair',
-      firstname: row.firstname || null,
-      lastname: row.lastname || null,
-      email: row.email || null,
-      committeeCode: chairCommitteeMap.get(row.chairID) || null,
-    };
-  });
-
-  (delegates.data || []).forEach((row) => {
-    map[row.delegateID] = {
-      id: row.delegateID,
-      role: 'delegate',
-      firstname: row.firstname || null,
-      lastname: row.lastname || null,
+  (appUsers || []).forEach((row) => {
+    map[row.id] = {
+      id: row.id,
+      role: row.role as ChatPersonRole,
+      firstname: row.first_name || null,
+      lastname: row.last_name || null,
       email: row.email || null,
       country: row.country || null,
-      committeeCode: row.committeeID ? delegateCommitteeMap.get(row.committeeID) || null : null,
-    };
-  });
-
-  (secretariat.data || []).forEach((row) => {
-    map[row.secretariatID] = {
-      id: row.secretariatID,
-      role: 'secretariat',
-      firstname: row.firstname || null,
-      lastname: row.lastname || null,
-      email: row.email || null,
+      committeeCode: row.committee_id ? committeeMap.get(row.committee_id) || null : null,
     };
   });
 
@@ -384,125 +364,29 @@ export const searchPeople = async (query: string, viewerId?: string): Promise<Ch
   const normalizedQuery = trimmed.toLowerCase();
   const pattern = `%${trimmed}%`;
 
-  const adminPromise = (async (): Promise<ChatPerson[]> => {
-    const builder = supabaseAdmin
-      .from('Admin')
-      .select('adminID, firstname, lastname, email')
-      .limit(20);
+  const { data, error } = await supabaseAdmin
+    .from('app_users')
+    .select('id, role, email, first_name, last_name, country, committee_id')
+    .or(`email.ilike.${pattern},first_name.ilike.${pattern},last_name.ilike.${pattern},country.ilike.${pattern}`)
+    .limit(50);
 
-    const { data, error } = await builder.or(
-      `email.ilike.${pattern},firstname.ilike.${pattern},lastname.ilike.${pattern}`
-    );
+  if (error) {
+    console.error('[people search] app_users error', error);
+    return [];
+  }
 
-    if (error) {
-      console.error('[people search] Admin error', error);
-      return [];
-    }
+  const committeeMap = await mapCommitteeCodes((data || []).map((row) => row.committee_id));
 
-    const rows = data || [];
-    return rows
-      .map((row) => ({
-        id: row.adminID,
-        role: 'admin',
-        displayName: formatDisplayName(row.firstname, row.lastname),
-        email: row.email || null,
-      }))
-      .filter((person) => matchesQuery(person, normalizedQuery));
-  })();
-
-  const chairPromise = (async (): Promise<ChatPerson[]> => {
-    const builder = supabaseAdmin
-      .from('Chair')
-      .select('chairID, firstname, lastname, email')
-      .limit(20);
-
-    const { data, error } = await builder.or(
-      `email.ilike.${pattern},firstname.ilike.${pattern},lastname.ilike.${pattern}`
-    );
-
-    if (error) {
-      console.error('[people search] Chair error', error);
-      return [];
-    }
-
-    const rows = data || [];
-    const chairCommitteeMap = await fetchChairCommitteeMap(rows.map((row) => row.chairID));
-
-    return rows
-      .map((row) => ({
-        id: row.chairID,
-        role: 'chair',
-        displayName: formatDisplayName(row.firstname, row.lastname),
-        email: row.email || null,
-        committeeCode: chairCommitteeMap.get(row.chairID) || null,
-      }))
-      .filter((person) => matchesQuery(person, normalizedQuery));
-  })();
-
-  const delegatePromise = (async (): Promise<ChatPerson[]> => {
-    const builder = supabaseAdmin
-      .from('Delegate')
-      .select('delegateID, firstname, lastname, email, country, committeeID')
-      .limit(20);
-
-    const { data, error } = await builder.or(
-      `email.ilike.${pattern},firstname.ilike.${pattern},lastname.ilike.${pattern},country.ilike.${pattern}`
-    );
-
-    if (error) {
-      console.error('[people search] Delegate error', error);
-      return [];
-    }
-
-    const rows = data || [];
-    const committeeMap = await mapCommitteeCodes(rows.map((row) => row.committeeID));
-
-    return rows
-      .map((row) => ({
-        id: row.delegateID,
-        role: 'delegate',
-        displayName: formatDisplayName(row.firstname, row.lastname),
-        email: row.email || null,
-        country: row.country || null,
-        committeeCode: row.committeeID ? committeeMap.get(row.committeeID) || null : null,
-      }))
-      .filter((person) => matchesQuery(person, normalizedQuery));
-  })();
-
-  const secretariatPromise = (async (): Promise<ChatPerson[]> => {
-    const builder = supabaseAdmin
-      .from('Secretariat')
-      .select('secretariatID, firstname, lastname, email')
-      .limit(20);
-
-    const { data, error } = await builder.or(
-      `email.ilike.${pattern},firstname.ilike.${pattern},lastname.ilike.${pattern}`
-    );
-
-    if (error) {
-      console.error('[people search] Secretariat error', error);
-      return [];
-    }
-
-    const rows = data || [];
-    return rows
-      .map((row) => ({
-        id: row.secretariatID,
-        role: 'secretariat',
-        displayName: formatDisplayName(row.firstname, row.lastname),
-        email: row.email || null,
-      }))
-      .filter((person) => matchesQuery(person, normalizedQuery));
-  })();
-
-  const [admins, chairs, delegates, secretariat] = await Promise.all([
-    adminPromise,
-    chairPromise,
-    delegatePromise,
-    secretariatPromise,
-  ]);
-
-  const combined = [...admins, ...chairs, ...delegates, ...secretariat];
+  const combined = (data || [])
+    .map((row) => ({
+      id: row.id,
+      role: row.role as ChatPersonRole,
+      displayName: formatDisplayName(row.first_name, row.last_name),
+      email: row.email || null,
+      country: row.country || null,
+      committeeCode: row.committee_id ? committeeMap.get(row.committee_id) || null : null,
+    }))
+    .filter((person) => matchesQuery(person, normalizedQuery));
 
   if (!viewerId) {
     return combined;
