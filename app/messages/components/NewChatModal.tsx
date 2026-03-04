@@ -65,7 +65,6 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
       setError(null);
       try {
         const data = await searchUsers(trimmedQuery);
-        console.log('[NewChatModal] search results', data);
         setResults(data);
         setHasSearched(true);
       } catch {

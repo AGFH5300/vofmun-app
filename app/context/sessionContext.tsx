@@ -5,6 +5,7 @@
 import React, {
   createContext,
   useContext,
+  useEffect,
   useState,
   ReactNode,
 } from "react";
@@ -23,25 +24,24 @@ const SessionContext = createContext<SessionContextProps | undefined>(
 );
 
 export const SessionProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<Delegate | Admin | Chair | Secretariat | null>(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
+  const [user, setUser] = useState<Delegate | Admin | Chair | Secretariat | null>(null);
+  const router = useRouter();
 
+  useEffect(() => {
     const storedUser = Cookies.get("user");
 
     if (!storedUser) {
-      return null;
+      setUser(null);
+      return;
     }
 
     try {
-      return JSON.parse(storedUser);
+      setUser(JSON.parse(storedUser));
     } catch {
       Cookies.remove("user");
-      return null;
+      setUser(null);
     }
-  });
-  const router = useRouter();
+  }, []);
 
   const login = (user: UserType) => {
     setUser(user);
