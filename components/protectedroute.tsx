@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 
 const useRedirect = () => {
   const router = useRouter();
-  return (path: string) => router.push(path);
+  return (path: string) => router.replace(path);
 };
 
 // this route protects from all unauthorized
@@ -22,6 +22,8 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     }
   }, [currentUser, navigate]);
 
+  if (currentUser === null) return null;
+
   return <>{children}</>;
 };
 
@@ -30,11 +32,15 @@ export const DelegateRoute = ({ children }: { children: React.ReactNode }) => {
   const { user: currentUser } = useSession();
   const navigate = useRedirect();
 
+  const blocked = !('delegateID' in (currentUser || {})) || currentUser === null;
+
   useEffect(() => {
-    if (!('delegateID' in (currentUser || {})) || currentUser === null) {
+    if (blocked) {
       navigate("/login");
     }
-  }, [currentUser, navigate]);
+  }, [blocked, navigate]);
+
+  if (blocked) return null;
 
   return <>{children}</>;
 };
@@ -44,11 +50,15 @@ export const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user: currentUser } = useSession();
   const navigate = useRedirect();
 
+  const blocked = !('adminID' in (currentUser || {})) || currentUser === null;
+
   useEffect(() => {
-    if (!('adminID' in (currentUser || {})) || currentUser === null) {
+    if (blocked) {
       navigate("/login");
     }
-  }, [currentUser, navigate]);
+  }, [blocked, navigate]);
+
+  if (blocked) return null;
 
   return <>{children}</>;
 };
@@ -57,11 +67,15 @@ export const ChairRoute = ({ children }: { children: React.ReactNode }) => {
   const { user: currentUser } = useSession();
   const navigate = useRedirect();
 
+  const blocked = !('chairID' in (currentUser || {})) || currentUser === null;
+
   useEffect(() => {
-    if (!('chairID' in (currentUser || {})) || currentUser === null) {
+    if (blocked) {
       navigate("/login");
     }
-  }, [currentUser, navigate]);
+  }, [blocked, navigate]);
+
+  if (blocked) return null;
 
   return <>{children}</>;
 };
@@ -70,11 +84,15 @@ export const ParticipantRoute = ({ children }: { children: React.ReactNode }) =>
   const { user: currentUser } = useSession();
   const navigate = useRedirect();
 
+  const blocked = ('adminID' in (currentUser || {})) || currentUser === null;
+
   useEffect(() => {
-    if (('adminID' in (currentUser || {})) || currentUser === null) {
+    if (blocked) {
       navigate("/login");
     }
-  }, [currentUser, navigate]);
+  }, [blocked, navigate]);
+
+  if (blocked) return null;
 
   return <>{children}</>;
 };

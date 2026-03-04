@@ -12,6 +12,7 @@ import { getCurrentAppUser } from "@/lib/auth/getCurrentAppUser";
 import { mapAppUserToSessionUser } from "@/lib/auth/mapAppUserToSessionUser";
 import { useMobile } from "@/hooks/use-mobile";
 import { Eye, EyeOff, Rocket } from "lucide-react";
+import Cookies from "js-cookie";
 
 const Login = () => {
   const [email, setEmail] = React.useState("");
@@ -49,6 +50,7 @@ const Login = () => {
 
       if (signInError) {
         setError(signInError.message || "Invalid email or password");
+        setLoading(false);
         return;
       }
 
@@ -56,18 +58,36 @@ const Login = () => {
 
       if (!appUser) {
         setError("Unable to load profile for this account.");
+        setLoading(false);
         return;
       }
 
       login(mapAppUserToSessionUser(appUser));
-      router.push(routeByRole(appUser.role));
+      router.replace(routeByRole(appUser.role));
+      return;
     } catch (err) {
       console.error("Login error:", err);
       setError("An error occurred during login. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
+
+  React.useEffect(() => {
+    const storedUser = Cookies.get("user");
+
+    if (!storedUser) {
+      return;
+    }
+
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      if (parsedUser?.role) {
+        router.replace(routeByRole(parsedUser.role));
+      }
+    } catch {
+      Cookies.remove("user");
+    }
+  }, [router]);
 
   const handleForgotPassword = async () => {
     setError("");
