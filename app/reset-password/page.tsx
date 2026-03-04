@@ -237,9 +237,6 @@ const ResetPasswordPage = () => {
                   )}
                 </button>
 
-                <p className="text-center text-xs font-medium uppercase tracking-[0.2em] text-[#000000]/80">
-                  Recovery links can expire. Request a new one if needed.
-                </p>
               </>
             )}
           </motion.form>
