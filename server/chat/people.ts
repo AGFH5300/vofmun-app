@@ -51,10 +51,6 @@ export const mapProfileForChat = (
   };
 };
 
-const logTableResult = (table: string, rows: unknown[]) => {
-  console.log(`[people search] ${table} rows`, rows.length);
-};
-
 const countrySearchTokens = (country?: string | null) => {
   if (!country) return '';
 
@@ -286,25 +282,7 @@ export const isVisibleToViewer = (viewer: ViewerContext | null, person: ChatPers
   if (!person) return false;
   if (viewer.id === person.id) return false;
 
-  if (viewer.role === 'admin' || viewer.role === 'secretariat') return true;
-
-  const viewerCommitteeSet = new Set(viewer.committeeCodes.filter(Boolean));
-
-  if (viewer.role === 'delegate') {
-    return (
-      (person.role === 'delegate' || person.role === 'chair') &&
-      (!!person.committeeCode && viewerCommitteeSet.has(person.committeeCode))
-    );
-  }
-
-  if (viewer.role === 'chair') {
-    if (person.role === 'chair') return true;
-    if (person.role === 'delegate') {
-      return !!person.committeeCode && viewerCommitteeSet.has(person.committeeCode);
-    }
-  }
-
-  return false;
+  return true;
 };
 
 export const fetchPersonById = async (userId: string): Promise<ChatPerson | null> => {
@@ -395,7 +373,6 @@ export const fetchPersonById = async (userId: string): Promise<ChatPerson | null
 
 export const searchPeople = async (query: string, viewerId?: string): Promise<ChatPerson[]> => {
   const trimmed = query.trim();
-  console.log('[people search] incoming query', trimmed);
 
   if (!supabaseAdmin) {
     console.error('[people search] Supabase admin client is not configured');
@@ -423,8 +400,6 @@ export const searchPeople = async (query: string, viewerId?: string): Promise<Ch
     }
 
     const rows = data || [];
-    logTableResult('Admin', rows);
-
     return rows
       .map((row) => ({
         id: row.adminID,
@@ -451,8 +426,6 @@ export const searchPeople = async (query: string, viewerId?: string): Promise<Ch
     }
 
     const rows = data || [];
-    logTableResult('Chair', rows);
-
     const chairCommitteeMap = await fetchChairCommitteeMap(rows.map((row) => row.chairID));
 
     return rows
@@ -482,11 +455,6 @@ export const searchPeople = async (query: string, viewerId?: string): Promise<Ch
     }
 
     const rows = data || [];
-    logTableResult('Delegate', rows);
-
-    const includesBob = rows.some((row) => (row.email || '').toLowerCase() === 'bob.smith@example.com');
-    console.log('[people search] Delegate contains bob.smith@example.com:', includesBob);
-
     const committeeMap = await mapCommitteeCodes(rows.map((row) => row.committeeID));
 
     return rows
@@ -517,8 +485,6 @@ export const searchPeople = async (query: string, viewerId?: string): Promise<Ch
     }
 
     const rows = data || [];
-    logTableResult('Secretariat', rows);
-
     return rows
       .map((row) => ({
         id: row.secretariatID,
@@ -537,7 +503,6 @@ export const searchPeople = async (query: string, viewerId?: string): Promise<Ch
   ]);
 
   const combined = [...admins, ...chairs, ...delegates, ...secretariat];
-  console.log('[people search] total returned', combined.length);
 
   if (!viewerId) {
     return combined;

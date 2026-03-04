@@ -19,8 +19,6 @@ const peopleSearchMiddleware = (): NextHandleFunction => async (req, res, next) 
   }
 
   const query = (url.searchParams.get('query') || '').trim();
-  console.log('[api chat people] request', { query });
-
   if (!query || query.length < 2) {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
@@ -30,7 +28,6 @@ const peopleSearchMiddleware = (): NextHandleFunction => async (req, res, next) 
 
   try {
     const results = await searchPeople(query);
-    console.log('[api chat people] results', { query, count: results.length });
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(results));
@@ -72,17 +69,17 @@ const adaptAppRoute = (
       return;
     }
 
-    let body: string | undefined;
-    if (method !== 'GET' && method !== 'HEAD') {
-      body = await new Promise<string | undefined>((resolve) => {
-        let data = '';
-        req.on('data', (chunk) => {
-          data += chunk;
-        });
-        req.on('end', () => resolve(data || undefined));
-        req.on('error', () => resolve(undefined));
-      });
-    }
+    const body: string | undefined =
+      method !== 'GET' && method !== 'HEAD'
+        ? await new Promise<string | undefined>((resolve) => {
+            let data = '';
+            req.on('data', (chunk) => {
+              data += chunk;
+            });
+            req.on('end', () => resolve(data || undefined));
+            req.on('error', () => resolve(undefined));
+          })
+        : undefined;
 
     const headers = buildHeaders(req.headers);
     const request = new Request(url.toString(), {
@@ -128,8 +125,7 @@ const respondFriendRequestMiddleware = (): NextHandleFunction => {
       return;
     }
 
-    let body: string | undefined;
-    body = await new Promise<string | undefined>((resolve) => {
+    const body = await new Promise<string | undefined>((resolve) => {
       let data = '';
       req.on('data', (chunk) => {
         data += chunk;

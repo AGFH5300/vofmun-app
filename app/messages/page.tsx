@@ -135,13 +135,6 @@ const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
   return suggestions;
 })();
 
-if (process.env.NODE_ENV !== "production") {
-  const sobSuggestion = EMOJI_SHORTCODES.find(({ shortcode }) => shortcode === "sob");
-  // eslint-disable-next-line no-console
-  console.log("[emoji-shortcodes] sob available:", Boolean(sobSuggestion), sobSuggestion?.emoji);
-}
-
-
 const ChatShell: React.FC = () => {
   const {
     rooms,
