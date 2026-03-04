@@ -4,6 +4,9 @@ const explicitDevOrigin = process.env.NEXT_ALLOWED_DEV_ORIGIN;
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
+    '127.0.0.1',
+    'localhost',
+    '*.replit.dev',
     '*.sisko.replit.dev',
     ...(explicitDevOrigin ? [explicitDevOrigin] : []),
   ],
