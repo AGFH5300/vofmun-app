@@ -1,5 +1,6 @@
 import supabase from "@/lib/supabase";
 import { AppUser, AppUserRole } from "@/db/types";
+import { createClient } from "@supabase/supabase-js";
 
 const DEFAULT_RESO_PERMS = {
   "update:reso": [],
@@ -10,6 +11,23 @@ const DEFAULT_RESO_PERMS = {
 
 const normalizeEmail = (email?: string | null) => (email || "").trim().toLowerCase();
 
+function createAuthedDbClient(accessToken: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+  return createClient(url, anon, {
+    global: {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storageKey: "sb-vofmun-db-only", 
+    },
+  });
+}
+
 export async function getCurrentAppUser() {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw sessionError;
@@ -19,11 +37,12 @@ export async function getCurrentAppUser() {
     return { authUser: null, appUser: null as AppUser | null };
   }
 
-  const accessToken = session.access_token;
   const authUser = session.user;
+  const accessToken = session.access_token;
 
-  supabase.auth.setAuth(accessToken);
-  const { data: existing, error: existingError } = await (supabase as any)
+  const db = createAuthedDbClient(accessToken);
+  
+  const { data: existing, error: existingError } = await (db as any)
     .from("app_users")
     .select("*")
     .eq("id", authUser.id)
@@ -42,9 +61,10 @@ export async function getCurrentAppUser() {
     reso_perms: DEFAULT_RESO_PERMS,
   };
 
-  const { error: insertError } = await (supabase as any).from("app_users").insert(insertPayload);
+  const { error: insertError } = await (db as any).from("app_users").insert(insertPayload);
   if (insertError) throw insertError;
-  const { data: created, error: createdError } = await (supabase as any)
+
+  const { data: created, error: createdError } = await (db as any)
     .from("app_users")
     .select("*")
     .eq("id", authUser.id)
