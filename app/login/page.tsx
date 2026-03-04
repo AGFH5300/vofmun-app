@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { useSession } from "../context/sessionContext";
 import TypeWriter from "@/components/ui/typewriter";
 import supabase from "@/lib/supabase";
+import { getCurrentAppUser } from "@/lib/auth/getCurrentAppUser";
+import { mapAppUserToSessionUser } from "@/lib/auth/mapAppUserToSessionUser";
 import { useMobile } from "@/hooks/use-mobile";
 import { Eye, EyeOff, Rocket } from "lucide-react";
 
@@ -25,6 +27,12 @@ const Login = () => {
   const isMobile = useMobile();
   const brandDarkRed = "#701e1e";
 
+  const routeByRole = (role: string) => {
+    if (role === "chair") return "/chair";
+    if (role === "admin" || role === "secretariat") return "/admin";
+    return "/messages";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -34,89 +42,25 @@ const Login = () => {
     const trimmedPassword = password.trim();
 
     try {
-      const { data: admin } = await supabase
-        .from("Admin")
-        .select("*")
-        .eq("email", trimmedEmail)
-        .maybeSingle();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password: trimmedPassword,
+      });
 
-      if (admin) {
-        if (admin.password !== trimmedPassword) {
-          setError("Incorrect password");
-          setLoading(false);
-          return;
-        }
-
-        login({ ...admin, role: "admin" });
-        router.push("/home");
+      if (signInError) {
+        setError(signInError.message || "Invalid email or password");
         return;
       }
 
-      const { data: chair } = await supabase
-        .from("Chair")
-        .select("*")
-        .eq("email", trimmedEmail)
-        .maybeSingle();
+      const { appUser } = await getCurrentAppUser();
 
-      if (chair) {
-        if (chair.password !== trimmedPassword) {
-          setError("Incorrect password");
-          setLoading(false);
-          return;
-        }
-
-        login({ ...chair, role: "chair" });
-        router.push("/home");
+      if (!appUser) {
+        setError("Unable to load profile for this account.");
         return;
       }
 
-      const { data: delegate } = await supabase
-        .from("Delegate")
-        .select("delegateID, firstname, lastname, password, email, country, committeeID, resoPerms")
-        .eq("email", trimmedEmail)
-        .maybeSingle();
-
-      if (delegate) {
-        if (delegate.password !== trimmedPassword) {
-          setError("Incorrect password");
-          setLoading(false);
-          return;
-        }
-
-        let committee = null;
-        if (delegate.committeeID) {
-          const { data: committeeRecord } = await supabase
-            .from("Committee")
-            .select("committeeID, name, committeeCode, fullname")
-            .eq("committeeID", delegate.committeeID)
-            .maybeSingle();
-          committee = committeeRecord || null;
-        }
-
-        login({ ...delegate, committee, role: "delegate" });
-        router.push("/home");
-        return;
-      }
-
-      const { data: secretariat } = await supabase
-        .from("Secretariat")
-        .select("*")
-        .eq("email", trimmedEmail)
-        .maybeSingle();
-
-      if (secretariat) {
-        if (secretariat.password !== trimmedPassword) {
-          setError("Incorrect password");
-          setLoading(false);
-          return;
-        }
-
-        login({ ...secretariat, role: "secretariat" });
-        router.push("/home");
-        return;
-      }
-
-      setError("Account not found");
+      login(mapAppUserToSessionUser(appUser));
+      router.push(routeByRole(appUser.role));
     } catch (err) {
       console.error("Login error:", err);
       setError("An error occurred during login. Please try again.");

@@ -107,6 +107,13 @@ const mapCommitteeCodes = async (committeeIds: (string | null | undefined)[]) =>
   return committeeMap;
 };
 
+
+const getCommitteeCodeFromId = async (committeeId?: string | null) => {
+  if (!committeeId) return null;
+  const committeeMap = await mapCommitteeCodes([committeeId]);
+  return committeeMap.get(committeeId) || null;
+};
+
 const fetchChairCommitteeMap = async (chairIds: string[]) => {
   if (chairIds.length === 0) return new Map<string, string | null>();
 
@@ -201,6 +208,23 @@ export const fetchPeopleDetailsByIds = async (ids: string[]): Promise<Record<str
 export const getUserContext = async (userId: string): Promise<ViewerContext | null> => {
   if (!supabaseAdmin) return null;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: appUser } = await (supabaseAdmin as any)
+    .from('app_users')
+    .select('id, role, country, committee_id')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (appUser) {
+    const committeeCode = await getCommitteeCodeFromId(appUser.committee_id);
+    return {
+      id: appUser.id,
+      role: appUser.role,
+      committeeCodes: committeeCode ? [committeeCode] : [],
+      country: appUser.country || null,
+    };
+  }
+
   const { data: delegate } = await supabaseAdmin
     .from('Delegate')
     .select('delegateID, country, committeeID')
@@ -285,6 +309,25 @@ export const isVisibleToViewer = (viewer: ViewerContext | null, person: ChatPers
 
 export const fetchPersonById = async (userId: string): Promise<ChatPerson | null> => {
   if (!supabaseAdmin) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: appUser } = await (supabaseAdmin as any)
+    .from('app_users')
+    .select('id, role, email, first_name, last_name, country, committee_id')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (appUser) {
+    const committeeCode = await getCommitteeCodeFromId(appUser.committee_id);
+    return {
+      id: appUser.id,
+      role: appUser.role,
+      displayName: formatDisplayName(appUser.first_name, appUser.last_name),
+      email: appUser.email || null,
+      country: appUser.country || null,
+      committeeCode,
+    };
+  }
 
   const { data: admin } = await supabaseAdmin
     .from('Admin')

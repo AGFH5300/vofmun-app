@@ -15,11 +15,48 @@ export const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, 
   if (!supabaseAdmin || ids.length === 0) return {};
   const uniqueIds = Array.from(new Set(ids));
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: appUsers } = await (supabaseAdmin as any)
+    .from('app_users')
+    .select('id, email, first_name, last_name, role, country, committee_id')
+    .in('id', uniqueIds);
+
+  const appUserCommitteeIds = Array.from(new Set((appUsers || []).map((row) => row.committee_id).filter(Boolean)));
+  const appUserCommitteeMap = new Map<string, string | null>();
+
+  if (appUserCommitteeIds.length > 0) {
+    const { data: committees } = await supabaseAdmin
+      .from('Committee')
+      .select('committeeID, committeeCode, name')
+      .in('committeeID', appUserCommitteeIds as string[]);
+
+    (committees || []).forEach((committee) => {
+      appUserCommitteeMap.set(committee.committeeID, committee.committeeCode || committee.name || null);
+    });
+  }
+
+  const map: Record<string, User> = {};
+
+  (appUsers || []).forEach((row) => {
+    map[row.id] = {
+      id: row.id,
+      email: row.email || '',
+      full_name: `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Unknown',
+      role: row.role,
+      role_title: row.role.charAt(0).toUpperCase() + row.role.slice(1),
+      committee: row.committee_id ? appUserCommitteeMap.get(row.committee_id) || null : null,
+      country: row.country || null,
+    };
+  });
+
+  const unresolvedIds = uniqueIds.filter((id) => !map[id]);
+  if (unresolvedIds.length === 0) return map;
+
   const [admins, chairs, delegates, secs] = await Promise.all([
-    supabaseAdmin.from('Admin').select('adminID, firstname, lastname, email').in('adminID', uniqueIds),
-    supabaseAdmin.from('Chair').select('chairID, firstname, lastname, email').in('chairID', uniqueIds),
-    supabaseAdmin.from('Delegate').select('delegateID, firstname, lastname, email, country, committeeID').in('delegateID', uniqueIds),
-    supabaseAdmin.from('Secretariat').select('secretariatID, firstname, lastname, email').in('secretariatID', uniqueIds),
+    supabaseAdmin.from('Admin').select('adminID, firstname, lastname, email').in('adminID', unresolvedIds),
+    supabaseAdmin.from('Chair').select('chairID, firstname, lastname, email').in('chairID', unresolvedIds),
+    supabaseAdmin.from('Delegate').select('delegateID, firstname, lastname, email, country, committeeID').in('delegateID', unresolvedIds),
+    supabaseAdmin.from('Secretariat').select('secretariatID, firstname, lastname, email').in('secretariatID', unresolvedIds),
   ]);
 
   const delegateCommitteeIds = new Set<string>();
@@ -64,7 +101,6 @@ export const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, 
     });
   }
 
-  const map: Record<string, User> = {};
   (admins.data || []).forEach((row) => {
     const profile = mapProfileForChat(row, 'admin');
     map[profile.id] = profile;
