@@ -37,22 +37,16 @@ const formatDisplayName = (first?: string | null, last?: string | null) =>
 export const mapProfileForChat = (
   row: {
     id?: string;
-    adminID?: string;
-    chairID?: string;
-    delegateID?: string;
-    secretariatID?: string;
     first_name?: string | null;
     last_name?: string | null;
-    firstname?: string | null;
-    lastname?: string | null;
     email?: string | null;
   },
   role: ChatPersonRole,
   extras?: { committee?: string | null; country?: string | null }
 ): User => {
-  const id = row.id || row.adminID || row.chairID || row.delegateID || row.secretariatID || '';
-  const first = row.first_name ?? row.firstname ?? null;
-  const last = row.last_name ?? row.lastname ?? null;
+  const id = row.id || '';
+  const first = row.first_name ?? null;
+  const last = row.last_name ?? null;
   return {
     id,
     email: row.email || '',
@@ -123,30 +117,6 @@ const getCommitteeCodeFromId = async (committeeId?: string | null) => {
   return committeeMap.get(committeeId) || null;
 };
 
-const fetchChairCommitteeMap = async (chairIds: string[]) => {
-  if (chairIds.length === 0) return new Map<string, string | null>();
-
-  const { data: chairLinks, error } = await supabaseAdmin
-    .from('Committee-Chair')
-    .select('chairID, committeeID')
-    .in('chairID', chairIds);
-
-  if (error) {
-    console.error('[people search] Committee-Chair lookup error', error);
-    return new Map();
-  }
-
-  const committeeIds = Array.from(new Set((chairLinks || []).map((link) => link.committeeID).filter(Boolean)));
-  const committeeMap = await mapCommitteeCodes(committeeIds);
-
-  const chairCommitteeMap = new Map<string, string | null>();
-  (chairLinks || []).forEach((link) => {
-    chairCommitteeMap.set(link.chairID, committeeMap.get(link.committeeID) || null);
-  });
-
-  return chairCommitteeMap;
-};
-
 export const fetchPeopleDetailsByIds = async (ids: string[]): Promise<Record<string, ChatPersonDetails>> => {
   if (!supabaseAdmin) return {};
   if (ids.length === 0) return {};
@@ -201,59 +171,6 @@ export const getUserContext = async (userId: string): Promise<ViewerContext | nu
     };
   }
 
-  const { data: delegate } = await supabaseAdmin
-    .from('Delegate')
-    .select('delegateID, country, committeeID')
-    .eq('delegateID', userId)
-    .maybeSingle();
-
-  if (delegate) {
-    const committeeMap = await mapCommitteeCodes([delegate.committeeID]);
-    const committeeCode = delegate.committeeID ? committeeMap.get(delegate.committeeID) || null : null;
-    return {
-      id: delegate.delegateID,
-      role: 'delegate',
-      committeeCodes: committeeCode ? [committeeCode] : [],
-      country: delegate.country || null,
-    };
-  }
-
-  const { data: chair } = await supabaseAdmin
-    .from('Chair')
-    .select('chairID')
-    .eq('chairID', userId)
-    .maybeSingle();
-
-  if (chair) {
-    const committeeMap = await fetchChairCommitteeMap([chair.chairID]);
-    const committeeCode = committeeMap.get(chair.chairID) || null;
-    return {
-      id: chair.chairID,
-      role: 'chair',
-      committeeCodes: committeeCode ? [committeeCode] : [],
-    };
-  }
-
-  const { data: admin } = await supabaseAdmin
-    .from('Admin')
-    .select('adminID')
-    .eq('adminID', userId)
-    .maybeSingle();
-
-  if (admin) {
-    return { id: admin.adminID, role: 'admin', committeeCodes: [] };
-  }
-
-  const { data: secretariat } = await supabaseAdmin
-    .from('Secretariat')
-    .select('secretariatID')
-    .eq('secretariatID', userId)
-    .maybeSingle();
-
-  if (secretariat) {
-    return { id: secretariat.secretariatID, role: 'secretariat', committeeCodes: [] };
-  }
-
   return null;
 };
 
@@ -284,67 +201,6 @@ export const fetchPersonById = async (userId: string): Promise<ChatPerson | null
       email: appUser.email || null,
       country: appUser.country || null,
       committeeCode,
-    };
-  }
-
-  const { data: admin } = await supabaseAdmin
-    .from('Admin')
-    .select('adminID, firstname, lastname, email')
-    .eq('adminID', userId)
-    .maybeSingle();
-  if (admin) {
-    return {
-      id: admin.adminID,
-      role: 'admin',
-      displayName: formatDisplayName(admin.firstname, admin.lastname),
-      email: admin.email || null,
-    };
-  }
-
-  const { data: chair } = await supabaseAdmin
-    .from('Chair')
-    .select('chairID, firstname, lastname, email')
-    .eq('chairID', userId)
-    .maybeSingle();
-  if (chair) {
-    const chairCommitteeMap = await fetchChairCommitteeMap([chair.chairID]);
-    return {
-      id: chair.chairID,
-      role: 'chair',
-      displayName: formatDisplayName(chair.firstname, chair.lastname),
-      email: chair.email || null,
-      committeeCode: chairCommitteeMap.get(chair.chairID) || null,
-    };
-  }
-
-  const { data: delegate } = await supabaseAdmin
-    .from('Delegate')
-    .select('delegateID, firstname, lastname, email, country, committeeID')
-    .eq('delegateID', userId)
-    .maybeSingle();
-  if (delegate) {
-    const committeeMap = await mapCommitteeCodes([delegate.committeeID]);
-    return {
-      id: delegate.delegateID,
-      role: 'delegate',
-      displayName: formatDisplayName(delegate.firstname, delegate.lastname),
-      email: delegate.email || null,
-      country: delegate.country || null,
-      committeeCode: delegate.committeeID ? committeeMap.get(delegate.committeeID) || null : null,
-    };
-  }
-
-  const { data: sec } = await supabaseAdmin
-    .from('Secretariat')
-    .select('secretariatID, firstname, lastname, email')
-    .eq('secretariatID', userId)
-    .maybeSingle();
-  if (sec) {
-    return {
-      id: sec.secretariatID,
-      role: 'secretariat',
-      displayName: formatDisplayName(sec.firstname, sec.lastname),
-      email: sec.email || null,
     };
   }
 

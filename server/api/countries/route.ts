@@ -13,9 +13,10 @@ export async function GET(req: Request) {
             });
         }
         const { data, error } = await supabase
-            .from('Delegate')
+            .from('app_users')
             .select('country')
-            .eq('committeeID', committeeID);
+            .eq('role', 'delegate')
+            .eq('committee_id', committeeID);
         if (error) {
             return new Response(JSON.stringify({ message: `Error fetching delegates: ${error.message}` }), {
                 status: 500,

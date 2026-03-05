@@ -304,20 +304,10 @@ const Page = () => {
 
       if (!appUserPermsError && appUserPerms?.reso_perms) {
         latestPerms = appUserPerms.reso_perms;
-      } else {
-        const { data: legacyPerms, error: legacyPermsError } = await supabase
-          .from("Delegate")
-          .select("resoPerms")
-          .eq("delegateID", delegateUser.delegateID)
-          .maybeSingle();
-
-        if (legacyPermsError) {
-          console.error("Failed to fetch delegate permissions:", legacyPermsError);
-          toast.error("Failed to fetch delegate permissions");
-          return null;
-        }
-
-        latestPerms = legacyPerms?.resoPerms || latestPerms;
+      } else if (appUserPermsError) {
+        console.error("Failed to fetch delegate permissions from app_users:", appUserPermsError);
+        toast.error("Failed to fetch delegate permissions");
+        return null;
       }
 
       const enrichedUser: Delegate = {
