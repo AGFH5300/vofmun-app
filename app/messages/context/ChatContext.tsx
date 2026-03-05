@@ -39,6 +39,7 @@ interface ChatContextValue {
   isConnecting: boolean;
   friendRequests: FriendRequest[];
   incomingRequests: FriendRequest[];
+  resolveUserDisplay: (userId: string, fallbackUser?: FriendRequest['sender'] | null) => string;
   currentUserId: string | null;
   pinnedRoomIds: Set<string>;
   selectRoom: (room: RoomWithDetails) => Promise<void>;
@@ -160,6 +161,16 @@ const normalizeFriendRequestRecord = (request: FriendRequest): FriendRequest => 
   status: normalizeFriendRequestStatus(request.status) as FriendRequest['status'],
 });
 
+const formatUserDisplayName = (user?: FriendRequest['sender'] | null) => {
+  if (!user) return '';
+  const fullName = user.full_name?.trim();
+  if (fullName) return fullName;
+  const composed = `${user.firstname || ''} ${user.lastname || ''}`.trim();
+  if (composed) return composed;
+  if (user.email) return user.email;
+  return '';
+};
+
 const isFriendRequestInvolvingUser = (request: FriendRequest, currentUserId: string) => {
   const normalizedUserId = String(currentUserId);
   return String(request.sender_id) === normalizedUserId || String(request.receiver_id) === normalizedUserId;
@@ -206,6 +217,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const [userId, setUserId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [userDirectory, setUserDirectory] = useState<Record<string, FriendRequest['sender']>>({});
   const [pinnedRoomIds, setPinnedRoomIds] = useState<Set<string>>(() => {
     if (typeof window === 'undefined') return new Set<string>();
     const stored = window.localStorage.getItem('pinnedRooms');
@@ -232,6 +244,62 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const lastScheduledReadLogKeyRef = useRef<string | null>(null);
 
   const toComparableId = useCallback((value: string | number | null | undefined) => String(value ?? ''), []);
+
+  const fetchAndCacheUsers = useCallback(async (ids: string[]) => {
+    const uniqueIds = Array.from(new Set(ids.map((id) => String(id)).filter(Boolean)));
+    if (uniqueIds.length === 0) return;
+
+    const missingIds = uniqueIds.filter((id) => !userDirectory[id]);
+    if (missingIds.length === 0) return;
+
+    const { data, error } = await supabase
+      .from('app_users')
+      .select('id, first_name, last_name, email')
+      .in('id', missingIds);
+
+    if (error) {
+      console.error('[ChatContext] failed to fetch app_users for friend requests', error);
+      return;
+    }
+
+    if (!data?.length) return;
+
+    const nextEntries: Record<string, FriendRequest['sender']> = {};
+    data.forEach((row) => {
+      const fullName = `${row.first_name || ''} ${row.last_name || ''}`.trim();
+      nextEntries[row.id] = {
+        id: row.id,
+        email: row.email || '',
+        full_name: fullName,
+        firstname: row.first_name || null,
+        lastname: row.last_name || null,
+      };
+    });
+
+    setUserDirectory((prev) => ({ ...prev, ...nextEntries }));
+  }, [userDirectory]);
+
+  const hydrateFriendRequestUsers = useCallback((request: FriendRequest): FriendRequest => {
+    const senderProfile = request.sender || userDirectory[String(request.sender_id)] || undefined;
+    const receiverProfile = request.receiver || userDirectory[String(request.receiver_id)] || undefined;
+    return {
+      ...request,
+      sender: senderProfile,
+      receiver: receiverProfile,
+    };
+  }, [userDirectory]);
+
+  const resolveUserDisplay = useCallback(
+    (targetUserId: string, fallbackUser?: FriendRequest['sender'] | null) => {
+      const normalizedId = String(targetUserId);
+      const fromFallback = formatUserDisplayName(fallbackUser);
+      if (fromFallback) return fromFallback;
+      const fromCache = formatUserDisplayName(userDirectory[normalizedId]);
+      if (fromCache) return fromCache;
+      return normalizedId;
+    },
+    [userDirectory]
+  );
 
   const withAuthHeaders = useCallback(
     (extra?: RequestInit): RequestInit => ({
@@ -361,13 +429,13 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       console.error('[ChatContext] friend request response unexpected', { json });
       return;
     }
-    setFriendRequests(
-      requests.map((request) => ({
-        ...request,
-        status: normalizeFriendRequestStatus(request.status) as FriendRequest['status'],
-      }))
-    );
-  }, [userId, withAuthHeaders]);
+    const normalizedRequests = requests.map((request) => ({
+      ...request,
+      status: normalizeFriendRequestStatus(request.status) as FriendRequest['status'],
+    }));
+    await fetchAndCacheUsers(normalizedRequests.flatMap((request) => [request.sender_id, request.receiver_id]));
+    setFriendRequests(normalizedRequests.map((request) => hydrateFriendRequestUsers(request)));
+  }, [fetchAndCacheUsers, hydrateFriendRequestUsers, userId, withAuthHeaders]);
 
   const markReceipts = useCallback(
     async (roomId: string, messageIds: string[], markRead = false) => {
@@ -915,9 +983,17 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const normalized = normalizeFriendRequestRecord(incoming);
       if (!isFriendRequestInvolvingUser(normalized, userId)) return;
 
+      void fetchAndCacheUsers([normalized.sender_id, normalized.receiver_id]);
+
       setFriendRequests((prev) => {
+        const existing = prev.find((request) => request.id === normalized.id);
         const withoutDupes = prev.filter((request) => request.id !== normalized.id);
-        return [normalized, ...withoutDupes];
+        const mergedRequest = {
+          ...normalized,
+          sender: normalized.sender || existing?.sender || userDirectory[String(normalized.sender_id)],
+          receiver: normalized.receiver || existing?.receiver || userDirectory[String(normalized.receiver_id)],
+        };
+        return [mergedRequest, ...withoutDupes];
       });
     };
 
@@ -981,7 +1057,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [fetchAndCacheUsers, userDirectory, userId]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1414,6 +1490,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       isConnecting,
       friendRequests,
       incomingRequests: friendRequests.filter((req) => req.status === 'pending' && req.receiver_id === userId),
+      resolveUserDisplay,
       currentUserId: userId,
       pinnedRoomIds,
       selectRoom,
@@ -1440,6 +1517,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       onlineUsers,
       isConnecting,
       friendRequests,
+      resolveUserDisplay,
       userId,
       pinnedRoomIds,
       selectRoom,

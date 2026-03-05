@@ -5,7 +5,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { BadgeCheck, Check, Plus, Search, UserPlus, Users, X } from 'lucide-react';
-import { UserSearchResult } from '@/lib/chat/types';
+import { FriendRequest, UserSearchResult } from '@/lib/chat/types';
 import { getUserDelegationLabel } from '@/lib/chat/delegation';
 import UserAvatar from './UserAvatar';
 import { useChat } from '../context/ChatContext';
@@ -27,6 +27,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     declineFriendRequest,
     openDirectMessageRoomForUser,
     incomingRequests,
+    resolveUserDisplay,
     createGroupRoom,
     selectRoom,
   } = useChat();
@@ -119,6 +120,9 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     () => incomingRequests.filter((req) => req.receiver_id === currentUserId && req.status === 'pending'),
     [currentUserId, incomingRequests]
   );
+
+  const getRequestDisplayName = (requestUserId: string, requestUser?: FriendRequest['sender'] | null) =>
+    resolveUserDisplay(requestUserId, requestUser);
 
   const handleStartChat = async (user: UserSearchResult) => {
     setError(null);
@@ -217,7 +221,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                     </div>
                     {incomingRequestsList.map((req) => (
                       <div key={req.id} className="flex items-center justify-between rounded-xl border border-soft-ivory bg-white px-3 py-2">
-                        <p className="text-sm text-deep-red">{req.sender?.full_name || req.sender_id}</p>
+                        <p className="text-sm text-deep-red">{getRequestDisplayName(req.sender_id, req.sender)}</p>
                         <div className="flex gap-2">
                           <button type="button" onClick={() => acceptFriendRequest(req.id)} className="rounded-lg bg-[#701e1e] px-3 py-1 text-xs font-semibold text-white hover:bg-[#8b2424]">Accept</button>
                           <button type="button" onClick={() => declineFriendRequest(req.id)} className="rounded-lg border border-soft-ivory px-3 py-1 text-xs font-semibold text-deep-red">Decline</button>
@@ -245,7 +249,10 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                         </div>
                       </div>
                       {state === 'connected' ? (
-                        <button type="button" onClick={() => handleStartChat(user)} className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 text-xs font-semibold text-almost-black-green"><BadgeCheck className="h-4 w-4 text-sky-500" />In friends</button>
+                        <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 rounded-xl bg-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red"><BadgeCheck className="h-4 w-4 text-sky-500" />In friends</span>
+                        <button type="button" onClick={() => handleStartChat(user)} className="inline-flex items-center rounded-xl bg-deep-red px-3 py-2 text-xs font-semibold text-white hover:bg-deep-red/90">Start chat</button>
+                      </div>
                       ) : state === 'incoming' && relationship.request ? (
                         <div className="flex gap-2">
                           <button type="button" onClick={() => acceptFriendRequest(relationship.request.id)} className="rounded-lg bg-deep-red px-3 py-1 text-xs font-semibold text-white"><Check className="h-3 w-3" /></button>

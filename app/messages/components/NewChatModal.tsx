@@ -5,7 +5,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { BadgeCheck, Check, Search, UserPlus, X } from 'lucide-react';
-import { UserSearchResult } from '@/lib/chat/types';
+import { FriendRequest, UserSearchResult } from '@/lib/chat/types';
 import UserAvatar from './UserAvatar';
 import { useChat } from '../context/ChatContext';
 
@@ -26,6 +26,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
     declineFriendRequest,
     openDirectMessageRoomForUser,
     incomingRequests,
+    resolveUserDisplay,
   } = useChat();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSearchResult[]>([]);
@@ -137,6 +138,9 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
     [currentUserId, incomingRequests]
   );
 
+  const getRequestDisplayName = (requestUserId: string, requestUser?: FriendRequest['sender'] | null) =>
+    resolveUserDisplay(requestUserId, requestUser);
+
   return (
     <Dialog open={open} onClose={onClose} className="relative z-50">
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
@@ -178,7 +182,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                 </div>
                 {incomingRequestsList.map((req) => {
                   const sender = req.sender;
-                  const displayName = sender?.full_name || `${sender?.firstname || ''} ${sender?.lastname || ''}`.trim() || req.sender_id;
+                  const displayName = getRequestDisplayName(req.sender_id, sender);
                   const avatarUser =
                     sender ||
                     ({
@@ -197,9 +201,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                             {sender?.committee ? ` • ${sender.committee}` : ''}
                             {sender?.country ? ` • ${sender.country}` : ''}
                           </p>
-                          {(sender?.email || req.sender_id) && (
-                            <p className="text-xs text-almost-black-green/50">{sender?.email || req.sender_id}</p>
-                          )}
+                          <p className="text-xs text-almost-black-green/50">{sender?.email || req.sender_id}</p>
                         </div>
                       </div>
                       <div className="flex gap-2 text-sm">
@@ -258,13 +260,18 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                   </div>
                   <div className="flex gap-2 text-sm">
                     {state === 'connected' ? (
-                      <button
-                        type="button"
-                        onClick={() => handleStartChat(user)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-[#701e1e] px-3 py-2 font-semibold text-almost-black-green shadow-sm hover:bg-[#8b2424]"
-                      >
-                        <BadgeCheck className="h-4 w-4 text-sky-500" /> In friends
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 font-semibold text-deep-red">
+                          <BadgeCheck className="h-4 w-4 text-sky-500" /> In friends
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleStartChat(user)}
+                          className="inline-flex items-center rounded-xl bg-[#701e1e] px-3 py-2 font-semibold text-white shadow-sm hover:bg-[#8b2424]"
+                        >
+                          Start chat
+                        </button>
+                      </div>
                     ) : state === 'incoming' && relationship.request ? (
                       <div className="flex gap-2">
                         <button
