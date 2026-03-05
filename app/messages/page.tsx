@@ -18,7 +18,7 @@ import {
   CalendarDays,
   ChevronDown,
   CircleUser,
-  File,
+  Folder,
   Image,
   Laugh,
   MoreVertical,
@@ -154,6 +154,7 @@ const ChatShell: React.FC = () => {
     declineFriendRequest,
     togglePin,
     currentUserId,
+    resolveUserDisplay,
   } = useChat();
 
   const [composer, setComposer] = useState("");
@@ -164,6 +165,8 @@ const ChatShell: React.FC = () => {
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [requestNotifications, setRequestNotifications] = useState<Array<{ id: string; message: string }>>([]);
+  const previousRequestsRef = useRef<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -597,7 +600,7 @@ const ChatShell: React.FC = () => {
     });
   };
   const attachmentOptions: AttachmentOption[] = [
-    { label: "File", icon: File, color: "text-[#1794d4]", action: () => fileInputRef.current?.click() },
+    { label: "File", icon: Folder, color: "text-[#1794d4]", action: () => fileInputRef.current?.click() },
     { label: "Photos & videos", icon: Image, color: "text-[#2a77f1]", action: () => mediaInputRef.current?.click() },
     { label: "Contact", icon: CircleUser, color: "text-[#ed6b2f]" },
     { label: "Poll", icon: ChartNoAxesColumn, color: "text-[#f4b53d]" },
@@ -674,6 +677,44 @@ const ChatShell: React.FC = () => {
       window.removeEventListener("mouseup", onUp);
     };
   }, [isDraggingDivider]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      previousRequestsRef.current = {};
+      return;
+    }
+
+    const previous = previousRequestsRef.current;
+    const next: Record<string, string> = {};
+
+    friendRequests.forEach((request) => {
+      if (String(request.sender_id) !== String(currentUserId)) return;
+      next[request.id] = request.status;
+
+      const priorStatus = previous[request.id];
+      if (priorStatus === "pending" && (request.status === "accepted" || request.status === "rejected")) {
+        const name = resolveUserDisplay(request.receiver_id, request.receiver);
+        const message =
+          request.status === "accepted"
+            ? `${name} accepted your connection request.`
+            : `${name} declined your connection request.`;
+        const id = `${request.id}-${request.status}`;
+        setRequestNotifications((prev) => (prev.some((item) => item.id === id) ? prev : [...prev, { id, message }]));
+      }
+    });
+
+    previousRequestsRef.current = next;
+  }, [currentUserId, friendRequests, resolveUserDisplay]);
+
+  useEffect(() => {
+    if (!requestNotifications.length) return;
+    const timers = requestNotifications.map((notice) =>
+      window.setTimeout(() => {
+        setRequestNotifications((prev) => prev.filter((item) => item.id !== notice.id));
+      }, 5000)
+    );
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [requestNotifications]);
 
   const outgoingRequests = useMemo(
     () =>
@@ -948,6 +989,25 @@ const ChatShell: React.FC = () => {
               </div>
             </header>
 
+            {requestNotifications.length > 0 && (
+              <div className="border-b border-soft-ivory bg-[#edf7ed] px-6 py-3">
+                <div className="space-y-2">
+                  {requestNotifications.map((notice) => (
+                    <div key={notice.id} className="flex items-start justify-between gap-3 rounded-xl border border-[#c8e6c9] bg-white px-3 py-2 text-sm text-[#245b2a]">
+                      <p>{notice.message}</p>
+                      <button
+                        type="button"
+                        onClick={() => setRequestNotifications((prev) => prev.filter((item) => item.id !== notice.id))}
+                        className="text-xs font-semibold text-[#245b2a]/70 hover:text-[#245b2a]"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {(incomingRequests.length > 0 || outgoingRequests.length > 0) && (
               <div className="border-b border-soft-ivory bg-warm-light-grey/35 px-6 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -960,10 +1020,7 @@ const ChatShell: React.FC = () => {
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   {incomingRequests.slice(0, 2).map((req) => {
-                    const senderName =
-                      req.sender?.full_name ||
-                      `${req.sender?.firstname || ""} ${req.sender?.lastname || ""}`.trim() ||
-                      req.sender_id;
+                    const senderName = resolveUserDisplay(req.sender_id, req.sender);
 
                     return (
                       <div
@@ -978,10 +1035,7 @@ const ChatShell: React.FC = () => {
                     );
                   })}
                   {outgoingRequests.slice(0, 2).map((req) => {
-                    const recipientName =
-                      req.receiver?.full_name ||
-                      `${req.receiver?.firstname || ""} ${req.receiver?.lastname || ""}`.trim() ||
-                      req.receiver_id;
+                    const recipientName = resolveUserDisplay(req.receiver_id, req.receiver);
 
                     return (
                       <div
@@ -1057,7 +1111,7 @@ const ChatShell: React.FC = () => {
                       <div className="space-y-2 rounded-2xl border border-dashed border-soft-ivory bg-white/80 px-6 py-5">
                         <Users className="mx-auto text-deep-red/40" size={44} />
                         <p className="font-semibold text-deep-red">No messages yet</p>
-                        <p className="text-sm">Break the ice with a quick hello.</p>
+                        <p className="text-sm">Say hi 👋</p>
                       </div>
                     </div>
                   )
@@ -1148,7 +1202,7 @@ const ChatShell: React.FC = () => {
                         </div>
                       </div>
                     )}
-                    <div className="relative flex flex-1 items-end rounded-full border border-[#d7d7d7] bg-[#f5f5f5] pl-1 pr-2 transition focus-within:border-[#bfbfbf]">
+                    <div className="relative flex flex-1 items-end rounded-full border border-[#d7d7d7] bg-[#f5f5f5] pl-1 pr-2 transition">
                       {showAttachmentMenu && (
                         <div
                           ref={attachmentMenuRef}
@@ -1177,7 +1231,7 @@ const ChatShell: React.FC = () => {
                         type="button"
                         onClick={toggleAttachmentMenu}
                         disabled={isUploadingAttachments}
-                        className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#ececec]"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#ececec] focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
                         aria-label="Open attachment options"
                       >
                         <Plus className="h-7 w-7" strokeWidth={1.8} />
@@ -1226,7 +1280,7 @@ const ChatShell: React.FC = () => {
                         placeholder="Type your message"
                         rows={1}
                         style={{ border: "none", boxShadow: "none" }}
-                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-[#202c33] placeholder:text-[#7a7f84] focus:outline-none"
+                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-[#202c33] placeholder:text-[#7a7f84] focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
                       />
                       <button
                         ref={emojiButtonRef}
