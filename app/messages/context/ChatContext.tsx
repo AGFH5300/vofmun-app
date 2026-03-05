@@ -153,6 +153,18 @@ const parseFriendRequestsResponse = (json: unknown): FriendRequest[] | null => {
   return null;
 };
 
+const normalizeFriendRequestRecord = (request: FriendRequest): FriendRequest => ({
+  ...request,
+  sender_id: String(request.sender_id),
+  receiver_id: String(request.receiver_id),
+  status: normalizeFriendRequestStatus(request.status) as FriendRequest['status'],
+});
+
+const isFriendRequestInvolvingUser = (request: FriendRequest, currentUserId: string) => {
+  const normalizedUserId = String(currentUserId);
+  return String(request.sender_id) === normalizedUserId || String(request.receiver_id) === normalizedUserId;
+};
+
 const getRoomMemberIds = (roomId: string, rooms: RoomWithDetails[]): string[] => {
   const room = rooms.find((item) => item.id === roomId);
   return room?.members.map((member) => String(member.user_id)) || [];
@@ -888,12 +900,88 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     pendingRoomJoinRef.current = null;
   }, [isConnecting]);
 
+
   useEffect(() => {
     if (userId) {
       refreshRooms();
       refreshFriendRequests();
     }
   }, [refreshRooms, refreshFriendRequests, userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const applyRealtimeFriendRequest = (incoming: FriendRequest) => {
+      const normalized = normalizeFriendRequestRecord(incoming);
+      if (!isFriendRequestInvolvingUser(normalized, userId)) return;
+
+      setFriendRequests((prev) => {
+        const withoutDupes = prev.filter((request) => request.id !== normalized.id);
+        return [normalized, ...withoutDupes];
+      });
+    };
+
+    const removeRealtimeFriendRequest = (incoming: FriendRequest) => {
+      if (!isFriendRequestInvolvingUser(incoming, userId)) return;
+      setFriendRequests((prev) => prev.filter((request) => request.id !== incoming.id));
+    };
+
+    const channel = supabase
+      .channel(`friend-requests:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'friend_requests', filter: `sender_id=eq.${userId}` },
+        (payload) => {
+          const next = payload.new as FriendRequest;
+          if (next?.id) applyRealtimeFriendRequest(next);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'friend_requests', filter: `receiver_id=eq.${userId}` },
+        (payload) => {
+          const next = payload.new as FriendRequest;
+          if (next?.id) applyRealtimeFriendRequest(next);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'friend_requests', filter: `sender_id=eq.${userId}` },
+        (payload) => {
+          const next = payload.new as FriendRequest;
+          if (next?.id) applyRealtimeFriendRequest(next);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'friend_requests', filter: `receiver_id=eq.${userId}` },
+        (payload) => {
+          const next = payload.new as FriendRequest;
+          if (next?.id) applyRealtimeFriendRequest(next);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'friend_requests', filter: `sender_id=eq.${userId}` },
+        (payload) => {
+          const previous = payload.old as FriendRequest;
+          if (previous?.id) removeRealtimeFriendRequest(previous);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'friend_requests', filter: `receiver_id=eq.${userId}` },
+        (payload) => {
+          const previous = payload.old as FriendRequest;
+          if (previous?.id) removeRealtimeFriendRequest(previous);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
