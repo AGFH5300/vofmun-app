@@ -35,16 +35,13 @@ export const assertNoLegacyChatIdentityDev = (identity: string, context: string)
   throw new Error(message);
 };
 
-const mapRawUserToSession = (raw: any): SessionAuthUser | null => {
+const mapRawUserToSession = (raw: Record<string, unknown> | null): SessionAuthUser | null => {
   if (!raw) return null;
   const authUserId = raw.id ? String(raw.id) : null;
   if (!authUserId) {
     if (process.env.NODE_ENV !== 'production') {
       console.error('[chat auth] Missing auth user.id in session cookie payload for chat identity mapping.', {
-        hasDelegateId: Boolean(raw.delegateID),
-        hasChairId: Boolean(raw.chairID),
-        hasAdminId: Boolean(raw.adminID),
-        hasSecretariatId: Boolean(raw.secretariatID),
+        role: raw.role || null,
       });
     }
     return null;
@@ -56,10 +53,6 @@ const mapRawUserToSession = (raw: any): SessionAuthUser | null => {
     return { id: authUserId, role: String(raw.role) as SessionRole };
   }
 
-  if (raw.delegateID) return { id: authUserId, role: 'delegate' };
-  if (raw.chairID) return { id: authUserId, role: 'chair' };
-  if (raw.adminID) return { id: authUserId, role: 'admin' };
-  if (raw.secretariatID) return { id: authUserId, role: 'secretariat' };
   return null;
 };
 

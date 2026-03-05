@@ -110,12 +110,7 @@ const MessageBubble: React.FC<Props> = ({
   presenceDeliveredHint = false,
 }) => {
   const { user } = useSession();
-  const currentUserId =
-    ('delegateID' in (user || {}) && user?.delegateID ? user.delegateID : null) ||
-    ('chairID' in (user || {}) && user?.chairID ? user.chairID : null) ||
-    ('adminID' in (user || {}) && user?.adminID ? user.adminID : null) ||
-    ('secretariatID' in (user || {}) && user?.secretariatID ? user.secretariatID : null) ||
-    ('id' in (user || {}) && user?.id ? user.id : null);
+  const currentUserId = user?.id ? String(user.id) : null;
   const [contextMenuPosition, setContextMenuPosition] = React.useState<{ x: number; y: number } | null>(null);
   const bubbleMenuId = React.useMemo(() => `message-menu-${message.id}`, [message.id]);
   const [infoPanelPosition, setInfoPanelPosition] = React.useState<{ x: number; y: number } | null>(null);

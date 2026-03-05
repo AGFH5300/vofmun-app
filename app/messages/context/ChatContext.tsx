@@ -260,12 +260,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       setUserId(null);
       return;
     }
-    const candidate =
-      ('delegateID' in user && user.delegateID ? user.delegateID : null) ||
-      ('chairID' in user && user.chairID ? user.chairID : null) ||
-      ('adminID' in user && user.adminID ? user.adminID : null) ||
-      ('secretariatID' in user && user.secretariatID ? user.secretariatID : null) ||
-      ('id' in user && user.id ? user.id : null);
+    const candidate = user.id ? String(user.id) : null;
 
     if (candidate) {
       setUserId(String(candidate));

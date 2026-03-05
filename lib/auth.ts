@@ -1,13 +1,8 @@
 // © 2026 Ansh Gupta. All rights reserved.
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 import { NextRequest } from "next/server";
-import { UserType, Delegate, Chair, Admin, Secretariat } from "@/db/types";
+import { UserType } from "@/db/types";
 
-/**
- * Extract and validate user session from request cookies
- * @param request - Next.js request object
- * @returns User object or null if not authenticated
- */
 export function getServerSession(request: NextRequest): UserType | null {
   try {
     const userCookie = request.cookies.get("user");
@@ -16,82 +11,27 @@ export function getServerSession(request: NextRequest): UserType | null {
     }
 
     const user = JSON.parse(userCookie.value) as UserType;
-    
-    // Validate that the user object has the required structure
-    if (!user) {
+    if (!user?.id || !user?.role) {
       return null;
     }
 
-    // Check if user has valid ID and required fields
-    if ("delegateID" in user && user.delegateID && user.firstname && user.lastname) {
-      return user as Delegate;
-    }
-
-    if ("chairID" in user && user.chairID && user.firstname && user.lastname) {
-      return user as Chair;
-    }
-
-    if ("adminID" in user && user.adminID && user.firstname && user.lastname) {
-      return user as Admin;
-    }
-
-    if ("secretariatID" in user && user.secretariatID && user.firstname && user.lastname) {
-      return user as Secretariat;
-    }
-
-    return null;
+    return user;
   } catch (error) {
     console.error('Error parsing user session:', error);
     return null;
   }
 }
 
-/**
- * Get user ID and type from authenticated session
- * @param user - User object from session
- * @returns Object with userID and userType
- */
 export function getUserIdentity(user: UserType): { userID: string; userType: 'delegate' | 'chair' | 'admin' | 'secretariat'; userName: string } | null {
-  if (!user) return null;
+  if (!user?.id || !user?.role) return null;
 
-  if ("delegateID" in user) {
-    return {
-      userID: user.delegateID,
-      userType: 'delegate',
-      userName: `${user.firstname} ${user.lastname}`
-    };
-  }
-
-  if ("chairID" in user) {
-    return {
-      userID: user.chairID,
-      userType: 'chair',
-      userName: `${user.firstname} ${user.lastname}`
-    };
-  }
-
-  if ("adminID" in user) {
-    return {
-      userID: user.adminID,
-      userType: 'admin',
-      userName: `${user.firstname} ${user.lastname}`
-    };
-  }
-
-  if ("secretariatID" in user) {
-    return {
-      userID: user.secretariatID,
-      userType: 'secretariat',
-      userName: `${user.firstname} ${user.lastname}`
-    };
-  }
-
-  return null;
+  return {
+    userID: String(user.id),
+    userType: user.role,
+    userName: `${user.firstname || ''} ${user.lastname || ''}`.trim() || 'Unknown'
+  };
 }
 
-/**
- * Create unauthorized response
- */
 export function unauthorizedResponse(message: string = 'Unauthorized') {
   return new Response(
     JSON.stringify({ error: message }),
@@ -99,9 +39,6 @@ export function unauthorizedResponse(message: string = 'Unauthorized') {
   );
 }
 
-/**
- * Create forbidden response
- */
 export function forbiddenResponse(message: string = 'Forbidden') {
   return new Response(
     JSON.stringify({ error: message }),

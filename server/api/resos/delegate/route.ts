@@ -32,9 +32,10 @@ export async function POST(request: Request) {
     const { resoID, delegateID, committeeID, content, title } = await request.json();
 
     const {data : userPerms, error: userPermsError} = await supabase
-        .from('Delegate')
-        .select('resoPerms')
-        .eq('delegateID', delegateID)
+        .from('app_users')
+        .select('reso_perms')
+        .eq('id', delegateID)
+        .eq('role', 'delegate')
         .single();
     if (userPermsError) {
         console.error('Error fetching user permissions:', userPermsError);
@@ -42,7 +43,8 @@ export async function POST(request: Request) {
     }
 
     if (resoID !== "-1"){
-        if ( !(userPerms.resoPerms["update:reso"].includes(resoID)) && !(userPerms.resoPerms["update:ownreso"])){
+        const resoPerms = userPerms?.reso_perms || {};
+        if ( !(resoPerms["update:reso"]?.includes(resoID)) && !(resoPerms["update:ownreso"])){
             return NextResponse.json({ error: 'You do not have permission to update this resolution' }, { status: 403 });
         }
         const { error } = await supabase
@@ -56,7 +58,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: 'Resolution updated successfully' }, { status: 200 });
     }
 
-    if ( !(userPerms.resoPerms["update:ownreso"]) ){
+    const resoPerms = userPerms?.reso_perms || {};
+    if ( !(resoPerms["update:ownreso"]) ){
         return NextResponse.json({ error: 'You do not have permission to create your own resolution' }, { status: 403 });
     }
 

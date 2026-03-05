@@ -16,7 +16,7 @@ import {
   RoomType,
   User,
 } from '../../lib/chat/types.ts';
-import { fetchPersonById, isVisibleToViewer, mapProfileForChat, searchPeople } from './people.ts';
+import { fetchPersonById, getUserContext, isVisibleToViewer, searchPeople } from './people.ts';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -132,14 +132,6 @@ const canInteractWithUser = async (viewerId: string, targetUserId: string) => {
   return viewer ? isVisibleToViewer(viewer, target || null) : false;
 };
 
-// NOTE: getUserContext is referenced in canInteractWithUser in your original file.
-// If it exists elsewhere in your repo/imports, keep it.
-// If it was removed, restore your original getUserContext implementation.
-// For now we keep the reference exactly as your paste showed.
-async function getUserContext(userId: string) {
-  return fetchPersonById(userId);
-}
-
 const deriveRoomType = (room: { is_private?: boolean | null; name?: string | null }, members: RoomMember[]): RoomType => {
   if (room.is_private && members.length === 2) return 'dm';
   const normalized = (room.name || '').toLowerCase();
@@ -196,89 +188,6 @@ const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, User>> 
     };
   });
 
-  // Backwards compatibility: if some IDs still belong to legacy role tables, resolve them too.
-  const unresolvedIds = uniqueIds.filter((id) => !map[id]);
-  if (unresolvedIds.length === 0) {
-    return map;
-  }
-
-  const [admins, chairs, delegates, secs] = await Promise.all([
-    supabaseAdmin.from('Admin').select('adminID, firstname, lastname, email').in('adminID', unresolvedIds),
-    supabaseAdmin.from('Chair').select('chairID, firstname, lastname, email').in('chairID', unresolvedIds),
-    supabaseAdmin
-      .from('Delegate')
-      .select('delegateID, firstname, lastname, email, country, committeeID')
-      .in('delegateID', unresolvedIds),
-    supabaseAdmin.from('Secretariat').select('secretariatID, firstname, lastname, email').in('secretariatID', unresolvedIds),
-  ]);
-
-  const delegateCommitteeIds = new Set<string>();
-  (delegates.data || []).forEach((row: any) => {
-    if (row.committeeID) delegateCommitteeIds.add(row.committeeID);
-  });
-
-  const chairCommitteeIds = new Set<string>();
-  if (chairs.data && chairs.data.length > 0) {
-    const { data: chairLinks, error } = await supabaseAdmin
-      .from('Committee-Chair')
-      .select('chairID, committeeID')
-      .in('chairID', chairs.data.map((row: any) => row.chairID));
-
-    if (error) {
-      console.error('[chat] failed to load chair committees', error);
-    }
-
-    (chairLinks || []).forEach((link: any) => {
-      if (link.committeeID) chairCommitteeIds.add(link.committeeID);
-    });
-  }
-
-  const committeeIds = new Set([...delegateCommitteeIds, ...chairCommitteeIds]);
-  const committeeMap = new Map<string, string | null>();
-  if (committeeIds.size > 0) {
-    const { data: committees } = await supabaseAdmin
-      .from('Committee')
-      .select('committeeID, committeeCode, name')
-      .in('committeeID', Array.from(committeeIds));
-
-    (committees || []).forEach((committee: any) => {
-      committeeMap.set(committee.committeeID, committee.committeeCode || committee.name || null);
-    });
-  }
-
-  const chairCommitteeMap = new Map<string, string | null>();
-  if (chairCommitteeIds.size > 0) {
-    const { data: chairLinks } = await supabaseAdmin
-      .from('Committee-Chair')
-      .select('chairID, committeeID')
-      .in('committeeID', Array.from(chairCommitteeIds));
-
-    (chairLinks || []).forEach((link: any) => {
-      chairCommitteeMap.set(link.chairID, link.committeeID ? committeeMap.get(link.committeeID) || null : null);
-    });
-  }
-
-  (admins.data || []).forEach((row: any) => {
-    const profile = mapProfileForChat(row, 'admin');
-    map[profile.id] = profile;
-  });
-  (chairs.data || []).forEach((row: any) => {
-    const profile = mapProfileForChat(row, 'chair', {
-      committee: chairCommitteeMap.get(row.chairID) || null,
-    });
-    map[profile.id] = profile;
-  });
-  (delegates.data || []).forEach((row: any) => {
-    const profile = mapProfileForChat(row, 'delegate', {
-      committee: row.committeeID ? committeeMap.get(row.committeeID) || null : null,
-      country: row.country || null,
-    });
-    map[profile.id] = profile;
-  });
-  (secs.data || []).forEach((row: any) => {
-    const profile = mapProfileForChat(row, 'secretariat');
-    map[profile.id] = profile;
-  });
   return map;
 };
 
