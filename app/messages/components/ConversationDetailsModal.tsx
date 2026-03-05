@@ -61,7 +61,9 @@ const ConversationDetailsModal: React.FC<Props> = ({ room, open, onClose, curren
                         <p className="text-xs text-almost-black-green/60">{member.user?.role_title || member.role}</p>
                       </div>
                     </div>
-                    <span className="text-xs uppercase tracking-wide text-almost-black-green/60">{member.role}</span>
+                    {!isDirectMessage && (
+                      <span className="text-xs uppercase tracking-wide text-almost-black-green/60">{member.role}</span>
+                    )}
                   </div>
                 ))}
               </div>

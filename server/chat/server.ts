@@ -56,6 +56,23 @@ const fetchRoomMemberUserIds = async (roomId: string): Promise<string[]> => {
   return (data || []).map((row: any) => String(row.user_id)).filter(Boolean);
 };
 
+const fetchExistingAppUserIds = async (userIds: string[]): Promise<Set<string>> => {
+  const uniqueIds = Array.from(new Set(userIds.map((id) => String(id).trim()).filter(Boolean)));
+  if (uniqueIds.length === 0) return new Set<string>();
+
+  const { data, error } = await supabaseAdmin
+    .from('app_users')
+    .select('id')
+    .in('id', uniqueIds);
+
+  if (error) {
+    console.error('[chat] failed to validate app_user ids', { userIds: uniqueIds, error: error.message || error });
+    return new Set<string>();
+  }
+
+  return new Set((data || []).map((row: { id: string }) => String(row.id)));
+};
+
 const activeSockets = new Set<SocketContext>();
 const CHAT_SERVER_DEBUG_PREFIX = '[ChatServerDebug]';
 const isServerDebugEnabled = process.env.CHAT_SERVER_DEBUG === '1' || process.env.NODE_ENV !== 'production';
@@ -399,11 +416,21 @@ app.post('/api/friend-requests/:id/respond', requireAuth, async (req: AuthedRequ
 app.post('/api/rooms/direct', requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { targetUserId } = req.body as { targetUserId?: string };
-    if (!targetUserId) {
+    const normalizedTargetUserId = String(targetUserId || '').trim();
+    if (!normalizedTargetUserId) {
       return res.status(400).json({ error: 'Missing targetUserId' });
     }
 
-    const isAllowed = await canInteractWithUser(req.userId!, targetUserId);
+    if (normalizedTargetUserId === req.userId) {
+      return res.status(400).json({ error: 'Cannot create direct room with yourself' });
+    }
+
+    const existingIds = await fetchExistingAppUserIds([normalizedTargetUserId]);
+    if (!existingIds.has(normalizedTargetUserId)) {
+      return res.status(400).json({ error: 'Invalid target user' });
+    }
+
+    const isAllowed = await canInteractWithUser(req.userId!, normalizedTargetUserId);
     if (!isAllowed) {
       return res.status(403).json({ error: 'Not allowed to message this user' });
     }
@@ -416,7 +443,7 @@ app.post('/api/rooms/direct', requireAuth, async (req: AuthedRequest, res: Respo
       const { data: mutualRooms } = await supabaseAdmin
         .from('room_members')
         .select('room_id')
-        .eq('user_id', targetUserId)
+        .eq('user_id', normalizedTargetUserId)
         .in('room_id', roomIds);
 
       existingRoomId = (mutualRooms as any)?.[0]?.room_id ?? null;
@@ -435,10 +462,14 @@ app.post('/api/rooms/direct', requireAuth, async (req: AuthedRequest, res: Respo
       }
 
       roomId = (createdRoom as any).id;
-      await supabaseAdmin.from('room_members').insert([
-        { room_id: roomId, user_id: req.userId!, role: 'member' },
-        { room_id: roomId, user_id: targetUserId, role: 'member' },
+      const { error: memberInsertError } = await supabaseAdmin.from('room_members').insert([
+        { room_id: roomId, user_id: normalizedTargetUserId, role: 'member' },
       ]);
+
+      if (memberInsertError) {
+        console.error('Error adding direct room member', memberInsertError);
+        return res.status(500).json({ error: 'Failed to create room members' });
+      }
     }
 
     const { data: room } = await supabaseAdmin.from('chat_rooms').select('*').eq('id', roomId).single();
@@ -460,9 +491,22 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
       return res.status(400).json({ error: 'Missing group details' });
     }
 
-    const allMembers = Array.from(new Set([req.userId!, ...memberIds]));
+    const normalizedMemberIds = Array.from(
+      new Set(memberIds.map((id) => String(id).trim()).filter((id) => Boolean(id) && id !== req.userId))
+    );
 
-    const visibilityChecks = await Promise.all(memberIds.map(async (memberId) => ({ memberId, allowed: await canInteractWithUser(req.userId!, memberId) })));
+    if (normalizedMemberIds.length === 0) {
+      return res.status(400).json({ error: 'Select at least one participant' });
+    }
+
+    const existingIds = await fetchExistingAppUserIds(normalizedMemberIds);
+    if (existingIds.size !== normalizedMemberIds.length) {
+      return res.status(400).json({ error: 'One or more participants are invalid' });
+    }
+
+    const visibilityChecks = await Promise.all(
+      normalizedMemberIds.map(async (memberId) => ({ memberId, allowed: await canInteractWithUser(req.userId!, memberId) }))
+    );
     const denied = visibilityChecks.find((check) => !check.allowed);
     if (denied) {
       return res.status(403).json({ error: `Not allowed to add member ${denied.memberId}` });
@@ -478,9 +522,14 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
       return res.status(500).json({ error: 'Failed to create room' });
     }
 
-    await supabaseAdmin
+    const { error: memberInsertError } = await supabaseAdmin
       .from('room_members')
-      .insert(allMembers.map((id) => ({ room_id: (createdRoom as any).id, user_id: id, role: id === req.userId ? 'admin' : 'member' })));
+      .insert(normalizedMemberIds.map((id) => ({ room_id: (createdRoom as any).id, user_id: id, role: 'member' })));
+
+    if (memberInsertError) {
+      console.error('Error adding group room members', memberInsertError);
+      return res.status(500).json({ error: 'Failed to create room members' });
+    }
 
     const members = await fetchRoomMembers((createdRoom as any).id);
     const lastMessage = await fetchLastMessage((createdRoom as any).id);

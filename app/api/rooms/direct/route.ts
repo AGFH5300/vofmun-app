@@ -17,10 +17,24 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => null);
-    const targetUserId = body?.targetUserId;
+    const targetUserId = String(body?.targetUserId || '').trim();
 
     if (!targetUserId) {
       return NextResponse.json({ error: 'Missing targetUserId' }, { status: 400 });
+    }
+
+    if (targetUserId === sessionUser.id) {
+      return NextResponse.json({ error: 'Cannot create direct room with yourself' }, { status: 400 });
+    }
+
+    const { data: appUserRows, error: appUserError } = await supabaseAdmin
+      .from('app_users')
+      .select('id')
+      .eq('id', targetUserId)
+      .limit(1);
+
+    if (appUserError || !appUserRows || appUserRows.length === 0) {
+      return NextResponse.json({ error: 'Invalid target user' }, { status: 400 });
     }
 
     const isAllowed = await canInteractWithUser(sessionUser.id, targetUserId);
@@ -62,10 +76,13 @@ export async function POST(request: Request) {
       }
 
       roomId = createdRoom.id;
-      await supabaseAdmin.from('room_members').insert([
-        { room_id: roomId, user_id: sessionUser.id, role: 'member' },
-        { room_id: roomId, user_id: targetUserId, role: 'member' },
-      ]);
+      const { error: memberInsertError } = await supabaseAdmin
+        .from('room_members')
+        .insert([{ room_id: roomId, user_id: targetUserId, role: 'member' }]);
+
+      if (memberInsertError) {
+        return NextResponse.json({ error: 'Failed to create room members' }, { status: 500 });
+      }
     }
 
     const room = await fetchRoomWithDetails(roomId);
