@@ -251,7 +251,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                       {state === 'connected' ? (
                         <div className="flex items-center gap-2">
                         <span className="inline-flex items-center gap-1 rounded-xl bg-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red"><BadgeCheck className="h-4 w-4 text-sky-500" />In friends</span>
-                        <button type="button" onClick={() => handleStartChat(user)} className="inline-flex items-center rounded-xl bg-deep-red px-3 py-2 text-xs font-semibold text-white hover:bg-deep-red/90">Start chat</button>
+                        <button type="button" onClick={() => handleStartChat(user)} className="inline-flex items-center rounded-xl background-deep-red px-3 py-2 text-xs font-semibold text-white hover:bg-deep-red/90">Start chat</button>
                       </div>
                       ) : state === 'incoming' && relationship.request ? (
                         <div className="flex gap-2">
