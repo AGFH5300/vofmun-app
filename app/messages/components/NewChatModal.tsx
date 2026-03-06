@@ -332,7 +332,8 @@ const NewChatModal: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => handleStartChat(user)}
-                          className="inline-flex items-center rounded-xl background-deep-red text-white px-3 py-2 font-semibold shadow-sm hover:bg-[#8b2424]"
+                          className="inline-flex items-center rounded-xl text-white px-3 py-2 font-semibold shadow-sm hover:bg-[#8b2424] background-deep-red"
+                          style={{ backgroundColor: "#701e1e" }}
                         >
                           Start chat
                         </button>
