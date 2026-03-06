@@ -5,6 +5,7 @@
 import { useSession } from "../app/context/sessionContext";
 import CustomNav from "@/components/ui/customnav";
 import SiteFooter from "@/components/ui/site-footer";
+import AmazingCursor from "@/components/ui/AmazingCursor";
 import role from "@/lib/roles";
 import { usePathname } from "next/navigation";
 
@@ -36,6 +37,7 @@ export default function AppWrapper({ children }: AppWrapperProps) {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <AmazingCursor />
       {showNav && (
         <CustomNav
           role={userRole as 'delegate' | 'chair' | 'admin'}
