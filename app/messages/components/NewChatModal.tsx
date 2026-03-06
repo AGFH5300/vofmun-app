@@ -1,13 +1,13 @@
 // © 2026 Ansh Gupta. All rights reserved.
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
-'use client';
+"use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { Dialog } from '@headlessui/react';
-import { BadgeCheck, Check, Search, UserPlus, X } from 'lucide-react';
-import { FriendRequest, UserSearchResult } from '@/lib/chat/types';
-import UserAvatar from './UserAvatar';
-import { useChat } from '../context/ChatContext';
+import React, { useEffect, useMemo, useState } from "react";
+import { Dialog } from "@headlessui/react";
+import { BadgeCheck, Check, Search, UserPlus, X } from "lucide-react";
+import { FriendRequest, UserSearchResult } from "@/lib/chat/types";
+import UserAvatar from "./UserAvatar";
+import { useChat } from "../context/ChatContext";
 
 interface Props {
   open: boolean;
@@ -15,7 +15,11 @@ interface Props {
   onConversationCreated?: (roomId: string) => void;
 }
 
-const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated }) => {
+const NewChatModal: React.FC<Props> = ({
+  open,
+  onClose,
+  onConversationCreated,
+}) => {
   const {
     searchUsers,
     sendFriendRequest,
@@ -28,7 +32,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
     incomingRequests,
     resolveUserDisplay,
   } = useChat();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +48,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
 
   useEffect(() => {
     if (!open) {
-      setQuery('');
+      setQuery("");
       setResults([]);
       setError(null);
       setIsSearching(false);
@@ -69,7 +73,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
         setResults(data);
         setHasSearched(true);
       } catch {
-        setError('Something went wrong while searching.');
+        setError("Something went wrong while searching.");
       } finally {
         setIsSearching(false);
       }
@@ -81,7 +85,7 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
     setError(null);
     const room = await openDirectMessageRoomForUser(user.id);
     if (!room) {
-      setError('Unable to open a direct message room right now.');
+      setError("Unable to open a direct message room right now.");
       return;
     }
     onConversationCreated?.(room.id);
@@ -92,36 +96,46 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
     setError(null);
     const result = await sendFriendRequest(user.id);
     if (!result) {
-      setError('Unable to send connection request.');
+      setError("Unable to send connection request.");
     }
   };
 
   const relationshipState = useMemo(
-    () =>
-      (userId: string) => {
-        const normalizedCurrentUserId = String(currentUserId || '');
-        const normalizedUserId = String(userId);
-        const incomingRequest = friendRequests.find(
-          (req) => String(req.sender_id) === normalizedUserId && String(req.receiver_id) === normalizedCurrentUserId && req.status === 'pending'
-        );
-        if (incomingRequest) return { type: 'incoming', request: incomingRequest } as const;
+    () => (userId: string) => {
+      const normalizedCurrentUserId = String(currentUserId || "");
+      const normalizedUserId = String(userId);
+      const incomingRequest = friendRequests.find(
+        (req) =>
+          String(req.sender_id) === normalizedUserId &&
+          String(req.receiver_id) === normalizedCurrentUserId &&
+          req.status === "pending",
+      );
+      if (incomingRequest)
+        return { type: "incoming", request: incomingRequest } as const;
 
-        const outgoingRequest = friendRequests.find(
-          (req) => String(req.sender_id) === normalizedCurrentUserId && String(req.receiver_id) === normalizedUserId && req.status === 'pending'
-        );
-        if (outgoingRequest) return { type: 'outgoing', request: outgoingRequest } as const;
+      const outgoingRequest = friendRequests.find(
+        (req) =>
+          String(req.sender_id) === normalizedCurrentUserId &&
+          String(req.receiver_id) === normalizedUserId &&
+          req.status === "pending",
+      );
+      if (outgoingRequest)
+        return { type: "outgoing", request: outgoingRequest } as const;
 
-        const acceptedRequest = friendRequests.find(
-          (req) =>
-            req.status === 'accepted' &&
-            ((String(req.sender_id) === normalizedCurrentUserId && String(req.receiver_id) === normalizedUserId) ||
-              (String(req.sender_id) === normalizedUserId && String(req.receiver_id) === normalizedCurrentUserId))
-        );
-        if (acceptedRequest) return { type: 'connected', request: acceptedRequest } as const;
+      const acceptedRequest = friendRequests.find(
+        (req) =>
+          req.status === "accepted" &&
+          ((String(req.sender_id) === normalizedCurrentUserId &&
+            String(req.receiver_id) === normalizedUserId) ||
+            (String(req.sender_id) === normalizedUserId &&
+              String(req.receiver_id) === normalizedCurrentUserId)),
+      );
+      if (acceptedRequest)
+        return { type: "connected", request: acceptedRequest } as const;
 
-        return { type: 'none', request: null } as const;
-      },
-    [currentUserId, friendRequests]
+      return { type: "none", request: null } as const;
+    },
+    [currentUserId, friendRequests],
   );
 
   const emptyState = useMemo(
@@ -130,16 +144,21 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
         <p className="text-sm">Start typing a name or email to search.</p>
       </div>
     ),
-    []
+    [],
   );
 
   const incomingRequestsList = useMemo(
-    () => incomingRequests.filter((req) => req.receiver_id === currentUserId && req.status === 'pending'),
-    [currentUserId, incomingRequests]
+    () =>
+      incomingRequests.filter(
+        (req) => req.receiver_id === currentUserId && req.status === "pending",
+      ),
+    [currentUserId, incomingRequests],
   );
 
-  const getRequestDisplayName = (requestUserId: string, requestUser?: FriendRequest['sender'] | null) =>
-    resolveUserDisplay(requestUserId, requestUser);
+  const getRequestDisplayName = (
+    requestUserId: string,
+    requestUser?: FriendRequest["sender"] | null,
+  ) => resolveUserDisplay(requestUserId, requestUser);
 
   return (
     <Dialog open={open} onClose={onClose} className="relative z-50">
@@ -148,10 +167,20 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
         <Dialog.Panel className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-xl">
           <div className="flex items-start justify-between">
             <div>
-              <Dialog.Title className="text-xl font-semibold text-deep-red">Start a direct message</Dialog.Title>
-              <p className="text-sm text-almost-black-green/70">Find admins, chairs, delegates, or secretariat members by name or email.</p>
+              <Dialog.Title className="text-xl font-semibold text-deep-red">
+                Start a direct message
+              </Dialog.Title>
+              <p className="text-sm text-almost-black-green/70">
+                Find admins, chairs, delegates, or secretariat members by name
+                or email.
+              </p>
             </div>
-            <button onClick={onClose} className="text-sm text-almost-black-green/60 hover:text-deep-red">Close</button>
+            <button
+              onClick={onClose}
+              className="text-sm text-almost-black-green/60 hover:text-deep-red"
+            >
+              Close
+            </button>
           </div>
 
           <div className="mt-4">
@@ -177,31 +206,49 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
             {incomingRequestsList.length > 0 && (
               <div className="space-y-3 rounded-2xl border border-soft-ivory bg-warm-light-grey/40 p-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-deep-red">Incoming connection requests</p>
-                  <span className="text-xs text-almost-black-green/60">{incomingRequestsList.length} pending</span>
+                  <p className="text-sm font-semibold text-deep-red">
+                    Incoming connection requests
+                  </p>
+                  <span className="text-xs text-almost-black-green/60">
+                    {incomingRequestsList.length} pending
+                  </span>
                 </div>
                 {incomingRequestsList.map((req) => {
                   const sender = req.sender;
-                  const displayName = getRequestDisplayName(req.sender_id, sender);
+                  const displayName = getRequestDisplayName(
+                    req.sender_id,
+                    sender,
+                  );
                   const avatarUser =
                     sender ||
                     ({
                       id: req.sender_id,
                       full_name: displayName,
-                      email: req.sender?.email || '',
+                      email: req.sender?.email || "",
                     } as UserSearchResult);
                   return (
-                    <div key={req.id} className="flex items-center justify-between rounded-2xl border border-soft-ivory bg-white px-4 py-3">
+                    <div
+                      key={req.id}
+                      className="flex items-center justify-between rounded-2xl border border-soft-ivory bg-white px-4 py-3"
+                    >
                       <div className="flex items-center gap-3">
                         <UserAvatar user={avatarUser} size={40} />
                         <div>
-                          <p className="text-sm font-semibold text-deep-red">{displayName}</p>
-                          <p className="text-xs text-almost-black-green/60">
-                            {(sender?.role_title || sender?.role || 'Participant') as string}
-                            {sender?.committee ? ` • ${sender.committee}` : ''}
-                            {sender?.country ? ` • ${sender.country}` : ''}
+                          <p className="text-sm font-semibold text-deep-red">
+                            {displayName}
                           </p>
-                          <p className="text-xs text-almost-black-green/50">{sender?.email || req.sender_id}</p>
+                          <p className="text-xs text-almost-black-green/60">
+                            {
+                              (sender?.role_title ||
+                                sender?.role ||
+                                "Participant") as string
+                            }
+                            {sender?.committee ? ` • ${sender.committee}` : ""}
+                            {sender?.country ? ` • ${sender.country}` : ""}
+                          </p>
+                          <p className="text-xs text-almost-black-green/50">
+                            {sender?.email || req.sender_id}
+                          </p>
                         </div>
                       </div>
                       <div className="flex gap-2 text-sm">
@@ -228,51 +275,69 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                 })}
               </div>
             )}
-            {isSearching && canSearch && <p className="text-sm text-almost-black-green/60">Searching...</p>}
-            {!isSearching && !canSearch && emptyState}
-            {!isSearching && hasSearched && canSearch && !results.length && !error && (
-              <p className="text-sm text-almost-black-green/60">No people found</p>
+            {isSearching && canSearch && (
+              <p className="text-sm text-almost-black-green/60">Searching...</p>
             )}
+            {!isSearching && !canSearch && emptyState}
+            {!isSearching &&
+              hasSearched &&
+              canSearch &&
+              !results.length &&
+              !error && (
+                <p className="text-sm text-almost-black-green/60">
+                  No people found
+                </p>
+              )}
             {results.map((user) => {
               const relationship = relationshipState(user.id);
               const state =
-                relationship.type !== 'none'
+                relationship.type !== "none"
                   ? relationship.type
                   : user.is_friend
-                    ? 'connected'
+                    ? "connected"
                     : user.has_pending_request
-                      ? 'outgoing'
-                      : 'none';
+                      ? "outgoing"
+                      : "none";
 
               return (
-                <div key={user.id} className="flex items-center justify-between rounded-2xl border border-soft-ivory bg-white px-4 py-3 shadow-sm">
+                <div
+                  key={user.id}
+                  className="flex items-center justify-between rounded-2xl border border-soft-ivory bg-white px-4 py-3 shadow-sm"
+                >
                   <div className="flex items-center gap-3">
                     <UserAvatar user={user} size={40} />
                     <div>
-                      <p className="text-sm font-semibold text-deep-red">{user.full_name}</p>
-                      <p className="text-xs text-almost-black-green/60">
-                        {user.role_title || user.role || 'Participant'}
-                        {user.committee ? ` • ${user.committee}` : ''}
-                        {user.country ? ` • ${user.country}` : ''}
+                      <p className="text-sm font-semibold text-deep-red">
+                        {user.full_name}
                       </p>
-                      {user.email && <p className="text-xs text-almost-black-green/50">{user.email}</p>}
+                      <p className="text-xs text-almost-black-green/60">
+                        {user.role_title || user.role || "Participant"}
+                        {user.committee ? ` • ${user.committee}` : ""}
+                        {user.country ? ` • ${user.country}` : ""}
+                      </p>
+                      {user.email && (
+                        <p className="text-xs text-almost-black-green/50">
+                          {user.email}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2 text-sm">
-                    {state === 'connected' ? (
+                    {state === "connected" ? (
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 font-semibold text-deep-red">
-                          <BadgeCheck className="h-4 w-4 text-sky-500" /> In friends
+                        <span className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 font-bold">
+                          <BadgeCheck className="h-4 w-4 text-sky-500" /> In
+                          friends
                         </span>
                         <button
                           type="button"
                           onClick={() => handleStartChat(user)}
-                          className="inline-flex items-center rounded-xl bg-[#701e1e] px-3 py-2 font-semibold text-white shadow-sm hover:bg-[#8b2424]"
+                          className="inline-flex items-center rounded-xl background-deep-red text-white px-3 py-2 font-semibold shadow-sm hover:bg-[#8b2424]"
                         >
                           Start chat
                         </button>
                       </div>
-                    ) : state === 'incoming' && relationship.request ? (
+                    ) : state === "incoming" && relationship.request ? (
                       <div className="flex gap-2">
                         <button
                           type="button"
@@ -286,13 +351,15 @@ const NewChatModal: React.FC<Props> = ({ open, onClose, onConversationCreated })
                         </button>
                         <button
                           type="button"
-                          onClick={() => declineFriendRequest(relationship.request.id)}
+                          onClick={() =>
+                            declineFriendRequest(relationship.request.id)
+                          }
                           className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 font-semibold text-deep-red hover:bg-soft-ivory"
                         >
                           <X className="h-4 w-4" /> Decline
                         </button>
                       </div>
-                    ) : state === 'outgoing' ? (
+                    ) : state === "outgoing" ? (
                       <button
                         type="button"
                         disabled
