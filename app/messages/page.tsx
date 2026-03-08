@@ -1213,10 +1213,8 @@ const ChatShell: React.FC = () => {
                               key={option.label}
                               type="button"
                               onClick={() => {
+                                setShowAttachmentMenu(false);
                                 option.action?.();
-                                if (!option.action) {
-                                  setShowAttachmentMenu(false);
-                                }
                               }}
                               className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-sm font-medium text-[#222] transition hover:bg-white/80"
                             >
