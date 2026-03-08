@@ -17,23 +17,23 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
+const isBrowser = typeof window !== 'undefined';
+
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
-    persistSession: false
+    persistSession: isBrowser,
+    autoRefreshToken: isBrowser,
+    detectSessionInUrl: isBrowser,
   },
   global: {
     headers: {
       apikey: supabaseKey,
-      Authorization: `Bearer ${supabaseKey}`
     },
     fetch: (input, init = {}) => {
       const headers = new Headers(init.headers || {});
 
       if (!headers.has('apikey')) {
         headers.set('apikey', supabaseKey);
-      }
-      if (!headers.has('Authorization')) {
-        headers.set('Authorization', `Bearer ${supabaseKey}`);
       }
 
       return fetch(input, { ...init, headers });
