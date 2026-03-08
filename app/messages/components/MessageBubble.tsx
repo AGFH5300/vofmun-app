@@ -378,7 +378,7 @@ const MessageBubble: React.FC<Props> = ({
           {message.content ? (
             <p
               className={`whitespace-pre-wrap text-almost-black-green ${
-                isLargeEmojiMessage ? 'text-[44px] leading-none' : 'text-[15px] leading-[1.3]'
+                isLargeEmojiMessage ? 'text-[40px] leading-none' : 'text-[15px] leading-[1.3]'
               }`}
             >
               {message.content}
