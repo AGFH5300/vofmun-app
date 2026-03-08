@@ -65,7 +65,7 @@ const isEmojiOnlyMessage = (value: string) => {
   return /\p{Extended_Pictographic}/u.test(trimmed) && EMOJI_ONLY_MESSAGE_REGEX.test(trimmed);
 };
 
-const SIGNED_URL_TTL_SECONDS = 60;
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
 const areAttachmentUrlMapsEqual = (prev: Record<string, string>, next: Record<string, string>) => {
@@ -233,6 +233,7 @@ const MessageBubble: React.FC<Props> = ({
 
 
   const [attachmentUrls, setAttachmentUrls] = React.useState<Record<string, string>>({});
+  const [downloadingAttachmentPath, setDownloadingAttachmentPath] = React.useState<string | null>(null);
   const attachments = React.useMemo(() => message.attachments || [], [message.attachments]);
   const attachmentSignature = React.useMemo(
     () => attachments.map((attachment) => `${attachment.id}:${attachment.bucket}:${attachment.path}`).join('|'),
@@ -300,6 +301,31 @@ const MessageBubble: React.FC<Props> = ({
     { icon: CheckCircle2, label: 'Select messages' },
   ];
 
+  const handleAttachmentDownload = async (attachment: MessageAttachment) => {
+    if (!attachment.bucket || !attachment.path) return;
+
+    setDownloadingAttachmentPath(attachment.path);
+    try {
+      const { data, error } = await supabase.storage
+        .from(attachment.bucket)
+        .createSignedUrl(attachment.path, 60, { download: attachment.original_name || true });
+
+      if (error || !data?.signedUrl) {
+        console.error('[chat] failed to create signed download URL', {
+          attachmentId: attachment.id,
+          bucket: attachment.bucket,
+          path: attachment.path,
+          error,
+        });
+        return;
+      }
+
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } finally {
+      setDownloadingAttachmentPath(null);
+    }
+  };
+
   return (
     <div className={`flex gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${showAvatar ? '' : 'px-1'}`}>
       {showAvatar && <UserAvatar user={message.user} size={36} />}
@@ -348,6 +374,11 @@ const MessageBubble: React.FC<Props> = ({
                     href={url || '#'}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={(event) => {
+                      if (!url) {
+                        event.preventDefault();
+                      }
+                    }}
                     className="block overflow-hidden rounded-lg border border-black/10 bg-white/60"
                   >
                     {url ? (
@@ -373,15 +404,15 @@ const MessageBubble: React.FC<Props> = ({
                     <p className="truncate text-xs font-medium text-almost-black-green">{attachment.original_name}</p>
                     <p className="text-[11px] text-almost-black-green/60">{formatAttachmentSize(Number(attachment.size_bytes || 0))}</p>
                   </div>
-                  <a
-                    href={url || '#'}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => void handleAttachmentDownload(attachment)}
+                    disabled={downloadingAttachmentPath === attachment.path}
                     className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/10 text-almost-black-green/70 hover:bg-white"
                     aria-label={`Download ${attachment.original_name}`}
                   >
                     <Download className="h-3.5 w-3.5" />
-                  </a>
+                  </button>
                 </div>
               );
             })}
