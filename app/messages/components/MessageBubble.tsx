@@ -68,7 +68,7 @@ const isEmojiOnlyMessage = (value: string) => {
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
-const areAttachmentUrlMapsEqual = (prev: Record<string, string>, next: Record<string, string>) => {
+const areStringMapsEqual = (prev: Record<string, string>, next: Record<string, string>) => {
   const prevKeys = Object.keys(prev);
   const nextKeys = Object.keys(next);
   if (prevKeys.length !== nextKeys.length) return false;
@@ -233,6 +233,7 @@ const MessageBubble: React.FC<Props> = ({
 
 
   const [attachmentUrls, setAttachmentUrls] = React.useState<Record<string, string>>({});
+  const [attachmentErrors, setAttachmentErrors] = React.useState<Record<string, string>>({});
   const [downloadingAttachmentPath, setDownloadingAttachmentPath] = React.useState<string | null>(null);
   const attachments = React.useMemo(() => message.attachments || [], [message.attachments]);
   const attachmentSignature = React.useMemo(
@@ -244,6 +245,7 @@ const MessageBubble: React.FC<Props> = ({
   useEffect(() => {
     if (attachments.length === 0) {
       setAttachmentUrls((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+      setAttachmentErrors((prev) => (Object.keys(prev).length === 0 ? prev : {}));
       return;
     }
 
@@ -251,6 +253,7 @@ const MessageBubble: React.FC<Props> = ({
     const hydrateAttachmentUrls = async () => {
       const now = Date.now();
       const nextMap: Record<string, string> = {};
+      const nextErrors: Record<string, string> = {};
 
       await Promise.all(
         attachments.map(async (attachment) => {
@@ -273,12 +276,25 @@ const MessageBubble: React.FC<Props> = ({
               expiresAt: now + SIGNED_URL_TTL_SECONDS * 1000,
             });
             nextMap[attachment.path] = data.signedUrl;
+            return;
           }
+
+          const message = String(error?.message || 'Attachment unavailable');
+          if (error) {
+            console.warn('[chat] failed to hydrate attachment URL', {
+              attachmentId: attachment.id,
+              bucket: attachment.bucket,
+              path: attachment.path,
+              error,
+            });
+          }
+          nextErrors[attachment.path] = /not found/i.test(message) ? 'Attachment no longer exists.' : 'Attachment unavailable.';
         })
       );
 
       if (!cancelled) {
-        setAttachmentUrls((prev) => (areAttachmentUrlMapsEqual(prev, nextMap) ? prev : nextMap));
+        setAttachmentUrls((prev) => (areStringMapsEqual(prev, nextMap) ? prev : nextMap));
+        setAttachmentErrors((prev) => (areStringMapsEqual(prev, nextErrors) ? prev : nextErrors));
       }
     };
 
@@ -365,6 +381,7 @@ const MessageBubble: React.FC<Props> = ({
           <div className="mt-2 space-y-2">
             {attachments.map((attachment) => {
               const url = attachmentUrls[attachment.path];
+              const attachmentError = attachmentErrors[attachment.path];
               const isImage = isImageAttachment(attachment);
 
               if (isImage) {
@@ -387,6 +404,8 @@ const MessageBubble: React.FC<Props> = ({
                         alt={attachment.original_name}
                         className="max-h-56 w-full object-cover"
                       />
+                    ) : attachmentError ? (
+                      <div className="flex h-24 items-center justify-center px-3 text-center text-xs text-deep-red/80">{attachmentError}</div>
                     ) : (
                       <div className="flex h-24 items-center justify-center text-xs text-almost-black-green/60">Loading preview…</div>
                     )}
@@ -407,7 +426,7 @@ const MessageBubble: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => void handleAttachmentDownload(attachment)}
-                    disabled={downloadingAttachmentPath === attachment.path}
+                    disabled={downloadingAttachmentPath === attachment.path || Boolean(attachmentError)}
                     className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/10 text-almost-black-green/70 hover:bg-white"
                     aria-label={`Download ${attachment.original_name}`}
                   >
