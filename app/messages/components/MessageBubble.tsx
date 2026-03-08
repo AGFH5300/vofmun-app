@@ -68,6 +68,14 @@ const isEmojiOnlyMessage = (value: string) => {
 const SIGNED_URL_TTL_SECONDS = 60;
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
+const areAttachmentUrlMapsEqual = (prev: Record<string, string>, next: Record<string, string>) => {
+  const prevKeys = Object.keys(prev);
+  const nextKeys = Object.keys(next);
+  if (prevKeys.length !== nextKeys.length) return false;
+
+  return prevKeys.every((key) => prev[key] === next[key]);
+};
+
 const formatAttachmentSize = (sizeBytes: number) => {
   if (!Number.isFinite(sizeBytes) || sizeBytes < 0) return '0 B';
   if (sizeBytes < 1024) return `${sizeBytes} B`;
@@ -225,12 +233,16 @@ const MessageBubble: React.FC<Props> = ({
 
 
   const [attachmentUrls, setAttachmentUrls] = React.useState<Record<string, string>>({});
-  const attachments = message.attachments || [];
+  const attachments = React.useMemo(() => message.attachments || [], [message.attachments]);
+  const attachmentSignature = React.useMemo(
+    () => attachments.map((attachment) => `${attachment.id}:${attachment.bucket}:${attachment.path}`).join('|'),
+    [attachments]
+  );
   const isLargeEmojiMessage = Boolean(message.content) && isEmojiOnlyMessage(message.content) && !/\s/.test(message.content.trim());
 
   useEffect(() => {
     if (attachments.length === 0) {
-      setAttachmentUrls({});
+      setAttachmentUrls((prev) => (Object.keys(prev).length === 0 ? prev : {}));
       return;
     }
 
@@ -241,6 +253,8 @@ const MessageBubble: React.FC<Props> = ({
 
       await Promise.all(
         attachments.map(async (attachment) => {
+          if (!attachment.bucket || !attachment.path) return;
+
           const cacheKey = `${attachment.bucket}:${attachment.path}`;
           const cached = signedUrlCache.get(cacheKey);
           if (cached && cached.expiresAt > now + 5_000) {
@@ -263,7 +277,7 @@ const MessageBubble: React.FC<Props> = ({
       );
 
       if (!cancelled) {
-        setAttachmentUrls(nextMap);
+        setAttachmentUrls((prev) => (areAttachmentUrlMapsEqual(prev, nextMap) ? prev : nextMap));
       }
     };
 
@@ -272,7 +286,7 @@ const MessageBubble: React.FC<Props> = ({
     return () => {
       cancelled = true;
     };
-  }, [attachments]);
+  }, [attachmentSignature, attachments]);
 
   const contextActions: Array<{ icon: typeof Reply; label: string } | { divider: true }> = [
     { icon: Reply, label: 'Reply' },
