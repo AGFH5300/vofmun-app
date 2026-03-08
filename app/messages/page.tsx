@@ -592,7 +592,7 @@ const ChatShell: React.FC = () => {
   const applyEmojiSuggestion = (emoji: string) => {
     setComposer((value) =>
       value.replace(/(?:^|\s):[a-z0-9_+-]{1,32}$/i, (match) =>
-        match.startsWith(" ") ? ` ${emoji} ` : `${emoji} `,
+        match.startsWith(" ") ? ` ${emoji}` : emoji,
       ),
     );
     window.requestAnimationFrame(() => {
