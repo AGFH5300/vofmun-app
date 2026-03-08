@@ -1339,7 +1339,6 @@ const ChatShell: React.FC = () => {
                       searchDisabled={false}
                       onEmojiClick={(emojiData: EmojiClickData) => {
                         setComposer((value) => `${value}${emojiData.emoji}`);
-                        setShowEmojiModal(false);
                       }}
                     />
                   </div>
