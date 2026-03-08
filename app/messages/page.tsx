@@ -185,6 +185,8 @@ const ChatShell: React.FC = () => {
   const [showEmojiModal, setShowEmojiModal] = useState(false);
   const [warmEmojiPicker, setWarmEmojiPicker] = useState(false);
   const [activeEmojiIndex, setActiveEmojiIndex] = useState(0);
+  const [isDraggingFilesOverChat, setIsDraggingFilesOverChat] = useState(false);
+  const dragDepthRef = useRef(0);
   const roomPollInFlightRef = useRef(false);
   const roomPollBackoffRef = useRef(30000);
   const roomsPollInFlightRef = useRef(false);
@@ -535,6 +537,44 @@ const ChatShell: React.FC = () => {
     } finally {
       setIsUploadingAttachments(false);
     }
+  };
+
+  const hasDraggedFiles = (event: React.DragEvent<HTMLElement>) =>
+    Array.from(event.dataTransfer?.types || []).includes("Files");
+
+  const handleChatDragEnter = (event: React.DragEvent<HTMLElement>) => {
+    if (!activeRoom || !hasDraggedFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragDepthRef.current += 1;
+    setIsDraggingFilesOverChat(true);
+  };
+
+  const handleChatDragOver = (event: React.DragEvent<HTMLElement>) => {
+    if (!activeRoom || !hasDraggedFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "copy";
+    setIsDraggingFilesOverChat(true);
+  };
+
+  const handleChatDragLeave = (event: React.DragEvent<HTMLElement>) => {
+    if (!activeRoom || !hasDraggedFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) {
+      setIsDraggingFilesOverChat(false);
+    }
+  };
+
+  const handleChatDrop = async (event: React.DragEvent<HTMLElement>) => {
+    if (!activeRoom || !hasDraggedFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragDepthRef.current = 0;
+    setIsDraggingFilesOverChat(false);
+    await handleAttachmentSelect(event.dataTransfer.files);
   };
 
   const handleSend = async () => {
@@ -1053,7 +1093,25 @@ const ChatShell: React.FC = () => {
               </div>
             )}
 
-            <div className="relative flex min-h-0 flex-1 flex-col bg-gradient-to-b from-white via-warm-light-grey/40 to-white">
+            <div
+              className="relative flex min-h-0 flex-1 flex-col bg-gradient-to-b from-white via-warm-light-grey/40 to-white"
+              onDragEnter={handleChatDragEnter}
+              onDragOver={handleChatDragOver}
+              onDragLeave={handleChatDragLeave}
+              onDrop={(event) => {
+                void handleChatDrop(event);
+              }}
+            >
+              {activeRoom && isDraggingFilesOverChat && (
+                <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-[#0b141acc] backdrop-blur-[1.5px]">
+                  <div className="rounded-2xl border border-white/35 bg-white/12 px-6 py-4 text-center text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+                    <p className="text-lg font-semibold">Drop files to attach</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-white/80">
+                      Files will be added to your next message
+                    </p>
+                  </div>
+                </div>
+              )}
               <div
                 ref={messagesContainerRef}
                 className="flex-1 overflow-y-auto px-6 py-5"
