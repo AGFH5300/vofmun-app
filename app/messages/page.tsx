@@ -500,6 +500,15 @@ const ChatShell: React.FC = () => {
     const uploadedPaths: { bucket: string; path: string }[] = [];
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      console.log("Attachment upload context", {
+        userId: session?.user?.id,
+        roomId: activeRoom.id,
+        fileNames: files.map((file) => file.name),
+      });
+
       const uploaded = await Promise.all(
         files.map(async (file) => {
           const sanitized = sanitizeFileName(file.name);
@@ -511,7 +520,14 @@ const ChatShell: React.FC = () => {
           });
 
           if (error) {
-            throw new Error(`Failed to upload ${file.name}`);
+            console.error("Attachment upload failed", {
+              fileName: file.name,
+              path,
+              error,
+              message: error.message,
+              name: error.name,
+            });
+            throw error;
           }
 
           uploadedPaths.push({ bucket: "chat-attachments", path });
@@ -530,7 +546,8 @@ const ChatShell: React.FC = () => {
       setPendingAttachments((prev) => [...prev, ...uploaded]);
       setShowAttachmentMenu(false);
     } catch (error) {
-      await Promise.all(
+      console.error("Attachment upload catch", error);
+      await Promise.allSettled(
         uploadedPaths.map(({ bucket, path }) => supabase.storage.from(bucket).remove([path])),
       );
       setAttachmentUploadError(error instanceof Error ? error.message : "Failed to upload attachments.");
