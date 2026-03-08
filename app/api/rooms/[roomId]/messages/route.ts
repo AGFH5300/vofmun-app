@@ -23,7 +23,8 @@ const UUID_SEGMENT_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f
 const isAllowedAttachmentPath = (roomId: string, path: string) => {
   const segments = String(path || '').split('/').filter(Boolean);
   if (segments.length < 3) return false;
-  if (segments[0] !== `room_${roomId}`) return false;
+  const roomSegment = segments[0];
+  if (roomSegment !== roomId && roomSegment !== `room_${roomId}`) return false;
   if (!UUID_SEGMENT_RE.test(segments[1])) return false;
 
   const filename = segments.slice(2).join('/');
