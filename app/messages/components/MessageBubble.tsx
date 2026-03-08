@@ -56,6 +56,15 @@ const formatReceiptTime = (value: string | null) => {
 
 
 
+
+const EMOJI_ONLY_MESSAGE_REGEX = /^(?:\p{Extended_Pictographic}|\p{Emoji_Component}|\uFE0F|\u200D|\s)+$/u;
+
+const isEmojiOnlyMessage = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return /\p{Extended_Pictographic}/u.test(trimmed) && EMOJI_ONLY_MESSAGE_REGEX.test(trimmed);
+};
+
 const SIGNED_URL_TTL_SECONDS = 60;
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
@@ -217,6 +226,7 @@ const MessageBubble: React.FC<Props> = ({
 
   const [attachmentUrls, setAttachmentUrls] = React.useState<Record<string, string>>({});
   const attachments = message.attachments || [];
+  const isLargeEmojiMessage = Boolean(message.content) && isEmojiOnlyMessage(message.content) && !/\s/.test(message.content.trim());
 
   useEffect(() => {
     if (attachments.length === 0) {
@@ -365,7 +375,17 @@ const MessageBubble: React.FC<Props> = ({
         )}
 
         <div className="mt-1 flex items-end justify-between gap-2">
-          {message.content ? <p className="whitespace-pre-wrap text-[15px] leading-[1.3] text-almost-black-green">{message.content}</p> : <span />}
+          {message.content ? (
+            <p
+              className={`whitespace-pre-wrap text-almost-black-green ${
+                isLargeEmojiMessage ? 'text-[44px] leading-none' : 'text-[15px] leading-[1.3]'
+              }`}
+            >
+              {message.content}
+            </p>
+          ) : (
+            <span />
+          )}
           <div className="shrink-0 self-end pb-0.5 text-[0.72rem]">
             <div className="flex items-center justify-end gap-0.5">
               <span className="text-almost-black-green/55">{timestamp}</span>
