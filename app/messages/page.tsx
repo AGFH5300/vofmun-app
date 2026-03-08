@@ -503,7 +503,7 @@ const ChatShell: React.FC = () => {
       const uploaded = await Promise.all(
         files.map(async (file) => {
           const sanitized = sanitizeFileName(file.name);
-          const path = `room_${activeRoom.id}/${crypto.randomUUID()}/${sanitized}`;
+          const path = `${activeRoom.id}/${crypto.randomUUID()}/${sanitized}`;
           const { error } = await supabase.storage.from("chat-attachments").upload(path, file, {
             cacheControl: "3600",
             upsert: false,
