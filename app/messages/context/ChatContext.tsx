@@ -45,7 +45,7 @@ interface ChatContextValue {
   pinnedRoomIds: Set<string>;
   selectRoom: (room: RoomWithDetails) => Promise<void>;
   refreshRooms: () => Promise<RoomWithDetails[]>;
-  refreshRoomMessages: (roomId: string) => Promise<void>;
+  refreshRoomMessages: (roomId: string) => Promise<boolean>;
   sendMessage: (roomId: string, content: string, attachments?: MessageAttachmentInput[], replyTo?: string | null) => Promise<void>;
   sendTyping: (roomId: string, isTyping: boolean) => void;
   togglePin: (roomId: string) => void;
@@ -198,7 +198,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const [userId, setUserId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [hasLoadedInitialRooms, setHasLoadedInitialRooms] = useState(false);
-  const [hasLoadedInitialActiveRoomMessages, setHasLoadedInitialActiveRoomMessages] = useState(false);
+  const [hasLoadedInitialRoomMessages, setHasLoadedInitialRoomMessages] = useState(false);
   const [initialChatReady, setInitialChatReady] = useState(false);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [userDirectory, setUserDirectory] = useState<Record<string, FriendRequest['sender']>>({});
@@ -540,9 +540,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const refreshRoomMessages = useCallback(
     async (roomId: string) => {
-      if (!userId) return;
+      if (!userId) return false;
       const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, await withAuthHeaders());
-      if (!response.ok) return;
+      if (!response.ok) return false;
       const data = (await response.json()) as MessageWithUser[];
       const roomMemberIds = getRoomMemberIds(roomId, roomsRef.current);
       const withResolvedStatus = data.map((message) => hydrateMessage(message, userId, roomMemberIds));
@@ -563,6 +563,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
         return { ...prev, [roomId]: merged };
       });
+      return true;
     },
     [scheduleReceiptsForMessages, userId, withAuthHeaders]
   );
@@ -629,7 +630,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       activeRoomIdRef.current = room.id;
       pendingRoomJoinRef.current = room.id;
       setActiveRoom(rooms.find((candidate) => candidate.id === room.id) || room);
-      await refreshRoomMessages(room.id);
+      if (!messagesRef.current[room.id]) {
+        await refreshRoomMessages(room.id);
+      }
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const payload: ChatSocketPayload = { type: 'join_room', roomId: room.id } as ChatSocketPayload;
         logChatDebug('selectRoom:join_room', payload as unknown as Record<string, unknown>);
@@ -983,13 +986,18 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       await refreshFriendRequests();
       if (cancelled) return;
 
-      const activeRoomId = activeRoomIdRef.current;
-      if (activeRoomId && loadedRooms.some((room) => room.id === activeRoomId)) {
-        await refreshRoomMessages(activeRoomId);
-        if (cancelled) return;
+      if (loadedRooms.length === 0) {
+        setHasLoadedInitialRoomMessages(true);
+        return;
       }
 
-      setHasLoadedInitialActiveRoomMessages(true);
+      for (const room of loadedRooms) {
+        if (cancelled) return;
+        await refreshRoomMessages(room.id);
+      }
+      if (cancelled) return;
+
+      setHasLoadedInitialRoomMessages(true);
     };
 
     void runInitialBootstrap();
@@ -1001,9 +1009,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   useEffect(() => {
     if (initialChatReady) return;
-    if (!hasLoadedInitialRooms || !hasLoadedInitialActiveRoomMessages) return;
+    if (!hasLoadedInitialRooms || !hasLoadedInitialRoomMessages) return;
     setInitialChatReady(true);
-  }, [hasLoadedInitialActiveRoomMessages, hasLoadedInitialRooms, initialChatReady]);
+  }, [hasLoadedInitialRoomMessages, hasLoadedInitialRooms, initialChatReady]);
 
   useEffect(() => {
     if (!userId) return;
