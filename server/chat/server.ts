@@ -296,8 +296,16 @@ const fetchLastMessage = async (roomId: string): Promise<MessageWithUser | null>
     .limit(1);
   if (!data || data.length === 0) return null;
   const msg = data[0] as any;
-  const profiles = await fetchProfilesByIds([msg.user_id]);
-  return { ...msg, user: profiles[msg.user_id] } as MessageWithUser;
+  const messageId = String(msg.id || '');
+  const [profiles, attachmentsByMessageId] = await Promise.all([
+    fetchProfilesByIds([msg.user_id]),
+    fetchAttachmentsByMessageIds(messageId ? [messageId] : []),
+  ]);
+  return {
+    ...msg,
+    user: profiles[msg.user_id],
+    attachments: messageId ? attachmentsByMessageId[messageId] || [] : [],
+  } as MessageWithUser;
 };
 
 // -------------------- ROOMS --------------------
