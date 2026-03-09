@@ -4,6 +4,8 @@ import express, { NextFunction, Request, Response } from 'express';
 import http from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 import { randomUUID } from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import next from 'next';
 import supabaseAdmin from '../../lib/supabaseAdmin.ts';
 import { getBearerTokenFromHeaders, verifySupabaseAccessToken } from '../../lib/chat/auth.ts';
@@ -975,6 +977,17 @@ app.delete('/api/rooms/:roomId', requireAuth, async (req: AuthedRequest, res: Re
 
 const PORT = Number(process.env.PORT || process.env.CHAT_PORT || 5000);
 const isDev = process.env.NODE_ENV !== 'production';
+
+if (isDev) {
+  const nextWebpackCacheDir = path.join(process.cwd(), '.next', 'cache', 'webpack');
+  try {
+    fs.rmSync(nextWebpackCacheDir, { recursive: true, force: true });
+    console.warn('[dev-cache] Cleared Next webpack cache to avoid stale client chunk parse errors.');
+  } catch (error) {
+    console.warn('[dev-cache] Failed to clear Next webpack cache directory.', error);
+  }
+}
+
 const nextApp = next({ dev: isDev, hostname: '0.0.0.0', port: PORT });
 const nextHandler = nextApp.getRequestHandler();
 
