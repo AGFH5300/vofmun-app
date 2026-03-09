@@ -289,39 +289,17 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   );
 
   const getAccessToken = useCallback(async (): Promise<string | null> => {
-    const { data, error } = await supabase.auth.getSession();
-    if (error) {
-      console.error('[ChatContext] failed to resolve Supabase access token', error);
-      console.debug('[withAuthHeadersDebug] session_resolution_error', { message: error.message });
-      return null;
+    const token = await getBrowserAccessToken("ChatContext");
+    if (!token) {
+      console.error('[ChatContext] failed to resolve Supabase access token');
     }
-    const token = data.session?.access_token || null;
-    console.debug('[withAuthHeadersDebug] session_resolved', {
-      hasSession: Boolean(data.session),
-      hasToken: Boolean(token),
-    });
     return token;
   }, []);
 
   const withAuthHeaders = useCallback(
-    async (extra?: RequestInit): Promise<RequestInit> => {
-      const accessToken = await getAccessToken();
-      console.debug('[withAuthHeadersDebug] build_headers', {
-        hasToken: Boolean(accessToken),
-        method: extra?.method || "GET",
-      });
-
-      return {
-        credentials: 'include',
-        ...extra,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          ...(extra?.headers || {}),
-        },
-      };
-    },
-    [getAccessToken]
+    async (extra?: RequestInit): Promise<RequestInit> =>
+      withBrowserAuthHeaders(extra, "ChatContext"),
+    []
   );
 
   const collectReceiptCandidates = useCallback(

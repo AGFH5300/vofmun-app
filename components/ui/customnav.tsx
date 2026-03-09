@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "@/app/context/sessionContext";
 import { useMobile } from "@/hooks/use-mobile";
+import { withBrowserAuthHeaders } from "@/lib/auth/browserAuthFetch";
 import {
   Home,
   FileText,
@@ -57,9 +58,13 @@ const CustomNav: React.FC<CustomNavProps> = () => {
         }
 
         try {
-          const response = await fetch("/api/chat/friend-requests/pending", {
-            credentials: "include",
+          const requestInit = await withBrowserAuthHeaders(undefined, "CustomNav.pending");
+          const hasAuthorizationHeader = new Headers(requestInit.headers).has("Authorization");
+          console.debug("[CustomNavDebug] pending_fetch_auth", {
+            hasAuthorizationHeader,
           });
+
+          const response = await fetch("/api/chat/friend-requests/pending", requestInit);
 
           if (!response.ok) {
             const errorText = await response.text().catch(() => null);
