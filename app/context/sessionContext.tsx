@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 // lot to explain here lolz
 interface SessionContextProps {
   user: UserType | null;
+  isSessionHydrated: boolean;
   login: (user: UserType) => void;
   logout: () => void;
 }
@@ -25,6 +26,7 @@ const SessionContext = createContext<SessionContextProps | undefined>(
 
 export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<Delegate | Admin | Chair | Secretariat | null>(null);
+  const [isSessionHydrated, setIsSessionHydrated] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -32,6 +34,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
 
     if (!storedUser) {
       setUser(null);
+      setIsSessionHydrated(true);
       return;
     }
 
@@ -40,6 +43,8 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     } catch {
       Cookies.remove("user");
       setUser(null);
+    } finally {
+      setIsSessionHydrated(true);
     }
   }, []);
 
@@ -57,7 +62,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <SessionContext.Provider value={{ user, login, logout }}>
+    <SessionContext.Provider value={{ user, isSessionHydrated, login, logout }}>
       {children}
     </SessionContext.Provider>
   );

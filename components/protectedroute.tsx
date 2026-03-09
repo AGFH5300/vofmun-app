@@ -13,15 +13,17 @@ const useRedirect = () => {
 
 // this route protects from all unauthorized
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user: currentUser } = useSession();
+  const { user: currentUser, isSessionHydrated } = useSession();
   const navigate = useRedirect();
 
   useEffect(() => {
+    if (!isSessionHydrated) return;
     if (currentUser === null) {
       navigate("/login");
     }
-  }, [currentUser, navigate]);
+  }, [currentUser, isSessionHydrated, navigate]);
 
+  if (!isSessionHydrated) return null;
   if (currentUser === null) return null;
 
   return <>{children}</>;
@@ -29,17 +31,19 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 // protects from any1 who aint a delegate
 export const DelegateRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user: currentUser } = useSession();
+  const { user: currentUser, isSessionHydrated } = useSession();
   const navigate = useRedirect();
 
   const blocked = !('delegateID' in (currentUser || {})) || currentUser === null;
 
   useEffect(() => {
+    if (!isSessionHydrated) return;
     if (blocked) {
       navigate("/login");
     }
-  }, [blocked, navigate]);
+  }, [blocked, isSessionHydrated, navigate]);
 
+  if (!isSessionHydrated) return null;
   if (blocked) return null;
 
   return <>{children}</>;
@@ -47,51 +51,57 @@ export const DelegateRoute = ({ children }: { children: React.ReactNode }) => {
 
 // protects from any1 who aint an admin
 export const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user: currentUser } = useSession();
+  const { user: currentUser, isSessionHydrated } = useSession();
   const navigate = useRedirect();
 
   const blocked = !('adminID' in (currentUser || {})) || currentUser === null;
 
   useEffect(() => {
+    if (!isSessionHydrated) return;
     if (blocked) {
       navigate("/login");
     }
-  }, [blocked, navigate]);
+  }, [blocked, isSessionHydrated, navigate]);
 
+  if (!isSessionHydrated) return null;
   if (blocked) return null;
 
   return <>{children}</>;
 };
 
 export const ChairRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user: currentUser } = useSession();
+  const { user: currentUser, isSessionHydrated } = useSession();
   const navigate = useRedirect();
 
   const blocked = !('chairID' in (currentUser || {})) || currentUser === null;
 
   useEffect(() => {
+    if (!isSessionHydrated) return;
     if (blocked) {
       navigate("/login");
     }
-  }, [blocked, navigate]);
+  }, [blocked, isSessionHydrated, navigate]);
 
+  if (!isSessionHydrated) return null;
   if (blocked) return null;
 
   return <>{children}</>;
 };
 
 export const ParticipantRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user: currentUser } = useSession();
+  const { user: currentUser, isSessionHydrated } = useSession();
   const navigate = useRedirect();
 
   const blocked = ('adminID' in (currentUser || {})) || currentUser === null;
 
   useEffect(() => {
+    if (!isSessionHydrated) return;
     if (blocked) {
       navigate("/login");
     }
-  }, [blocked, navigate]);
+  }, [blocked, isSessionHydrated, navigate]);
 
+  if (!isSessionHydrated) return null;
   if (blocked) return null;
 
   return <>{children}</>;
