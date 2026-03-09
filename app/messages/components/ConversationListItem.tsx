@@ -5,7 +5,7 @@
 import React from 'react';
 import { RoomWithDetails } from '@/lib/chat/types';
 import { abbreviateDelegationLabel, getUserDelegationLabel } from '@/lib/chat/delegation';
-import { Pin, PinOff, UserRound, Users } from 'lucide-react';
+import { File, Pin, PinOff, UserRound, Users } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 
 interface Props {
@@ -61,6 +61,13 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
       : undefined;
   const hasOnlinePresence =
     room.room_type === 'dm' && room.members.some((m) => String(m.user_id) !== String(currentUserId || '') && onlineUsers.has(String(m.user_id)));
+  const lastMessageText = last?.content?.trim() || '';
+  const lastMessageAttachments = last?.attachments || [];
+  const shouldShowAttachmentPreview = !lastMessageText && lastMessageAttachments.length > 0;
+  const attachmentLabel =
+    lastMessageAttachments.length === 1
+      ? lastMessageAttachments[0]?.original_name || 'Attachment'
+      : `${lastMessageAttachments.length} attachments`;
 
   React.useEffect(() => {
     if (!contextMenuPosition) return;
@@ -132,11 +139,20 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
                 )}
               </div>
             </div>
-            <p className="mt-1 line-clamp-1 text-xs text-almost-black-green/70">
-              {last
-                ? `${room.room_type === 'dm' ? '' : last.user?.full_name ? `${last.user.full_name}: ` : ''}${last.content}`
-                : 'No messages yet'}
-            </p>
+            {last ? (
+              shouldShowAttachmentPreview ? (
+                <p className="mt-1 inline-flex max-w-full items-center gap-1.5 line-clamp-1 text-xs text-almost-black-green/70">
+                  <File className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{attachmentLabel}</span>
+                </p>
+              ) : (
+                <p className="mt-1 line-clamp-1 text-xs text-almost-black-green/70">
+                  {`${room.room_type === 'dm' ? '' : last.user?.full_name ? `${last.user.full_name}: ` : ''}${lastMessageText}`}
+                </p>
+              )
+            ) : (
+              <p className="mt-1 line-clamp-1 text-xs text-almost-black-green/70">No messages yet</p>
+            )}
             {room.unreadCount ? (
               <span className="mt-2 inline-flex items-center rounded-full bg-deep-red/10 px-2 py-0.5 text-[0.7rem] font-semibold text-deep-red">
                 {room.unreadCount} new

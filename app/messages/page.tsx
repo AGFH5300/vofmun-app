@@ -204,6 +204,7 @@ const ChatShell: React.FC = () => {
   const [warmEmojiPicker, setWarmEmojiPicker] = useState(false);
   const [activeEmojiIndex, setActiveEmojiIndex] = useState(0);
   const [isDraggingFilesOverChat, setIsDraggingFilesOverChat] = useState(false);
+  const [hasHydratedChat, setHasHydratedChat] = useState(false);
   const dragDepthRef = useRef(0);
   const roomPollInFlightRef = useRef(false);
   const roomPollBackoffRef = useRef(30000);
@@ -633,10 +634,19 @@ const ChatShell: React.FC = () => {
     const uploadedAttachments = pendingAttachments
       .filter((item) => item.status === "uploaded" && item.attachment)
       .map((item) => item.attachment as MessageAttachmentInput);
+    const trimmedComposer = composer.trim();
 
-    if (!activeRoom || (composer.trim().length === 0 && uploadedAttachments.length === 0) || isUploadingAttachments) return;
+    if (!activeRoom || (trimmedComposer.length === 0 && uploadedAttachments.length === 0) || isUploadingAttachments) return;
     sendTyping(activeRoom.id, false);
-    await sendMessage(activeRoom.id, composer, uploadedAttachments);
+
+    if (trimmedComposer.length > 0) {
+      await sendMessage(activeRoom.id, trimmedComposer, []);
+    }
+
+    for (const attachment of uploadedAttachments) {
+      await sendMessage(activeRoom.id, "", [attachment]);
+    }
+
     setComposer("");
     setPendingAttachments([]);
     setAttachmentUploadError(null);
@@ -672,7 +682,6 @@ const ChatShell: React.FC = () => {
   const handleSelectRoom = async (room: RoomWithDetails) => {
     setShowAttachmentMenu(false);
     setShowEmojiModal(false);
-    setShouldScrollOnLoad(true);
     await selectRoom(room);
   };
 
@@ -834,64 +843,71 @@ const ChatShell: React.FC = () => {
     [currentUserId, friendRequests],
   );
 
+  useEffect(() => {
+    if (!isConnecting) {
+      setHasHydratedChat(true);
+    }
+  }, [isConnecting]);
+
+  const showInitialLoader = !hasHydratedChat && isConnecting && rooms.length === 0;
+
+  if (showInitialLoader) {
+    return (
+      <div className="page-shell">
+        <div className="page-maxwidth">
+          <section className="surface-card flex min-h-[calc(100vh-120px)] items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="mx-auto h-8 w-8 animate-spin text-deep-red" />
+              <p className="mt-3 text-sm font-semibold text-deep-red">Loading VOFMUN ONE chats…</p>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-shell">
-      <div className="page-maxwidth space-y-6">
-        <section className="surface-card is-emphasised overflow-hidden p-7 md:p-9">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl space-y-3">
-              <span className="badge-pill bg-white/10 text-white">
-                Delegate Messaging
-              </span>
-              <h1 className="!mb-0 text-3xl font-bold text-white md:text-5xl">
-                Messaging Hub
-              </h1>
-              <p className="text-sm text-white/80 md:text-base">
-                Keep committee, bloc, and one-on-one communication in one place.
-                This redesigned workspace mirrors the look and feel of your main
-                dashboard pages while still showing connection requests,
-                conversation threads, and live activity.
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setConversationTab("direct");
-                  setShowNewConversation(true);
-                }}
-                className="rounded-xl border border-white/40 bg-white/10 px-4 py-3 text-sm font-semibold uppercase tracking-[0.08em] text-white backdrop-blur-sm transition hover:bg-white/20"
-              >
-                New direct chat
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setConversationTab("group");
-                  setShowNewConversation(true);
-                }}
-                className="rounded-xl border border-white/40 bg-white/10 px-4 py-3 text-sm font-semibold uppercase tracking-[0.08em] text-white backdrop-blur-sm transition hover:bg-white/20"
-              >
-                New group room
-              </button>
-              <button
-                type="button"
-                onClick={refreshRooms}
-                className="rounded-xl border border-white/40 bg-white/10 px-4 py-3 text-sm font-semibold uppercase tracking-[0.08em] text-white backdrop-blur-sm transition hover:bg-white/20 sm:col-span-2"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4" /> Refresh conversations
-                </span>
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <section className="surface-card flex h-[calc(100vh-190px)] min-h-[640px] min-w-0 overflow-hidden">
+      <div className="page-maxwidth">
+        <section className="surface-card flex h-[calc(100vh-110px)] min-h-[700px] min-w-0 overflow-hidden">
           <aside className="flex h-full flex-col overflow-hidden border-r border-soft-ivory" style={{ width: `${sidebarWidth}px` }}>
-            <p className="text-xl font-bold text-almost-black-green/60 pt-4 px-5">
-              Chats
-            </p>
+            <div className="flex items-center justify-between gap-2 px-5 pt-4">
+              <p className="text-xl font-bold text-almost-black-green/60">
+                Chats
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConversationTab("direct");
+                    setShowNewConversation(true);
+                  }}
+                  className="rounded-lg border border-soft-ivory p-2 text-almost-black-green/60 hover:text-deep-red"
+                  aria-label="New direct chat"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConversationTab("group");
+                    setShowNewConversation(true);
+                  }}
+                  className="rounded-lg border border-soft-ivory p-2 text-almost-black-green/60 hover:text-deep-red"
+                  aria-label="New group room"
+                >
+                  <Users className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={refreshRooms}
+                  className="rounded-lg border border-soft-ivory p-2 text-almost-black-green/60 hover:text-deep-red"
+                  aria-label="Refresh conversations"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
 
             <div className="border-b border-soft-ivory px-5 py-4">
               <div className="relative">
