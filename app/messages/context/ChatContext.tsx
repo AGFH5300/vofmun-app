@@ -16,6 +16,7 @@ import {
 import { useSession } from '@/app/context/sessionContext';
 import supabase from '@/lib/supabase';
 import { normalizeMessageMeta, resolveOwnMessageStatus } from '@/lib/chat/messageMeta';
+import { getBrowserAccessToken, withBrowserAuthHeaders } from '@/lib/auth/browserAuthFetch';
 
 const CHAT_WS_URL = process.env.NEXT_PUBLIC_CHAT_WS_URL;
 const CHAT_API_URL = process.env.NEXT_PUBLIC_CHAT_API_URL || '';
