@@ -163,6 +163,7 @@ const ChatShell: React.FC = () => {
     typingUsers,
     onlineUsers,
     isConnecting,
+    initialChatReady,
     friendRequests,
     incomingRequests,
     acceptFriendRequest,
@@ -204,8 +205,6 @@ const ChatShell: React.FC = () => {
   const [warmEmojiPicker, setWarmEmojiPicker] = useState(false);
   const [activeEmojiIndex, setActiveEmojiIndex] = useState(0);
   const [isDraggingFilesOverChat, setIsDraggingFilesOverChat] = useState(false);
-  const [hasHydratedChat, setHasHydratedChat] = useState(false);
-  const [hasCompletedInitialLoad, setHasCompletedInitialLoad] = useState(false);
   const [hasInitialLoaderMinElapsed, setHasInitialLoaderMinElapsed] = useState(false);
   const dragDepthRef = useRef(0);
   const roomPollInFlightRef = useRef(false);
@@ -792,9 +791,15 @@ const ChatShell: React.FC = () => {
   useEffect(() => {
     if (!isDraggingDivider) return;
 
+    let frame: number | null = null;
     const onMove = (event: MouseEvent) => {
-      const next = Math.min(560, Math.max(280, event.clientX - 24));
-      setSidebarWidth(next);
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+      frame = window.requestAnimationFrame(() => {
+        const next = Math.min(560, Math.max(280, event.clientX - 24));
+        setSidebarWidth(next);
+      });
     };
 
     const onUp = () => setIsDraggingDivider(false);
@@ -802,6 +807,9 @@ const ChatShell: React.FC = () => {
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => {
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
@@ -862,18 +870,20 @@ const ChatShell: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!isConnecting) {
-      setHasHydratedChat(true);
+    if (typeof window === "undefined") return;
+    const storedWidth = window.localStorage.getItem("messagesSidebarWidth");
+    const parsed = Number(storedWidth);
+    if (Number.isFinite(parsed)) {
+      setSidebarWidth(Math.min(560, Math.max(280, parsed)));
     }
-  }, [isConnecting]);
+  }, []);
 
   useEffect(() => {
-    if (!hasCompletedInitialLoad && hasHydratedChat && hasInitialLoaderMinElapsed) {
-      setHasCompletedInitialLoad(true);
-    }
-  }, [hasCompletedInitialLoad, hasHydratedChat, hasInitialLoaderMinElapsed]);
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("messagesSidebarWidth", String(sidebarWidth));
+  }, [sidebarWidth]);
 
-  const showInitialLoader = !hasCompletedInitialLoad;
+  const showInitialLoader = !initialChatReady || !hasInitialLoaderMinElapsed;
 
   if (showInitialLoader) {
     return (
@@ -1064,9 +1074,18 @@ const ChatShell: React.FC = () => {
           <div
             role="separator"
             aria-orientation="vertical"
-            onMouseDown={() => setIsDraggingDivider(true)}
-            className="hidden w-2 cursor-col-resize bg-soft-ivory/80 transition hover:bg-deep-red/20 lg:block"
-          />
+            onMouseDown={(event) => {
+              event.preventDefault();
+              setIsDraggingDivider(true);
+            }}
+            className="group relative hidden w-3 cursor-col-resize bg-transparent lg:block"
+          >
+            <span
+              className={`absolute inset-y-0 left-1/2 w-px -translate-x-1/2 transition ${
+                isDraggingDivider ? "bg-deep-red/55" : "bg-soft-ivory group-hover:bg-deep-red/35"
+              }`}
+            />
+          </div>
 
           <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <header className="border-b border-soft-ivory px-6 py-5">
