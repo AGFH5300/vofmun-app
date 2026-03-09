@@ -416,18 +416,22 @@ const MessageBubble: React.FC<Props> = ({
               return (
                 <div
                   key={attachment.id || attachment.path}
-                  className="flex items-center gap-2 rounded-lg border border-black/10 bg-white/70 px-2.5 py-2"
+                  className="flex items-center gap-3 rounded-xl border border-black/10 bg-white/85 px-3 py-2.5"
                 >
-                  <FileText className="h-4 w-4 shrink-0 text-almost-black-green/70" />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#efe3dc] text-deep-red">
+                    <FileText className="h-4 w-4 shrink-0" />
+                  </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium text-almost-black-green">{attachment.original_name}</p>
-                    <p className="text-[11px] text-almost-black-green/60">{formatAttachmentSize(Number(attachment.size_bytes || 0))}</p>
+                    <p className="truncate text-xs font-semibold text-almost-black-green">{attachment.original_name}</p>
+                    <p className="text-[11px] text-almost-black-green/60">
+                      {formatAttachmentSize(Number(attachment.size_bytes || 0))} • {String(attachment.mime_type || 'file').split('/')[1] || String(attachment.mime_type || 'file')}
+                    </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => void handleAttachmentDownload(attachment)}
                     disabled={downloadingAttachmentPath === attachment.path || Boolean(attachmentError)}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/10 text-almost-black-green/70 hover:bg-white"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/10 text-almost-black-green/70 hover:bg-white"
                     aria-label={`Download ${attachment.original_name}`}
                   >
                     <Download className="h-3.5 w-3.5" />
