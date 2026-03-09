@@ -890,7 +890,7 @@ const ChatShell: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setConversationTab("group");
+                    setConversationTab("friends");
                     setShowNewConversation(true);
                   }}
                   className="rounded-lg border border-soft-ivory p-2 text-almost-black-green/60 hover:text-deep-red"
@@ -920,29 +920,6 @@ const ChatShell: React.FC = () => {
                   placeholder="Search conversations"
                 />
               </div>
-            </div>
-
-            <div className="border-b border-soft-ivory px-5 py-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setConversationTab("direct");
-                  setShowNewConversation(true);
-                }}
-                className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-xs font-semibold !text-deep-red shadow-sm hover:border-deep-red/30 hover:bg-soft-ivory"
-              >
-                <Plus className="h-4 w-4" /> New conversation
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setConversationTab("friends");
-                  setShowNewConversation(true);
-                }}
-                className="ml-2 inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-white px-3 py-2 text-xs font-semibold !text-deep-red shadow-sm hover:border-deep-red/30 hover:bg-soft-ivory"
-              >
-                <Users className="h-4 w-4" /> Friends
-              </button>
             </div>
 
             {incomingRequests.length > 0 && (
