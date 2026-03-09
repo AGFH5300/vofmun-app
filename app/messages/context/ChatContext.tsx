@@ -37,6 +37,7 @@ interface ChatContextValue {
   typingUsers: Record<string, Set<string>>;
   onlineUsers: Set<string>;
   isConnecting: boolean;
+  initialChatReady: boolean;
   friendRequests: FriendRequest[];
   incomingRequests: FriendRequest[];
   resolveUserDisplay: (userId: string, fallbackUser?: FriendRequest['sender'] | null) => string;
@@ -196,6 +197,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const { user } = useSession();
   const [userId, setUserId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [hasLoadedInitialRooms, setHasLoadedInitialRooms] = useState(false);
+  const [hasLoadedInitialActiveRoomMessages, setHasLoadedInitialActiveRoomMessages] = useState(false);
+  const [initialChatReady, setInitialChatReady] = useState(false);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [userDirectory, setUserDirectory] = useState<Record<string, FriendRequest['sender']>>({});
   const [pinnedRoomIds, setPinnedRoomIds] = useState<Set<string>>(() => {
@@ -222,6 +226,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const lastReceiptKeyRef = useRef<string | null>(null);
   const inFlightReceiptKeysRef = useRef<Set<string>>(new Set());
   const lastScheduledReadLogKeyRef = useRef<string | null>(null);
+  const initialBootstrapStartedRef = useRef(false);
 
   const toComparableId = useCallback((value: string | number | null | undefined) => String(value ?? ''), []);
 
@@ -965,11 +970,40 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
 
   useEffect(() => {
-    if (userId) {
-      refreshRooms();
-      refreshFriendRequests();
-    }
-  }, [refreshRooms, refreshFriendRequests, userId]);
+    if (!userId || initialBootstrapStartedRef.current) return;
+
+    initialBootstrapStartedRef.current = true;
+    let cancelled = false;
+
+    const runInitialBootstrap = async () => {
+      const loadedRooms = await refreshRooms();
+      if (cancelled) return;
+      setHasLoadedInitialRooms(true);
+
+      await refreshFriendRequests();
+      if (cancelled) return;
+
+      const activeRoomId = activeRoomIdRef.current;
+      if (activeRoomId && loadedRooms.some((room) => room.id === activeRoomId)) {
+        await refreshRoomMessages(activeRoomId);
+        if (cancelled) return;
+      }
+
+      setHasLoadedInitialActiveRoomMessages(true);
+    };
+
+    void runInitialBootstrap();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshFriendRequests, refreshRoomMessages, refreshRooms, userId]);
+
+  useEffect(() => {
+    if (initialChatReady) return;
+    if (!hasLoadedInitialRooms || !hasLoadedInitialActiveRoomMessages) return;
+    setInitialChatReady(true);
+  }, [hasLoadedInitialActiveRoomMessages, hasLoadedInitialRooms, initialChatReady]);
 
   useEffect(() => {
     if (!userId) return;
@@ -1494,6 +1528,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       typingUsers,
       onlineUsers,
       isConnecting,
+      initialChatReady,
       friendRequests,
       incomingRequests: friendRequests.filter((req) => req.status === 'pending' && req.receiver_id === userId),
       resolveUserDisplay,
@@ -1522,6 +1557,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       typingUsers,
       onlineUsers,
       isConnecting,
+      initialChatReady,
       friendRequests,
       resolveUserDisplay,
       userId,
