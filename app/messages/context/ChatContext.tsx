@@ -126,26 +126,6 @@ const getWebSocketUrl = () => {
 const normalizeFriendRequestStatus = (status?: string | null) => (status === 'declined' ? 'rejected' : status || 'pending');
 
 
-const getFriendRelationshipStatus = (requests: FriendRequest[], userId: string, otherUserId: string) => {
-  const normalizedUserId = String(userId);
-  const normalizedOtherUserId = String(otherUserId);
-  const related = requests.filter(
-    (req) =>
-      (String(req.sender_id) === normalizedOtherUserId && String(req.receiver_id) === normalizedUserId) ||
-      (String(req.receiver_id) === normalizedOtherUserId && String(req.sender_id) === normalizedUserId)
-  );
-
-  if (related.some((req) => normalizeFriendRequestStatus(req.status) === 'accepted')) {
-    return 'accepted';
-  }
-
-  if (related.some((req) => normalizeFriendRequestStatus(req.status) === 'pending')) {
-    return 'pending';
-  }
-
-  return 'none';
-};
-
 const parseFriendRequestsResponse = (json: unknown): FriendRequest[] | null => {
   if (Array.isArray(json)) return json as FriendRequest[];
   if (json && typeof json === 'object' && 'requests' in json && Array.isArray((json as { requests?: unknown }).requests)) {
@@ -1339,27 +1319,23 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         const data = (await response.json()) as PeopleSearchResult[];
         const mapped: UserSearchResult[] = data
           .filter((person) => person.id !== userId)
-          .map((person) => {
-            const relationshipStatus = getFriendRelationshipStatus(friendRequests, userId, person.id);
-
-            return {
-              id: person.id,
-              email: person.email || '',
-              full_name: person.displayName,
-              role: person.role,
-              committee: person.committeeCode || null,
-              country: person.country || null,
-              is_friend: relationshipStatus === 'accepted',
-              has_pending_request: relationshipStatus === 'pending',
-            };
-          });
+          .map((person) => ({
+            id: person.id,
+            email: person.email || '',
+            full_name: person.displayName,
+            role: person.role,
+            committee: person.committeeCode || null,
+            country: person.country || null,
+            is_friend: false,
+            has_pending_request: false,
+          }));
         return mapped;
       } catch (err) {
         console.error('[ChatContext] people search threw', err);
         return [] as UserSearchResult[];
       }
     },
-    [friendRequests, userId, withAuthHeaders]
+    [userId, withAuthHeaders]
   );
 
   const sendFriendRequest = useCallback(
