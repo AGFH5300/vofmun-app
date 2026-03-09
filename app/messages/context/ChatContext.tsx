@@ -301,16 +301,30 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     [userDirectory]
   );
 
+  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error('[ChatContext] failed to resolve Supabase access token', error);
+      return null;
+    }
+    return data.session?.access_token || null;
+  }, []);
+
   const withAuthHeaders = useCallback(
-    (extra?: RequestInit): RequestInit => ({
-      credentials: 'include',
-      ...extra,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(extra?.headers || {}),
-      },
-    }),
-    []
+    async (extra?: RequestInit): Promise<RequestInit> => {
+      const accessToken = await getAccessToken();
+
+      return {
+        credentials: 'include',
+        ...extra,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          ...(extra?.headers || {}),
+        },
+      };
+    },
+    [getAccessToken]
   );
 
   const collectReceiptCandidates = useCallback(
@@ -394,7 +408,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const refreshRooms = useCallback(async () => {
     if (!userId) return [] as RoomWithDetails[];
     logChatDebug('refreshRooms:start', { userId, endpoint: `${CHAT_API_URL}/api/rooms` });
-    const response = await fetch(`${CHAT_API_URL}/api/rooms`, withAuthHeaders());
+    const response = await fetch(`${CHAT_API_URL}/api/rooms`, await withAuthHeaders());
     if (!response.ok) {
       logChatDebug('refreshRooms:failed', { status: response.status, statusText: response.statusText });
       return [] as RoomWithDetails[];
@@ -418,7 +432,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const refreshFriendRequests = useCallback(async () => {
     if (!userId) return;
-    const response = await fetch(`${CHAT_API_URL}/api/friend-requests`, withAuthHeaders());
+    const response = await fetch(`${CHAT_API_URL}/api/friend-requests`, await withAuthHeaders());
     if (!response.ok) {
       console.error('[ChatContext] failed to load friend requests', response.status, response.statusText);
       return;
@@ -452,7 +466,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const payload = { messageIds: normalizedMessageIds, markRead };
       logReceiptsDebug('receipt_post:request', { roomId, payload });
       try {
-        const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/receipts`, withAuthHeaders({
+        const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/receipts`, await withAuthHeaders({
           method: 'POST',
           body: JSON.stringify(payload),
         }));
@@ -542,7 +556,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const refreshRoomMessages = useCallback(
     async (roomId: string) => {
       if (!userId) return;
-      const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, withAuthHeaders());
+      const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, await withAuthHeaders());
       if (!response.ok) return;
       const data = (await response.json()) as MessageWithUser[];
       const roomMemberIds = getRoomMemberIds(roomId, roomsRef.current);
@@ -884,10 +898,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
-    ws.onopen = () => {
+    ws.onopen = async () => {
       setIsConnecting(false);
       wsRef.current = ws;
-      const authPayload: ChatSocketPayload = { type: 'auth' } as ChatSocketPayload;
+      const accessToken = await getAccessToken();
+      const authPayload: ChatSocketPayload = { type: 'auth', token: accessToken || undefined } as ChatSocketPayload;
       logChatDebug('socket:onopen:send_auth', authPayload as unknown as Record<string, unknown>);
       ws.send(JSON.stringify(authPayload));
 
@@ -931,7 +946,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       logChatDebug('socket:onerror', { eventType: event.type });
       ws.close();
     };
-  }, [handleSocketMessage, userId]);
+  }, [getAccessToken, handleSocketMessage, userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -1103,7 +1118,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           attachments,
           attachmentsLength: Array.isArray(attachments) ? attachments.length : -1,
         });
-        const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, withAuthHeaders({
+        const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, await withAuthHeaders({
           method: 'POST',
           body: JSON.stringify({ content: trimmed, reply_to: replyTo, attachments }),
         }));
@@ -1267,7 +1282,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
       const response = await fetch(
         `${CHAT_API_URL}/api/rooms/direct`,
-        withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
+        await withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
       );
       if (!response.ok) {
         console.error('[ChatContext] failed to create direct room', {
@@ -1294,7 +1309,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (!userId) return null;
       const response = await fetch(
         `${CHAT_API_URL}/api/rooms/group`,
-        withAuthHeaders({ method: 'POST', body: JSON.stringify(payload) })
+        await withAuthHeaders({ method: 'POST', body: JSON.stringify(payload) })
       );
       if (!response.ok) return null;
       const room = (await response.json()) as RoomWithDetails;
@@ -1311,7 +1326,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       try {
         const url = `${CHAT_API_URL}/api/chat/people?query=${encodeURIComponent(trimmed)}`;
         logChatDebug('searchUsers:query', { url });
-        const response = await fetch(url, withAuthHeaders());
+        const response = await fetch(url, await withAuthHeaders());
         if (!response.ok) {
           const errorText = await response.text();
           console.error('[ChatContext] people search failed', {
@@ -1353,7 +1368,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       try {
         const response = await fetch(
           `${CHAT_API_URL}/api/friend-requests`,
-          withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
+          await withAuthHeaders({ method: 'POST', body: JSON.stringify({ targetUserId }) })
         );
 
         const json = (await response.json().catch(() => null)) as FriendRequest | { error?: string } | null;
@@ -1386,7 +1401,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       try {
         const response = await fetch(
           `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
-          withAuthHeaders({
+          await withAuthHeaders({
             method: 'POST',
             headers: { Accept: 'application/json' },
             body: JSON.stringify({ action: 'accept' }),
@@ -1443,7 +1458,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       try {
         const response = await fetch(
           `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
-          withAuthHeaders({
+          await withAuthHeaders({
             method: 'POST',
             headers: { Accept: 'application/json' },
             body: JSON.stringify({ action: 'reject' }),

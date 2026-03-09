@@ -2,6 +2,8 @@
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 type SessionRole = 'delegate' | 'chair' | 'admin' | 'secretariat';
 
+import supabaseAdmin from '../supabaseAdmin';
+
 export interface SessionAuthUser {
   id: string;
   role: SessionRole;
@@ -72,4 +74,44 @@ export const getSessionUserFromCookieHeader = (cookieHeader?: string | null): Se
 export const getSessionUserFromRequest = (request: Request): SessionAuthUser | null => {
   const cookieHeader = request.headers.get('cookie') || request.headers.get('Cookie');
   return getSessionUserFromCookieHeader(cookieHeader);
+};
+
+const parseBearerToken = (authorizationHeader?: string | null) => {
+  if (!authorizationHeader) return null;
+  const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  const token = match[1]?.trim();
+  return token || null;
+};
+
+const normalizeRole = (role: unknown): SessionRole => {
+  const value = String(role || '').trim().toLowerCase();
+  if (value === 'chair' || value === 'admin' || value === 'secretariat' || value === 'delegate') {
+    return value;
+  }
+  return 'delegate';
+};
+
+export const getBearerTokenFromHeaders = (headers: Record<string, string | string[] | undefined>) => {
+  const rawHeader = headers.authorization || headers.Authorization;
+  const headerValue = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+  return parseBearerToken(headerValue);
+};
+
+export const verifySupabaseAccessToken = async (accessToken: string): Promise<SessionAuthUser | null> => {
+  if (!accessToken || !supabaseAdmin) return null;
+
+  const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
+  if (error || !data?.user?.id) {
+    return null;
+  }
+
+  assertNoLegacyChatIdentityDev(data.user.id, 'verifySupabaseAccessToken');
+
+  const appRole = data.user.app_metadata?.role;
+  const userRole = data.user.user_metadata?.role;
+  return {
+    id: String(data.user.id),
+    role: normalizeRole(appRole || userRole),
+  };
 };
