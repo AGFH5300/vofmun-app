@@ -18,17 +18,10 @@ const sanitizeAttachmentName = (name: string) => {
   return normalized.slice(0, 120) || 'file';
 };
 
-const UUID_SEGMENT_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 const isAllowedAttachmentPath = (roomId: string, path: string) => {
   const segments = String(path || '').split('/').filter(Boolean);
   if (segments.length < 3) return false;
-  const roomSegment = segments[0];
-  if (roomSegment !== roomId && roomSegment !== `room_${roomId}`) return false;
-  if (!UUID_SEGMENT_RE.test(segments[1])) return false;
-
-  const filename = segments.slice(2).join('/');
-  return filename.length > 0 && /^[a-zA-Z0-9._-]{1,120}$/.test(filename);
+  return segments[0] === roomId;
 };
 
 export async function GET(request: Request, { params }: { params: Promise<{ roomId: string }> }) {
@@ -152,19 +145,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
       return NextResponse.json({ error: 'Message content or attachments are required' }, { status: 400 });
     }
 
-    if (
-      normalizedAttachments.some(
-        (attachment) =>
-          attachment.bucket !== 'chat-attachments' ||
-          !isAllowedAttachmentPath(roomId, String(attachment.path || ''))
-      )
-    ) {
+    const hasInvalidAttachment = normalizedAttachments.some((attachment) => {
+      if (!attachment || typeof attachment !== 'object') return true;
+      if (String(attachment.room_id || '') !== roomId) return true;
+      if (!attachment.bucket || !attachment.path || !attachment.original_name || !attachment.mime_type) return true;
+      if (!Number.isFinite(Number(attachment.size_bytes)) || Number(attachment.size_bytes) <= 0) return true;
+      return !isAllowedAttachmentPath(roomId, String(attachment.path || ''));
+    });
+
+    if (hasInvalidAttachment) {
       console.warn('[api rooms messages] validation failed', {
         roomId,
         userId: sessionUser.id,
-        reason: 'invalid attachment bucket/path',
+        reason: 'invalid attachment payload shape',
       });
-      return NextResponse.json({ error: 'Invalid attachment bucket or path format' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid attachment payload' }, { status: 400 });
     }
 
     const { data: membershipRows, error: membershipError } = await supabaseAdmin

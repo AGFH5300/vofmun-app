@@ -1096,13 +1096,28 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           contentLength: trimmed.length,
           attachmentCount: attachments.length,
         });
+        console.debug('sendMessage payload', {
+          roomId,
+          content: trimmed,
+          contentLength: typeof trimmed === 'string' ? trimmed.trim().length : 0,
+          attachments,
+          attachmentsLength: Array.isArray(attachments) ? attachments.length : -1,
+        });
         const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, withAuthHeaders({
           method: 'POST',
           body: JSON.stringify({ content: trimmed, reply_to: replyTo, attachments }),
         }));
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('sendMessage failed', {
+            status: response.status,
+            roomId,
+            content: trimmed,
+            attachments,
+            errorText,
+          });
           logChatDebug('sendMessage:failed_response', { status: response.status, statusText: response.statusText, roomId });
-          throw new Error('Failed to send message');
+          throw new Error(`Failed to send message (status: ${response.status})`);
         }
         const saved = (await response.json()) as MessageWithUser;
         logChatDebug('sendMessage:success', { roomId, messageId: saved.id, status: saved.status || 'unknown' });
