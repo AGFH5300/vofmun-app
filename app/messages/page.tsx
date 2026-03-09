@@ -1153,10 +1153,8 @@ const ChatShell: React.FC = () => {
                       );
                       if (!message) return null;
                       const isOwn =
-                        (currentUserId != null &&
-                          String(currentUserId) === String(message.user_id)) ||
-                        (currentUserId != null &&
-                          String(currentUserId) === String(message.user?.id || ""));
+                        currentUserId != null &&
+                        String(currentUserId) === String(message.user_id);
                       const currentIndex = activeMessages.findIndex((msg) => msg.id === message.id);
                       const nextMessage = currentIndex >= 0 ? activeMessages[currentIndex + 1] : undefined;
                       const isSameSenderAsNext =
