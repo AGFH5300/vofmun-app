@@ -1541,7 +1541,7 @@ const ChatShell: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  className="rounded-xl bg-deep-red px-3 py-2 text-sm font-semibold text-white disabled:opacity-70"
+                  className="inline-flex items-center gap-2 rounded-xl background-deep-red px-3 py-2 text-xs font-semibold text-white hover:bg-deep-red/90 disabled:cursor-wait disabled:opacity-70"
                   disabled={isStartingAcceptedChat}
                   onClick={async () => {
                     if (!showAcceptedPrompt) return;
