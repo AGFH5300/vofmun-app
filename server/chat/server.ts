@@ -10,6 +10,7 @@ import { getSessionUserFromCookieHeader } from '../../lib/chat/auth.ts';
 import {
   ChatSocketPayload,
   FriendRequest,
+  MessageAttachmentInput,
   MessageWithUser,
   RoomMember,
   RoomWithDetails,
@@ -206,6 +207,22 @@ const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, User>> 
   });
 
   return map;
+};
+
+const sanitizeAttachmentName = (name: string) => {
+  const normalized = name
+    .normalize('NFKD')
+    .replace(/[^a-zA-Z0-9._-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  return normalized.slice(0, 120) || 'file';
+};
+
+const isAllowedAttachmentPath = (roomId: string, path: string) => {
+  const segments = String(path || '').split('/').filter(Boolean);
+  if (segments.length < 3) return false;
+  return segments[0] === roomId;
 };
 
 const fetchRoomMembers = async (roomId: string): Promise<RoomMember[]> => {
@@ -581,10 +598,28 @@ app.get('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, r
 app.post('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
-    const { content, reply_to } = req.body as { content?: string; reply_to?: string | null };
+    const { content, reply_to, attachments = [] } = req.body as {
+      content?: string;
+      reply_to?: string | null;
+      attachments?: MessageAttachmentInput[];
+    };
+    const trimmedContent = content?.trim() || '';
+    const normalizedAttachments = Array.isArray(attachments) ? attachments : [];
 
-    if (!content || !content.trim()) {
-      return res.status(400).json({ error: 'Message content is required' });
+    if (!trimmedContent && normalizedAttachments.length === 0) {
+      return res.status(400).json({ error: 'Message content or attachments are required' });
+    }
+
+    const hasInvalidAttachment = normalizedAttachments.some((attachment) => {
+      if (!attachment || typeof attachment !== 'object') return true;
+      if (String(attachment.room_id || '') !== roomId) return true;
+      if (!attachment.bucket || !attachment.path || !attachment.original_name || !attachment.mime_type) return true;
+      if (!Number.isFinite(Number(attachment.size_bytes)) || Number(attachment.size_bytes) <= 0) return true;
+      return !isAllowedAttachmentPath(roomId, String(attachment.path || ''));
+    });
+
+    if (hasInvalidAttachment) {
+      return res.status(400).json({ error: 'Invalid attachment payload' });
     }
 
     const { data: membershipRows, error: membershipError } = await supabaseAdmin
@@ -605,7 +640,7 @@ app.post('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, 
 
     const { data: inserted, error } = await supabaseAdmin
       .from('messages')
-      .insert({ room_id: roomId, user_id: req.userId!, content: content.trim(), reply_to: reply_to || null })
+      .insert({ room_id: roomId, user_id: req.userId!, content: trimmedContent, reply_to: reply_to || null })
       .select('*')
       .single();
 
@@ -613,8 +648,38 @@ app.post('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, 
       return res.status(500).json({ error: 'Failed to send message' });
     }
 
+    if (normalizedAttachments.length > 0) {
+      const attachmentRows = normalizedAttachments.map((attachment) => ({
+        message_id: (inserted as any).id,
+        room_id: roomId,
+        bucket: String(attachment.bucket || 'chat-attachments'),
+        path: String(attachment.path || ''),
+        original_name: sanitizeAttachmentName(String(attachment.original_name || 'file')),
+        mime_type: attachment.mime_type || null,
+        size_bytes: Number(attachment.size_bytes || 0),
+        created_by: req.userId!,
+      }));
+
+      const { error: attachmentError } = await supabaseAdmin.from('message_attachments').insert(attachmentRows);
+      if (attachmentError) {
+        await supabaseAdmin.from('message_attachments').delete().eq('message_id', (inserted as any).id);
+        await supabaseAdmin.from('messages').delete().eq('id', (inserted as any).id);
+        return res.status(500).json({ error: 'Failed to save attachments' });
+      }
+    }
+
     const profiles = await fetchProfilesByIds([(inserted as any).user_id]);
-    const payload: MessageWithUser = { ...(inserted as any), user: profiles[(inserted as any).user_id] };
+    const { data: attachmentRows } = await supabaseAdmin
+      .from('message_attachments')
+      .select('*')
+      .eq('message_id', (inserted as any).id)
+      .order('created_at', { ascending: true });
+
+    const payload: MessageWithUser = {
+      ...(inserted as any),
+      user: profiles[(inserted as any).user_id],
+      attachments: attachmentRows || [],
+    };
 
     broadcastToRoom(roomId, { type: 'new_message', message: payload });
 
