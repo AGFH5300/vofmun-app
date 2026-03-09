@@ -288,7 +288,12 @@ const ChatShell: React.FC = () => {
 
     const container = messagesContainerRef.current;
     if (shouldScrollOnLoad) {
+      if (activeMessages.length === 0) {
+        return;
+      }
+
       container.scrollTop = container.scrollHeight;
+      setShowScrollToBottom(false);
       setShouldScrollOnLoad(false);
       return;
     }
@@ -298,7 +303,7 @@ const ChatShell: React.FC = () => {
     if (distanceFromBottom < 160) {
       container.scrollTop = container.scrollHeight;
     }
-  }, [activeMessages, activeRoom, shouldScrollOnLoad]);
+  }, [activeMessages, activeMessages.length, activeRoom, shouldScrollOnLoad]);
 
 
   useEffect(() => {
