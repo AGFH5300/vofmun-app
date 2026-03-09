@@ -9,14 +9,20 @@ import ResolutionsPage from '@/app/resolutions/page';
 import MessagesPage from '@/app/messages/page';
 import AdminPage from '@/app/admin/page';
 import ChairPage from '@/app/chair/page';
+import ResetPasswordPage from '@/app/reset-password/page';
 import { Navigate, useRouter } from './router';
+
+const normalizePath = (path: string) => (path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path);
 
 const App = () => {
   const { pathname } = useRouter();
+  const normalizedPath = normalizePath(pathname);
 
-  switch (pathname) {
+  switch (normalizedPath) {
     case '/login':
       return <LoginPage />;
+    case '/reset-password':
+      return <ResetPasswordPage />;
     case '/home':
       return <HomePage />;
     case '/live-updates':
@@ -34,9 +40,9 @@ const App = () => {
     case '/chair':
       return <ChairPage />;
     case '/':
-      return <Navigate to="/home" replace />;
+      return <Navigate to="/login" replace />;
     default:
-      return <Navigate to="/home" replace />;
+      return null;
   }
 };
 
