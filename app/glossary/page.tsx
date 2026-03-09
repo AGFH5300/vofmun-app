@@ -294,6 +294,44 @@ const glossarySections: GlossarySection[] = [
 ];
 
 const Page = () => {
+  const [searchQuery, setSearchQuery] = React.useState("");
+
+  const filteredSections = React.useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return glossarySections;
+    }
+
+    return glossarySections
+      .map((section) => {
+        const sectionMatch = `${section.title} ${section.description}`.toLowerCase().includes(query);
+
+        if (sectionMatch) {
+          return section;
+        }
+
+        const items = section.items.filter((item) =>
+          `${item.term} ${item.definition} ${item.usage} ${item.tip}`.toLowerCase().includes(query)
+        );
+
+        if (items.length === 0) {
+          return null;
+        }
+
+        return {
+          ...section,
+          items,
+        };
+      })
+      .filter((section): section is GlossarySection => section !== null);
+  }, [searchQuery]);
+
+  const totalResults = React.useMemo(
+    () => filteredSections.reduce((count, section) => count + section.items.length, 0),
+    [filteredSections]
+  );
+
   return (
     <ProtectedRoute>
       <div className="page-shell">
@@ -308,8 +346,47 @@ const Page = () => {
             </p>
           </header>
 
+          <section className="surface-card p-6 md:p-7 space-y-4 border border-soft-rose/70">
+            <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-5">
+              <div className="flex-1">
+                <label htmlFor="glossary-search" className="text-sm font-semibold text-deep-red block mb-2">
+                  Search the glossary
+                </label>
+                <input
+                  id="glossary-search"
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Try: moderated caucus, quorum, amendment, roll-call..."
+                  className="w-full rounded-xl border border-cool-grey bg-white px-4 py-3 text-sm text-almost-black-green placeholder:text-almost-black-green/45 focus:outline-none focus:ring-2 focus:ring-deep-red/40 focus:border-deep-red/40"
+                />
+              </div>
+              <div className="shrink-0 rounded-xl bg-soft-ivory px-4 py-3 border border-soft-rose/80">
+                <p className="text-xs uppercase tracking-wide text-deep-red/80 font-semibold">Results</p>
+                <p className="text-lg font-semibold text-deep-red">{totalResults} terms</p>
+              </div>
+            </div>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="text-sm text-deep-red/80 hover:text-deep-red font-medium underline underline-offset-2"
+              >
+                Clear search
+              </button>
+            )}
+          </section>
+
           <section className="space-y-6">
-            {glossarySections.map((section) => (
+            {filteredSections.length === 0 && (
+              <article className="surface-card p-6 md:p-8 border border-soft-rose/70 text-center">
+                <h2 className="text-2xl font-semibold text-deep-red mb-2">No glossary terms found</h2>
+                <p className="text-almost-black-green/75">
+                  Try a broader keyword or clear the search to browse all glossary entries.
+                </p>
+              </article>
+            )}
+            {filteredSections.map((section) => (
               <article key={section.title} className="surface-card p-6 md:p-8">
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
                   <h2 className="text-2xl font-semibold text-deep-red">{section.title}</h2>
@@ -318,16 +395,16 @@ const Page = () => {
                 <p className="text-almost-black-green/75 mb-5">{section.description}</p>
                 <ul className="space-y-3">
                   {section.items.map((item) => (
-                    <li key={item.term} className="surface-card rounded-xl px-4 py-4 space-y-2">
+                    <li key={item.term} className="rounded-xl px-4 py-4 space-y-3 border border-cool-grey/80 bg-gradient-to-br from-white to-primary-peach/25 shadow-sm">
                       <p className="font-semibold text-almost-black-green text-lg">{item.term}</p>
-                      <p className="text-sm text-almost-black-green/80">
-                        <span className="font-semibold">Definition:</span> {item.definition}
+                      <p className="text-sm text-almost-black-green/80 rounded-lg border border-soft-rose/70 bg-soft-rose/35 px-3 py-2">
+                        <span className="font-semibold text-deep-red">Definition:</span> {item.definition}
                       </p>
-                      <p className="text-sm text-almost-black-green/70">
-                        <span className="font-semibold">In practice:</span> {item.usage}
+                      <p className="text-sm text-almost-black-green/80 rounded-lg border border-pale-aqua/90 bg-pale-aqua/45 px-3 py-2">
+                        <span className="font-semibold text-[#1d4e89]">In practice:</span> {item.usage}
                       </p>
-                      <p className="text-sm text-almost-black-green/70">
-                        <span className="font-semibold">Delegate tip:</span> {item.tip}
+                      <p className="text-sm text-almost-black-green/80 rounded-lg border border-rich-gold/45 bg-[#fff7e7] px-3 py-2">
+                        <span className="font-semibold text-[#8a6500]">Delegate tip:</span> {item.tip}
                       </p>
                     </li>
                   ))}
