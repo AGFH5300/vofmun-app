@@ -32,6 +32,7 @@ import {
 import { MessageAttachmentInput, RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
 import supabase from "@/lib/supabase";
 import { getUserDelegationLabel } from "@/lib/chat/delegation";
+import { toast } from "sonner";
 
 const formatDateLabel = (dateString: string) => {
   const date = new Date(dateString);
@@ -165,7 +166,6 @@ const ChatShell: React.FC = () => {
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [respondingId, setRespondingId] = useState<string | null>(null);
-  const [requestNotifications, setRequestNotifications] = useState<Array<{ id: string; message: string }>>([]);
   const previousRequestsRef = useRef<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -755,23 +755,20 @@ const ChatShell: React.FC = () => {
           request.status === "accepted"
             ? `${name} accepted your connection request.`
             : `${name} declined your connection request.`;
-        const id = `${request.id}-${request.status}`;
-        setRequestNotifications((prev) => (prev.some((item) => item.id === id) ? prev : [...prev, { id, message }]));
+        toast.success(message, {
+          duration: Infinity,
+          action: {
+            label: "Dismiss",
+            onClick: () => {
+              /* no-op: sonner dismisses on action click */
+            },
+          },
+        });
       }
     });
 
     previousRequestsRef.current = next;
   }, [currentUserId, friendRequests, resolveUserDisplay]);
-
-  useEffect(() => {
-    if (!requestNotifications.length) return;
-    const timers = requestNotifications.map((notice) =>
-      window.setTimeout(() => {
-        setRequestNotifications((prev) => prev.filter((item) => item.id !== notice.id));
-      }, 5000)
-    );
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [requestNotifications]);
 
   const outgoingRequests = useMemo(
     () =>
@@ -1045,25 +1042,6 @@ const ChatShell: React.FC = () => {
                 ) : null}
               </div>
             </header>
-
-            {requestNotifications.length > 0 && (
-              <div className="border-b border-soft-ivory bg-[#edf7ed] px-6 py-3">
-                <div className="space-y-2">
-                  {requestNotifications.map((notice) => (
-                    <div key={notice.id} className="flex items-start justify-between gap-3 rounded-xl border border-[#c8e6c9] bg-white px-3 py-2 text-sm text-[#245b2a]">
-                      <p>{notice.message}</p>
-                      <button
-                        type="button"
-                        onClick={() => setRequestNotifications((prev) => prev.filter((item) => item.id !== notice.id))}
-                        className="text-xs font-semibold text-[#245b2a]/70 hover:text-[#245b2a]"
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {(incomingRequests.length > 0 || outgoingRequests.length > 0) && (
               <div className="border-b border-soft-ivory bg-warm-light-grey/35 px-6 py-4">
