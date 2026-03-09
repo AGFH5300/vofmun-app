@@ -31,7 +31,7 @@ const Login = () => {
   const routeByRole = (role: string) => {
     if (role === "chair") return "/chair";
     if (role === "admin" || role === "secretariat") return "/admin";
-    return "/messages";
+    return "/home";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
