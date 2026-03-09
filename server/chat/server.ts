@@ -6,7 +6,7 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { randomUUID } from 'crypto';
 import next from 'next';
 import supabaseAdmin from '../../lib/supabaseAdmin.ts';
-import { getSessionUserFromCookieHeader } from '../../lib/chat/auth.ts';
+import { getBearerTokenFromHeaders, verifySupabaseAccessToken } from '../../lib/chat/auth.ts';
 import {
   ChatSocketPayload,
   FriendRequest,
@@ -40,12 +40,34 @@ if (!supabaseAdmin) {
   throw new Error('Supabase admin client is not configured. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
 }
 
-const requireAuth = (req: AuthedRequest, res: Response, nextFn: NextFunction) => {
-  const sessionUser = getSessionUserFromCookieHeader(req.headers.cookie || '');
-  if (!sessionUser) {
+const requireAuth = async (req: AuthedRequest, res: Response, nextFn: NextFunction) => {
+  const hasAuthorizationHeader = Boolean(req.headers['authorization']);
+  const bearerToken = getBearerTokenFromHeaders(req.headers);
+
+  logServerDebug('http:requireAuth:start', {
+    method: req.method,
+    path: req.path,
+    hasAuthorizationHeader,
+    hasBearerToken: Boolean(bearerToken),
+  });
+
+  if (!bearerToken) {
+    logServerDebug('http:requireAuth:missing_bearer_token', { path: req.path });
     return res.status(401).json({ error: 'Unauthorized' });
   }
+
+  const sessionUser = await verifySupabaseAccessToken(bearerToken);
+  if (!sessionUser) {
+    logServerDebug('http:requireAuth:token_verification_failed', { path: req.path });
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   req.userId = sessionUser.id;
+  logServerDebug('http:requireAuth:resolved', {
+    method: req.method,
+    path: req.path,
+    resolvedUserId: req.userId,
+  });
   return nextFn();
 };
 
@@ -667,6 +689,13 @@ app.post('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, 
       return res.status(400).json({ error: 'Invalid attachment payload' });
     }
 
+    logServerDebug('http:messages:insert_attempt', {
+      roomId,
+      resolvedUserId: req.userId || null,
+      hasContent: Boolean(trimmedContent),
+      attachmentCount: normalizedAttachments.length,
+    });
+
     const { data: membershipRows, error: membershipError } = await supabaseAdmin
       .from('room_members')
       .select('id')
@@ -955,7 +984,11 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server, path: CHAT_WS_PATH });
 
 wss.on('connection', (socket, req) => {
-  logServerDebug('socket:connection_opened', { hasCookie: Boolean(req.headers.cookie), url: req.url || null });
+  logServerDebug('socket:connection_opened', {
+    hasCookie: Boolean(req.headers.cookie),
+    hasAuthorizationHeader: Boolean(req.headers['authorization']),
+    url: req.url || null,
+  });
   const context: Partial<SocketContext> = { socket };
   let authenticated = false;
   let disconnected = false;
@@ -977,19 +1010,27 @@ wss.on('connection', (socket, req) => {
     sendOnlineUsersSnapshot(socket);
   };
 
-  const authenticateFromCookie = () => {
-    const sessionUser = getSessionUserFromCookieHeader(req.headers.cookie || '');
-    if (!sessionUser) {
-      logServerDebug('socket:authenticateFromCookie:missing_session');
+  const authenticateFromBearer = async (accessToken?: string | null) => {
+    const bearerToken = accessToken || getBearerTokenFromHeaders(req.headers);
+    logServerDebug('socket:auth:start', {
+      hasBearerToken: Boolean(bearerToken),
+      hasProvidedToken: Boolean(accessToken),
+    });
+    if (!bearerToken) {
+      logServerDebug('socket:auth:missing_bearer_token');
       return false;
     }
+
+    const sessionUser = await verifySupabaseAccessToken(bearerToken);
+    if (!sessionUser) {
+      logServerDebug('socket:auth:token_verification_failed');
+      return false;
+    }
+
     logServerDebug('socket:auth_identity_resolved', { resolvedActorId: sessionUser.id, role: sessionUser.role });
     finishSocketAuthentication(sessionUser.id);
     return true;
   };
-
-  authenticateFromCookie();
-  if (authenticated) clearTimeout(authTimeout);
 
   const disconnect = () => {
     if (disconnected) return;
@@ -1021,7 +1062,7 @@ wss.on('connection', (socket, req) => {
             sendOnlineUsersSnapshot(socket);
             return;
           }
-          if (!authenticateFromCookie()) {
+          if (!await authenticateFromBearer(data.token)) {
             socket.send(JSON.stringify({ type: 'auth_error' } satisfies ChatSocketPayload));
             socket.close();
             return;
@@ -1031,6 +1072,7 @@ wss.on('connection', (socket, req) => {
         }
         case 'join_room': {
           if (!authenticated || !context.userId || !data.roomId) return;
+          logServerDebug('socket:join_room:attempt', { roomId: data.roomId, resolvedUserId: context.userId });
 
           const { data: membership } = await supabaseAdmin
             .from('room_members')
@@ -1056,6 +1098,11 @@ wss.on('connection', (socket, req) => {
         }
         case 'typing': {
           if (!authenticated || !context.userId || !context.roomId || !data.roomId || data.roomId !== context.roomId) return;
+          logServerDebug('socket:typing:event', {
+            roomId: context.roomId,
+            resolvedUserId: context.userId,
+            isTyping: data.isTyping ?? true,
+          });
           broadcastToRoom(context.roomId, {
             type: 'user_typing',
             roomId: context.roomId,
