@@ -205,6 +205,8 @@ const ChatShell: React.FC = () => {
   const [activeEmojiIndex, setActiveEmojiIndex] = useState(0);
   const [isDraggingFilesOverChat, setIsDraggingFilesOverChat] = useState(false);
   const [hasHydratedChat, setHasHydratedChat] = useState(false);
+  const [hasCompletedInitialLoad, setHasCompletedInitialLoad] = useState(false);
+  const [hasInitialLoaderMinElapsed, setHasInitialLoaderMinElapsed] = useState(false);
   const dragDepthRef = useRef(0);
   const roomPollInFlightRef = useRef(false);
   const roomPollBackoffRef = useRef(30000);
@@ -849,12 +851,29 @@ const ChatShell: React.FC = () => {
   );
 
   useEffect(() => {
+    const minimumLoaderDurationMs = 750;
+    const timeout = window.setTimeout(() => {
+      setHasInitialLoaderMinElapsed(true);
+    }, minimumLoaderDurationMs);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isConnecting) {
       setHasHydratedChat(true);
     }
   }, [isConnecting]);
 
-  const showInitialLoader = !hasHydratedChat && isConnecting && rooms.length === 0;
+  useEffect(() => {
+    if (!hasCompletedInitialLoad && hasHydratedChat && hasInitialLoaderMinElapsed) {
+      setHasCompletedInitialLoad(true);
+    }
+  }, [hasCompletedInitialLoad, hasHydratedChat, hasInitialLoaderMinElapsed]);
+
+  const showInitialLoader = !hasCompletedInitialLoad;
 
   if (showInitialLoader) {
     return (
