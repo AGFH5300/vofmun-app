@@ -6,7 +6,7 @@ const PUBLIC_ROUTES = new Set(["/login", "/reset-password"]);
 function routeByRole(role: string) {
   if (role === "chair") return "/chair";
   if (role === "admin" || role === "secretariat") return "/admin";
-  return "/messages";
+  return "/home";
 }
 
 function getUserRoleFromCookie(request: NextRequest) {
