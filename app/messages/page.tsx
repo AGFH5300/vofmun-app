@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   CalendarDays,
   ChevronDown,
+  Circle,
   CircleUser,
   FileText,
   Folder,
@@ -197,6 +198,7 @@ const ChatShell: React.FC = () => {
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [attachmentUploadError, setAttachmentUploadError] = useState<string | null>(null);
   const [showAcceptedPrompt, setShowAcceptedPrompt] = useState<{ userId: string; name: string } | null>(null);
+  const [isStartingAcceptedChat, setIsStartingAcceptedChat] = useState(false);
   const [isSendingHi, setIsSendingHi] = useState(false);
   const [showEmojiModal, setShowEmojiModal] = useState(false);
   const [warmEmojiPicker, setWarmEmojiPicker] = useState(false);
@@ -638,6 +640,18 @@ const ChatShell: React.FC = () => {
     setComposer("");
     setPendingAttachments([]);
     setAttachmentUploadError(null);
+  };
+
+  const removePendingAttachment = async (pendingId: string) => {
+    let removedItem: PendingAttachmentItem | undefined;
+    setPendingAttachments((prev) => {
+      removedItem = prev.find((item) => item.id === pendingId);
+      return prev.filter((item) => item.id !== pendingId);
+    });
+
+    if (removedItem?.attachment?.bucket && removedItem.attachment.path) {
+      await supabase.storage.from(removedItem.attachment.bucket).remove([removedItem.attachment.path]);
+    }
   };
 
   const toggleAttachmentMenu = () => {
@@ -1294,25 +1308,47 @@ const ChatShell: React.FC = () => {
                   {(isUploadingAttachments || pendingAttachments.length > 0 || attachmentUploadError) && (
                     <div className="mb-2 rounded-2xl border border-[#d7d7d7] bg-[#f7f7f7] px-3 py-2 text-xs text-[#4b4f53]">
                       {pendingAttachments.length > 0 ? (
-                        <div className="space-y-2">
+                        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
                           {pendingAttachments.map((attachment) => (
-                            <div key={attachment.id} className="flex items-center gap-3 rounded-xl border border-black/10 bg-white px-3 py-2">
-                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#efe3dc] text-deep-red">
+                            <div key={attachment.id} className="min-w-[220px] max-w-[220px] shrink-0 rounded-xl border border-black/10 bg-white p-2.5">
+                              <div className="flex items-start gap-2">
+                                <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-[#efe3dc] text-deep-red">
                                 <FileText className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-xs font-semibold text-almost-black-green">{attachment.original_name}</p>
+                                  <p className="text-[11px] text-almost-black-green/60">
+                                    {formatSize(attachment.size_bytes)} • {attachment.mime_type.split("/")[1] || attachment.mime_type}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => void removePendingAttachment(attachment.id)}
+                                  disabled={attachment.status === "uploading"}
+                                  className="rounded-md p-1 text-almost-black-green/50 transition hover:bg-black/5 hover:text-almost-black-green disabled:cursor-not-allowed disabled:opacity-40"
+                                  aria-label={`Remove ${attachment.original_name}`}
+                                >
+                                  <span className="text-sm leading-none">×</span>
+                                </button>
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-xs font-semibold text-almost-black-green">{attachment.original_name}</p>
-                                <p className="text-[11px] text-almost-black-green/60">
-                                  {formatSize(attachment.size_bytes)} • {attachment.mime_type.split("/")[1] || attachment.mime_type}
-                                </p>
+                              <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium">
+                                {attachment.status === "uploading" ? (
+                                  <>
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-almost-black-green/60" />
+                                    <span className="text-almost-black-green/70">Uploading…</span>
+                                  </>
+                                ) : attachment.status === "uploaded" ? (
+                                  <>
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                    <span className="text-emerald-700">Uploaded</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Circle className="h-3.5 w-3.5 text-deep-red" />
+                                    <span className="text-deep-red">Upload failed</span>
+                                  </>
+                                )}
                               </div>
-                              {attachment.status === "uploading" ? (
-                                <Loader2 className="h-4 w-4 animate-spin text-almost-black-green/60" />
-                              ) : attachment.status === "uploaded" ? (
-                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                              ) : (
-                                <span className="text-[11px] font-semibold text-deep-red">Error</span>
-                              )}
                             </div>
                           ))}
                         </div>
@@ -1497,23 +1533,31 @@ const ChatShell: React.FC = () => {
               <div className="mt-4 flex justify-end gap-2">
                 <button
                   type="button"
-                  className="rounded-xl border border-soft-ivory px-3 py-2 text-sm font-semibold text-deep-red"
+                  className="rounded-xl border border-soft-ivory px-3 py-2 text-sm font-semibold text-deep-red disabled:opacity-60"
+                  disabled={isStartingAcceptedChat}
                   onClick={() => setShowAcceptedPrompt(null)}
                 >
                   Maybe later
                 </button>
                 <button
                   type="button"
-                  className="rounded-xl bg-deep-red px-3 py-2 text-sm font-semibold text-white"
+                  className="rounded-xl bg-deep-red px-3 py-2 text-sm font-semibold text-white disabled:opacity-70"
+                  disabled={isStartingAcceptedChat}
                   onClick={async () => {
-                    const room = await openDirectMessageRoomForUser(showAcceptedPrompt.userId);
-                    if (room) {
-                      await selectRoom(room);
+                    if (!showAcceptedPrompt) return;
+                    setIsStartingAcceptedChat(true);
+                    try {
+                      const room = await openDirectMessageRoomForUser(showAcceptedPrompt.userId);
+                      if (room) {
+                        await selectRoom(room);
+                      }
+                      setShowAcceptedPrompt(null);
+                    } finally {
+                      setIsStartingAcceptedChat(false);
                     }
-                    setShowAcceptedPrompt(null);
                   }}
                 >
-                  Start chat
+                  {isStartingAcceptedChat ? <Loader2 className="inline h-4 w-4 animate-spin" /> : "Start chat"}
                 </button>
               </div>
             </div>
