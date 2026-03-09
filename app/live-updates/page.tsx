@@ -198,10 +198,6 @@ const Page = () => {
                                 <p className="text-base md:text-lg text-white/85 max-w-3xl leading-relaxed">
                                     Every update is now tied to the conference timeline so delegates can instantly see what is happening now, what starts next (including lunch), and how long remains until the conference ends.
                                 </p>
-                                <div className="inline-flex flex-col items-center rounded-2xl bg-black/20 px-5 py-3 text-white">
-                                    <span className="text-4xl font-bold tracking-wide">Apr 3-5</span>
-                                    <span className="text-lg uppercase tracking-[0.2em] text-white/85">2026</span>
-                                </div>
                             </div>
                             <div className="absolute inset-x-0 -bottom-32 h-64 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
                         </div>
