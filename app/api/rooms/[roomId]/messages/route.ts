@@ -115,18 +115,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
     }
 
     const { roomId } = await params;
-    const { content, reply_to, attachments = [] } = (await request.json().catch(() => ({}))) as {
+    const parsedBody = (await request.json().catch(() => ({}))) as {
       content?: string;
       reply_to?: string | null;
       attachments?: MessageAttachmentInput[];
     };
+    const { content, reply_to, attachments = [] } = parsedBody;
+
+    console.debug('[api rooms messages] parsed request body', {
+      roomId,
+      userId: sessionUser.id,
+      hasContent: typeof content === 'string',
+      hasReplyTo: typeof reply_to !== 'undefined',
+      hasAttachmentsArray: Array.isArray(attachments),
+      attachmentKeys: Array.isArray(attachments) ? attachments.map((attachment) => Object.keys(attachment || {})) : [],
+    });
 
     const trimmedContent = content?.trim() || '';
     const normalizedAttachments = Array.isArray(attachments) ? attachments : [];
 
+    console.debug('[api rooms messages] message payload lengths', {
+      roomId,
+      userId: sessionUser.id,
+      contentLength: trimmedContent.length,
+      attachmentsLength: normalizedAttachments.length,
+    });
+
     assertNoLegacyChatIdentityDev(sessionUser.id, 'messages:insert:user_id');
 
     if (!trimmedContent && normalizedAttachments.length === 0) {
+      console.warn('[api rooms messages] validation failed', {
+        roomId,
+        userId: sessionUser.id,
+        reason: 'both content and attachments are empty',
+      });
       return NextResponse.json({ error: 'Message content or attachments are required' }, { status: 400 });
     }
 
@@ -137,6 +159,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
           !isAllowedAttachmentPath(roomId, String(attachment.path || ''))
       )
     ) {
+      console.warn('[api rooms messages] validation failed', {
+        roomId,
+        userId: sessionUser.id,
+        reason: 'invalid attachment bucket/path',
+      });
       return NextResponse.json({ error: 'Invalid attachment bucket or path format' }, { status: 400 });
     }
 
@@ -181,6 +208,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
       return NextResponse.json({ error: 'Failed to send message', details: error?.message || null }, { status: 500 });
     }
 
+    console.debug('[api rooms messages] created message', {
+      roomId,
+      userId: sessionUser.id,
+      messageId: inserted.id,
+    });
+
     if (normalizedAttachments.length > 0) {
       const attachmentRows = normalizedAttachments.map((attachment) => ({
         message_id: inserted.id,
@@ -194,6 +227,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
       }));
 
       const { error: attachmentError } = await supabaseAdmin.from('message_attachments').insert(attachmentRows);
+      console.debug('[api rooms messages] attachment insert result', {
+        roomId,
+        userId: sessionUser.id,
+        messageId: inserted.id,
+        attempted: attachmentRows.length,
+        success: !attachmentError,
+        error: attachmentError?.message || null,
+      });
       if (attachmentError) {
         console.error('[api rooms messages] attachment insert failed', {
           roomId,
