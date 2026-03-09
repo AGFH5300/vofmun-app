@@ -67,6 +67,7 @@ interface ChatContextValue {
 
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
 const CHAT_DEBUG_PREFIX = '[ChatDebug]';
+const CHAT_BOOTSTRAP_DEBUG_PREFIX = '[ChatBootstrapDebug]';
 const isChatDebugEnabled = process.env.NEXT_PUBLIC_CHAT_DEBUG === '1';
 const isReceiptsDebugEnabled = process.env.NEXT_PUBLIC_CHAT_RECEIPTS_DEBUG === '1';
 const TYPING_TRUE_THROTTLE_MS = 1000;
@@ -194,7 +195,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const [messages, setMessages] = useState<Record<string, MessageWithUser[]>>({});
   const [typingUsers, setTypingUsers] = useState<Record<string, Set<string>>>({});
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
-  const { user } = useSession();
+  const { user, authReady, isAuthenticated } = useSession();
   const [userId, setUserId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [hasLoadedInitialRooms, setHasLoadedInitialRooms] = useState(false);
@@ -227,6 +228,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const inFlightReceiptKeysRef = useRef<Set<string>>(new Set());
   const lastScheduledReadLogKeyRef = useRef<string | null>(null);
   const initialBootstrapStartedRef = useRef(false);
+  const initialBootstrapDoneRef = useRef(false);
 
   const toComparableId = useCallback((value: string | number | null | undefined) => String(value ?? ''), []);
 
@@ -290,14 +292,24 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     const { data, error } = await supabase.auth.getSession();
     if (error) {
       console.error('[ChatContext] failed to resolve Supabase access token', error);
+      console.debug('[withAuthHeadersDebug] session_resolution_error', { message: error.message });
       return null;
     }
-    return data.session?.access_token || null;
+    const token = data.session?.access_token || null;
+    console.debug('[withAuthHeadersDebug] session_resolved', {
+      hasSession: Boolean(data.session),
+      hasToken: Boolean(token),
+    });
+    return token;
   }, []);
 
   const withAuthHeaders = useCallback(
     async (extra?: RequestInit): Promise<RequestInit> => {
       const accessToken = await getAccessToken();
+      console.debug('[withAuthHeadersDebug] build_headers', {
+        hasToken: Boolean(accessToken),
+        method: extra?.method || "GET",
+      });
 
       return {
         credentials: 'include',
@@ -335,18 +347,29 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   );
 
   useEffect(() => {
-    if (!user) {
+    if (!authReady || !isAuthenticated || !user) {
       setUserId(null);
+      setHasLoadedInitialRooms(false);
+      setHasLoadedInitialRoomMessages(false);
+      setInitialChatReady(false);
+      initialBootstrapStartedRef.current = false;
+      initialBootstrapDoneRef.current = false;
+      console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} user_identity_reset`, {
+        authReady,
+        isAuthenticated,
+      });
       return;
     }
+
     const candidate = user.id ? String(user.id) : null;
 
     if (candidate) {
       setUserId(String(candidate));
       return;
     }
+
     setUserId(null);
-  }, [user]);
+  }, [authReady, isAuthenticated, user]);
 
 
   useEffect(() => {
@@ -973,31 +996,59 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
 
   useEffect(() => {
-    if (!userId || initialBootstrapStartedRef.current) return;
+    console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} gate`, {
+      authReady,
+      isAuthenticated,
+      userId,
+      initialBootstrapStarted: initialBootstrapStartedRef.current,
+      initialBootstrapDone: initialBootstrapDoneRef.current,
+    });
+
+    if (!authReady || !isAuthenticated || !userId) return;
+    if (initialBootstrapDoneRef.current || initialBootstrapStartedRef.current) return;
 
     initialBootstrapStartedRef.current = true;
     let cancelled = false;
 
     const runInitialBootstrap = async () => {
-      const loadedRooms = await refreshRooms();
-      if (cancelled) return;
-      setHasLoadedInitialRooms(true);
-
-      await refreshFriendRequests();
-      if (cancelled) return;
-
-      if (loadedRooms.length === 0) {
-        setHasLoadedInitialRoomMessages(true);
-        return;
-      }
-
-      for (const room of loadedRooms) {
+      console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} start`, { userId });
+      try {
+        const loadedRooms = await refreshRooms();
         if (cancelled) return;
-        await refreshRoomMessages(room.id);
-      }
-      if (cancelled) return;
+        setHasLoadedInitialRooms(true);
 
-      setHasLoadedInitialRoomMessages(true);
+        await refreshFriendRequests();
+        if (cancelled) return;
+
+        if (loadedRooms.length === 0) {
+          setHasLoadedInitialRoomMessages(true);
+          initialBootstrapDoneRef.current = true;
+          console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} success`, { roomCount: 0 });
+          return;
+        }
+
+        for (const room of loadedRooms) {
+          if (cancelled) return;
+          await refreshRoomMessages(room.id);
+        }
+        if (cancelled) return;
+
+        setHasLoadedInitialRoomMessages(true);
+        initialBootstrapDoneRef.current = true;
+        console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} success`, { roomCount: loadedRooms.length });
+      } catch (error) {
+        if (cancelled) return;
+        initialBootstrapStartedRef.current = false;
+        if (!authReady || !isAuthenticated) {
+          console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} deferred_until_auth`, {
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return;
+        }
+        console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} failure`, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     };
 
     void runInitialBootstrap();
@@ -1005,13 +1056,15 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     return () => {
       cancelled = true;
     };
-  }, [refreshFriendRequests, refreshRoomMessages, refreshRooms, userId]);
+  }, [authReady, isAuthenticated, refreshFriendRequests, refreshRoomMessages, refreshRooms, userId]);
 
   useEffect(() => {
     if (initialChatReady) return;
+    if (!authReady || !isAuthenticated) return;
     if (!hasLoadedInitialRooms || !hasLoadedInitialRoomMessages) return;
     setInitialChatReady(true);
-  }, [hasLoadedInitialRoomMessages, hasLoadedInitialRooms, initialChatReady]);
+    console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} initial_chat_ready`);
+  }, [authReady, hasLoadedInitialRoomMessages, hasLoadedInitialRooms, initialChatReady, isAuthenticated]);
 
   useEffect(() => {
     if (!userId) return;

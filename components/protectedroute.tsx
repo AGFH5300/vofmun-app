@@ -6,6 +6,8 @@ import React, { useEffect } from "react";
 import { useSession } from "../app/context/sessionContext";
 import { useRouter } from "next/navigation";
 
+const PROTECTED_ROUTE_DEBUG_PREFIX = "[ProtectedRouteDebug]";
+
 const useRedirect = () => {
   const router = useRouter();
   return (path: string) => router.replace(path);
@@ -13,37 +15,42 @@ const useRedirect = () => {
 
 // this route protects from all unauthorized
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user: currentUser, isSessionHydrated } = useSession();
+  const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
 
   useEffect(() => {
-    if (!isSessionHydrated) return;
-    if (currentUser === null) {
+    console.debug(`${PROTECTED_ROUTE_DEBUG_PREFIX} ProtectedRoute`, {
+      authReady,
+      isAuthenticated,
+      hasUser: Boolean(currentUser),
+    });
+    if (!authReady) return;
+    if (!isAuthenticated) {
       navigate("/login");
     }
-  }, [currentUser, isSessionHydrated, navigate]);
+  }, [authReady, currentUser, isAuthenticated, navigate]);
 
-  if (!isSessionHydrated) return null;
-  if (currentUser === null) return null;
+  if (!authReady) return null;
+  if (!isAuthenticated) return null;
 
   return <>{children}</>;
 };
 
 // protects from any1 who aint a delegate
 export const DelegateRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user: currentUser, isSessionHydrated } = useSession();
+  const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
 
-  const blocked = !('delegateID' in (currentUser || {})) || currentUser === null;
+  const blocked = !isAuthenticated || !('delegateID' in (currentUser || {}));
 
   useEffect(() => {
-    if (!isSessionHydrated) return;
+    if (!authReady) return;
     if (blocked) {
       navigate("/login");
     }
-  }, [blocked, isSessionHydrated, navigate]);
+  }, [blocked, authReady, navigate]);
 
-  if (!isSessionHydrated) return null;
+  if (!authReady) return null;
   if (blocked) return null;
 
   return <>{children}</>;
@@ -51,57 +58,63 @@ export const DelegateRoute = ({ children }: { children: React.ReactNode }) => {
 
 // protects from any1 who aint an admin
 export const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user: currentUser, isSessionHydrated } = useSession();
+  const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
 
-  const blocked = !('adminID' in (currentUser || {})) || currentUser === null;
+  const blocked = !isAuthenticated || !('adminID' in (currentUser || {}));
 
   useEffect(() => {
-    if (!isSessionHydrated) return;
+    if (!authReady) return;
     if (blocked) {
       navigate("/login");
     }
-  }, [blocked, isSessionHydrated, navigate]);
+  }, [blocked, authReady, navigate]);
 
-  if (!isSessionHydrated) return null;
+  if (!authReady) return null;
   if (blocked) return null;
 
   return <>{children}</>;
 };
 
 export const ChairRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user: currentUser, isSessionHydrated } = useSession();
+  const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
 
-  const blocked = !('chairID' in (currentUser || {})) || currentUser === null;
+  const blocked = !isAuthenticated || !('chairID' in (currentUser || {}));
 
   useEffect(() => {
-    if (!isSessionHydrated) return;
+    if (!authReady) return;
     if (blocked) {
       navigate("/login");
     }
-  }, [blocked, isSessionHydrated, navigate]);
+  }, [blocked, authReady, navigate]);
 
-  if (!isSessionHydrated) return null;
+  if (!authReady) return null;
   if (blocked) return null;
 
   return <>{children}</>;
 };
 
 export const ParticipantRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user: currentUser, isSessionHydrated } = useSession();
+  const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
 
-  const blocked = ('adminID' in (currentUser || {})) || currentUser === null;
+  const blocked = !isAuthenticated || ('adminID' in (currentUser || {}));
 
   useEffect(() => {
-    if (!isSessionHydrated) return;
+    console.debug(`${PROTECTED_ROUTE_DEBUG_PREFIX} ParticipantRoute`, {
+      authReady,
+      isAuthenticated,
+      hasUser: Boolean(currentUser),
+      blocked,
+    });
+    if (!authReady) return;
     if (blocked) {
       navigate("/login");
     }
-  }, [blocked, isSessionHydrated, navigate]);
+  }, [blocked, authReady, currentUser, isAuthenticated, navigate]);
 
-  if (!isSessionHydrated) return null;
+  if (!authReady) return null;
   if (blocked) return null;
 
   return <>{children}</>;

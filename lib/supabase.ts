@@ -18,27 +18,37 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const isBrowser = typeof window !== 'undefined';
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: isBrowser,
-    autoRefreshToken: isBrowser,
-    detectSessionInUrl: isBrowser,
-  },
-  global: {
-    headers: {
-      apikey: supabaseKey,
+const createSupabaseClient = () =>
+  createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: isBrowser,
+      autoRefreshToken: isBrowser,
+      detectSessionInUrl: isBrowser,
     },
-    fetch: (input, init = {}) => {
-      const headers = new Headers(init.headers || {});
+    global: {
+      headers: {
+        apikey: supabaseKey,
+      },
+      fetch: (input, init = {}) => {
+        const headers = new Headers(init.headers || {});
 
-      if (!headers.has('apikey')) {
-        headers.set('apikey', supabaseKey);
+        if (!headers.has('apikey')) {
+          headers.set('apikey', supabaseKey);
+        }
+
+        return fetch(input, { ...init, headers });
       }
-
-      return fetch(input, { ...init, headers });
     }
-  }
-});
+  });
+
+const globalForSupabase = globalThis as typeof globalThis & {
+  __vofmunSupabaseClient?: ReturnType<typeof createSupabaseClient>;
+};
+
+const supabase = globalForSupabase.__vofmunSupabaseClient ?? createSupabaseClient();
+
+if (isBrowser) {
+  globalForSupabase.__vofmunSupabaseClient = supabase;
+}
 
 export default supabase;
