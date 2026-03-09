@@ -10,6 +10,7 @@ import { getSessionUserFromCookieHeader } from '../../lib/chat/auth.ts';
 import {
   ChatSocketPayload,
   FriendRequest,
+  MessageAttachment,
   MessageAttachmentInput,
   MessageWithUser,
   RoomMember,
@@ -207,6 +208,31 @@ const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, User>> 
   });
 
   return map;
+};
+
+
+const fetchAttachmentsByMessageIds = async (messageIds: string[]) => {
+  const uniqueMessageIds = Array.from(new Set(messageIds.map((id) => String(id)).filter(Boolean)));
+  if (uniqueMessageIds.length === 0) return {} as Record<string, MessageAttachment[]>;
+
+  const { data, error } = await supabaseAdmin
+    .from('message_attachments')
+    .select('*')
+    .in('message_id', uniqueMessageIds)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('[chat] failed to load message attachments', { messageIds: uniqueMessageIds, error: error.message || error });
+    return {} as Record<string, MessageAttachment[]>;
+  }
+
+  return (data || []).reduce((acc: Record<string, MessageAttachment[]>, attachment: MessageAttachment) => {
+    const messageId = String(attachment.message_id || '');
+    if (!messageId) return acc;
+    if (!acc[messageId]) acc[messageId] = [];
+    acc[messageId].push(attachment);
+    return acc;
+  }, {} as Record<string, MessageAttachment[]>);
 };
 
 const sanitizeAttachmentName = (name: string) => {
@@ -586,8 +612,27 @@ app.get('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, r
       .eq('room_id', roomId)
       .order('created_at', { ascending: true });
 
-    const profiles = await fetchProfilesByIds((messages || []).map((msg: any) => msg.user_id));
-    const formatted = (messages || []).map((msg: any) => ({ ...msg, user: profiles[msg.user_id] } as MessageWithUser));
+    const profileIds = Array.from(new Set((messages || []).map((msg: any) => String(msg.user_id)).filter(Boolean)));
+    const messageIds = (messages || []).map((msg: any) => String(msg.id)).filter(Boolean);
+    const profiles = await fetchProfilesByIds(profileIds);
+    const attachmentsByMessageId = await fetchAttachmentsByMessageIds(messageIds);
+    const formatted = (messages || []).map((msg: any) => {
+      const message = {
+        ...msg,
+        user: profiles[msg.user_id],
+        attachments: attachmentsByMessageId[String(msg.id)] || [],
+      } as MessageWithUser;
+
+      console.debug('message profile enrichment', {
+        roomId,
+        currentUserId: req.userId,
+        messageId: message.id,
+        messageUserId: message.user_id,
+        attachedProfileId: message.user?.id ?? null,
+      });
+
+      return message;
+    });
     return res.json(formatted);
   } catch (error) {
     console.error('Error loading messages', error);
@@ -668,18 +713,22 @@ app.post('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, 
       }
     }
 
-    const profiles = await fetchProfilesByIds([(inserted as any).user_id]);
-    const { data: attachmentRows } = await supabaseAdmin
-      .from('message_attachments')
-      .select('*')
-      .eq('message_id', (inserted as any).id)
-      .order('created_at', { ascending: true });
+    const profiles = await fetchProfilesByIds([String((inserted as any).user_id)]);
+    const attachmentsByMessageId = await fetchAttachmentsByMessageIds([String((inserted as any).id)]);
 
     const payload: MessageWithUser = {
       ...(inserted as any),
       user: profiles[(inserted as any).user_id],
-      attachments: attachmentRows || [],
+      attachments: attachmentsByMessageId[String((inserted as any).id)] || [],
     };
+
+    console.debug('message profile enrichment', {
+      roomId,
+      currentUserId: req.userId,
+      messageId: payload.id,
+      messageUserId: payload.user_id,
+      attachedProfileId: payload.user?.id ?? null,
+    });
 
     broadcastToRoom(roomId, { type: 'new_message', message: payload });
 
