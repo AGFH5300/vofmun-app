@@ -15,12 +15,15 @@ import ConversationList from "./components/ConversationList";
 import NewConversationModal from "./components/NewConversationModal";
 import ConversationDetailsModal from "./components/ConversationDetailsModal";
 import {
+  CheckCircle2,
   CalendarDays,
   ChevronDown,
   CircleUser,
+  FileText,
   Folder,
   Image,
   Laugh,
+  Loader2,
   MoreVertical,
   ChartNoAxesColumn,
   Plus,
@@ -82,6 +85,16 @@ type AttachmentOption = {
   icon: React.ComponentType<{ className?: string; strokeWidth?: number | string }>;
   color: string;
   action?: () => void;
+};
+
+type PendingAttachmentItem = {
+  id: string;
+  original_name: string;
+  size_bytes: number;
+  mime_type: string;
+  status: "uploading" | "uploaded" | "error";
+  attachment?: MessageAttachmentInput;
+  error?: string;
 };
 
 const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
@@ -153,6 +166,7 @@ const ChatShell: React.FC = () => {
     incomingRequests,
     acceptFriendRequest,
     declineFriendRequest,
+    openDirectMessageRoomForUser,
     togglePin,
     currentUserId,
     resolveUserDisplay,
@@ -161,7 +175,7 @@ const ChatShell: React.FC = () => {
   const [composer, setComposer] = useState("");
   const [search, setSearch] = useState("");
   const [showNewConversation, setShowNewConversation] = useState(false);
-  const [conversationTab, setConversationTab] = useState<"direct" | "group">("direct");
+  const [conversationTab, setConversationTab] = useState<"direct" | "group" | "friends">("direct");
   const [sidebarWidth, setSidebarWidth] = useState(360);
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -179,9 +193,11 @@ const ChatShell: React.FC = () => {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [shouldScrollOnLoad, setShouldScrollOnLoad] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
-  const [pendingAttachments, setPendingAttachments] = useState<MessageAttachmentInput[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachmentItem[]>([]);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [attachmentUploadError, setAttachmentUploadError] = useState<string | null>(null);
+  const [showAcceptedPrompt, setShowAcceptedPrompt] = useState<{ userId: string; name: string } | null>(null);
+  const [isSendingHi, setIsSendingHi] = useState(false);
   const [showEmojiModal, setShowEmojiModal] = useState(false);
   const [warmEmojiPicker, setWarmEmojiPicker] = useState(false);
   const [activeEmojiIndex, setActiveEmojiIndex] = useState(0);
@@ -496,7 +512,15 @@ const ChatShell: React.FC = () => {
       return;
     }
 
-    setIsUploadingAttachments(true);
+    const queuedItems: PendingAttachmentItem[] = files.map((file) => ({
+      id: crypto.randomUUID(),
+      original_name: file.name,
+      size_bytes: file.size,
+      mime_type: file.type || "application/octet-stream",
+      status: "uploading",
+    }));
+    setPendingAttachments((prev) => [...prev, ...queuedItems]);
+
     const uploadedPaths: { bucket: string; path: string }[] = [];
 
     try {
@@ -509,8 +533,9 @@ const ChatShell: React.FC = () => {
         fileNames: files.map((file) => file.name),
       });
 
-      const uploaded = await Promise.all(
-        files.map(async (file) => {
+      await Promise.all(
+        files.map(async (file, index) => {
+          const pendingId = queuedItems[index].id;
           const sanitized = sanitizeFileName(file.name);
           const path = `${activeRoom.id}/${crypto.randomUUID()}/${sanitized}`;
           const { error } = await supabase.storage.from("chat-attachments").upload(path, file, {
@@ -527,12 +552,17 @@ const ChatShell: React.FC = () => {
               message: error.message,
               name: error.name,
             });
-            throw error;
+            setPendingAttachments((prev) =>
+              prev.map((item) =>
+                item.id === pendingId ? { ...item, status: "error", error: error.message || "Upload failed" } : item,
+              ),
+            );
+            return;
           }
 
           uploadedPaths.push({ bucket: "chat-attachments", path });
 
-          return {
+          const attachment = {
             room_id: activeRoom.id,
             bucket: "chat-attachments",
             path,
@@ -540,10 +570,15 @@ const ChatShell: React.FC = () => {
             mime_type: file.type || "application/octet-stream",
             size_bytes: file.size,
           } as MessageAttachmentInput;
+
+          setPendingAttachments((prev) =>
+            prev.map((item) =>
+              item.id === pendingId ? { ...item, status: "uploaded", attachment, error: undefined } : item,
+            ),
+          );
         }),
       );
 
-      setPendingAttachments((prev) => [...prev, ...uploaded]);
       setShowAttachmentMenu(false);
     } catch (error) {
       console.error("Attachment upload catch", error);
@@ -551,8 +586,6 @@ const ChatShell: React.FC = () => {
         uploadedPaths.map(({ bucket, path }) => supabase.storage.from(bucket).remove([path])),
       );
       setAttachmentUploadError(error instanceof Error ? error.message : "Failed to upload attachments.");
-    } finally {
-      setIsUploadingAttachments(false);
     }
   };
 
@@ -595,9 +628,13 @@ const ChatShell: React.FC = () => {
   };
 
   const handleSend = async () => {
-    if (!activeRoom || (composer.trim().length === 0 && pendingAttachments.length === 0) || isUploadingAttachments) return;
+    const uploadedAttachments = pendingAttachments
+      .filter((item) => item.status === "uploaded" && item.attachment)
+      .map((item) => item.attachment as MessageAttachmentInput);
+
+    if (!activeRoom || (composer.trim().length === 0 && uploadedAttachments.length === 0) || isUploadingAttachments) return;
     sendTyping(activeRoom.id, false);
-    await sendMessage(activeRoom.id, composer, pendingAttachments);
+    await sendMessage(activeRoom.id, composer, uploadedAttachments);
     setComposer("");
     setPendingAttachments([]);
     setAttachmentUploadError(null);
@@ -644,7 +681,12 @@ const ChatShell: React.FC = () => {
   const activeTypingDisplay = roomTypingNames.length ? (
     <TypingIndicator names={roomTypingNames} />
   ) : null;
-  const canSendMessage = (composer.trim().length > 0 || pendingAttachments.length > 0) && !isUploadingAttachments;
+  const hasUploadedPendingAttachments = pendingAttachments.some((item) => item.status === "uploaded");
+  const canSendMessage = (composer.trim().length > 0 || hasUploadedPendingAttachments) && !isUploadingAttachments;
+
+  useEffect(() => {
+    setIsUploadingAttachments(pendingAttachments.some((item) => item.status === "uploading"));
+  }, [pendingAttachments]);
 
   const applyEmojiSuggestion = (emoji: string) => {
     setComposer((value) =>
@@ -866,6 +908,16 @@ const ChatShell: React.FC = () => {
               >
                 <Plus className="h-4 w-4" /> New conversation
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConversationTab("friends");
+                  setShowNewConversation(true);
+                }}
+                className="ml-2 inline-flex items-center gap-2 rounded-xl border border-soft-ivory bg-white px-3 py-2 text-xs font-semibold !text-deep-red shadow-sm hover:border-deep-red/30 hover:bg-soft-ivory"
+              >
+                <Users className="h-4 w-4" /> Friends
+              </button>
             </div>
 
             {incomingRequests.length > 0 && (
@@ -898,6 +950,10 @@ const ChatShell: React.FC = () => {
                       setRespondingId(req.id);
                       try {
                         await acceptFriendRequest(req.id);
+                        setShowAcceptedPrompt({
+                          userId: String(req.sender_id),
+                          name: resolveUserDisplay(req.sender_id, req.sender),
+                        });
                       } finally {
                         setRespondingId(null);
                       }
@@ -948,6 +1004,7 @@ const ChatShell: React.FC = () => {
                             disabled={respondingId === req.id}
                             className="flex-1 rounded-xl bg-[#701e1e] px-3 py-2 text-white shadow-sm hover:bg-[#8b2424] disabled:opacity-60"
                           >
+                            {respondingId === req.id ? <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" /> : null}
                             Accept
                           </button>
                         </div>
@@ -1162,7 +1219,22 @@ const ChatShell: React.FC = () => {
                       <div className="space-y-2 rounded-2xl border border-dashed border-soft-ivory bg-white/80 px-6 py-5">
                         <Users className="mx-auto text-deep-red/40" size={44} />
                         <p className="font-semibold text-deep-red">No messages yet</p>
-                        <p className="text-sm">Say hi 👋</p>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!activeRoom) return;
+                            setIsSendingHi(true);
+                            try {
+                              await sendMessage(activeRoom.id, "hi 👋", []);
+                            } finally {
+                              setIsSendingHi(false);
+                            }
+                          }}
+                          disabled={isSendingHi || isUploadingAttachments}
+                          className="rounded-xl border border-soft-ivory px-4 py-2 text-sm font-semibold text-deep-red hover:bg-soft-ivory disabled:opacity-60"
+                        >
+                          {isSendingHi ? "Sending..." : "Say hi 👋"}
+                        </button>
                       </div>
                     </div>
                   )
@@ -1220,14 +1292,28 @@ const ChatShell: React.FC = () => {
                     }}
                   />
                   {(isUploadingAttachments || pendingAttachments.length > 0 || attachmentUploadError) && (
-                    <div className="mb-2 rounded-xl border border-[#d7d7d7] bg-[#f7f7f7] px-3 py-2 text-xs text-[#4b4f53]">
-                      {isUploadingAttachments ? "Uploading attachments…" : null}
+                    <div className="mb-2 rounded-2xl border border-[#d7d7d7] bg-[#f7f7f7] px-3 py-2 text-xs text-[#4b4f53]">
                       {pendingAttachments.length > 0 ? (
-                        <div className="mt-1 flex flex-wrap gap-1.5">
+                        <div className="space-y-2">
                           {pendingAttachments.map((attachment) => (
-                            <span key={attachment.path} className="rounded-full bg-white px-2 py-1 text-[11px]">
-                              {attachment.original_name} · {formatSize(attachment.size_bytes)}
-                            </span>
+                            <div key={attachment.id} className="flex items-center gap-3 rounded-xl border border-black/10 bg-white px-3 py-2">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#efe3dc] text-deep-red">
+                                <FileText className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs font-semibold text-almost-black-green">{attachment.original_name}</p>
+                                <p className="text-[11px] text-almost-black-green/60">
+                                  {formatSize(attachment.size_bytes)} • {attachment.mime_type.split("/")[1] || attachment.mime_type}
+                                </p>
+                              </div>
+                              {attachment.status === "uploading" ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-almost-black-green/60" />
+                              ) : attachment.status === "uploaded" ? (
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                              ) : (
+                                <span className="text-[11px] font-semibold text-deep-red">Error</span>
+                              )}
+                            </div>
                           ))}
                         </div>
                       ) : null}
@@ -1403,6 +1489,37 @@ const ChatShell: React.FC = () => {
           initialTab={conversationTab}
           onClose={() => setShowNewConversation(false)}
         />
+        {showAcceptedPrompt && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 px-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+              <p className="text-lg font-semibold text-deep-red">You’re now connected.</p>
+              <p className="mt-1 text-sm text-almost-black-green/70">Start a chat with your new friend?</p>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="rounded-xl border border-soft-ivory px-3 py-2 text-sm font-semibold text-deep-red"
+                  onClick={() => setShowAcceptedPrompt(null)}
+                >
+                  Maybe later
+                </button>
+                <button
+                  type="button"
+                  className="rounded-xl bg-deep-red px-3 py-2 text-sm font-semibold text-white"
+                  onClick={async () => {
+                    const room = await openDirectMessageRoomForUser(showAcceptedPrompt.userId);
+                    if (room) {
+                      await selectRoom(room);
+                    }
+                    setShowAcceptedPrompt(null);
+                  }}
+                >
+                  Start chat
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <ConversationDetailsModal
           room={activeRoom}
           open={showDetails}

@@ -14,10 +14,8 @@ import { useChat } from '../context/ChatContext';
 interface Props {
   open: boolean;
   onClose: () => void;
-  initialTab?: 'direct' | 'group';
+  initialTab?: 'direct' | 'group' | 'friends';
 }
-
-type DirectTab = 'direct' | 'contacts';
 
 const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'direct' }) => {
   const {
@@ -35,8 +33,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     selectRoom,
   } = useChat();
 
-  const [tab, setTab] = useState<'direct' | 'group'>(initialTab);
-  const [directTab, setDirectTab] = useState<DirectTab>('direct');
+  const [tab, setTab] = useState<'direct' | 'group' | 'friends'>(initialTab);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -57,7 +54,6 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
   useEffect(() => {
     if (open) {
       setTab(initialTab);
-      setDirectTab('direct');
       void refreshFriendRequests();
       return;
     }
@@ -77,7 +73,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
   useEffect(() => {
     const handler = setTimeout(async () => {
-      const shouldSearchInCurrentTab = tab === 'group' || (tab === 'direct' && directTab === 'direct');
+      const shouldSearchInCurrentTab = tab === 'group' || tab === 'direct';
       if (!open || !shouldSearchInCurrentTab || !canSearch) {
         setResults([]);
         setError(null);
@@ -100,7 +96,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     }, 250);
 
     return () => clearTimeout(handler);
-  }, [canSearch, directTab, open, searchUsers, tab, trimmedQuery]);
+  }, [canSearch, open, searchUsers, tab, trimmedQuery]);
 
   const relationshipState = useMemo(
     () =>
@@ -253,54 +249,17 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
               >
                 Group
               </button>
+              <button
+                type="button"
+                onClick={() => setTab('friends')}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === 'friends' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+              >
+                Friends
+              </button>
             </div>
 
             {tab === 'direct' ? (
               <div className="space-y-4">
-                <div className="inline-flex rounded-xl border border-soft-ivory bg-warm-light-grey/40 p-1">
-                  <button
-                    type="button"
-                    onClick={() => setDirectTab('direct')}
-                    className={`rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] ${directTab === 'direct' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-                  >
-                    Discover
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDirectTab('contacts')}
-                    className={`rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] ${directTab === 'contacts' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-                  >
-                    Contacts
-                  </button>
-                </div>
-
-                {directTab === 'contacts' ? (
-                  <div className="space-y-2 rounded-2xl border border-soft-ivory bg-warm-light-grey/35 p-3">
-                    <p className="text-sm font-semibold text-deep-red">Connected contacts</p>
-                    {connectedContacts.length === 0 ? (
-                      <p className="text-sm text-almost-black-green/60">You do not have any accepted connections yet.</p>
-                    ) : (
-                      connectedContacts.map((contact) => (
-                        <div key={contact.userId} className="flex items-center justify-between rounded-xl border border-soft-ivory bg-white px-3 py-2">
-                          <div className="flex items-center gap-3">
-                            <UserAvatar user={{ id: contact.userId, full_name: contact.name, ...(contact.user || {}) }} size={36} />
-                            <p className="text-sm font-semibold text-deep-red">{contact.name}</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleStartChat({ id: contact.userId, full_name: contact.name })}
-                            disabled={openingChatFor === contact.userId}
-                            className="inline-flex items-center gap-2 rounded-xl background-deep-red px-3 py-2 text-xs font-semibold text-white hover:bg-deep-red/90 disabled:cursor-wait disabled:opacity-70"
-                          >
-                            {openingChatFor === contact.userId ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCirclePlus className="h-4 w-4" />}
-                            Start chat
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                ) : (
-                  <>
                     <div className="relative">
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
                       <input
@@ -434,7 +393,30 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                         </div>
                       );
                     })}
-                  </>
+              </div>
+            ) : tab === 'friends' ? (
+              <div className="space-y-2 rounded-2xl border border-soft-ivory bg-warm-light-grey/35 p-3">
+                <p className="text-sm font-semibold text-deep-red">Friends</p>
+                {connectedContacts.length === 0 ? (
+                  <p className="text-sm text-almost-black-green/60">You do not have any accepted friends yet.</p>
+                ) : (
+                  connectedContacts.map((contact) => (
+                    <div key={contact.userId} className="flex items-center justify-between rounded-xl border border-soft-ivory bg-white px-3 py-2">
+                      <div className="flex items-center gap-3">
+                        <UserAvatar user={{ id: contact.userId, full_name: contact.name, ...(contact.user || {}) }} size={36} />
+                        <p className="text-sm font-semibold text-deep-red">{contact.name}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleStartChat({ id: contact.userId, full_name: contact.name })}
+                        disabled={openingChatFor === contact.userId}
+                        className="inline-flex items-center gap-2 rounded-xl background-deep-red px-3 py-2 text-xs font-semibold text-white hover:bg-deep-red/90 disabled:cursor-wait disabled:opacity-70"
+                      >
+                        {openingChatFor === contact.userId ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCirclePlus className="h-4 w-4" />}
+                        Start chat
+                      </button>
+                    </div>
+                  ))
                 )}
               </div>
             ) : (
