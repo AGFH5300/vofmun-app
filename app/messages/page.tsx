@@ -889,14 +889,9 @@ const ChatShell: React.FC = () => {
 
         <section className="surface-card flex h-[calc(100vh-190px)] min-h-[640px] min-w-0 overflow-hidden">
           <aside className="flex h-full flex-col overflow-hidden border-r border-soft-ivory" style={{ width: `${sidebarWidth}px` }}>
-            <div className="border-b border-soft-ivory px-5 py-4">
-              <p className="text-xs uppercase tracking-[0.28em] text-almost-black-green/60">
-                Conversations
-              </p>
-              <p className="text-lg font-semibold text-deep-red">
-                {rooms.length} total conversation{rooms.length>1?"s":""}
-              </p>
-            </div>
+            <p className="text-xl font-bold text-almost-black-green/60 pt-4 px-5">
+              Chats
+            </p>
 
             <div className="border-b border-soft-ivory px-5 py-4">
               <div className="relative">
