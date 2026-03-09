@@ -31,7 +31,7 @@ interface NavItem {
 }
 
 const CustomNav: React.FC<CustomNavProps> = () => {
-  const { user: currentUser, logout } = useSession();
+  const { user: currentUser, authReady, isAuthenticated, logout } = useSession();
   const isMobile = useMobile();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
@@ -41,7 +41,17 @@ const CustomNav: React.FC<CustomNavProps> = () => {
     let active = true;
 
       const fetchPending = async () => {
-        if (!currentUser) {
+        console.debug("[CustomNavDebug] pending_fetch_guard", {
+          authReady,
+          isAuthenticated,
+          hasUser: Boolean(currentUser),
+        });
+
+        if (!authReady) {
+          return;
+        }
+
+        if (!isAuthenticated || !currentUser) {
           if (active) setPendingRequests(0);
           return;
         }
@@ -89,6 +99,12 @@ const CustomNav: React.FC<CustomNavProps> = () => {
       await fetchPending();
     };
 
+    if (!authReady || !isAuthenticated) {
+      return () => {
+        active = false;
+      };
+    }
+
     load();
 
     const handleVisibility = () => {
@@ -107,7 +123,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("focus", handleVisibility);
     };
-  }, [currentUser]);
+  }, [authReady, currentUser, isAuthenticated]);
 
   const navigationItems: NavItem[] = useMemo(
     () => [
@@ -153,8 +169,6 @@ const CustomNav: React.FC<CustomNavProps> = () => {
     return `${currentUser.firstname} ${currentUser.lastname}`;
   };
 
-  const brandDarkRed = "#701e1e";
-  const serifHeadingFont = "var(--font-dm-serif-display, 'DM Serif Display', serif)";
   const sansFontFamily = "var(--font-dm-sans, 'DM Sans', 'Segoe UI', sans-serif)";
 
   const brand = (
