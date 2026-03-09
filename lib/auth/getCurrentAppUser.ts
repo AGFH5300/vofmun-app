@@ -1,6 +1,5 @@
 import supabase from "@/lib/supabase";
 import { AppUser, AppUserRole } from "@/db/types";
-import { createClient } from "@supabase/supabase-js";
 
 const DEFAULT_RESO_PERMS = {
   "update:reso": [],
@@ -10,23 +9,6 @@ const DEFAULT_RESO_PERMS = {
 };
 
 const normalizeEmail = (email?: string | null) => (email || "").trim().toLowerCase();
-
-function createAuthedDbClient(accessToken: string) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-  return createClient(url, anon, {
-    global: {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    },
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      storageKey: "sb-vofmun-db-only", 
-    },
-  });
-}
 
 export async function getCurrentAppUser() {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -38,9 +20,10 @@ export async function getCurrentAppUser() {
   }
 
   const authUser = session.user;
-  const accessToken = session.access_token;
-
-  const db = createAuthedDbClient(accessToken);
+  console.debug("[getCurrentAppUserDebug] using_shared_supabase_singleton", {
+    hasAccessToken: Boolean(session.access_token),
+  });
+  const db = supabase;
   
   const { data: existing, error: existingError } = await (db as any)
     .from("app_users")
