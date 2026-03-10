@@ -5,7 +5,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { EmojiClickData } from "emoji-picker-react";
-import emojiDataset from "emoji-picker-react/dist/data/emojis-en";
+import emojiDataset from "emoji-picker-react/dist/data/emojis-en.js";
 import { ParticipantRoute } from "@/components/protectedroute";
 import { ChatProvider, useChat } from "./context/ChatContext";
 import MessageBubble from "./components/MessageBubble";
