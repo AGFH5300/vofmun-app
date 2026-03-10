@@ -12,6 +12,17 @@ import { Eye, EyeOff, KeyRound } from 'lucide-react';
 type SessionStatus = 'verifying' | 'ready' | 'invalid';
 type RecoveryFlowType = 'recovery' | 'invite';
 
+const withTimeout = async <T,>(operation: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> => {
+  return Promise.race([
+    operation,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => {
+        reject(new Error(timeoutMessage));
+      }, timeoutMs);
+    }),
+  ]);
+};
+
 const ResetPasswordPage = () => {
   const [status, setStatus] = React.useState<SessionStatus>('verifying');
   const [password, setPassword] = React.useState('');
@@ -173,8 +184,18 @@ const ResetPasswordPage = () => {
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.debug('[ResetPasswordDebug] submit:start', {
+      flowType,
+      updatingBeforeSubmit: updating,
+    });
     setError('');
     setSuccess('');
+
+    const { data: sessionBeforeSubmit } = await supabase.auth.getSession();
+    console.debug('[ResetPasswordDebug] submit:session_state', {
+      flowType,
+      hasSessionBeforeSubmit: Boolean(sessionBeforeSubmit.session),
+    });
 
     const trimmedPassword = password.trim();
     const trimmedConfirmPassword = confirmPassword.trim();
@@ -189,14 +210,39 @@ const ResetPasswordPage = () => {
       return;
     }
 
+    console.debug('[ResetPasswordDebug] submit:validation_passed', {
+      flowType,
+      passwordLength: trimmedPassword.length,
+    });
+
+    console.debug('[ResetPasswordDebug] submit:updating_state', {
+      flowType,
+      nextUpdatingState: true,
+    });
     setUpdating(true);
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: trimmedPassword,
+      console.debug('[ResetPasswordDebug] submit:updateUser:start', {
+        flowType,
+      });
+      const { error: updateError } = await withTimeout(
+        supabase.auth.updateUser({
+          password: trimmedPassword,
+        }),
+        12000,
+        'Updating password timed out. Please try again.'
+      );
+
+      console.debug('[ResetPasswordDebug] submit:updateUser:result', {
+        flowType,
+        hasError: Boolean(updateError),
       });
 
       if (updateError) {
+        console.debug('[ResetPasswordDebug] submit:updateUser:error', {
+          flowType,
+          message: updateError.message,
+        });
         setError(updateError.message || 'Could not update password. The link may be expired.');
         return;
       }
@@ -205,14 +251,52 @@ const ResetPasswordPage = () => {
       setPassword('');
       setConfirmPassword('');
 
-      setTimeout(async () => {
-        await supabase.auth.signOut();
-        router.push('/login');
-      }, 1800);
+      console.debug('[ResetPasswordDebug] submit:signOut:start', {
+        flowType,
+      });
+      try {
+        const signOutResult = await withTimeout(
+          supabase.auth.signOut(),
+          5000,
+          'Signing out timed out after password reset.'
+        );
+        console.debug('[ResetPasswordDebug] submit:signOut:result', {
+          flowType,
+          hasError: Boolean(signOutResult.error),
+          errorMessage: signOutResult.error?.message,
+        });
+      } catch (signOutError) {
+        console.debug('[ResetPasswordDebug] submit:signOut:result', {
+          flowType,
+          hasError: true,
+          errorMessage: signOutError instanceof Error ? signOutError.message : String(signOutError),
+        });
+      }
+
+      console.debug('[ResetPasswordDebug] submit:redirect:start', {
+        flowType,
+      });
+      router.replace('/login');
     } catch (err) {
+      console.debug('[ResetPasswordDebug] submit:updateUser:error', {
+        flowType,
+        message: err instanceof Error ? err.message : String(err),
+      });
       console.error('Reset password error:', err);
-      setError('An unexpected error occurred while updating your password. Please try again.');
+      const timeoutErrorMessage = err instanceof Error ? err.message : '';
+      if (timeoutErrorMessage.includes('timed out')) {
+        setError(timeoutErrorMessage);
+      } else {
+        setError('An unexpected error occurred while updating your password. Please try again.');
+      }
     } finally {
+      console.debug('[ResetPasswordDebug] submit:updating_state', {
+        flowType,
+        nextUpdatingState: false,
+      });
+      console.debug('[ResetPasswordDebug] submit:finally', {
+        flowType,
+      });
       setUpdating(false);
     }
   };
@@ -268,6 +352,7 @@ const ResetPasswordPage = () => {
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
                       placeholder="Enter new password"
                       className="w-full rounded-xl border border-[#e5e4e3] bg-[#f2f2f2] px-4 py-3 pr-12 text-[#1C1C1C] shadow-[0_8px_18px_-12px_rgba(139,36,36,0.6)] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-[#8B2424] focus:ring-4 focus:ring-[#8B2424]/30"
                       value={password}
@@ -288,6 +373,7 @@ const ResetPasswordPage = () => {
                   <div className="relative">
                     <input
                       type={showConfirmPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
                       placeholder="Confirm new password"
                       className="w-full rounded-xl border border-[#e5e4e3] bg-[#f2f2f2] px-4 py-3 pr-12 text-[#1C1C1C] shadow-[0_8px_18px_-12px_rgba(139,36,36,0.6)] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-[#8B2424] focus:ring-4 focus:ring-[#8B2424]/30"
                       value={confirmPassword}
