@@ -3,16 +3,18 @@
 'use client';
 
 import React, {
+  useCallback,
   createContext,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   ReactNode,
 } from "react";
 import { Admin, Delegate, Chair, Secretariat, UserType } from "@/db/types";
 import Cookies from "js-cookie";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import supabase from "@/lib/supabase";
 import { getCurrentAppUser } from "@/lib/auth/getCurrentAppUser";
 import { mapAppUserToSessionUser } from "@/lib/auth/mapAppUserToSessionUser";
@@ -37,9 +39,31 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const [isSessionHydrated, setIsSessionHydrated] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+  const appUserResolutionInFlightRef = useRef<Promise<UserType | null> | null>(null);
+  const isResetPasswordRoute = pathname === "/reset-password";
+
+  const resolveAppUser = useCallback(async (): Promise<UserType | null> => {
+    if (!appUserResolutionInFlightRef.current) {
+      appUserResolutionInFlightRef.current = (async () => {
+        const { appUser } = await getCurrentAppUser();
+        return appUser ? mapAppUserToSessionUser(appUser) : null;
+      })().finally(() => {
+        appUserResolutionInFlightRef.current = null;
+      });
+    }
+
+    return appUserResolutionInFlightRef.current;
+  }, []);
 
   useEffect(() => {
     let active = true;
+    const shouldBypassResetPasswordHydration = isResetPasswordRoute;
+
+    console.debug(`${SESSION_DEBUG_PREFIX} route_context`, {
+      pathname,
+      bypassResetPasswordHydration: shouldBypassResetPasswordHydration,
+    });
 
     const hydrateSession = async () => {
       let hydrationAuthenticated = false;
@@ -88,16 +112,24 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
           console.debug(`${SESSION_DEBUG_PREFIX} hydrate:auth_session_present`, {
             userId: sessionData.session.user?.id,
           });
-          const { appUser } = await getCurrentAppUser();
+
+          if (shouldBypassResetPasswordHydration) {
+            hydrationAuthenticated = Boolean(sessionData.session.user);
+            console.debug(`${SESSION_DEBUG_PREFIX} hydrate:app_user_resolution_skipped`, {
+              reason: "reset-password-route",
+            });
+            return;
+          }
+
+          const mappedUser = await resolveAppUser();
 
           if (!active) return;
 
-          if (!appUser) {
+          if (!mappedUser) {
             console.debug(`${SESSION_DEBUG_PREFIX} hydrate:app_user_missing`);
             setUser(null);
             Cookies.remove("user");
           } else {
-            const mappedUser = mapAppUserToSessionUser(appUser);
             hydrationAuthenticated = true;
             setUser(mappedUser);
             Cookies.set("user", JSON.stringify(mappedUser));
@@ -149,15 +181,28 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         setIsSessionHydrated(false);
       }
 
+      if (
+        shouldBypassResetPasswordHydration &&
+        (event === 'INITIAL_SESSION' || event === 'SIGNED_IN')
+      ) {
+        console.debug(`${SESSION_DEBUG_PREFIX} auth_state_change:app_user_resolution_skipped`, {
+          pathname,
+          event,
+          bypassResetPasswordHydration: shouldBypassResetPasswordHydration,
+        });
+        setAuthReady(true);
+        setIsSessionHydrated(true);
+        return;
+      }
+
       try {
-        const { appUser } = await getCurrentAppUser();
+        const mappedUser = await resolveAppUser();
         if (!active) return;
 
-        if (!appUser) {
+        if (!mappedUser) {
           setUser(null);
           Cookies.remove("user");
         } else {
-          const mappedUser = mapAppUserToSessionUser(appUser);
           setUser(mappedUser);
           Cookies.set("user", JSON.stringify(mappedUser));
         }
@@ -183,7 +228,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       active = false;
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [isResetPasswordRoute, pathname, resolveAppUser]);
 
   const login = (nextUser: UserType) => {
     console.debug(`${SESSION_DEBUG_PREFIX} login`, { id: nextUser.id, role: nextUser.role });
