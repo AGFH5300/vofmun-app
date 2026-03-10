@@ -197,6 +197,10 @@ const mergeMessageMeta = (existingMeta: unknown, incomingMeta: unknown) => {
   };
 };
 
+function toComparableId(value: string | number | null | undefined): string {
+  return String(value ?? '');
+}
+
 
 export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [rooms, setRooms] = useState<RoomWithDetails[]>([]);
@@ -276,7 +280,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           : room
       )
     );
-  }, [toComparableId]);
+  }, []);
 
   const incrementRoomUnreadCount = useCallback((roomId: string) => {
     const normalizedRoomId = toComparableId(roomId);
@@ -299,7 +303,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           : room
       )
     );
-  }, [toComparableId]);
+  }, []);
 
   const fetchWithTimeout = useCallback(async (input: RequestInfo | URL, init?: RequestInit, timeoutMs = BOOTSTRAP_FETCH_TIMEOUT_MS) => {
     const controller = new AbortController();
@@ -313,8 +317,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       window.clearTimeout(timeoutId);
     }
   }, []);
-
-  const toComparableId = useCallback((value: string | number | null | undefined) => String(value ?? ''), []);
 
   const fetchAndCacheUsers = useCallback(async (ids: string[]) => {
     const uniqueIds = Array.from(new Set(ids.map((id) => String(id)).filter(Boolean)));
@@ -1060,7 +1062,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
       }
     },
-    [incrementRoomUnreadCount, scheduleReceiptsForMessages, toComparableId]
+    [incrementRoomUnreadCount, scheduleReceiptsForMessages]
   );
 
   const connectSocket = useCallback(() => {
