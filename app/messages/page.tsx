@@ -169,6 +169,7 @@ const ChatShell: React.FC = () => {
     onlineUsers,
     isConnecting,
     initialChatReady,
+    bootstrapProgress,
     friendRequests,
     incomingRequests,
     acceptFriendRequest,
@@ -877,30 +878,60 @@ const ChatShell: React.FC = () => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const storedWidth = window.localStorage.getItem("messagesSidebarWidth");
+    const storageKey = "vofmun.messages.sidebar.width";
+    const storedWidth = window.localStorage.getItem(storageKey);
+    console.debug("[MessagesSidebarDebug] restore read value", { storageKey, storedWidth });
+
     const parsed = Number(storedWidth);
     if (Number.isFinite(parsed)) {
-      setSidebarWidth(clampSidebarWidth(parsed));
+      const clamped = clampSidebarWidth(parsed);
+      setSidebarWidth(clamped);
+      console.debug("[MessagesSidebarDebug] applied restored value", { parsed, clamped });
     }
+
     hasLoadedSidebarWidthRef.current = true;
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!hasLoadedSidebarWidthRef.current) return;
-    window.localStorage.setItem("messagesSidebarWidth", String(sidebarWidth));
+
+    const storageKey = "vofmun.messages.sidebar.width";
+    window.localStorage.setItem(storageKey, String(sidebarWidth));
+    console.debug("[MessagesSidebarDebug] saved width", { storageKey, sidebarWidth });
   }, [sidebarWidth]);
 
   const showInitialLoader = !initialChatReady || !hasInitialLoaderMinElapsed;
 
   if (showInitialLoader) {
+    const progressPercent = Math.min(100, Math.max(0, bootstrapProgress.percent));
+
     return (
       <div className="page-shell">
         <div className="page-maxwidth">
-          <section className="surface-card flex min-h-[calc(100vh-120px)] items-center justify-center">
-            <div className="text-center">
-              <Loader2 className="mx-auto h-8 w-8 animate-spin text-deep-red" />
-              <p className="mt-3 text-sm font-semibold text-deep-red">Loading VOFMUN ONE chats…</p>
+          <section className="surface-card flex min-h-[calc(100vh-120px)] items-center justify-center px-6">
+            <div className="w-full max-w-xl">
+              <p className="text-center text-sm font-semibold text-deep-red">Loading VOFMUN ONE chats…</p>
+              <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-soft-ivory">
+                <div
+                  className="h-full rounded-full bg-deep-red transition-[width] duration-300 ease-out"
+                  style={{ width: `${progressPercent}%` }}
+                  role="progressbar"
+                  aria-label="Chat bootstrap progress"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progressPercent}
+                />
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 text-xs text-almost-black-green/70">
+                <span>{bootstrapProgress.label}</span>
+                <span className="font-semibold text-deep-red">{progressPercent}%</span>
+              </div>
+              {bootstrapProgress.totalRooms > 0 ? (
+                <p className="mt-1 text-xs text-almost-black-green/60">
+                  Room preload: {bootstrapProgress.preloadedRooms}/{bootstrapProgress.totalRooms}
+                </p>
+              ) : null}
             </div>
           </section>
         </div>
@@ -1079,20 +1110,22 @@ const ChatShell: React.FC = () => {
             </div>
           </aside>
 
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            onMouseDown={(event) => {
-              event.preventDefault();
-              setIsDraggingDivider(true);
-            }}
-            className="group relative hidden w-2 cursor-col-resize bg-transparent lg:block"
-          >
-            <span
-              className={`absolute inset-y-0 left-1/2 w-2 -translate-x-1/2 rounded-full transition ${
-                isDraggingDivider ? "bg-deep-red/55" : "bg-soft-ivory group-hover:bg-deep-red/35"
-              }`}
-            />
+          <div role="separator" aria-orientation="vertical" className="relative hidden w-0 flex-none lg:block">
+            <button
+              type="button"
+              aria-label="Resize chat sidebar"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                setIsDraggingDivider(true);
+              }}
+              className="group absolute inset-y-0 left-1/2 w-2 -translate-x-1/2 cursor-col-resize bg-transparent p-0"
+            >
+              <span
+                className={`absolute inset-y-0 left-0 w-full rounded-full transition ${
+                  isDraggingDivider ? "bg-deep-red/55" : "bg-soft-ivory group-hover:bg-deep-red/35"
+                }`}
+              />
+            </button>
           </div>
 
           <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
