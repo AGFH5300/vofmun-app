@@ -7,7 +7,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "@/app/context/sessionContext";
 import { useMobile } from "@/hooks/use-mobile";
-import { withBrowserAuthHeaders } from "@/lib/auth/browserAuthFetch";
 import {
   Home,
   FileText,
@@ -32,103 +31,42 @@ interface NavItem {
 }
 
 const CustomNav: React.FC<CustomNavProps> = () => {
-  const { user: currentUser, authReady, isAuthenticated, logout } = useSession();
+  const { user: currentUser, logout } = useSession();
   const isMobile = useMobile();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
-  const [pendingRequests, setPendingRequests] = useState(0);
+  const [messageUnreadCount, setMessageUnreadCount] = useState(0);
 
   useEffect(() => {
-    let active = true;
-
-      const fetchPending = async () => {
-        console.debug("[CustomNavDebug] pending_fetch_guard", {
-          authReady,
-          isAuthenticated,
-          hasUser: Boolean(currentUser),
-        });
-
-        if (!authReady) {
-          return;
-        }
-
-        if (!isAuthenticated || !currentUser) {
-          if (active) setPendingRequests(0);
-          return;
-        }
-
-        try {
-          const requestInit = await withBrowserAuthHeaders(undefined, "CustomNav.pending");
-          const hasAuthorizationHeader = new Headers(requestInit.headers).has("Authorization");
-          console.debug("[CustomNavDebug] pending_fetch_auth", {
-            hasAuthorizationHeader,
-          });
-
-          const response = await fetch("/api/chat/friend-requests/pending", requestInit);
-
-          if (!response.ok) {
-            const errorText = await response.text().catch(() => null);
-            console.error("[customnav] failed to load pending requests", {
-              status: response.status,
-              body: errorText,
-            });
-            if (active) setPendingRequests(0);
-            return;
-          }
-
-          const payload = (await response.json().catch(() => null)) as
-            | { ok?: boolean; count?: number; requests?: unknown[]; error?: string }
-            | null;
-
-          if (!payload || payload.ok === false) {
-            console.error("[customnav] failed to load pending requests", payload);
-            if (active) setPendingRequests(0);
-            return;
-          }
-
-          const count =
-            typeof payload.count === "number"
-              ? payload.count
-              : Array.isArray(payload.requests)
-              ? payload.requests.length
-              : 0;
-
-          if (active) setPendingRequests(count);
-        } catch (error) {
-          console.error("[customnav] failed to load pending requests", error);
-          if (active) setPendingRequests(0);
-        }
-      };
-
-    const load = async () => {
-      await fetchPending();
+    if (typeof window === "undefined") return;
+    const readUnread = () => {
+      const raw = window.localStorage.getItem("vofmun.messages.unreadTotal");
+      const parsed = Number(raw || "0");
+      const count = Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+      setMessageUnreadCount(count);
+      console.debug("[CustomNavDebug] messages_unread_sync", { count, raw });
     };
 
-    if (!authReady || !isAuthenticated) {
-      return () => {
-        active = false;
-      };
-    }
-
-    load();
-
-    const handleVisibility = () => {
-      if (!document.hidden) {
-        fetchPending();
+    const onUnreadUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<{ totalUnreadCount?: number }>;
+      const fromEvent = Number(customEvent.detail?.totalUnreadCount ?? NaN);
+      if (Number.isFinite(fromEvent)) {
+        const count = Math.max(0, Math.floor(fromEvent));
+        setMessageUnreadCount(count);
+        console.debug("[CustomNavDebug] messages_unread_event", { count });
+        return;
       }
+      readUnread();
     };
 
-    const interval = setInterval(fetchPending, 30000);
-    document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("focus", handleVisibility);
-
+    readUnread();
+    window.addEventListener("vofmun:messages-unread-updated", onUnreadUpdated as EventListener);
+    window.addEventListener("storage", readUnread);
     return () => {
-      active = false;
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("focus", handleVisibility);
+      window.removeEventListener("vofmun:messages-unread-updated", onUnreadUpdated as EventListener);
+      window.removeEventListener("storage", readUnread);
     };
-  }, [authReady, currentUser, isAuthenticated]);
+  }, []);
 
   const navigationItems: NavItem[] = useMemo(
     () => [
@@ -204,10 +142,10 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   };
 
   const renderBadge = (name: string) => {
-    if (name !== "Messages" || pendingRequests <= 0) return null;
+    if (name !== "Messages" || messageUnreadCount <= 0) return null;
     return (
       <span className="absolute -right-2 -top-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[0.7rem] font-semibold text-white">
-        {pendingRequests}
+        {messageUnreadCount > 99 ? "99+" : messageUnreadCount}
       </span>
     );
   };
