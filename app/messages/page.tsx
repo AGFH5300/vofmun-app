@@ -51,6 +51,11 @@ const formatDateLabel = (dateString: string) => {
 
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
+const SIDEBAR_MIN_WIDTH = 280;
+const SIDEBAR_MAX_WIDTH = 560;
+
+const clampSidebarWidth = (value: number) => Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, value));
+
 const formatLastSeenLabel = (lastSeen?: string | null) => {
   if (!lastSeen) return "Offline";
   const timestamp = new Date(lastSeen);
@@ -211,6 +216,7 @@ const ChatShell: React.FC = () => {
   const roomPollBackoffRef = useRef(30000);
   const roomsPollInFlightRef = useRef(false);
   const roomsPollBackoffRef = useRef(60000);
+  const hasLoadedSidebarWidthRef = useRef(false);
 
   const filteredRooms = useMemo(() => {
     if (!search.trim()) return rooms;
@@ -797,7 +803,7 @@ const ChatShell: React.FC = () => {
         window.cancelAnimationFrame(frame);
       }
       frame = window.requestAnimationFrame(() => {
-        const next = Math.min(560, Math.max(280, event.clientX - 24));
+        const next = clampSidebarWidth(event.clientX - 24);
         setSidebarWidth(next);
       });
     };
@@ -874,12 +880,14 @@ const ChatShell: React.FC = () => {
     const storedWidth = window.localStorage.getItem("messagesSidebarWidth");
     const parsed = Number(storedWidth);
     if (Number.isFinite(parsed)) {
-      setSidebarWidth(Math.min(560, Math.max(280, parsed)));
+      setSidebarWidth(clampSidebarWidth(parsed));
     }
+    hasLoadedSidebarWidthRef.current = true;
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!hasLoadedSidebarWidthRef.current) return;
     window.localStorage.setItem("messagesSidebarWidth", String(sidebarWidth));
   }, [sidebarWidth]);
 
@@ -1078,10 +1086,10 @@ const ChatShell: React.FC = () => {
               event.preventDefault();
               setIsDraggingDivider(true);
             }}
-            className="group relative hidden w-3 cursor-col-resize bg-transparent lg:block"
+            className="group relative hidden w-2 cursor-col-resize bg-transparent lg:block"
           >
             <span
-              className={`absolute inset-y-0 left-1/2 w-px -translate-x-1/2 transition ${
+              className={`absolute inset-y-0 left-1/2 w-2 -translate-x-1/2 rounded-full transition ${
                 isDraggingDivider ? "bg-deep-red/55" : "bg-soft-ivory group-hover:bg-deep-red/35"
               }`}
             />
