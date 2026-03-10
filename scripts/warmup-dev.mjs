@@ -15,6 +15,7 @@ const HOST = process.env.HOST || "127.0.0.1";
 const BASE = process.env.WARMUP_BASE || `http://${HOST}:${PORT}`;
 
 const MAX_CONCURRENCY = Number(process.env.WARMUP_CONCURRENCY || 6);
+const WARMUP_SKIP_MESSAGES = process.env.WARMUP_SKIP_MESSAGES === "1";
 
 // optional: if you need auth cookies to reach protected endpoints
 // set WARMUP_COOKIE="name=value; name2=value2"
@@ -205,10 +206,14 @@ async function runPool(items, limit, worker) {
 
 (async () => {
   const routes = await discoverRoutes();
+  const filteredRoutes = WARMUP_SKIP_MESSAGES ? routes.filter((route) => route !== "/messages") : routes;
   const expressApiRoutes = discoverExpressApiRoutes();
 
-  console.log(`[warmup] Discovered ${routes.length} route(s).`);
-  routes.forEach((r) => console.log(" •", r));
+  console.log(`[warmup] Discovered ${filteredRoutes.length} route(s).`);
+  if (WARMUP_SKIP_MESSAGES) {
+    console.log("[warmup] Skipping /messages because WARMUP_SKIP_MESSAGES=1");
+  }
+  filteredRoutes.forEach((r) => console.log(" •", r));
 
   console.log(`[warmup] Waiting for ${HOST}:${PORT} ...`);
   await waitForPort(PORT, HOST);
@@ -217,8 +222,8 @@ async function runPool(items, limit, worker) {
   const headers = {};
   if (COOKIE_HEADER) headers["cookie"] = COOKIE_HEADER;
 
-  const apiRoutes = routes.filter((r) => r.startsWith("/api/"));
-  const pageRoutes = routes.filter((r) => !r.startsWith("/api/"));
+  const apiRoutes = filteredRoutes.filter((r) => r.startsWith("/api/"));
+  const pageRoutes = filteredRoutes.filter((r) => !r.startsWith("/api/"));
   const hasExpressRoutes = expressApiRoutes.length > 0;
 
   if (hasExpressRoutes) {
