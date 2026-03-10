@@ -224,11 +224,39 @@ const ChatShell: React.FC = () => {
   const hasSkippedInitialSidebarSaveRef = useRef(false);
   const activeRoomIdDebugRef = useRef<string | null>(null);
 
-  const focusComposerWithoutScroll = () => {
+  const focusComposerWithoutScroll = (reason: string) => {
     const composerElement = composerRef.current;
     if (!composerElement) return;
 
+    console.debug("[MessagesScrollDebug] composer_focus_before", {
+      reason,
+      roomId: activeRoom?.id || null,
+      scrollYBefore: typeof window !== "undefined" ? window.scrollY : null,
+      activeElementBefore:
+        typeof document !== "undefined" && document.activeElement
+          ? {
+              tag: document.activeElement.tagName,
+              id: (document.activeElement as HTMLElement).id || null,
+              name: (document.activeElement as HTMLInputElement).name || null,
+            }
+          : null,
+    });
+
     composerElement.focus({ preventScroll: true });
+
+    console.debug("[MessagesScrollDebug] composer_focus_after", {
+      reason,
+      roomId: activeRoom?.id || null,
+      scrollYAfter: typeof window !== "undefined" ? window.scrollY : null,
+      activeElementAfter:
+        typeof document !== "undefined" && document.activeElement
+          ? {
+              tag: document.activeElement.tagName,
+              id: (document.activeElement as HTMLElement).id || null,
+              name: (document.activeElement as HTMLInputElement).name || null,
+            }
+          : null,
+    });
   };
 
   useEffect(() => {
@@ -244,6 +272,51 @@ const ChatShell: React.FC = () => {
       });
     };
   }, []);
+
+  useEffect(() => {
+    const logResumeState = (trigger: string) => {
+      console.debug("[MessagesResumeDebug] resume_state", {
+        trigger,
+        visibilityState: typeof document !== "undefined" ? document.visibilityState : "unknown",
+        scrollY: typeof window !== "undefined" ? window.scrollY : null,
+        activeRoomId: activeRoom?.id || null,
+        initialChatReady,
+        hasInitialLoaderMinElapsed,
+        showInitialLoader: !initialChatReady || !hasInitialLoaderMinElapsed,
+        isConnecting,
+        activeElement:
+          typeof document !== "undefined" && document.activeElement
+            ? {
+                tag: document.activeElement.tagName,
+                id: (document.activeElement as HTMLElement).id || null,
+                name: (document.activeElement as HTMLInputElement).name || null,
+              }
+            : null,
+      });
+    };
+
+    const onVisibilityChange = () => {
+      logResumeState("visibilitychange");
+    };
+
+    const onFocus = () => {
+      logResumeState("window_focus");
+    };
+
+    const onBlur = () => {
+      logResumeState("window_blur");
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("blur", onBlur);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [activeRoom?.id, hasInitialLoaderMinElapsed, initialChatReady, isConnecting]);
 
   const filteredRooms = useMemo(() => {
     if (!search.trim()) return rooms;
@@ -721,16 +794,30 @@ const ChatShell: React.FC = () => {
   const handleSelectRoom = async (room: RoomWithDetails) => {
     setShowAttachmentMenu(false);
     setShowEmojiModal(false);
-    console.debug("[MessagesScrollDebug] selecting_room", {
+    console.debug("[MessagesScrollDebug] selecting_room_before", {
       roomId: room.id,
       activeBefore: activeRoom?.id || null,
-      scrollY: typeof window !== "undefined" ? window.scrollY : null,
+      scrollYBefore: typeof window !== "undefined" ? window.scrollY : null,
+      activeElementBefore:
+        typeof document !== "undefined" && document.activeElement
+          ? {
+              tag: document.activeElement.tagName,
+              id: (document.activeElement as HTMLElement).id || null,
+              name: (document.activeElement as HTMLInputElement).name || null,
+            }
+          : null,
     });
     await selectRoom(room);
+    console.debug("[MessagesScrollDebug] selecting_room_after", {
+      roomId: room.id,
+      activeAfter: activeRoom?.id || null,
+      scrollYAfterSelect: typeof window !== "undefined" ? window.scrollY : null,
+    });
     window.requestAnimationFrame(() => {
-      focusComposerWithoutScroll();
+      focusComposerWithoutScroll("room_select");
       console.debug("[MessagesScrollDebug] composer_focus_prevent_scroll", {
         roomId: room.id,
+        focusPathRan: true,
         scrollYAfterFocus: typeof window !== "undefined" ? window.scrollY : null,
       });
     });
@@ -769,7 +856,7 @@ const ChatShell: React.FC = () => {
       ),
     );
     window.requestAnimationFrame(() => {
-      focusComposerWithoutScroll();
+      focusComposerWithoutScroll("emoji_apply");
     });
   };
   const attachmentOptions: AttachmentOption[] = [

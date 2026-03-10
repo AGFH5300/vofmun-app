@@ -93,6 +93,9 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
       <div
         role="button"
         tabIndex={0}
+        onMouseDown={(event) => {
+          event.preventDefault();
+        }}
         onContextMenu={(event) => {
           event.preventDefault();
           setContextMenuPosition({ x: event.clientX, y: event.clientY });

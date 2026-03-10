@@ -143,8 +143,11 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      setAuthReady(false);
-      setIsSessionHydrated(false);
+      const shouldHoldRenderGate = event !== 'TOKEN_REFRESHED';
+      if (shouldHoldRenderGate) {
+        setAuthReady(false);
+        setIsSessionHydrated(false);
+      }
 
       try {
         const { appUser } = await getCurrentAppUser();
@@ -162,9 +165,12 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         if (!active) return;
         console.debug(`${SESSION_DEBUG_PREFIX} auth_state_change:profile_error`, {
           error: error instanceof Error ? error.message : String(error),
+          event,
         });
-        setUser(null);
-        Cookies.remove("user");
+        if (shouldHoldRenderGate) {
+          setUser(null);
+          Cookies.remove("user");
+        }
       } finally {
         if (active) {
           setAuthReady(true);

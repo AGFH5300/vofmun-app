@@ -1589,6 +1589,44 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     };
   }, [setRoomUnreadCount]);
 
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const logResumeState = (trigger: string) => {
+      console.debug('[MessagesResumeDebug] chat_context_state', {
+        trigger,
+        visibilityState: document.visibilityState,
+        activeRoomId: activeRoomIdRef.current,
+        initialChatReady,
+        isConnecting,
+        websocketReadyState: wsRef.current?.readyState ?? 'missing',
+      });
+    };
+
+    const onVisibilityChange = () => {
+      logResumeState('visibilitychange');
+    };
+
+    const onFocus = () => {
+      logResumeState('window_focus');
+    };
+
+    const onBlur = () => {
+      logResumeState('window_blur');
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', onBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, [initialChatReady, isConnecting]);
+
   const togglePin = useCallback((roomId: string) => {
     setPinnedRoomIds((prev) => {
       const next = new Set(prev);
