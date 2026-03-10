@@ -77,6 +77,7 @@ const TYPING_REMOTE_EXPIRY_MS = 5000;
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 12000;
 const RECEIPT_DEBOUNCE_MS = 300;
+const BOOTSTRAP_FETCH_TIMEOUT_MS = 12000;
 
 const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 
@@ -230,6 +231,23 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const lastScheduledReadLogKeyRef = useRef<string | null>(null);
   const initialBootstrapStartedRef = useRef(false);
   const initialBootstrapDoneRef = useRef(false);
+  const lastAuthenticatedUserIdRef = useRef<string | null>(null);
+  const refreshRoomsRef = useRef<() => Promise<RoomWithDetails[]>>(async () => []);
+  const refreshFriendRequestsRef = useRef<() => Promise<void>>(async () => {});
+  const refreshRoomMessagesRef = useRef<(roomId: string) => Promise<boolean>>(async () => false);
+
+  const fetchWithTimeout = useCallback(async (input: RequestInfo | URL, init?: RequestInit, timeoutMs = BOOTSTRAP_FETCH_TIMEOUT_MS) => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(input, {
+        ...init,
+        signal: controller.signal,
+      });
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }, []);
 
   const toComparableId = useCallback((value: string | number | null | undefined) => String(value ?? ''), []);
 
@@ -326,7 +344,16 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   );
 
   useEffect(() => {
-    if (!authReady || !isAuthenticated || !user) {
+    if (!authReady) {
+      if (isAuthenticated && user) {
+        return;
+      }
+      setUserId(null);
+      return;
+    }
+
+    if (!isAuthenticated || !user) {
+      lastAuthenticatedUserIdRef.current = null;
       setUserId(null);
       setHasLoadedInitialRooms(false);
       setHasLoadedInitialRoomMessages(false);
@@ -343,12 +370,32 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     const candidate = user.id ? String(user.id) : null;
 
     if (candidate) {
-      setUserId(String(candidate));
+      const normalizedCandidate = String(candidate);
+      if (lastAuthenticatedUserIdRef.current && lastAuthenticatedUserIdRef.current !== normalizedCandidate) {
+        setHasLoadedInitialRooms(false);
+        setHasLoadedInitialRoomMessages(false);
+        setInitialChatReady(false);
+        initialBootstrapStartedRef.current = false;
+        initialBootstrapDoneRef.current = false;
+        console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} user_identity_changed`, {
+          from: lastAuthenticatedUserIdRef.current,
+          to: normalizedCandidate,
+        });
+      }
+      lastAuthenticatedUserIdRef.current = normalizedCandidate;
+      setUserId(normalizedCandidate);
       return;
     }
 
     setUserId(null);
   }, [authReady, isAuthenticated, user]);
+
+  useEffect(() => {
+    console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} ChatProvider mounted`);
+    return () => {
+      console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} ChatProvider unmounted`);
+    };
+  }, []);
 
 
   useEffect(() => {
@@ -395,7 +442,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const refreshRooms = useCallback(async () => {
     if (!userId) return [] as RoomWithDetails[];
     logChatDebug('refreshRooms:start', { userId, endpoint: `${CHAT_API_URL}/api/rooms` });
-    const response = await fetch(`${CHAT_API_URL}/api/rooms`, await withAuthHeaders());
+    const response = await fetchWithTimeout(`${CHAT_API_URL}/api/rooms`, await withAuthHeaders());
     if (!response.ok) {
       logChatDebug('refreshRooms:failed', { status: response.status, statusText: response.statusText });
       return [] as RoomWithDetails[];
@@ -415,11 +462,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
     }
     return enriched;
-  }, [pinnedRoomIds, userId, withAuthHeaders]);
+  }, [fetchWithTimeout, pinnedRoomIds, userId, withAuthHeaders]);
 
   const refreshFriendRequests = useCallback(async () => {
     if (!userId) return;
-    const response = await fetch(`${CHAT_API_URL}/api/friend-requests`, await withAuthHeaders());
+    const response = await fetchWithTimeout(`${CHAT_API_URL}/api/friend-requests`, await withAuthHeaders());
     if (!response.ok) {
       console.error('[ChatContext] failed to load friend requests', response.status, response.statusText);
       return;
@@ -436,7 +483,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     }));
     await fetchAndCacheUsers(normalizedRequests.flatMap((request) => [request.sender_id, request.receiver_id]));
     setFriendRequests(normalizedRequests.map((request) => hydrateFriendRequestUsers(request)));
-  }, [fetchAndCacheUsers, hydrateFriendRequestUsers, userId, withAuthHeaders]);
+  }, [fetchAndCacheUsers, fetchWithTimeout, hydrateFriendRequestUsers, userId, withAuthHeaders]);
 
   const markReceipts = useCallback(
     async (roomId: string, messageIds: string[], markRead = false) => {
@@ -543,7 +590,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const refreshRoomMessages = useCallback(
     async (roomId: string) => {
       if (!userId) return false;
-      const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, await withAuthHeaders());
+      const response = await fetchWithTimeout(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, await withAuthHeaders());
       if (!response.ok) return false;
       const data = (await response.json()) as MessageWithUser[];
       const roomMemberIds = getRoomMemberIds(roomId, roomsRef.current);
@@ -567,8 +614,20 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       });
       return true;
     },
-    [scheduleReceiptsForMessages, userId, withAuthHeaders]
+    [fetchWithTimeout, scheduleReceiptsForMessages, userId, withAuthHeaders]
   );
+
+  useEffect(() => {
+    refreshRoomsRef.current = refreshRooms;
+  }, [refreshRooms]);
+
+  useEffect(() => {
+    refreshFriendRequestsRef.current = refreshFriendRequests;
+  }, [refreshFriendRequests]);
+
+  useEffect(() => {
+    refreshRoomMessagesRef.current = refreshRoomMessages;
+  }, [refreshRoomMessages]);
 
   const sendTyping = useCallback(
     (roomId: string, isTyping: boolean) => {
@@ -992,11 +1051,15 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     const runInitialBootstrap = async () => {
       console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} start`, { userId });
       try {
-        const loadedRooms = await refreshRooms();
+        console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:refreshRooms:start`);
+        const loadedRooms = await refreshRoomsRef.current();
+        console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:refreshRooms:success`, { roomCount: loadedRooms.length });
         if (cancelled) return;
         setHasLoadedInitialRooms(true);
 
-        await refreshFriendRequests();
+        console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:refreshFriendRequests:start`);
+        await refreshFriendRequestsRef.current();
+        console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:refreshFriendRequests:success`);
         if (cancelled) return;
 
         if (loadedRooms.length === 0) {
@@ -1008,25 +1071,32 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
         for (const room of loadedRooms) {
           if (cancelled) return;
-          await refreshRoomMessages(room.id);
+          try {
+            console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:refreshRoomMessages:start`, { roomId: room.id });
+            await refreshRoomMessagesRef.current(room.id);
+            console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:refreshRoomMessages:success`, { roomId: room.id });
+          } catch (roomError) {
+            console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:refreshRoomMessages:error`, {
+              roomId: room.id,
+              error: roomError instanceof Error ? roomError.message : String(roomError),
+            });
+          }
         }
         if (cancelled) return;
 
         setHasLoadedInitialRoomMessages(true);
         initialBootstrapDoneRef.current = true;
         console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} success`, { roomCount: loadedRooms.length });
+        console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:done`, { roomCount: loadedRooms.length });
       } catch (error) {
         if (cancelled) return;
-        initialBootstrapStartedRef.current = false;
-        if (!authReady || !isAuthenticated) {
-          console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} deferred_until_auth`, {
-            error: error instanceof Error ? error.message : String(error),
-          });
-          return;
-        }
         console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} failure`, {
           error: error instanceof Error ? error.message : String(error),
         });
+        setHasLoadedInitialRooms(true);
+        setHasLoadedInitialRoomMessages(true);
+        initialBootstrapDoneRef.current = true;
+        console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:done`, { degraded: true });
       }
     };
 
@@ -1035,7 +1105,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     return () => {
       cancelled = true;
     };
-  }, [authReady, isAuthenticated, refreshFriendRequests, refreshRoomMessages, refreshRooms, userId]);
+  }, [authReady, isAuthenticated, userId]);
 
   useEffect(() => {
     if (initialChatReady) return;
