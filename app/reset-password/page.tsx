@@ -10,6 +10,7 @@ import supabase from '@/lib/supabase';
 import { Eye, EyeOff, KeyRound } from 'lucide-react';
 
 type SessionStatus = 'loading' | 'ready' | 'invalid';
+type RecoveryFlowType = 'recovery' | 'invite';
 
 const ResetPasswordPage = () => {
   const [status, setStatus] = React.useState<SessionStatus>('loading');
@@ -20,6 +21,7 @@ const ResetPasswordPage = () => {
   const [updating, setUpdating] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+  const [flowType, setFlowType] = React.useState<RecoveryFlowType>('recovery');
 
   const router = useRouter();
   const brandDarkRed = '#701e1e';
@@ -36,10 +38,15 @@ const ResetPasswordPage = () => {
       const hashParams = new URLSearchParams(hash);
       const searchParams = new URLSearchParams(window.location.search);
 
-      const type = hashParams.get('type') ?? searchParams.get('type');
+      const type = (hashParams.get('type') ?? searchParams.get('type')) as RecoveryFlowType | null;
       const access_token = hashParams.get('access_token') ?? searchParams.get('access_token');
       const refresh_token = hashParams.get('refresh_token') ?? searchParams.get('refresh_token');
       const code = searchParams.get('code');
+
+      const isRecoveryOrInvite = type === 'recovery' || type === 'invite';
+      if (isRecoveryOrInvite) {
+        setFlowType(type);
+      }
 
       if (code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
@@ -54,9 +61,9 @@ const ResetPasswordPage = () => {
         return;
       }
 
-      if (type !== 'recovery') {
+      if (!isRecoveryOrInvite) {
         setStatus('invalid');
-        setError('This password reset link is invalid. Please request a new recovery email.');
+        setError('This password setup link is invalid. Please request a new password link.');
         return;
       }
 
@@ -73,7 +80,7 @@ const ResetPasswordPage = () => {
 
       if (sessionError) {
         setStatus('invalid');
-        setError(sessionError.message || 'Unable to verify your recovery link. Please request a new one.');
+        setError(sessionError.message || 'Unable to verify your password setup link. Please request a new one.');
         return;
       }
 
@@ -157,7 +164,7 @@ const ResetPasswordPage = () => {
           >
             {status === 'loading' && (
               <div className="rounded-xl border border-[#E5E4E3] bg-[#FFF9F4] p-4 text-sm font-medium text-[#8B2424]">
-                Verifying your recovery link...
+                Verifying your {flowType === 'invite' ? 'account activation' : 'recovery'} link...
               </div>
             )}
 

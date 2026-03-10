@@ -222,6 +222,28 @@ const ChatShell: React.FC = () => {
   const roomsPollBackoffRef = useRef(60000);
   const hasLoadedSidebarWidthRef = useRef(false);
   const hasSkippedInitialSidebarSaveRef = useRef(false);
+  const activeRoomIdDebugRef = useRef<string | null>(null);
+
+  const focusComposerWithoutScroll = () => {
+    const composerElement = composerRef.current;
+    if (!composerElement) return;
+
+    composerElement.focus({ preventScroll: true });
+  };
+
+  useEffect(() => {
+    activeRoomIdDebugRef.current = activeRoom?.id || null;
+  }, [activeRoom?.id]);
+
+  useEffect(() => {
+    console.debug("[MessagesPageDebug] mounted");
+    return () => {
+      console.debug("[MessagesPageDebug] unmounted");
+      console.debug("[MessagesPageDebug] route_leave_cleanup", {
+        activeRoomId: activeRoomIdDebugRef.current,
+      });
+    };
+  }, []);
 
   const filteredRooms = useMemo(() => {
     if (!search.trim()) return rooms;
@@ -706,7 +728,7 @@ const ChatShell: React.FC = () => {
     });
     await selectRoom(room);
     window.requestAnimationFrame(() => {
-      composerRef.current?.focus({ preventScroll: true });
+      focusComposerWithoutScroll();
       console.debug("[MessagesScrollDebug] composer_focus_prevent_scroll", {
         roomId: room.id,
         scrollYAfterFocus: typeof window !== "undefined" ? window.scrollY : null,
@@ -747,7 +769,7 @@ const ChatShell: React.FC = () => {
       ),
     );
     window.requestAnimationFrame(() => {
-      composerRef.current?.focus({ preventScroll: true });
+      focusComposerWithoutScroll();
     });
   };
   const attachmentOptions: AttachmentOption[] = [

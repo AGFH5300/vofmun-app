@@ -255,6 +255,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const refreshRoomMessagesRef = useRef<(roomId: string) => Promise<boolean>>(async () => false);
   const unreadByRoomRef = useRef<Record<string, number>>({});
   const defaultDocumentTitleRef = useRef<string | null>(null);
+  const isMountedRef = useRef(true);
 
   const setRoomUnreadCount = useCallback((roomId: string, count: number) => {
     const normalizedRoomId = toComparableId(roomId);
@@ -476,8 +477,13 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   useEffect(() => {
     console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} ChatProvider mounted`);
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} ChatProvider unmounted`);
+      console.debug('[MessagesPageDebug] route_leave_cleanup_path', {
+        activeRoomId: activeRoomIdRef.current,
+      });
     };
   }, []);
 
@@ -1083,6 +1089,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     wsRef.current = ws;
 
     ws.onopen = async () => {
+      if (!isMountedRef.current) return;
       setIsConnecting(false);
       wsRef.current = ws;
       const accessToken = await getAccessToken();
@@ -1100,6 +1107,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     ws.onmessage = handleSocketMessage;
 
     ws.onclose = () => {
+      if (!isMountedRef.current) return;
       setIsConnecting(false);
       setOnlineUsers(new Set());
       setTypingUsers({});
@@ -1137,6 +1145,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     shouldReconnectRef.current = true;
     connectSocket();
     return () => {
+      console.debug('[MessagesPageDebug] ChatProvider socket cleanup start', {
+        userId,
+        activeRoomId: activeRoomIdRef.current,
+      });
       shouldReconnectRef.current = false;
       if (reconnectTimeout.current) {
         clearTimeout(reconnectTimeout.current);
@@ -1154,7 +1166,16 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       pendingReceiptQueueRef.current = null;
       const socket = wsRef.current;
       wsRef.current = null;
+      if (socket) {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onclose = null;
+        socket.onerror = null;
+      }
       socket?.close();
+      console.debug('[MessagesPageDebug] ChatProvider socket cleanup complete', {
+        userId,
+      });
     };
   }, [connectSocket, userId]);
 
