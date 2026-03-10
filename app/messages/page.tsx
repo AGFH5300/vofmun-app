@@ -53,6 +53,8 @@ const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
 const SIDEBAR_MIN_WIDTH = 280;
 const SIDEBAR_MAX_WIDTH = 560;
+const SIDEBAR_DEFAULT_WIDTH = 360;
+const SIDEBAR_WIDTH_STORAGE_KEY = "vofmun.messages.sidebar.width";
 
 const clampSidebarWidth = (value: number) => Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, value));
 
@@ -184,7 +186,7 @@ const ChatShell: React.FC = () => {
   const [search, setSearch] = useState("");
   const [showNewConversation, setShowNewConversation] = useState(false);
   const [conversationTab, setConversationTab] = useState<"direct" | "group" | "friends">("direct");
-  const [sidebarWidth, setSidebarWidth] = useState(360);
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [respondingId, setRespondingId] = useState<string | null>(null);
@@ -218,6 +220,7 @@ const ChatShell: React.FC = () => {
   const roomsPollInFlightRef = useRef(false);
   const roomsPollBackoffRef = useRef(60000);
   const hasLoadedSidebarWidthRef = useRef(false);
+  const hasSkippedInitialSidebarSaveRef = useRef(false);
 
   const filteredRooms = useMemo(() => {
     if (!search.trim()) return rooms;
@@ -878,15 +881,20 @@ const ChatShell: React.FC = () => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const storageKey = "vofmun.messages.sidebar.width";
-    const storedWidth = window.localStorage.getItem(storageKey);
-    console.debug("[MessagesSidebarDebug] restore read value", { storageKey, storedWidth });
+    console.debug("[MessagesSidebarDebug] restore effect start", { storageKey: SIDEBAR_WIDTH_STORAGE_KEY });
+    const storedWidth = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+    console.debug("[MessagesSidebarDebug] raw stored value", { storageKey: SIDEBAR_WIDTH_STORAGE_KEY, storedWidth });
 
     const parsed = Number(storedWidth);
     if (Number.isFinite(parsed)) {
       const clamped = clampSidebarWidth(parsed);
+      console.debug("[MessagesSidebarDebug] applied restored width", { parsed, clamped });
       setSidebarWidth(clamped);
-      console.debug("[MessagesSidebarDebug] applied restored value", { parsed, clamped });
+    } else {
+      console.debug("[MessagesSidebarDebug] stored width invalid, keeping default", {
+        storageKey: SIDEBAR_WIDTH_STORAGE_KEY,
+        fallbackWidth: SIDEBAR_DEFAULT_WIDTH,
+      });
     }
 
     hasLoadedSidebarWidthRef.current = true;
@@ -894,11 +902,29 @@ const ChatShell: React.FC = () => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!hasLoadedSidebarWidthRef.current) return;
+    if (!hasLoadedSidebarWidthRef.current) {
+      console.debug("[MessagesSidebarDebug] skipped save before restore completed", { sidebarWidth });
+      return;
+    }
 
-    const storageKey = "vofmun.messages.sidebar.width";
-    window.localStorage.setItem(storageKey, String(sidebarWidth));
-    console.debug("[MessagesSidebarDebug] saved width", { storageKey, sidebarWidth });
+    if (!hasSkippedInitialSidebarSaveRef.current) {
+      hasSkippedInitialSidebarSaveRef.current = true;
+      console.debug("[MessagesSidebarDebug] skipped initial save pass to avoid overwriting restored width", {
+        sidebarWidth,
+      });
+      return;
+    }
+
+    window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(sidebarWidth));
+    console.debug("[MessagesSidebarDebug] save write", {
+      storageKey: SIDEBAR_WIDTH_STORAGE_KEY,
+      sidebarWidth,
+    });
+  }, [sidebarWidth]);
+
+
+  useEffect(() => {
+    console.debug("[MessagesSidebarDebug] sidebarWidth state updated", { sidebarWidth });
   }, [sidebarWidth]);
 
   const showInitialLoader = !initialChatReady || !hasInitialLoaderMinElapsed;
@@ -912,9 +938,9 @@ const ChatShell: React.FC = () => {
           <section className="surface-card flex min-h-[calc(100vh-120px)] items-center justify-center px-6">
             <div className="w-full max-w-xl">
               <p className="text-center text-sm font-semibold text-deep-red">Loading VOFMUN ONE chats…</p>
-              <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-soft-ivory">
+              <div className="mt-4 h-3 w-full overflow-hidden rounded-full border border-deep-red/20 bg-[#f4ebe5]">
                 <div
-                  className="h-full rounded-full bg-deep-red transition-[width] duration-300 ease-out"
+                  className="h-full rounded-full bg-[#7b1f1f] shadow-sm transition-[width] duration-300 ease-out"
                   style={{ width: `${progressPercent}%` }}
                   role="progressbar"
                   aria-label="Chat bootstrap progress"
@@ -1110,22 +1136,34 @@ const ChatShell: React.FC = () => {
             </div>
           </aside>
 
-          <div role="separator" aria-orientation="vertical" className="relative hidden w-0 flex-none lg:block">
-            <button
-              type="button"
-              aria-label="Resize chat sidebar"
-              onMouseDown={(event) => {
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize chat sidebar"
+            tabIndex={0}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              setIsDraggingDivider(true);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") {
                 event.preventDefault();
-                setIsDraggingDivider(true);
-              }}
-              className="group absolute inset-y-0 left-1/2 w-2 -translate-x-1/2 cursor-col-resize bg-transparent p-0"
-            >
+                setSidebarWidth((prev) => clampSidebarWidth(prev - 16));
+              }
+              if (event.key === "ArrowRight") {
+                event.preventDefault();
+                setSidebarWidth((prev) => clampSidebarWidth(prev + 16));
+              }
+            }}
+            className="group relative hidden w-0 flex-none outline-none lg:block"
+          >
+            <div className="absolute inset-y-0 left-1/2 w-2 -translate-x-1/2 cursor-col-resize bg-transparent">
               <span
                 className={`absolute inset-y-0 left-0 w-full rounded-full transition ${
                   isDraggingDivider ? "bg-deep-red/55" : "bg-soft-ivory group-hover:bg-deep-red/35"
                 }`}
               />
-            </button>
+            </div>
           </div>
 
           <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
