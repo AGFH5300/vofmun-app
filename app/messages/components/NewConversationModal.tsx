@@ -47,6 +47,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
   const [selected, setSelected] = useState<UserSearchResult[]>([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   const trimmedQuery = query.trim();
   const canSearch = trimmedQuery.length >= 2;
@@ -211,8 +212,32 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
   };
 
   const handleCreateGroup = async () => {
+    setError(null);
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError('Please provide a group name.');
+      return;
+    }
+
     const memberIds = selected.map((u) => u.id);
-    const room = await createGroupRoom({ name: name || 'Untitled group', description, memberIds });
+    if (memberIds.length < 2) {
+      setError('Please select at least 2 participants for a group chat.');
+      return;
+    }
+
+    setIsCreatingGroup(true);
+    console.debug('[GroupCreateDebug] create_group_payload', {
+      name: trimmedName,
+      memberIds,
+      memberCount: memberIds.length,
+    });
+    const room = await createGroupRoom({ name: trimmedName, description: description.trim(), memberIds });
+    setIsCreatingGroup(false);
+    console.debug('[GroupCreateDebug] create_group_result', {
+      roomId: room?.id || null,
+      roomType: room?.room_type || null,
+      selectedMemberIds: memberIds,
+    });
     if (!room) return;
     await selectRoom(room);
     onClose();
@@ -463,7 +488,15 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                 </div>
 
                 <div className="flex justify-end">
-                  <button type="button" onClick={handleCreateGroup} className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-4 py-2 text-sm font-semibold text-white"><Users className="h-4 w-4" />Create group</button>
+                  <button
+                    type="button"
+                    onClick={handleCreateGroup}
+                    disabled={isCreatingGroup}
+                    className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-4 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+                  >
+                    {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+                    {isCreatingGroup ? 'Creating group...' : 'Create group'}
+                  </button>
                 </div>
               </div>
             )}

@@ -180,6 +180,7 @@ const ChatShell: React.FC = () => {
     togglePin,
     currentUserId,
     resolveUserDisplay,
+    totalUnreadCount,
   } = useChat();
 
   const [composer, setComposer] = useState("");
@@ -698,7 +699,19 @@ const ChatShell: React.FC = () => {
   const handleSelectRoom = async (room: RoomWithDetails) => {
     setShowAttachmentMenu(false);
     setShowEmojiModal(false);
+    console.debug("[MessagesScrollDebug] selecting_room", {
+      roomId: room.id,
+      activeBefore: activeRoom?.id || null,
+      scrollY: typeof window !== "undefined" ? window.scrollY : null,
+    });
     await selectRoom(room);
+    window.requestAnimationFrame(() => {
+      composerRef.current?.focus({ preventScroll: true });
+      console.debug("[MessagesScrollDebug] composer_focus_prevent_scroll", {
+        roomId: room.id,
+        scrollYAfterFocus: typeof window !== "undefined" ? window.scrollY : null,
+      });
+    });
   };
 
   const timeline = useMemo(() => {
@@ -734,7 +747,7 @@ const ChatShell: React.FC = () => {
       ),
     );
     window.requestAnimationFrame(() => {
-      composerRef.current?.focus();
+      composerRef.current?.focus({ preventScroll: true });
     });
   };
   const attachmentOptions: AttachmentOption[] = [
@@ -973,6 +986,11 @@ const ChatShell: React.FC = () => {
             <div className="flex items-center justify-between gap-2 px-5 pt-4">
               <p className="text-xl font-bold text-almost-black-green/60">
                 Chats
+                {totalUnreadCount > 0 ? (
+                  <span className="ml-2 inline-flex min-w-6 items-center justify-center rounded-full bg-deep-red px-2 py-0.5 text-xs font-semibold text-white">
+                    {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
+                  </span>
+                ) : null}
               </p>
               <div className="flex items-center gap-1">
                 <button
@@ -989,7 +1007,7 @@ const ChatShell: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setConversationTab("friends");
+                    setConversationTab("group");
                     setShowNewConversation(true);
                   }}
                   className="rounded-lg border border-soft-ivory p-2 text-almost-black-green/60 hover:text-deep-red"
@@ -1144,6 +1162,13 @@ const ChatShell: React.FC = () => {
             onMouseDown={(event) => {
               event.preventDefault();
               setIsDraggingDivider(true);
+            }}
+            onDoubleClick={() => {
+              console.debug("[MessagesSidebarDebug] divider double-click reset", {
+                from: sidebarWidth,
+                to: SIDEBAR_DEFAULT_WIDTH,
+              });
+              setSidebarWidth(SIDEBAR_DEFAULT_WIDTH);
             }}
             onKeyDown={(event) => {
               if (event.key === "ArrowLeft") {
@@ -1633,7 +1658,12 @@ const ChatShell: React.FC = () => {
         <NewConversationModal
           open={showNewConversation}
           initialTab={conversationTab}
-          onClose={() => setShowNewConversation(false)}
+          onClose={() => {
+            console.debug("[MessagesScrollDebug] closing conversation modal", {
+              activeElement: (document.activeElement as HTMLElement | null)?.tagName || null,
+            });
+            setShowNewConversation(false);
+          }}
         />
         {showAcceptedPrompt && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 px-4">

@@ -574,6 +574,17 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
       return res.status(400).json({ error: 'Select at least one participant' });
     }
 
+    if (normalizedMemberIds.length < 2) {
+      return res.status(400).json({ error: 'Select at least two participants for a group chat' });
+    }
+
+    console.debug('[GroupCreateDebug] request_received', {
+      creatorUserId: req.userId,
+      name,
+      memberCount: normalizedMemberIds.length,
+      memberIds: normalizedMemberIds,
+    });
+
     const existingIds = await fetchExistingAppUserIds(normalizedMemberIds);
     if (existingIds.size !== normalizedMemberIds.length) {
       return res.status(400).json({ error: 'One or more participants are invalid' });
@@ -597,9 +608,14 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
       return res.status(500).json({ error: 'Failed to create room' });
     }
 
+    const memberRows = [
+      { room_id: (createdRoom as any).id, user_id: req.userId!, role: 'admin' as const },
+      ...normalizedMemberIds.map((id) => ({ room_id: (createdRoom as any).id, user_id: id, role: 'member' as const })),
+    ];
+
     const { error: memberInsertError } = await supabaseAdmin
       .from('room_members')
-      .insert(normalizedMemberIds.map((id) => ({ room_id: (createdRoom as any).id, user_id: id, role: 'member' })));
+      .insert(memberRows);
 
     if (memberInsertError) {
       console.error('Error adding group room members', memberInsertError);
@@ -608,6 +624,12 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
 
     const members = await fetchRoomMembers((createdRoom as any).id);
     const lastMessage = await fetchLastMessage((createdRoom as any).id);
+
+    console.debug('[GroupCreateDebug] room_created', {
+      roomId: (createdRoom as any).id,
+      creatorIncluded: members.some((member) => String(member.user_id) === String(req.userId)),
+      memberCount: members.length,
+    });
 
     return res.json({ ...(createdRoom as any), members, lastMessage, room_type: deriveRoomType(createdRoom as any, members) } as RoomWithDetails);
   } catch (error) {
