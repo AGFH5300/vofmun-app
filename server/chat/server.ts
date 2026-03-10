@@ -988,7 +988,7 @@ if (isDev) {
   }
 }
 
-const nextApp = next({ dev: isDev, hostname: '0.0.0.0', port: PORT });
+const nextApp = next({ dev: isDev, hostname: '0.0.0.0', port: PORT, turbopack: isDev });
 const nextHandler = nextApp.getRequestHandler();
 
 const CHAT_WS_PATH = '/chat-ws'; // Keep in sync with app/messages/context/ChatContext.tsx
