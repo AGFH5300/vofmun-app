@@ -184,6 +184,13 @@ const ResetPasswordPage = () => {
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (updating) {
+      console.debug('[ResetPasswordDebug] submit:ignored_duplicate', {
+        flowType,
+      });
+      return;
+    }
+
     console.debug('[ResetPasswordDebug] submit:start', {
       flowType,
       updatingBeforeSubmit: updating,
@@ -233,11 +240,6 @@ const ResetPasswordPage = () => {
         'Updating password timed out. Please try again.'
       );
 
-      console.debug('[ResetPasswordDebug] submit:updateUser:result', {
-        flowType,
-        hasError: Boolean(updateError),
-      });
-
       if (updateError) {
         console.debug('[ResetPasswordDebug] submit:updateUser:error', {
           flowType,
@@ -246,6 +248,10 @@ const ResetPasswordPage = () => {
         setError(updateError.message || 'Could not update password. The link may be expired.');
         return;
       }
+
+      console.debug('[ResetPasswordDebug] submit:updateUser:success', {
+        flowType,
+      });
 
       setSuccess('Your password has been updated successfully. Redirecting you to login...');
       setPassword('');
@@ -278,9 +284,16 @@ const ResetPasswordPage = () => {
       });
       router.replace('/login');
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('timed out')) {
+        console.debug('[ResetPasswordDebug] submit:updateUser:timeout', {
+          flowType,
+          message,
+        });
+      }
       console.debug('[ResetPasswordDebug] submit:updateUser:error', {
         flowType,
-        message: err instanceof Error ? err.message : String(err),
+        message,
       });
       console.error('Reset password error:', err);
       const timeoutErrorMessage = err instanceof Error ? err.message : '';
@@ -347,6 +360,15 @@ const ResetPasswordPage = () => {
 
             {status === 'ready' && (
               <>
+                <input
+                  type="text"
+                  autoComplete="username"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="sr-only"
+                  defaultValue=""
+                  readOnly
+                />
                 <div>
                   <label className="mb-3 block text-xs font-semibold uppercase tracking-[0.2em] text-[#8B2424]">New Password</label>
                   <div className="relative">
