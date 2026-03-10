@@ -9,11 +9,11 @@ import { useRouter } from 'next/navigation';
 import supabase from '@/lib/supabase';
 import { Eye, EyeOff, KeyRound } from 'lucide-react';
 
-type SessionStatus = 'loading' | 'ready' | 'invalid';
+type SessionStatus = 'verifying' | 'ready' | 'invalid';
 type RecoveryFlowType = 'recovery' | 'invite';
 
 const ResetPasswordPage = () => {
-  const [status, setStatus] = React.useState<SessionStatus>('loading');
+  const [status, setStatus] = React.useState<SessionStatus>('verifying');
   const [password, setPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [error, setError] = React.useState('');
@@ -27,6 +27,37 @@ const ResetPasswordPage = () => {
   const brandDarkRed = '#701e1e';
 
   React.useEffect(() => {
+    let mounted = true;
+    let hasResolvedSession = false;
+
+    const verifySession = async (source: string) => {
+      const { data, error: sessionError } = await supabase.auth.getSession();
+
+      if (!mounted || hasResolvedSession) {
+        return;
+      }
+
+      if (sessionError) {
+        console.debug('[ResetPasswordDebug] getSession:error', {
+          source,
+          message: sessionError.message,
+        });
+        return;
+      }
+
+      const hasSession = Boolean(data.session);
+      console.debug('[ResetPasswordDebug] getSession:result', {
+        source,
+        hasSession,
+      });
+
+      if (hasSession) {
+        hasResolvedSession = true;
+        setStatus('ready');
+        setError('');
+      }
+    };
+
     const initializeRecoverySession = async () => {
       setError('');
 
@@ -44,6 +75,12 @@ const ResetPasswordPage = () => {
       const code = searchParams.get('code');
 
       const isRecoveryOrInvite = type === 'recovery' || type === 'invite';
+      console.debug('[ResetPasswordDebug] flow:detected', {
+        type,
+        isRecoveryOrInvite,
+        hasCode: Boolean(code),
+      });
+
       if (isRecoveryOrInvite) {
         setFlowType(type);
       }
@@ -51,13 +88,17 @@ const ResetPasswordPage = () => {
       if (code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
+        if (!mounted) {
+          return;
+        }
+
         if (exchangeError) {
           setStatus('invalid');
           setError(exchangeError.message || 'Unable to verify your recovery link. Please request a new one.');
           return;
         }
 
-        setStatus('ready');
+        await verifySession('exchangeCodeForSession');
         return;
       }
 
@@ -78,16 +119,56 @@ const ResetPasswordPage = () => {
         refresh_token,
       });
 
+      if (!mounted) {
+        return;
+      }
+
       if (sessionError) {
         setStatus('invalid');
         setError(sessionError.message || 'Unable to verify your password setup link. Please request a new one.');
         return;
       }
 
-      setStatus('ready');
+      await verifySession('setSession');
     };
 
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.debug('[ResetPasswordDebug] auth_event', {
+        event,
+        hasSession: Boolean(session),
+      });
+
+      if (!mounted || hasResolvedSession) {
+        return;
+      }
+
+      if (session) {
+        hasResolvedSession = true;
+        setStatus('ready');
+        setError('');
+      }
+    });
+
+    const timeoutId = window.setTimeout(() => {
+      if (!mounted || hasResolvedSession) {
+        return;
+      }
+
+      console.debug('[ResetPasswordDebug] verify:timeout_fired', {
+        timeoutMs: 10000,
+      });
+      setStatus('invalid');
+      setError('We could not verify your activation/reset session in time. Please request a new link and try again.');
+    }, 10000);
+
     void initializeRecoverySession();
+    void verifySession('initial_mount');
+
+    return () => {
+      mounted = false;
+      window.clearTimeout(timeoutId);
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -162,7 +243,7 @@ const ResetPasswordPage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            {status === 'loading' && (
+            {status === 'verifying' && (
               <div className="rounded-xl border border-[#E5E4E3] bg-[#FFF9F4] p-4 text-sm font-medium text-[#8B2424]">
                 Verifying your {flowType === 'invite' ? 'account activation' : 'recovery'} link...
               </div>
