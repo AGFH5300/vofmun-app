@@ -39,6 +39,12 @@ interface ChatContextValue {
   onlineUsers: Set<string>;
   isConnecting: boolean;
   initialChatReady: boolean;
+  bootstrapProgress: {
+    percent: number;
+    label: string;
+    preloadedRooms: number;
+    totalRooms: number;
+  };
   friendRequests: FriendRequest[];
   incomingRequests: FriendRequest[];
   resolveUserDisplay: (userId: string, fallbackUser?: FriendRequest['sender'] | null) => string;
@@ -203,6 +209,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const [hasLoadedInitialRooms, setHasLoadedInitialRooms] = useState(false);
   const [hasLoadedInitialRoomMessages, setHasLoadedInitialRoomMessages] = useState(false);
   const [initialChatReady, setInitialChatReady] = useState(false);
+  const [bootstrapProgress, setBootstrapProgress] = useState({
+    percent: 5,
+    label: 'Preparing session…',
+    preloadedRooms: 0,
+    totalRooms: 0,
+  });
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [userDirectory, setUserDirectory] = useState<Record<string, FriendRequest['sender']>>({});
   const [pinnedRoomIds, setPinnedRoomIds] = useState<Set<string>>(() => {
@@ -360,6 +372,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       setInitialChatReady(false);
       initialBootstrapStartedRef.current = false;
       initialBootstrapDoneRef.current = false;
+      setBootstrapProgress({
+        percent: 5,
+        label: 'Preparing session…',
+        preloadedRooms: 0,
+        totalRooms: 0,
+      });
       console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} user_identity_reset`, {
         authReady,
         isAuthenticated,
@@ -377,6 +395,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         setInitialChatReady(false);
         initialBootstrapStartedRef.current = false;
         initialBootstrapDoneRef.current = false;
+        setBootstrapProgress({
+          percent: 5,
+          label: 'Preparing session…',
+          preloadedRooms: 0,
+          totalRooms: 0,
+        });
         console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} user_identity_changed`, {
           from: lastAuthenticatedUserIdRef.current,
           to: normalizedCandidate,
@@ -384,6 +408,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
       lastAuthenticatedUserIdRef.current = normalizedCandidate;
       setUserId(normalizedCandidate);
+      setBootstrapProgress((prev) => ({
+        ...prev,
+        percent: Math.max(prev.percent, 20),
+        label: 'Session ready…',
+      }));
       return;
     }
 
@@ -1056,19 +1085,37 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:refreshRooms:success`, { roomCount: loadedRooms.length });
         if (cancelled) return;
         setHasLoadedInitialRooms(true);
+        setBootstrapProgress({
+          percent: 45,
+          label: 'Conversations loaded…',
+          preloadedRooms: 0,
+          totalRooms: loadedRooms.length,
+        });
 
         console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:refreshFriendRequests:start`);
         await refreshFriendRequestsRef.current();
         console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:refreshFriendRequests:success`);
         if (cancelled) return;
+        setBootstrapProgress((prev) => ({
+          ...prev,
+          percent: 60,
+          label: prev.totalRooms > 0 ? 'Preloading room messages…' : 'Wrapping up…',
+        }));
 
         if (loadedRooms.length === 0) {
           setHasLoadedInitialRoomMessages(true);
           initialBootstrapDoneRef.current = true;
+          setBootstrapProgress({
+            percent: 95,
+            label: 'Finalizing chat setup…',
+            preloadedRooms: 0,
+            totalRooms: 0,
+          });
           console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} success`, { roomCount: 0 });
           return;
         }
 
+        let preloadedRooms = 0;
         for (const room of loadedRooms) {
           if (cancelled) return;
           try {
@@ -1081,11 +1128,24 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
               error: roomError instanceof Error ? roomError.message : String(roomError),
             });
           }
+          preloadedRooms += 1;
+          const roomProgress = Math.round(60 + (preloadedRooms / loadedRooms.length) * 35);
+          setBootstrapProgress({
+            percent: roomProgress,
+            label: 'Preloading room messages…',
+            preloadedRooms,
+            totalRooms: loadedRooms.length,
+          });
         }
         if (cancelled) return;
 
         setHasLoadedInitialRoomMessages(true);
         initialBootstrapDoneRef.current = true;
+        setBootstrapProgress((prev) => ({
+          ...prev,
+          percent: 95,
+          label: 'Finalizing chat setup…',
+        }));
         console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} success`, { roomCount: loadedRooms.length });
         console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:done`, { roomCount: loadedRooms.length });
       } catch (error) {
@@ -1096,6 +1156,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         setHasLoadedInitialRooms(true);
         setHasLoadedInitialRoomMessages(true);
         initialBootstrapDoneRef.current = true;
+        setBootstrapProgress((prev) => ({
+          ...prev,
+          percent: Math.max(prev.percent, 95),
+          label: 'Finalizing chat setup…',
+        }));
         console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} bootstrap:done`, { degraded: true });
       }
     };
@@ -1112,6 +1177,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     if (!authReady || !isAuthenticated) return;
     if (!hasLoadedInitialRooms || !hasLoadedInitialRoomMessages) return;
     setInitialChatReady(true);
+    setBootstrapProgress((prev) => ({
+      ...prev,
+      percent: 100,
+      label: 'Chat ready',
+    }));
     console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} initial_chat_ready`);
   }, [authReady, hasLoadedInitialRoomMessages, hasLoadedInitialRooms, initialChatReady, isAuthenticated]);
 
@@ -1639,6 +1709,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       onlineUsers,
       isConnecting,
       initialChatReady,
+      bootstrapProgress,
       friendRequests,
       incomingRequests: friendRequests.filter((req) => req.status === 'pending' && req.receiver_id === userId),
       resolveUserDisplay,
@@ -1668,6 +1739,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       onlineUsers,
       isConnecting,
       initialChatReady,
+      bootstrapProgress,
       friendRequests,
       resolveUserDisplay,
       userId,
