@@ -379,6 +379,7 @@ const ResetPasswordPage = () => {
                       className="w-full rounded-xl border border-[#e5e4e3] bg-[#f2f2f2] px-4 py-3 pr-12 text-[#1C1C1C] shadow-[0_8px_18px_-12px_rgba(139,36,36,0.6)] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-[#8B2424] focus:ring-4 focus:ring-[#8B2424]/30"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                       style={{ backgroundColor: "#f2f2f2", borderColor: "#e5e4e3" }}
                     />
                     <button
                       type="button"
@@ -400,6 +401,7 @@ const ResetPasswordPage = () => {
                       className="w-full rounded-xl border border-[#e5e4e3] bg-[#f2f2f2] px-4 py-3 pr-12 text-[#1C1C1C] shadow-[0_8px_18px_-12px_rgba(139,36,36,0.6)] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-[#8B2424] focus:ring-4 focus:ring-[#8B2424]/30"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
+                      style={{ backgroundColor: "#f2f2f2", borderColor: "#e5e4e3" }}
                     />
                     <button
                       type="button"
