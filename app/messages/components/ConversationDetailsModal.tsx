@@ -26,7 +26,7 @@ const ConversationDetailsModal: React.FC<Props> = ({ room, open, onClose, curren
     ? room.members.find((member) => member.user_id !== currentUserId) || room.members[0]
     : null;
   const displayName = isDirectMessage
-    ? peer?.user?.full_name || `${peer?.user?.firstname || ''} ${peer?.user?.lastname || ''}`.trim() || 'Direct message'
+    ? peer?.user?.full_name || `${peer?.user?.first_name || ''} ${peer?.user?.last_name || ''}`.trim() || 'Direct message'
     : room.name;
 
   return (

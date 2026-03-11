@@ -17,8 +17,8 @@ export type ChatPerson = {
 export type ChatPersonDetails = {
   id: string;
   role: ChatPersonRole;
-  firstname: string | null;
-  lastname: string | null;
+  first_name: string | null;
+  last_name: string | null;
   email: string | null;
   committeeCode?: string | null;
   country?: string | null;
@@ -140,8 +140,8 @@ export const fetchPeopleDetailsByIds = async (ids: string[]): Promise<Record<str
     map[row.id] = {
       id: row.id,
       role: row.role as ChatPersonRole,
-      firstname: row.first_name || null,
-      lastname: row.last_name || null,
+      first_name: row.first_name || null,
+      last_name: row.last_name || null,
       email: row.email || null,
       country: row.country || null,
       committeeCode: row.committee_id ? committeeMap.get(row.committee_id) || null : null,

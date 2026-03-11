@@ -30,15 +30,16 @@ const Page = () => {
 
   const getUserRole = () => {
     if (!currentUser) return '';
-    if ('adminID' in currentUser) return 'Administrator';
-    if ('chairID' in currentUser) return 'Chair';
-    if ('delegateID' in currentUser) return 'Delegate';
+    if (currentUser.role === 'admin') return 'Administrator';
+    if (currentUser.role === 'chair') return 'Chair';
+    if (currentUser.role === 'delegate') return 'Delegate';
+    if (currentUser.role === 'secretariat') return 'Secretariat';
     return '';
   };
 
   const getDisplayName = () => {
     if (!currentUser) return '';
-    return `${currentUser.firstname} ${currentUser.lastname}`;
+    return currentUser.full_name || `${currentUser.first_name} ${currentUser.last_name}`.trim();
   };
 
   const brandDarkRed = "#701e1e";

@@ -17,14 +17,14 @@ const normalizeRequestStatus = (status: string) => (status === 'declined' ? 'rej
 
 const mapProfileToUser = (profile: Awaited<ReturnType<typeof fetchPeopleDetailsByIds>>[string] | null | undefined) => {
   if (!profile) return null;
-  const fullName = `${profile.firstname || ''} ${profile.lastname || ''}`.trim() || 'Unknown';
+  const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unknown';
   const roleTitle = profile.role.charAt(0).toUpperCase() + profile.role.slice(1);
   return {
     id: profile.id,
     email: profile.email || '',
     full_name: fullName,
-    firstname: profile.firstname,
-    lastname: profile.lastname,
+    first_name: profile.first_name,
+    last_name: profile.last_name,
     role: profile.role,
     role_title: roleTitle,
     committee: profile.committeeCode || null,

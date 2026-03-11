@@ -29,6 +29,37 @@ export interface Secretariat {
 
 export type AppUserRole = 'delegate' | 'chair' | 'secretariat' | 'admin';
 
+export interface SessionUser {
+  id: string;
+  email: string;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  role: AppUserRole;
+  committee_id: string | null;
+  country: string | null;
+  reso_perms: {
+    "view:ownreso": boolean;
+    "view:allreso": boolean;
+    "update:ownreso": boolean;
+    "update:reso": string[];
+  };
+  // Backward-compatible aliases hydrated from app_users (not legacy tables).
+  firstname?: string;
+  lastname?: string;
+  delegateID?: string;
+  chairID?: string;
+  adminID?: string;
+  secretariatID?: string;
+  committeeID?: string | null;
+  resoPerms?: {
+    "view:ownreso": boolean;
+    "view:allreso": boolean;
+    "update:ownreso": boolean;
+    "update:reso": string[];
+  };
+}
+
 export interface AppUser {
   id: string;
   email: string;
@@ -47,7 +78,7 @@ export interface AppUser {
   updated_at?: string;
 }
 
-export type UserType = Delegate | Admin | Chair | Secretariat | null;
+export type UserType = SessionUser | null;
 
 export interface Speech {
   speechID: string;

@@ -331,8 +331,8 @@ const ChatShell: React.FC = () => {
       const searchable = [
         room.name,
         peer?.full_name,
-        peer?.firstname,
-        peer?.lastname,
+        peer?.first_name,
+        peer?.last_name,
         peer?.role_title,
         peer?.role,
         peer?.committee,
@@ -602,7 +602,7 @@ const ChatShell: React.FC = () => {
         const member = activeRoom.members.find((m) => String(m.user_id) === String(userId));
         return (
           member?.user?.full_name ||
-          `${member?.user?.firstname || ""} ${member?.user?.lastname || ""}`.trim() ||
+          `${member?.user?.first_name || ""} ${member?.user?.last_name || ""}`.trim() ||
           member?.user?.username ||
           userId
         );
@@ -893,7 +893,7 @@ const ChatShell: React.FC = () => {
   const activeRoomTitle = activeRoom
     ? activeRoom.room_type === "dm"
       ? activeDmPeer?.user?.full_name ||
-        `${activeDmPeer?.user?.firstname || ""} ${activeDmPeer?.user?.lastname || ""}`.trim() ||
+        `${activeDmPeer?.user?.first_name || ""} ${activeDmPeer?.user?.last_name || ""}`.trim() ||
         activeRoom.name
       : activeRoom.name
     : "VOFMUN ONE";
@@ -1163,7 +1163,7 @@ const ChatShell: React.FC = () => {
                     const sender = req.sender;
                     const displayName =
                       sender?.full_name ||
-                      `${sender?.firstname || ""} ${sender?.lastname || ""}`.trim() ||
+                      `${sender?.first_name || ""} ${sender?.last_name || ""}`.trim() ||
                       req.sender_id;
                     const roleLine = `${sender?.role_title || sender?.role || "Participant"}${sender?.committee ? ` • ${sender.committee}` : ""}${sender?.country ? ` • ${sender.country}` : ""}`;
                     const avatarUser =

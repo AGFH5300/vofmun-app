@@ -12,7 +12,7 @@ import React, {
   useState,
   ReactNode,
 } from "react";
-import { Admin, Delegate, Chair, Secretariat, UserType } from "@/db/types";
+import { UserType } from "@/db/types";
 import Cookies from "js-cookie";
 import { usePathname, useRouter } from "next/navigation";
 import supabase from "@/lib/supabase";
@@ -35,7 +35,7 @@ const SessionContext = createContext<SessionContextProps | undefined>(
 );
 
 export const SessionProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<Delegate | Admin | Chair | Secretariat | null>(null);
+  const [user, setUser] = useState<UserType>(null);
   const [isSessionHydrated, setIsSessionHydrated] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const router = useRouter();

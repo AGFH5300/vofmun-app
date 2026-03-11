@@ -156,7 +156,7 @@ const formatUserDisplayName = (user?: FriendRequest['sender'] | null) => {
   if (!user) return '';
   const fullName = user.full_name?.trim();
   if (fullName) return fullName;
-  const composed = `${user.firstname || ''} ${user.lastname || ''}`.trim();
+  const composed = `${user.first_name || ''} ${user.last_name || ''}`.trim();
   if (composed) return composed;
   if (user.email) return user.email;
   return '';
@@ -345,8 +345,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         id: row.id,
         email: row.email || '',
         full_name: fullName,
-        firstname: row.first_name || null,
-        lastname: row.last_name || null,
+        first_name: row.first_name || null,
+        last_name: row.last_name || null,
       };
     });
 

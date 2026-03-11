@@ -1,49 +1,28 @@
-import { AppUser, UserType, Delegate, Chair, Admin, Secretariat } from '@/db/types';
+import { AppUser, SessionUser } from '@/db/types';
 
 const fullNameParts = (appUser: AppUser) => ({
-  firstname: appUser.first_name || '',
-  lastname: appUser.last_name || '',
+  first_name: appUser.first_name || '',
+  last_name: appUser.last_name || '',
 });
 
-export const mapAppUserToSessionUser = (appUser: AppUser): UserType => {
-  const base = {
+export const mapAppUserToSessionUser = (appUser: AppUser): SessionUser => {
+  const names = fullNameParts(appUser);
+  return {
     id: appUser.id,
     email: appUser.email,
     role: appUser.role,
-    ...fullNameParts(appUser),
+    ...names,
+    full_name: `${names.first_name} ${names.last_name}`.trim() || 'Unknown',
+    committee_id: appUser.committee_id,
+    country: appUser.country,
+    reso_perms: appUser.reso_perms,
+    firstname: names.first_name,
+    lastname: names.last_name,
+    committeeID: appUser.committee_id,
+    resoPerms: appUser.reso_perms,
+    delegateID: appUser.role === "delegate" ? appUser.id : undefined,
+    chairID: appUser.role === "chair" ? appUser.id : undefined,
+    adminID: appUser.role === "admin" ? appUser.id : undefined,
+    secretariatID: appUser.role === "secretariat" ? appUser.id : undefined,
   };
-
-  if (appUser.role === 'delegate') {
-    const delegate: Delegate = {
-      ...base,
-      delegateID: appUser.id,
-      committeeID: appUser.committee_id,
-      country: appUser.country,
-      resoPerms: appUser.reso_perms,
-      committee: null,
-    };
-    return delegate;
-  }
-
-  if (appUser.role === 'chair') {
-    const chair: Chair = {
-      ...base,
-      chairID: appUser.id,
-    };
-    return chair;
-  }
-
-  if (appUser.role === 'secretariat') {
-    const secretariat: Secretariat = {
-      ...base,
-      secretariatID: appUser.id,
-    };
-    return secretariat;
-  }
-
-  const admin: Admin = {
-    ...base,
-    adminID: appUser.id,
-  };
-  return admin;
 };
