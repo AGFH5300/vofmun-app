@@ -152,8 +152,8 @@ export async function POST(request: Request) {
             ? {
                 id: peer.id,
                 role: peer.role,
-                firstname: peer.firstname,
-                lastname: peer.lastname,
+                first_name: peer.first_name,
+                last_name: peer.last_name,
                 email: peer.email,
               }
             : null,

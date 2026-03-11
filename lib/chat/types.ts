@@ -7,8 +7,8 @@ export interface User {
   email: string;
   username?: string;
   full_name: string;
-  firstname?: string | null;
-  lastname?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
   avatar_url?: string | null;
   is_online?: boolean | null;
   last_seen?: string | null;

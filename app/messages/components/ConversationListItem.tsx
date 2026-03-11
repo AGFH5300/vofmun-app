@@ -36,7 +36,7 @@ const getDisplayMeta = (room: RoomWithDetails, currentUserId?: string | null) =>
         : resolvedRoleLabel;
 
     return {
-      name: other?.full_name || `${other?.firstname || ''} ${other?.lastname || ''}`.trim() || room.name,
+      name: other?.full_name || `${other?.first_name || ''} ${other?.last_name || ''}`.trim() || room.name,
       shortDelegation: delegationShort,
       sub
     };

@@ -28,7 +28,7 @@ export function getUserIdentity(user: UserType): { userID: string; userType: 'de
   return {
     userID: String(user.id),
     userType: user.role,
-    userName: `${user.firstname || ''} ${user.lastname || ''}`.trim() || 'Unknown'
+    userName: user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown'
   };
 }
 
