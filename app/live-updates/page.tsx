@@ -6,8 +6,9 @@ import React, { useEffect, useMemo } from 'react';
 import { Update } from '@/db/types';
 import { ProtectedRoute } from '@/components/protectedroute';
 import { motion } from 'framer-motion';
-import { Bell, Clock, AlertTriangle, CalendarDays } from 'lucide-react';
+import { Bell, Clock, Clock3, AlertTriangle } from 'lucide-react';
 import supabase from '@/lib/supabase';
+import { Card, CardContent } from '@/components/ui/card';
 
 type ScheduleItemType = 'registration' | 'committee' | 'break' | 'ceremony' | 'departure' | 'featured';
 
@@ -22,6 +23,16 @@ type ConferenceDay = {
     label: string;
     dateISO: string;
     events: ScheduleItem[];
+};
+
+type ScheduleRow = {
+    time: string;
+    event: string;
+};
+
+type ScheduleDay = {
+    title: string;
+    rows: ScheduleRow[];
 };
 
 const conferenceSchedule: ConferenceDay[] = [
@@ -95,22 +106,60 @@ const formatDuration = (milliseconds: number) => {
     return `${minutes}m`;
 };
 
-const styleByType: Record<ScheduleItemType, string> = {
-    registration: 'bg-violet-50 border-violet-200',
-    committee: 'bg-blue-50 border-blue-200',
-    break: 'bg-lime-50 border-lime-200',
-    ceremony: 'bg-amber-50 border-amber-200',
-    departure: 'bg-slate-100 border-slate-200',
-    featured: 'bg-fuchsia-50 border-fuchsia-200',
-};
+const getEventStyle = (event: string) => {
+    const normalizedEvent = event.toLowerCase();
 
-const textByType: Record<ScheduleItemType, string> = {
-    registration: 'text-violet-700',
-    committee: 'text-blue-700',
-    break: 'text-lime-700',
-    ceremony: 'text-amber-700',
-    departure: 'text-slate-700',
-    featured: 'text-fuchsia-700',
+    if (normalizedEvent.includes('night')) {
+        return {
+            label: 'Featured',
+            ringColor: 'ring-fuchsia-300/70',
+            bgColor: 'bg-fuchsia-50',
+            badgeColor: 'bg-fuchsia-100 text-fuchsia-700',
+        };
+    }
+
+    if (normalizedEvent.includes('ceremony')) {
+        return {
+            label: 'Ceremony',
+            ringColor: 'ring-amber-300/70',
+            bgColor: 'bg-amber-50',
+            badgeColor: 'bg-amber-100 text-amber-700',
+        };
+    }
+
+    if (normalizedEvent.includes('break') || normalizedEvent.includes('lunch')) {
+        return {
+            label: 'Break',
+            ringColor: 'ring-lime-300/70',
+            bgColor: 'bg-lime-50',
+            badgeColor: 'bg-lime-100 text-lime-700',
+        };
+    }
+
+    if (normalizedEvent.includes('committee') || normalizedEvent.includes('workshop')) {
+        return {
+            label: 'Committee',
+            ringColor: 'ring-blue-300/70',
+            bgColor: 'bg-blue-50',
+            badgeColor: 'bg-blue-100 text-blue-700',
+        };
+    }
+
+    if (normalizedEvent.includes('registration') || normalizedEvent.includes('chair')) {
+        return {
+            label: 'Registration',
+            ringColor: 'ring-violet-300/70',
+            bgColor: 'bg-violet-50',
+            badgeColor: 'bg-violet-100 text-violet-700',
+        };
+    }
+
+    return {
+        label: 'Departure',
+        ringColor: 'ring-slate-300/70',
+        bgColor: 'bg-slate-50',
+        badgeColor: 'bg-slate-100 text-slate-700',
+    };
 };
 
 const Page = () => {
@@ -127,9 +176,29 @@ const Page = () => {
     const [isLoading, setIsLoading] = React.useState<boolean>(true);
     const [updates, setUpdates] = React.useState<Update[]>([]);
     const [now, setNow] = React.useState<Date>(new Date());
+    const timeString = now.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    });
+
+    const dateString = now.toLocaleDateString([], {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    });
+
+    const scheduleByDay: ScheduleDay[] = conferenceSchedule.map((day) => ({
+        title: day.label,
+        rows: day.events.map((event) => ({
+            time: `${formatClock(event.start)} - ${formatClock(event.end)}`,
+            event: event.title,
+        })),
+    }));
 
     useEffect(() => {
-        const timer = window.setInterval(() => setNow(new Date()), 30000);
+        const timer = window.setInterval(() => setNow(new Date()), 1000);
         return () => window.clearInterval(timer);
     }, []);
 
@@ -155,6 +224,17 @@ const Page = () => {
         };
 
         fetchUpdates();
+
+        const updatesChannel = supabase
+            .channel('live-updates-realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'Updates' }, () => {
+                fetchUpdates();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(updatesChannel);
+        };
     }, []);
 
     const timeline = useMemo(() => {
@@ -209,17 +289,19 @@ const Page = () => {
                         transition={{ duration: 0.45, delay: 0.05 }}
                         className="surface-card p-6 md:p-8"
                     >
-                        <div className="flex items-center justify-between gap-4 flex-wrap">
-                            <div>
-                                <h2 className="text-2xl md:text-3xl font-serif font-bold text-deep-red mb-1" style={accentHeadingStyle}>
-                                    Conference Timeline Overview
-                                </h2>
-                                <p className="text-sm text-almost-black-green/70">Auto-updates every 30 seconds.</p>
+                            <div className="flex items-center justify-between gap-4 flex-wrap">
+                                <div>
+                                    <h2 className="text-2xl md:text-3xl font-serif font-bold text-deep-red mb-1" style={accentHeadingStyle}>
+                                        Conference Timeline Overview
+                                    </h2>
+                                    <p className="text-sm text-almost-black-green/70">Auto-updates in real time.</p>
+                                </div>
+                                <div className="surface-card rounded-2xl border border-soft-ivory bg-white px-5 py-4 text-deep-red shadow-sm">
+                                    <p className="text-xs uppercase tracking-[0.35em] text-deep-red/70">Now</p>
+                                    <p className="text-2xl font-mono font-semibold text-deep-red">{timeString}</p>
+                                    <p className="text-xs text-almost-black-green/70">{dateString}</p>
+                                </div>
                             </div>
-                            <span className="badge-pill bg-deep-red/10 text-deep-red">
-                                <CalendarDays size={16} /> {now.toLocaleString()}
-                            </span>
-                        </div>
 
                         <div className="mt-6 grid gap-4 md:grid-cols-3">
                             <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
@@ -249,36 +331,44 @@ const Page = () => {
                             </div>
                         </div>
 
-                        <div className="mt-6 grid gap-4 xl:grid-cols-3">
-                            {conferenceSchedule.map((day) => (
-                                <div key={day.label} className="rounded-2xl border border-soft-rose/40 bg-white p-4 shadow-sm">
-                                    <div className="rounded-xl bg-gradient-to-r from-deep-red to-dark-burgundy p-3 text-center text-white font-semibold tracking-wide">
-                                        {day.label}
-                                    </div>
-                                    <div className="mt-3 space-y-2">
-                                        {day.events.map((event) => {
-                                            const isCurrent =
-                                                timeline.currentEvent?.title === event.title && timeline.currentEvent?.start === event.start && timeline.currentEvent?.dateISO === day.dateISO;
+                        <Card className="mt-6 diplomatic-shadow border-[#B22222]/10 bg-white/85 backdrop-blur-sm">
+                            <CardContent className="space-y-6 px-3 pb-8 pt-4 sm:px-6">
+                                <div className="grid gap-4 lg:grid-cols-3">
+                                    {scheduleByDay.map((day) => (
+                                        <div key={day.title} className="overflow-hidden rounded-2xl border border-[#B22222]/20 bg-white/80 shadow-sm">
+                                            <div className="bg-gradient-to-r from-[#B22222] to-[#8f1818] px-4 py-3">
+                                                <h3 className="text-center text-lg font-bold tracking-wide text-white">{day.title}</h3>
+                                            </div>
 
-                                            return (
-                                                <div
-                                                    key={`${day.dateISO}-${event.start}-${event.title}`}
-                                                    className={`rounded-xl border p-3 ${styleByType[event.type]} ${isCurrent ? 'ring-2 ring-deep-red/40' : ''}`}
-                                                >
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        <span className={`text-xs font-semibold uppercase tracking-wide ${textByType[event.type]}`}>{event.type}</span>
-                                                        <span className="text-xs text-deep-red font-semibold">
-                                                            {formatClock(event.start)} - {formatClock(event.end)}
-                                                        </span>
-                                                    </div>
-                                                    <p className="mt-1 text-sm text-almost-black-green/90 leading-snug">{event.title}</p>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                            <div className="space-y-2 p-3">
+                                                {day.rows.map((row) => {
+                                                    const eventStyle = getEventStyle(row.event);
+
+                                                    return (
+                                                        <article
+                                                            key={`${day.title}-${row.time}-${row.event}`}
+                                                            className={`rounded-lg border border-slate-200/80 p-2.5 ring-1 ${eventStyle.ringColor} ${eventStyle.bgColor}`}
+                                                        >
+                                                            <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                                                                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${eventStyle.badgeColor}`}>
+                                                                    {eventStyle.label}
+                                                                </span>
+                                                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#8f1818]">
+                                                                    <Clock3 className="h-3.5 w-3.5" />
+                                                                    {row.time}
+                                                                </span>
+                                                            </div>
+
+                                                            <p className="text-sm font-medium text-slate-700">{row.event}</p>
+                                                        </article>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
+                            </CardContent>
+                        </Card>
                     </motion.section>
 
                     <section>
