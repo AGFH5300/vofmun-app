@@ -751,32 +751,18 @@ const ChatShell: React.FC = () => {
   const handleSelectRoom = async (room: RoomWithDetails) => {
     setShowAttachmentMenu(false);
     setShowEmojiModal(false);
-    console.debug("[MessagesScrollDebug] selecting_room_before", {
-      roomId: room.id,
-      activeBefore: activeRoom?.id || null,
-      scrollYBefore: typeof window !== "undefined" ? window.scrollY : null,
-      activeElementBefore:
-        typeof document !== "undefined" && document.activeElement
-          ? {
-              tag: document.activeElement.tagName,
-              id: (document.activeElement as HTMLElement).id || null,
-              name: (document.activeElement as HTMLInputElement).name || null,
-            }
-          : null,
-    });
+
+    const shouldRestorePageScroll = typeof window !== "undefined";
+    const previousScrollY = shouldRestorePageScroll ? window.scrollY : 0;
+
     await selectRoom(room);
-    console.debug("[MessagesScrollDebug] selecting_room_after", {
-      roomId: room.id,
-      activeAfter: activeRoom?.id || null,
-      scrollYAfterSelect: typeof window !== "undefined" ? window.scrollY : null,
-    });
+
     window.requestAnimationFrame(() => {
       focusComposerWithoutScroll("room_select");
-      console.debug("[MessagesScrollDebug] composer_focus_prevent_scroll", {
-        roomId: room.id,
-        focusPathRan: true,
-        scrollYAfterFocus: typeof window !== "undefined" ? window.scrollY : null,
-      });
+
+      if (shouldRestorePageScroll && Math.abs(window.scrollY - previousScrollY) > 2) {
+        window.scrollTo({ top: previousScrollY, behavior: "auto" });
+      }
     });
   };
 
@@ -1073,11 +1059,11 @@ const ChatShell: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setConversationTab("group");
+                    setConversationTab("friends");
                     setShowNewConversation(true);
                   }}
                   className="rounded-lg border border-soft-ivory p-2 text-almost-black-green/60 hover:text-deep-red"
-                  aria-label="New group room"
+                  aria-label="Open friends and connections"
                 >
                   <Users className="h-4 w-4" />
                 </button>
@@ -1315,7 +1301,7 @@ const ChatShell: React.FC = () => {
               </div>
             </header>
 
-            {(incomingRequests.length > 0 || outgoingRequests.length > 0) && (
+            {!activeRoom && (incomingRequests.length > 0 || outgoingRequests.length > 0) && (
               <div className="border-b border-soft-ivory bg-warm-light-grey/35 px-6 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-almost-black-green/60">
