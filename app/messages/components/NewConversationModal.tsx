@@ -39,7 +39,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
-  const [sendingRequestTo, setSendingRequestTo] = useState<string | null>(null);
+  const [sendingRequestTo, setSendingRequestTo] = useState<Set<string>>(() => new Set());
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   const [openingChatFor, setOpeningChatFor] = useState<string | null>(null);
   const [acceptedConnection, setAcceptedConnection] = useState<{ userId: string; name: string } | null>(null);
@@ -66,7 +66,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     setSelected([]);
     setName('');
     setDescription('');
-    setSendingRequestTo(null);
+    setSendingRequestTo(new Set());
     setRespondingTo(null);
     setOpeningChatFor(null);
     setAcceptedConnection(null);
@@ -173,14 +173,26 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
   const handleSendRequest = async (user: UserSearchResult) => {
     setError(null);
-    setSendingRequestTo(user.id);
-    const result = await sendFriendRequest(user.id);
-    setSendingRequestTo(null);
-    if (!result) {
-      setError('Unable to send connection request.');
-      return;
+    setSendingRequestTo((prev) => {
+      const next = new Set(prev);
+      next.add(user.id);
+      return next;
+    });
+
+    try {
+      const result = await sendFriendRequest(user.id);
+      if (!result) {
+        setError('Unable to send connection request.');
+        return;
+      }
+      toast.success(`Request sent to ${user.full_name}.`);
+    } finally {
+      setSendingRequestTo((prev) => {
+        const next = new Set(prev);
+        next.delete(user.id);
+        return next;
+      });
     }
-    toast.success(`Request sent to ${user.full_name}.`);
   };
 
   const handleAcceptRequest = async (request: FriendRequest) => {
@@ -408,10 +420,10 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                             <button
                               type="button"
                               onClick={() => handleSendRequest(user)}
-                              disabled={sendingRequestTo === user.id}
+                              disabled={sendingRequestTo.has(user.id)}
                               className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red disabled:cursor-wait disabled:opacity-70"
                             >
-                              {sendingRequestTo === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                              {sendingRequestTo.has(user.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
                               Connect
                             </button>
                           )}
