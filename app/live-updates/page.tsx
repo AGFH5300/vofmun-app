@@ -6,9 +6,9 @@ import React, { useEffect, useMemo } from 'react';
 import { Update } from '@/db/types';
 import { ProtectedRoute } from '@/components/protectedroute';
 import { motion } from 'framer-motion';
-import { Bell, Clock, Clock3, AlertTriangle } from 'lucide-react';
+import { Bell, Clock, Clock3, AlertTriangle, Calendar } from 'lucide-react';
 import supabase from '@/lib/supabase';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type ScheduleItemType = 'registration' | 'committee' | 'break' | 'ceremony' | 'departure' | 'featured';
 
@@ -59,11 +59,11 @@ const conferenceSchedule: ConferenceDay[] = [
             { title: 'Lunch Break (food)', start: '12:00', end: '13:00', type: 'break' },
             { title: 'Committee Session 5', start: '13:00', end: '14:45', type: 'committee' },
             { title: 'Break', start: '14:45', end: '15:00', type: 'break' },
-            { title: 'Workshop (Group 1) / Committee Session 6 (Group 2)', start: '15:00', end: '16:30', type: 'committee' },
-            { title: 'Workshop (Group 2) / Committee Session 6 (Group 1)', start: '16:30', end: '18:00', type: 'committee' },
+            { title: 'Workshops & Seminar/Panel', start: '15:00', end: '17:30', type: 'committee' },
+            { title: 'Committee Session 6', start: '17:00', end: '18:00', type: 'committee' },
             { title: 'Dispersal', start: '18:00', end: '18:15', type: 'departure' },
             { title: 'Social Night', start: '18:00', end: '20:00', type: 'featured' },
-            { title: 'Post-Social Dispersal', start: '20:00', end: '20:15', type: 'departure' },
+            { title: 'Post-Social Night Dispersal', start: '20:00', end: '20:15', type: 'departure' },
         ],
     },
     {
@@ -329,44 +329,56 @@ const Page = () => {
                             </div>
                         </div>
 
-                        <Card className="mt-6 diplomatic-shadow border-[#B22222]/10 bg-white/85 backdrop-blur-sm">
-                            <CardContent className="space-y-6 px-3 pb-8 pt-4 sm:px-6">
-                                <div className="grid gap-4 lg:grid-cols-3">
-                                    {scheduleByDay.map((day) => (
-                                        <div key={day.title} className="overflow-hidden rounded-2xl border border-[#B22222]/20 bg-white/80 shadow-sm">
-                                            <div className="bg-gradient-to-r from-[#B22222] to-[#8f1818] px-4 py-3">
-                                                <h3 className="text-center text-lg font-bold tracking-wide text-white">{day.title}</h3>
+                        <section id="schedule" className="relative mt-6 overflow-hidden py-6">
+                            <div className="pointer-events-none absolute -right-8 top-10 h-28 w-28 rounded-full bg-[#B22222]/10 blur-2xl" />
+                            <div className="pointer-events-none absolute -left-10 bottom-16 h-32 w-32 rounded-full bg-amber-400/20 blur-3xl" />
+
+                            <Card className="diplomatic-shadow border-[#B22222]/10 bg-white/85 backdrop-blur-sm">
+                                <CardHeader className="space-y-4 text-center">
+                                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#B22222]/10">
+                                        <Calendar className="h-7 w-7 text-[#B22222]" />
+                                    </div>
+                                    <CardTitle className="text-3xl font-bold text-primary sm:text-4xl">Conference Schedule</CardTitle>
+                                </CardHeader>
+
+                                <CardContent className="space-y-6 px-3 pb-8 sm:px-6">
+                                    <div className="grid gap-4 lg:grid-cols-3">
+                                        {scheduleByDay.map((day) => (
+                                            <div key={day.title} className="overflow-hidden rounded-2xl border border-[#B22222]/20 bg-white/80 shadow-sm">
+                                                <div className="bg-gradient-to-r from-[#B22222] to-[#8f1818] px-4 py-3">
+                                                    <h3 className="text-center text-lg font-bold tracking-wide text-white">{day.title}</h3>
+                                                </div>
+
+                                                <div className="space-y-2 p-3">
+                                                    {day.rows.map((row) => {
+                                                        const eventStyle = getEventStyle(row.event);
+
+                                                        return (
+                                                            <article
+                                                                key={`${day.title}-${row.time}-${row.event}`}
+                                                                className={`rounded-lg border border-slate-200/80 p-2.5 ring-1 ${eventStyle.ringColor} ${eventStyle.bgColor}`}
+                                                            >
+                                                                <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                                                                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${eventStyle.badgeColor}`}>
+                                                                        {eventStyle.label}
+                                                                    </span>
+                                                                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#8f1818]">
+                                                                        <Clock3 className="h-3.5 w-3.5" />
+                                                                        {row.time}
+                                                                    </span>
+                                                                </div>
+
+                                                                <p className="text-sm font-medium text-slate-700">{row.event}</p>
+                                                            </article>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
-
-                                            <div className="space-y-2 p-3">
-                                                {day.rows.map((row) => {
-                                                    const eventStyle = getEventStyle(row.event);
-
-                                                    return (
-                                                        <article
-                                                            key={`${day.title}-${row.time}-${row.event}`}
-                                                            className={`rounded-lg border border-slate-200/80 p-2.5 ring-1 ${eventStyle.ringColor} ${eventStyle.bgColor}`}
-                                                        >
-                                                            <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                                                                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${eventStyle.badgeColor}`}>
-                                                                    {eventStyle.label}
-                                                                </span>
-                                                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#8f1818]">
-                                                                    <Clock3 className="h-3.5 w-3.5" />
-                                                                    {row.time}
-                                                                </span>
-                                                            </div>
-
-                                                            <p className="text-sm font-medium text-slate-700">{row.event}</p>
-                                                        </article>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </section>
                     </motion.section>
 
                     <section>
