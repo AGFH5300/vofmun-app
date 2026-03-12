@@ -273,51 +273,6 @@ const ChatShell: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const logResumeState = (trigger: string) => {
-      console.debug("[MessagesResumeDebug] resume_state", {
-        trigger,
-        visibilityState: typeof document !== "undefined" ? document.visibilityState : "unknown",
-        scrollY: typeof window !== "undefined" ? window.scrollY : null,
-        activeRoomId: activeRoom?.id || null,
-        initialChatReady,
-        hasInitialLoaderMinElapsed,
-        showInitialLoader: !initialChatReady || !hasInitialLoaderMinElapsed,
-        isConnecting,
-        activeElement:
-          typeof document !== "undefined" && document.activeElement
-            ? {
-                tag: document.activeElement.tagName,
-                id: (document.activeElement as HTMLElement).id || null,
-                name: (document.activeElement as HTMLInputElement).name || null,
-              }
-            : null,
-      });
-    };
-
-    const onVisibilityChange = () => {
-      logResumeState("visibilitychange");
-    };
-
-    const onFocus = () => {
-      logResumeState("window_focus");
-    };
-
-    const onBlur = () => {
-      logResumeState("window_blur");
-    };
-
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("blur", onBlur);
-
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("blur", onBlur);
-    };
-  }, [activeRoom?.id, hasInitialLoaderMinElapsed, initialChatReady, isConnecting]);
-
   const filteredRooms = useMemo(() => {
     if (!search.trim()) return rooms;
     const q = search.toLowerCase();
@@ -350,6 +305,8 @@ const ChatShell: React.FC = () => {
     () => (activeRoom ? messages[activeRoom.id] || [] : []),
     [activeRoom, messages],
   );
+  const activeRoomMembers = useMemo(() => activeRoom?.members || [], [activeRoom?.members]);
+
 
   const emojiQuery = useMemo(() => {
     const match = composer.match(/(?:^|\s):([a-z0-9_+-]{1,32})$/i);
@@ -599,7 +556,7 @@ const ChatShell: React.FC = () => {
     );
     return activeTyping
       .map((userId) => {
-        const member = activeRoom.members.find((m) => String(m.user_id) === String(userId));
+        const member = activeRoomMembers.find((m) => String(m.user_id) === String(userId));
         return (
           member?.user?.full_name ||
           `${member?.user?.first_name || ""} ${member?.user?.last_name || ""}`.trim() ||
@@ -870,25 +827,25 @@ const ChatShell: React.FC = () => {
   const activeDmPeer = useMemo(() => {
     if (!activeRoom || activeRoom.room_type !== "dm") return null;
     const normalizedCurrentUserId = String(currentUserId || "");
-    const me = activeRoom.members.find(
+    const me = activeRoomMembers.find(
       (member) =>
         String(member.user_id) === normalizedCurrentUserId ||
         String(member.user?.id || "") === normalizedCurrentUserId,
     );
     return (
-      activeRoom.members.find((member) => String(member.user_id) !== String(me?.user_id || "")) ||
-      activeRoom.members.find((member) => String(member.user_id) !== normalizedCurrentUserId) ||
-      activeRoom.members[0] ||
+      activeRoomMembers.find((member) => String(member.user_id) !== String(me?.user_id || "")) ||
+      activeRoomMembers.find((member) => String(member.user_id) !== normalizedCurrentUserId) ||
+      activeRoomMembers[0] ||
       null
     );
-  }, [activeRoom, currentUserId]);
+  }, [activeRoom, activeRoomMembers, currentUserId]);
 
   const allOtherMemberIds = useMemo(() => {
     if (!activeRoom || !currentUserId) return [] as string[];
-    return activeRoom.members
+    return activeRoomMembers
       .map((member) => String(member.user_id))
       .filter((memberId) => memberId && memberId !== String(currentUserId));
-  }, [activeRoom, currentUserId]);
+  }, [activeRoomMembers, currentUserId]);
 
   const activeRoomTitle = activeRoom
     ? activeRoom.room_type === "dm"
@@ -917,7 +874,7 @@ const ChatShell: React.FC = () => {
         ? isActivePeerOnline
           ? "Online"
           : formatLastSeenLabel(activeDmPeer?.user?.last_seen)
-        : `${activeRoom.members.length} participants`
+        : `${activeRoomMembers.length} participants`
     : "";
 
   useEffect(() => {
@@ -1337,7 +1294,7 @@ const ChatShell: React.FC = () => {
                 {activeRoom ? (
                   <div className="flex items-center gap-3">
                     <div className="flex -space-x-2">
-                      {activeRoom.members.map((member) => (
+                      {activeRoomMembers.map((member) => (
                         <div
                           key={member.id}
                           className="rounded-full border border-white bg-white"
@@ -1463,8 +1420,8 @@ const ChatShell: React.FC = () => {
                           <MessageBubble
                             message={message}
                             isOwn={isOwn}
-                            roomMemberIds={activeRoom.members.map((member) => String(member.user_id))}
-                            roomMembers={activeRoom.members}
+                            roomMemberIds={activeRoomMembers.map((member) => String(member.user_id))}
+                            roomMembers={activeRoomMembers}
                             showAuthor={activeRoom.room_type !== "dm"}
                             showAvatar={activeRoom.room_type !== "dm"}
                             presenceDeliveredHint={presenceDeliveredHint}
