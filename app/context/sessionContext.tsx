@@ -42,7 +42,12 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
   const appUserResolutionInFlightRef = useRef<Promise<UserType | null> | null>(null);
   const hydrateSessionInFlightRef = useRef<Promise<void> | null>(null);
+  const userRef = useRef<UserType | null>(null);
   const isResetPasswordRoute = pathname === "/reset-password";
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const resolveAppUser = useCallback(async (): Promise<UserType | null> => {
     if (!appUserResolutionInFlightRef.current) {
@@ -207,7 +212,12 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      const shouldHoldRenderGate = event !== 'TOKEN_REFRESHED';
+      const sessionUserId = session.user?.id ? String(session.user.id) : null;
+      const resolvedUserId = userRef.current?.id ? String(userRef.current.id) : null;
+      const isSameResolvedUser = Boolean(sessionUserId && resolvedUserId && sessionUserId === resolvedUserId);
+      const isSilentResumeEvent = isSameResolvedUser && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED');
+      const shouldHoldRenderGate = !isSilentResumeEvent && event !== 'TOKEN_REFRESHED';
+
       if (shouldHoldRenderGate) {
         setAuthReady(false);
         setIsSessionHydrated(false);
@@ -217,12 +227,12 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         const mappedUser = await resolveAppUser();
         if (!active) return;
 
-        if (!mappedUser) {
-          setUser(null);
-          Cookies.remove("user");
-        } else {
+        if (mappedUser) {
           setUser(mappedUser);
           Cookies.set("user", JSON.stringify(mappedUser));
+        } else if (shouldHoldRenderGate) {
+          setUser(null);
+          Cookies.remove("user");
         }
       } catch (error) {
         if (!active) return;
