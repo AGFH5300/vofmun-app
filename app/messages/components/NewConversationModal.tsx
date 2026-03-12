@@ -300,18 +300,18 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
   return (
     <Dialog open={open} onClose={onClose} className="relative z-50">
-      <div className="fixed inset-0 bg-deep-red/30 backdrop-blur-[3px]" aria-hidden="true" />
+      <div className="fixed inset-0 bg-deep-red/38 backdrop-blur-[2px]" aria-hidden="true" />
       <div className="fixed inset-0 flex items-start justify-center overflow-y-auto px-4 py-10 md:items-center md:px-8">
-        <Dialog.Panel className="w-full max-w-3xl rounded-[2rem] border border-soft-rose/70 bg-off-white/95 p-6 shadow-[0_28px_70px_rgba(112,30,30,0.22),0_10px_30px_rgba(112,30,30,0.12)] transition-all duration-300 md:p-8">
+        <Dialog.Panel className="w-full max-w-3xl rounded-[2rem] border border-soft-rose bg-off-white p-6 shadow-[0_34px_80px_rgba(77,20,20,0.26),0_14px_36px_rgba(77,20,20,0.14)] transition-all duration-300 md:p-8">
           <div className="flex items-start justify-between gap-5">
             <div className="space-y-1.5">
               <Dialog.Title className="font-serif text-3xl font-semibold text-deep-red">New conversation</Dialog.Title>
-              <p className="text-sm text-almost-black-green/70">Search delegates, connect, and open chats.</p>
+              <p className="text-sm text-almost-black-green/80">Search delegates, connect, and open chats.</p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-soft-rose/70 bg-pure-white/75 text-almost-black-green/60 transition-colors hover:bg-soft-rose/45 hover:text-deep-red"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-rose bg-pure-white text-almost-black-green/70 transition-colors hover:bg-soft-rose/55 hover:text-deep-red"
               aria-label="Close new conversation modal"
             >
               <X className="h-5 w-5" />
@@ -319,7 +319,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
           </div>
 
           <div className="mt-6 space-y-5">
-            <div className="inline-flex rounded-full border border-soft-rose/80 bg-primary-peach/55 p-1.5" role="tablist" aria-label="Conversation tabs">
+            <div className="inline-flex rounded-full border border-soft-rose bg-primary-peach/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]" role="tablist" aria-label="Conversation tabs">
               {tabOptions.map((option) => {
                 const active = tab === option.key;
                 return (
@@ -335,8 +335,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                     onKeyDown={(event) => handleTabKeyDown(event, option.key)}
                     className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${
                       active
-                        ? 'bg-pure-white text-deep-red shadow-[0_6px_20px_rgba(112,30,30,0.16)]'
-                        : 'text-almost-black-green/70 hover:text-deep-red'
+                        ? 'border border-soft-rose bg-pure-white text-deep-red shadow-[0_4px_14px_rgba(112,30,30,0.14)]'
+                        : 'text-almost-black-green/80 hover:text-deep-red'
                     }`}
                   >
                     {option.label}
@@ -348,7 +348,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             {tab === 'direct' ? (
               <div id="new-conversation-panel-direct" role="tabpanel" aria-labelledby="new-conversation-tab-direct" className="space-y-4">
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/45" />
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/60" />
                   <input
                     value={query}
                     onChange={(e) => {
@@ -360,14 +360,14 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                       }
                     }}
                     placeholder="Search by name or email"
-                    className="w-full rounded-2xl border border-soft-rose/80 bg-pure-white/90 py-3 pl-11 pr-4 text-sm text-deep-red placeholder:text-almost-black-green/50 focus:border-deep-red/45 focus:outline-none focus:ring-2 focus:ring-deep-red/15"
+                    className="w-full rounded-2xl border border-soft-rose bg-pure-white py-3 pl-10 pr-4 text-sm text-deep-red placeholder:text-almost-black-green/60 focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
                   />
                 </div>
 
                 {acceptedConnection && (
-                  <div className="rounded-2xl border border-soft-rose/80 bg-primary-peach/50 p-3.5">
+                  <div className="rounded-2xl border border-soft-rose bg-primary-peach/75 p-3.5">
                     <p className="text-sm font-semibold text-deep-red">You and {acceptedConnection.name} are now connected.</p>
-                    <p className="mt-1 text-xs text-almost-black-green/70">Start a chat with your new friend now.</p>
+                    <p className="mt-1 text-xs text-almost-black-green/80">Start a chat with your new friend now.</p>
                     <button
                       type="button"
                       onClick={() => handleStartChat({ id: acceptedConnection.userId, full_name: acceptedConnection.name })}
@@ -380,11 +380,11 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
                 {isSearching && canSearch && <p className="text-sm text-almost-black-green/65">Searching...</p>}
                 {!isSearching && !canSearch && (
-                  <div className="rounded-2xl border border-dashed border-soft-rose/80 bg-pure-white/50 px-4 py-8 text-center">
-                    <p className="text-sm text-almost-black-green/65">Start typing a name or email to search.</p>
+                  <div className="rounded-2xl border border-dashed border-soft-rose bg-pure-white px-4 py-8 text-center">
+                    <p className="text-sm text-almost-black-green/75">Start typing a name or email to search.</p>
                   </div>
                 )}
-                {!isSearching && hasSearched && canSearch && !results.length && !error && <p className="text-sm text-almost-black-green/65">No people found.</p>}
+                {!isSearching && hasSearched && canSearch && !results.length && !error && <p className="text-sm text-almost-black-green/75">No people found.</p>}
 
                 <div className="space-y-2">
                   {results.map((user) => {
@@ -394,13 +394,13 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                     return (
                       <div
                         key={user.id}
-                        className="flex items-center justify-between gap-3 rounded-2xl border border-soft-rose/75 bg-pure-white/80 px-3.5 py-2.5 transition-colors hover:border-soft-rose hover:bg-pure-white"
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-soft-rose bg-pure-white px-3.5 py-2.5 transition-colors hover:border-deep-red/30"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <UserAvatar user={user} size={36} />
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-deep-red">{user.full_name}</p>
-                            {delegationLabel && <p className="truncate text-xs text-almost-black-green/60">{delegationLabel}</p>}
+                            {delegationLabel && <p className="truncate text-xs text-almost-black-green/75">{delegationLabel}</p>}
                           </div>
                         </div>
 
@@ -438,13 +438,13 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                             </button>
                           </div>
                         ) : state === 'outgoing' ? (
-                          <span className="text-xs font-semibold text-almost-black-green/60">Request sent</span>
+                          <span className="text-xs font-semibold text-almost-black-green/75">Request sent</span>
                         ) : (
                           <button
                             type="button"
                             onClick={() => handleSendRequest(user)}
                             disabled={sendingRequestTo.has(user.id)}
-                            className="inline-flex items-center gap-2 rounded-xl border border-soft-rose bg-pure-white px-3 py-1.5 text-xs font-semibold text-deep-red transition-colors hover:border-deep-red/35 disabled:cursor-wait disabled:opacity-70"
+                            className="inline-flex items-center gap-2 rounded-xl border border-soft-rose bg-pure-white px-3 py-1.5 text-xs font-semibold text-deep-red transition-colors hover:border-deep-red/45 disabled:cursor-wait disabled:opacity-70"
                           >
                             {sendingRequestTo.has(user.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
                             Connect
@@ -458,23 +458,23 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             ) : tab === 'friends' ? (
               <div id="new-conversation-panel-friends" role="tabpanel" aria-labelledby="new-conversation-tab-friends" className="space-y-2.5">
                 {connectedContacts.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-soft-rose/80 bg-pure-white/50 px-4 py-8 text-center text-sm text-almost-black-green/65">
+                  <div className="rounded-2xl border border-dashed border-soft-rose bg-pure-white px-4 py-8 text-center text-sm text-almost-black-green/75">
                     You do not have any accepted friends yet.
                   </div>
                 ) : (
                   connectedContacts.map((contact) => (
                     <div
                       key={contact.userId}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-soft-rose/75 bg-pure-white/85 px-3.5 py-2.5 transition-colors hover:border-soft-rose hover:bg-pure-white"
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-soft-rose bg-pure-white px-3.5 py-2.5 transition-colors hover:border-deep-red/30"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <UserAvatar user={{ id: contact.userId, full_name: contact.name, ...(contact.user || {}) }} size={36} />
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-deep-red">{contact.name}</p>
                           {getUserDelegationLabel(contact.user) ? (
-                            <p className="truncate text-xs text-almost-black-green/60">{getUserDelegationLabel(contact.user)}</p>
+                            <p className="truncate text-xs text-almost-black-green/75">{getUserDelegationLabel(contact.user)}</p>
                           ) : (
-                            <p className="truncate text-xs text-almost-black-green/50">Connected contact</p>
+                            <p className="truncate text-xs text-almost-black-green/65">Connected contact</p>
                           )}
                         </div>
                       </div>
@@ -498,7 +498,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-2xl border border-soft-rose/80 bg-pure-white/90 px-4 py-2.5 text-sm text-deep-red focus:border-deep-red/45 focus:outline-none focus:ring-2 focus:ring-deep-red/15"
+                    className="w-full rounded-2xl border border-soft-rose bg-pure-white px-4 py-2.5 text-sm text-deep-red focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
                   />
                 </div>
 
@@ -506,16 +506,16 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Description (optional)"
-                  className="min-h-24 w-full rounded-2xl border border-soft-rose/80 bg-pure-white/90 px-4 py-2.5 text-sm text-deep-red placeholder:text-almost-black-green/50 focus:border-deep-red/45 focus:outline-none focus:ring-2 focus:ring-deep-red/15"
+                  className="min-h-24 w-full rounded-2xl border border-soft-rose bg-pure-white px-4 py-2.5 text-sm text-deep-red placeholder:text-almost-black-green/60 focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
                 />
 
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/45" />
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/60" />
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search people to add"
-                    className="w-full rounded-2xl border border-soft-rose/80 bg-pure-white/90 py-3 pl-11 pr-4 text-sm text-deep-red placeholder:text-almost-black-green/50 focus:border-deep-red/45 focus:outline-none focus:ring-2 focus:ring-deep-red/15"
+                    className="w-full rounded-2xl border border-soft-rose bg-pure-white py-3 pl-10 pr-4 text-sm text-deep-red placeholder:text-almost-black-green/60 focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
                   />
                 </div>
 
@@ -528,14 +528,14 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                         type="button"
                         onClick={() => toggleSelect(user)}
                         className={`flex w-full items-center justify-between rounded-2xl border px-3.5 py-2.5 text-left transition-colors ${
-                          isSelected ? 'border-deep-red/40 bg-soft-rose/35' : 'border-soft-rose/70 bg-pure-white/90 hover:border-soft-rose'
+                          isSelected ? 'border-deep-red/45 bg-soft-rose/60' : 'border-soft-rose bg-pure-white hover:border-deep-red/30'
                         }`}
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <UserAvatar user={user} size={34} />
                           <span className="truncate text-sm font-semibold text-deep-red">{user.full_name}</span>
                         </div>
-                        <Plus className={`h-4 w-4 ${isSelected ? 'rotate-45 text-deep-red' : 'text-almost-black-green/70'} transition-transform`} />
+                        <Plus className={`h-4 w-4 ${isSelected ? 'rotate-45 text-deep-red' : 'text-almost-black-green/80'} transition-transform`} />
                       </button>
                     );
                   })}
@@ -543,10 +543,10 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
                 <div className="flex flex-wrap gap-2">
                   {selected.length === 0 ? (
-                    <p className="rounded-full border border-dashed border-soft-rose/70 px-3 py-1 text-xs text-almost-black-green/60">No members selected yet.</p>
+                    <p className="rounded-full border border-dashed border-soft-rose px-3 py-1 text-xs text-almost-black-green/75">No members selected yet.</p>
                   ) : (
                     selected.map((user) => (
-                      <span key={user.id} className="inline-flex items-center gap-2 rounded-full border border-soft-rose bg-primary-peach/70 px-3 py-1 text-xs font-semibold text-deep-red">
+                      <span key={user.id} className="inline-flex items-center gap-2 rounded-full border border-soft-rose bg-primary-peach/85 px-3 py-1 text-xs font-semibold text-deep-red">
                         {user.full_name}
                         <button type="button" onClick={() => toggleSelect(user)} className="rounded-full bg-pure-white p-0.5 text-deep-red">
                           <X className="h-3 w-3" />
@@ -577,8 +577,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   </div>
 
                   {incomingRequestsList.length === 0 ? (
-                    <div className="flex items-center gap-2 rounded-2xl border border-dashed border-soft-rose/80 bg-pure-white/55 px-4 py-3 text-sm text-almost-black-green/65">
-                      <Inbox className="h-4 w-4 text-almost-black-green/45" />
+                    <div className="flex items-center gap-2 rounded-2xl border border-dashed border-soft-rose bg-pure-white px-4 py-3 text-sm text-almost-black-green/75">
+                      <Inbox className="h-4 w-4 text-almost-black-green/60" />
                       <p>No incoming requests right now.</p>
                     </div>
                   ) : (
@@ -597,15 +597,15 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                         return (
                           <div
                             key={req.id}
-                            className="flex items-center justify-between gap-3 rounded-2xl border border-soft-rose/75 bg-pure-white/85 px-3.5 py-2.5 transition-colors hover:border-soft-rose hover:bg-pure-white"
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-soft-rose bg-pure-white px-3.5 py-2.5 transition-colors hover:border-deep-red/30"
                           >
                             <div className="flex min-w-0 items-center gap-3">
-                              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-soft-rose bg-primary-peach/55 text-xs font-semibold text-deep-red">
+                              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-soft-rose bg-primary-peach/80 text-xs font-semibold text-deep-red">
                                 {initials}
                               </span>
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold text-deep-red">{displayName}</p>
-                                {metadata ? <p className="truncate text-xs text-almost-black-green/60">{metadata}</p> : null}
+                                {metadata ? <p className="truncate text-xs text-almost-black-green/75">{metadata}</p> : null}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -622,7 +622,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                                 type="button"
                                 onClick={() => handleDeclineRequest(req.id)}
                                 disabled={respondingTo === req.id}
-                                className="rounded-lg border border-soft-rose bg-pure-white px-3 py-1.5 text-xs font-semibold text-almost-black-green/75 transition-colors hover:border-deep-red/35 hover:text-deep-red disabled:cursor-wait disabled:opacity-70"
+                                className="rounded-lg border border-soft-rose bg-pure-white px-3 py-1.5 text-xs font-semibold text-almost-black-green/85 transition-colors hover:border-deep-red/45 hover:text-deep-red disabled:cursor-wait disabled:opacity-70"
                               >
                                 Decline
                               </button>
@@ -637,22 +637,22 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                 <section className="space-y-2.5">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-deep-red">Sent requests</h3>
-                    <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-soft-rose bg-pure-white px-2 py-0.5 text-xs font-semibold text-deep-red/85">
+                    <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-soft-rose bg-pure-white px-2 py-0.5 text-xs font-semibold text-deep-red">
                       {sentRequestsList.length}
                     </span>
                   </div>
 
                   {sentRequestsList.length === 0 ? (
-                    <div className="flex items-center gap-2 rounded-2xl border border-dashed border-soft-rose/80 bg-pure-white/55 px-4 py-3 text-sm text-almost-black-green/65">
-                      <Clock3 className="h-4 w-4 text-almost-black-green/50" />
+                    <div className="flex items-center gap-2 rounded-2xl border border-dashed border-soft-rose bg-pure-white px-4 py-3 text-sm text-almost-black-green/75">
+                      <Clock3 className="h-4 w-4 text-almost-black-green/60" />
                       <p>No pending sent requests.</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {sentRequestsList.map((req) => (
-                        <div key={req.id} className="flex items-center justify-between rounded-2xl border border-soft-rose/75 bg-pure-white/85 px-3.5 py-2.5">
+                        <div key={req.id} className="flex items-center justify-between rounded-2xl border border-soft-rose bg-pure-white px-3.5 py-2.5">
                           <p className="truncate text-sm font-semibold text-deep-red">{getRequestDisplayName(req.receiver_id, req.receiver)}</p>
-                          <span className="rounded-full border border-soft-rose bg-primary-peach/55 px-2.5 py-1 text-[10px] font-semibold tracking-[0.08em] text-almost-black-green/70">
+                          <span className="rounded-full border border-soft-rose bg-primary-peach/80 px-2.5 py-1 text-[10px] font-semibold tracking-[0.08em] text-almost-black-green/80">
                             Awaiting response
                           </span>
                         </div>
