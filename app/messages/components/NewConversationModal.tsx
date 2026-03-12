@@ -4,7 +4,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import { BadgeCheck, Check, Clock3, Inbox, Loader2, MessageCirclePlus, Plus, Search, UserPlus, Users, X } from 'lucide-react';
+import { BadgeCheck, Clock3, Inbox, Loader2, MessageCirclePlus, Plus, Search, UserPlus, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { FriendRequest, UserSearchResult } from '@/lib/chat/types';
 import { getUserDelegationLabel } from '@/lib/chat/delegation';
@@ -319,8 +319,9 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
           </div>
 
           <div className="mt-6 space-y-5">
-            <div className="inline-flex rounded-full border border-soft-rose bg-primary-peach/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]" role="tablist" aria-label="Conversation tabs">
-              {tabOptions.map((option) => {
+            <div className="flex justify-center">
+              <div className="inline-flex w-full max-w-fit flex-wrap items-center justify-center gap-1.5 rounded-full border border-soft-rose bg-primary-peach/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]" role="tablist" aria-label="Conversation tabs">
+                {tabOptions.map((option) => {
                 const active = tab === option.key;
                 return (
                   <button
@@ -342,7 +343,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                     {option.label}
                   </button>
                 );
-              })}
+                })}
+              </div>
             </div>
 
             {tab === 'direct' ? (
@@ -418,25 +420,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                               {openingChatFor === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Start chat'}
                             </button>
                           </div>
-                        ) : state === 'incoming' && relationship.request ? (
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleAcceptRequest(relationship.request)}
-                              disabled={respondingTo === relationship.request.id}
-                              className="inline-flex items-center gap-1 rounded-lg bg-deep-red px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-dark-burgundy disabled:cursor-wait disabled:opacity-70"
-                            >
-                              {respondingTo === relationship.request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3 w-3" />}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeclineRequest(relationship.request.id)}
-                              disabled={respondingTo === relationship.request.id}
-                              className="rounded-lg border border-soft-rose bg-pure-white px-2.5 py-1.5 text-xs font-semibold text-deep-red transition-colors hover:border-deep-red/40 disabled:cursor-wait disabled:opacity-70"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
+                        ) : state === 'incoming' ? (
+                          <span className="text-xs font-semibold text-almost-black-green/75">Pending incoming request</span>
                         ) : state === 'outgoing' ? (
                           <span className="text-xs font-semibold text-almost-black-green/75">Request sent</span>
                         ) : (
@@ -492,79 +477,134 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                 )}
               </div>
             ) : tab === 'group' ? (
-              <div id="new-conversation-panel-group" role="tabpanel" aria-labelledby="new-conversation-tab-group" className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-semibold text-almost-black-green">Group name</label>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-2xl border border-soft-rose bg-pure-white px-4 py-2.5 text-sm text-deep-red focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
-                  />
+              <div id="new-conversation-panel-group" role="tabpanel" aria-labelledby="new-conversation-tab-group" className="mx-auto w-full max-w-2xl space-y-5">
+                <div className="rounded-3xl border border-soft-rose bg-pure-white/90 p-4 md:p-5">
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-semibold text-almost-black-green">Group name</label>
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="E.g. GA Committee Core Team"
+                        className="w-full rounded-2xl border border-soft-rose bg-pure-white px-4 py-3 text-sm text-deep-red placeholder:text-almost-black-green/60 focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-semibold text-almost-black-green">Description (optional)</label>
+                      <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="What is this group for?"
+                        className="min-h-24 w-full rounded-2xl border border-soft-rose bg-pure-white px-4 py-2.5 text-sm text-deep-red placeholder:text-almost-black-green/60 focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Description (optional)"
-                  className="min-h-24 w-full rounded-2xl border border-soft-rose bg-pure-white px-4 py-2.5 text-sm text-deep-red placeholder:text-almost-black-green/60 focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
-                />
+                <div className="rounded-3xl border border-soft-rose bg-pure-white/90 p-4 md:p-5">
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-deep-red">Add participants</p>
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/60" />
+                      <input
+                        value={query}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setQuery(value);
+                          if (!value.trim()) {
+                            setResults([]);
+                            setHasSearched(false);
+                          }
+                        }}
+                        placeholder="Search by name or email"
+                        className="w-full rounded-2xl border border-soft-rose bg-pure-white py-3 pl-10 pr-4 text-sm text-deep-red placeholder:text-almost-black-green/60 focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
+                      />
+                    </div>
 
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/60" />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search people to add"
-                    className="w-full rounded-2xl border border-soft-rose bg-pure-white py-3 pl-10 pr-4 text-sm text-deep-red placeholder:text-almost-black-green/60 focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
-                  />
+                    {isSearching && canSearch && (
+                      <div className="inline-flex items-center gap-2 rounded-xl bg-primary-peach/60 px-3 py-1.5 text-xs font-semibold text-deep-red">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching...
+                      </div>
+                    )}
+                    {!isSearching && !canSearch && (
+                      <div className="rounded-2xl border border-dashed border-soft-rose bg-pure-white px-4 py-6 text-center">
+                        <p className="text-sm text-almost-black-green/75">Start typing a name or email to search participants.</p>
+                      </div>
+                    )}
+                    {!isSearching && hasSearched && canSearch && !results.length && !error && (
+                      <div className="rounded-2xl border border-dashed border-soft-rose bg-pure-white px-4 py-6 text-center">
+                        <p className="text-sm text-almost-black-green/75">No people found for your search.</p>
+                      </div>
+                    )}
+
+                    {results.length > 0 && (
+                      <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                        {results.map((user) => {
+                          const isSelected = selected.some((item) => item.id === user.id);
+                          const delegationLabel = getUserDelegationLabel(user);
+                          return (
+                            <button
+                              key={user.id}
+                              type="button"
+                              onClick={() => toggleSelect(user)}
+                              className={`flex w-full items-center justify-between rounded-2xl border px-3.5 py-2.5 text-left transition-colors ${
+                                isSelected ? 'border-deep-red/45 bg-soft-rose/60' : 'border-soft-rose bg-pure-white hover:border-deep-red/30'
+                              }`}
+                            >
+                              <div className="flex min-w-0 items-center gap-3">
+                                <UserAvatar user={user} size={34} />
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold text-deep-red">{user.full_name}</p>
+                                  <p className="truncate text-xs text-almost-black-green/75">{delegationLabel || user.email || 'No delegation available'}</p>
+                                </div>
+                              </div>
+                              <Plus className={`h-4 w-4 ${isSelected ? 'rotate-45 text-deep-red' : 'text-almost-black-green/80'} transition-transform`} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
-                  {results.map((user) => {
-                    const isSelected = selected.some((item) => item.id === user.id);
-                    return (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => toggleSelect(user)}
-                        className={`flex w-full items-center justify-between rounded-2xl border px-3.5 py-2.5 text-left transition-colors ${
-                          isSelected ? 'border-deep-red/45 bg-soft-rose/60' : 'border-soft-rose bg-pure-white hover:border-deep-red/30'
-                        }`}
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <UserAvatar user={user} size={34} />
-                          <span className="truncate text-sm font-semibold text-deep-red">{user.full_name}</span>
-                        </div>
-                        <Plus className={`h-4 w-4 ${isSelected ? 'rotate-45 text-deep-red' : 'text-almost-black-green/80'} transition-transform`} />
-                      </button>
-                    );
-                  })}
+                <div className="rounded-3xl border border-soft-rose bg-pure-white/90 p-4 md:p-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-sm font-semibold text-deep-red">Selected participants</p>
+                    <span className="rounded-full border border-soft-rose bg-primary-peach/80 px-2.5 py-1 text-[10px] font-semibold tracking-[0.08em] text-almost-black-green/85">
+                      {selected.length} selected
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {selected.length === 0 ? (
+                      <p className="rounded-full border border-dashed border-soft-rose px-3 py-1 text-xs text-almost-black-green/75">No members selected yet.</p>
+                    ) : (
+                      selected.map((user) => (
+                        <span key={user.id} className="inline-flex items-center gap-2 rounded-full border border-soft-rose bg-primary-peach/85 px-3 py-1 text-xs font-semibold text-deep-red">
+                          <span className="max-w-[260px] truncate">
+                            {user.full_name}
+                            <span className="ml-1 font-medium text-almost-black-green/75">· {getUserDelegationLabel(user) || user.email || 'No delegation available'}</span>
+                          </span>
+                          <button type="button" onClick={() => toggleSelect(user)} className="rounded-full bg-pure-white p-0.5 text-deep-red">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {selected.length === 0 ? (
-                    <p className="rounded-full border border-dashed border-soft-rose px-3 py-1 text-xs text-almost-black-green/75">No members selected yet.</p>
-                  ) : (
-                    selected.map((user) => (
-                      <span key={user.id} className="inline-flex items-center gap-2 rounded-full border border-soft-rose bg-primary-peach/85 px-3 py-1 text-xs font-semibold text-deep-red">
-                        {user.full_name}
-                        <button type="button" onClick={() => toggleSelect(user)} className="rounded-full bg-pure-white p-0.5 text-deep-red">
-                          <X className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))
-                  )}
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={handleCreateGroup}
+                    disabled={isCreatingGroup}
+                    className="inline-flex min-w-[220px] items-center justify-center gap-2 rounded-xl bg-deep-red px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-dark-burgundy disabled:cursor-wait disabled:opacity-70"
+                  >
+                    {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+                    {isCreatingGroup ? 'Creating group...' : 'Create group'}
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleCreateGroup}
-                  disabled={isCreatingGroup}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-deep-red px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-dark-burgundy disabled:cursor-wait disabled:opacity-70"
-                >
-                  {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
-                  {isCreatingGroup ? 'Creating group...' : 'Create group'}
-                </button>
               </div>
             ) : (
               <div id="new-conversation-panel-requests" role="tabpanel" aria-labelledby="new-conversation-tab-requests" className="space-y-5">
