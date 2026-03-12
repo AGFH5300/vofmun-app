@@ -14,7 +14,7 @@ import { useChat } from '../context/ChatContext';
 interface Props {
   open: boolean;
   onClose: () => void;
-  initialTab?: 'direct' | 'group' | 'friends';
+  initialTab?: 'direct' | 'group' | 'friends' | 'requests';
 }
 
 const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'direct' }) => {
@@ -33,7 +33,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     selectRoom,
   } = useChat();
 
-  const [tab, setTab] = useState<'direct' | 'group' | 'friends'>(initialTab);
+  const [tab, setTab] = useState<'direct' | 'group' | 'friends' | 'requests'>(initialTab);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -130,6 +130,14 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
   const incomingRequestsList = useMemo(
     () => incomingRequests.filter((req) => req.receiver_id === currentUserId && req.status === 'pending'),
     [currentUserId, incomingRequests]
+  );
+
+  const sentRequestsList = useMemo(
+    () =>
+      friendRequests.filter(
+        (req) => String(req.sender_id) === String(currentUserId || '') && req.status === 'pending'
+      ),
+    [currentUserId, friendRequests]
   );
 
   const connectedContacts = useMemo(() => {
@@ -292,6 +300,13 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                 className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === 'friends' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
               >
                 Friends
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab('requests')}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === 'requests' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+              >
+                Requests
               </button>
             </div>
 
@@ -461,7 +476,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   ))
                 )}
               </div>
-            ) : (
+            ) : tab === 'group' ? (
               <div className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
@@ -509,6 +524,70 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                     {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
                     {isCreatingGroup ? 'Creating group...' : 'Create group'}
                   </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 rounded-2xl border border-soft-ivory bg-warm-light-grey/35 p-3">
+                <div className="space-y-2 rounded-2xl border border-soft-ivory bg-white p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-deep-red">Incoming requests</p>
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#c62828] px-2 text-xs font-semibold text-white">
+                      {incomingRequestsList.length}
+                    </span>
+                  </div>
+                  {incomingRequestsList.length === 0 ? (
+                    <p className="text-sm text-almost-black-green/60">No incoming requests right now.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {incomingRequestsList.map((req) => (
+                        <div key={req.id} className="flex items-center justify-between rounded-xl border border-soft-ivory bg-warm-light-grey/25 px-3 py-2">
+                          <p className="text-sm text-deep-red">{getRequestDisplayName(req.sender_id, req.sender)}</p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleAcceptRequest(req)}
+                              disabled={respondingTo === req.id}
+                              className="inline-flex items-center gap-1 rounded-lg bg-[#701e1e] px-3 py-1 text-xs font-semibold text-white hover:bg-[#8b2424] disabled:cursor-wait disabled:opacity-70"
+                            >
+                              {respondingTo === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                              Accept
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeclineRequest(req.id)}
+                              disabled={respondingTo === req.id}
+                              className="rounded-lg border border-soft-ivory px-3 py-1 text-xs font-semibold text-deep-red disabled:cursor-wait disabled:opacity-70"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2 rounded-2xl border border-soft-ivory bg-white p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-deep-red">Sent requests</p>
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-soft-ivory px-2 text-xs font-semibold text-deep-red">
+                      {sentRequestsList.length}
+                    </span>
+                  </div>
+                  {sentRequestsList.length === 0 ? (
+                    <p className="text-sm text-almost-black-green/60">No pending sent requests.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {sentRequestsList.map((req) => (
+                        <div key={req.id} className="flex items-center justify-between rounded-xl border border-soft-ivory bg-warm-light-grey/25 px-3 py-2">
+                          <p className="text-sm text-deep-red">{getRequestDisplayName(req.receiver_id, req.receiver)}</p>
+                          <span className="rounded-full bg-soft-ivory px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-almost-black-green/60">
+                            Awaiting response
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
