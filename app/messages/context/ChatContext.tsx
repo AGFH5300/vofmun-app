@@ -17,6 +17,7 @@ import { useSession } from '@/app/context/sessionContext';
 import supabase from '@/lib/supabase';
 import { normalizeMessageMeta, resolveOwnMessageStatus } from '@/lib/chat/messageMeta';
 import { getBrowserAccessToken, withBrowserAuthHeaders } from '@/lib/auth/browserAuthFetch';
+import { toast } from 'sonner';
 
 const CHAT_WS_URL = process.env.NEXT_PUBLIC_CHAT_WS_URL;
 const CHAT_API_URL = process.env.NEXT_PUBLIC_CHAT_API_URL || '';
@@ -85,6 +86,7 @@ const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 12000;
 const RECEIPT_DEBOUNCE_MS = 300;
 const BOOTSTRAP_FETCH_TIMEOUT_MS = 12000;
+const FRIEND_REQUEST_REFRESH_DEBOUNCE_MS = 80;
 
 const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 
@@ -268,6 +270,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const friendRequestRefetchScheduledRef = useRef(false);
   const friendRequestRefetchInFlightRef = useRef(false);
   const friendRequestRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const friendRequestRefetchQueuedRef = useRef(false);
+  const friendRequestSnapshotRef = useRef<
+    Map<string, { status: FriendRequest['status']; senderId: string; receiverId: string; sender?: FriendRequest['sender']; receiver?: FriendRequest['receiver'] }>
+  >(new Map());
+  const friendRequestToastBootstrapRef = useRef(false);
+  const friendRequestToastTransitionsRef = useRef<Set<string>>(new Set());
   const visibilityRefreshInFlightRef = useRef(false);
 
   const setRoomUnreadCount = useCallback((roomId: string, count: number) => {
@@ -1341,19 +1349,33 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   useEffect(() => {
     if (!userId) return;
 
+    const runFriendRequestRefreshQueue = async () => {
+      if (friendRequestRefetchInFlightRef.current) return;
+
+      friendRequestRefetchInFlightRef.current = true;
+      try {
+        while (friendRequestRefetchQueuedRef.current) {
+          friendRequestRefetchQueuedRef.current = false;
+          await refreshFriendRequestsRef.current();
+        }
+      } finally {
+        friendRequestRefetchInFlightRef.current = false;
+      }
+    };
+
     const scheduleFriendRequestRefresh = (incoming: FriendRequest) => {
       const normalized = normalizeFriendRequestRecord(incoming);
       if (!isFriendRequestInvolvingUser(normalized, userId)) return;
-      if (friendRequestRefetchScheduledRef.current || friendRequestRefetchInFlightRef.current) return;
+
+      friendRequestRefetchQueuedRef.current = true;
+      if (friendRequestRefetchScheduledRef.current) return;
 
       friendRequestRefetchScheduledRef.current = true;
       friendRequestRefetchTimerRef.current = setTimeout(() => {
         friendRequestRefetchScheduledRef.current = false;
-        friendRequestRefetchInFlightRef.current = true;
-        void refreshFriendRequestsRef.current().finally(() => {
-          friendRequestRefetchInFlightRef.current = false;
-        });
-      }, 120);
+        friendRequestRefetchTimerRef.current = null;
+        void runFriendRequestRefreshQueue();
+      }, FRIEND_REQUEST_REFRESH_DEBOUNCE_MS);
     };
 
     const channel = supabase
@@ -1414,9 +1436,83 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         friendRequestRefetchTimerRef.current = null;
       }
       friendRequestRefetchScheduledRef.current = false;
+      friendRequestRefetchQueuedRef.current = false;
       void supabase.removeChannel(channel);
     };
   }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      friendRequestSnapshotRef.current = new Map();
+      friendRequestToastBootstrapRef.current = false;
+      friendRequestToastTransitionsRef.current.clear();
+      return;
+    }
+
+    const previousSnapshot = friendRequestSnapshotRef.current;
+    const nextSnapshot = new Map<
+      string,
+      { status: FriendRequest['status']; senderId: string; receiverId: string; sender?: FriendRequest['sender']; receiver?: FriendRequest['receiver'] }
+    >();
+
+    friendRequests.forEach((request) => {
+      nextSnapshot.set(String(request.id), {
+        status: request.status,
+        senderId: String(request.sender_id),
+        receiverId: String(request.receiver_id),
+        sender: request.sender,
+        receiver: request.receiver,
+      });
+    });
+
+    if (!friendRequestToastBootstrapRef.current) {
+      friendRequestSnapshotRef.current = nextSnapshot;
+      friendRequestToastBootstrapRef.current = true;
+      return;
+    }
+
+    const currentTransitions = friendRequestToastTransitionsRef.current;
+    const notifyTransition = (transitionKey: string, handler: () => void) => {
+      if (currentTransitions.has(transitionKey)) return;
+      currentTransitions.add(transitionKey);
+      if (currentTransitions.size > 200) {
+        const [first] = currentTransitions;
+        if (first) currentTransitions.delete(first);
+      }
+      handler();
+    };
+
+    nextSnapshot.forEach((request, requestId) => {
+      const previous = previousSnapshot.get(requestId);
+
+      if (!previous && request.status === 'pending' && request.receiverId === userId) {
+        const senderName = resolveUserDisplay(request.senderId, request.sender);
+        notifyTransition(`${requestId}:none->pending:incoming`, () => {
+          toast.info(`${senderName} sent you a friend request.`);
+        });
+        return;
+      }
+
+      if (!previous || previous.status === request.status) return;
+
+      if (previous.status === 'pending' && request.status === 'accepted' && request.senderId === userId) {
+        const receiverName = resolveUserDisplay(request.receiverId, request.receiver);
+        notifyTransition(`${requestId}:pending->accepted:sender`, () => {
+          toast.success(`${receiverName} accepted your friend request.`);
+        });
+        return;
+      }
+
+      if (previous.status === 'pending' && request.status === 'rejected' && request.senderId === userId) {
+        const receiverName = resolveUserDisplay(request.receiverId, request.receiver);
+        notifyTransition(`${requestId}:pending->rejected:sender`, () => {
+          toast.info(`${receiverName} declined your friend request.`);
+        });
+      }
+    });
+
+    friendRequestSnapshotRef.current = nextSnapshot;
+  }, [friendRequests, resolveUserDisplay, userId]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
