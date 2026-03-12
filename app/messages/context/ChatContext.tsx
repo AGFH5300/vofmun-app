@@ -162,6 +162,15 @@ const formatUserDisplayName = (user?: FriendRequest['sender'] | null) => {
   return '';
 };
 
+const FALLBACK_USER_DISPLAY = 'Unknown user';
+
+const getFriendRequestDisplayName = (targetUserId: string, fallbackUser?: FriendRequest['sender'] | null) => {
+  const normalizedId = String(targetUserId);
+  const display = formatUserDisplayName(fallbackUser);
+  if (display) return display;
+  return isUuid(normalizedId) ? FALLBACK_USER_DISPLAY : normalizedId;
+};
+
 const isFriendRequestInvolvingUser = (request: FriendRequest, currentUserId: string) => {
   const normalizedUserId = String(currentUserId);
   return String(request.sender_id) === normalizedUserId || String(request.receiver_id) === normalizedUserId;
@@ -256,6 +265,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const unreadByRoomRef = useRef<Record<string, number>>({});
   const defaultDocumentTitleRef = useRef<string | null>(null);
   const isMountedRef = useRef(true);
+  const friendRequestRefetchScheduledRef = useRef(false);
+  const friendRequestRefetchInFlightRef = useRef(false);
+  const friendRequestRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const visibilityRefreshInFlightRef = useRef(false);
 
   const setRoomUnreadCount = useCallback((roomId: string, count: number) => {
     const normalizedRoomId = toComparableId(roomId);
@@ -366,11 +379,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const resolveUserDisplay = useCallback(
     (targetUserId: string, fallbackUser?: FriendRequest['sender'] | null) => {
       const normalizedId = String(targetUserId);
-      const fromFallback = formatUserDisplayName(fallbackUser);
+      const fromFallback = getFriendRequestDisplayName(normalizedId, fallbackUser);
       if (fromFallback) return fromFallback;
-      const fromCache = formatUserDisplayName(userDirectory[normalizedId]);
+      const fromCache = getFriendRequestDisplayName(normalizedId, userDirectory[normalizedId]);
       if (fromCache) return fromCache;
-      return normalizedId;
+      return FALLBACK_USER_DISPLAY;
     },
     [userDirectory]
   );
@@ -494,6 +507,19 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   useEffect(() => {
     roomsRef.current = rooms;
+  }, [rooms]);
+
+  useEffect(() => {
+    const activeRoomId = activeRoomIdRef.current;
+    if (!activeRoomId) return;
+
+    const nextActiveRoom = rooms.find((room) => room.id === activeRoomId);
+    if (nextActiveRoom) {
+      setActiveRoom((prev) => (prev?.id === nextActiveRoom.id ? { ...prev, ...nextActiveRoom } : nextActiveRoom));
+      return;
+    }
+
+    setActiveRoom(rooms[0] || null);
   }, [rooms]);
 
   useEffect(() => {
@@ -1315,27 +1341,19 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   useEffect(() => {
     if (!userId) return;
 
-    const applyRealtimeFriendRequest = (incoming: FriendRequest) => {
+    const scheduleFriendRequestRefresh = (incoming: FriendRequest) => {
       const normalized = normalizeFriendRequestRecord(incoming);
       if (!isFriendRequestInvolvingUser(normalized, userId)) return;
+      if (friendRequestRefetchScheduledRef.current || friendRequestRefetchInFlightRef.current) return;
 
-      void fetchAndCacheUsers([normalized.sender_id, normalized.receiver_id]);
-
-      setFriendRequests((prev) => {
-        const existing = prev.find((request) => request.id === normalized.id);
-        const withoutDupes = prev.filter((request) => request.id !== normalized.id);
-        const mergedRequest = {
-          ...normalized,
-          sender: normalized.sender || existing?.sender || userDirectory[String(normalized.sender_id)],
-          receiver: normalized.receiver || existing?.receiver || userDirectory[String(normalized.receiver_id)],
-        };
-        return [mergedRequest, ...withoutDupes];
-      });
-    };
-
-    const removeRealtimeFriendRequest = (incoming: FriendRequest) => {
-      if (!isFriendRequestInvolvingUser(incoming, userId)) return;
-      setFriendRequests((prev) => prev.filter((request) => request.id !== incoming.id));
+      friendRequestRefetchScheduledRef.current = true;
+      friendRequestRefetchTimerRef.current = setTimeout(() => {
+        friendRequestRefetchScheduledRef.current = false;
+        friendRequestRefetchInFlightRef.current = true;
+        void refreshFriendRequestsRef.current().finally(() => {
+          friendRequestRefetchInFlightRef.current = false;
+        });
+      }, 120);
     };
 
     const channel = supabase
@@ -1345,7 +1363,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         { event: 'INSERT', schema: 'public', table: 'friend_requests', filter: `sender_id=eq.${userId}` },
         (payload) => {
           const next = payload.new as FriendRequest;
-          if (next?.id) applyRealtimeFriendRequest(next);
+          if (next?.id) scheduleFriendRequestRefresh(next);
         }
       )
       .on(
@@ -1353,7 +1371,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         { event: 'INSERT', schema: 'public', table: 'friend_requests', filter: `receiver_id=eq.${userId}` },
         (payload) => {
           const next = payload.new as FriendRequest;
-          if (next?.id) applyRealtimeFriendRequest(next);
+          if (next?.id) scheduleFriendRequestRefresh(next);
         }
       )
       .on(
@@ -1361,7 +1379,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         { event: 'UPDATE', schema: 'public', table: 'friend_requests', filter: `sender_id=eq.${userId}` },
         (payload) => {
           const next = payload.new as FriendRequest;
-          if (next?.id) applyRealtimeFriendRequest(next);
+          if (next?.id) scheduleFriendRequestRefresh(next);
         }
       )
       .on(
@@ -1369,7 +1387,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         { event: 'UPDATE', schema: 'public', table: 'friend_requests', filter: `receiver_id=eq.${userId}` },
         (payload) => {
           const next = payload.new as FriendRequest;
-          if (next?.id) applyRealtimeFriendRequest(next);
+          if (next?.id) scheduleFriendRequestRefresh(next);
         }
       )
       .on(
@@ -1377,7 +1395,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         { event: 'DELETE', schema: 'public', table: 'friend_requests', filter: `sender_id=eq.${userId}` },
         (payload) => {
           const previous = payload.old as FriendRequest;
-          if (previous?.id) removeRealtimeFriendRequest(previous);
+          if (previous?.id) scheduleFriendRequestRefresh(previous);
         }
       )
       .on(
@@ -1385,15 +1403,20 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         { event: 'DELETE', schema: 'public', table: 'friend_requests', filter: `receiver_id=eq.${userId}` },
         (payload) => {
           const previous = payload.old as FriendRequest;
-          if (previous?.id) removeRealtimeFriendRequest(previous);
+          if (previous?.id) scheduleFriendRequestRefresh(previous);
         }
       )
       .subscribe();
 
     return () => {
+      if (friendRequestRefetchTimerRef.current) {
+        clearTimeout(friendRequestRefetchTimerRef.current);
+        friendRequestRefetchTimerRef.current = null;
+      }
+      friendRequestRefetchScheduledRef.current = false;
       void supabase.removeChannel(channel);
     };
-  }, [fetchAndCacheUsers, userDirectory, userId]);
+  }, [userId]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1591,41 +1614,35 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
 
   useEffect(() => {
-    if (typeof document === 'undefined') return;
+    if (!userId || typeof document === 'undefined') return;
 
-    const logResumeState = (trigger: string) => {
-      console.debug('[MessagesResumeDebug] chat_context_state', {
-        trigger,
-        visibilityState: document.visibilityState,
-        activeRoomId: activeRoomIdRef.current,
-        initialChatReady,
-        isConnecting,
-        websocketReadyState: wsRef.current?.readyState ?? 'missing',
-      });
+    const refreshOnResume = async () => {
+      if (document.visibilityState === 'hidden' || visibilityRefreshInFlightRef.current) return;
+      visibilityRefreshInFlightRef.current = true;
+      try {
+        const refreshedRooms = await refreshRoomsRef.current();
+        await refreshFriendRequestsRef.current();
+
+        const activeRoomId = activeRoomIdRef.current;
+        if (activeRoomId && refreshedRooms.some((room) => room.id === activeRoomId)) {
+          await refreshRoomMessagesRef.current(activeRoomId);
+        }
+      } finally {
+        visibilityRefreshInFlightRef.current = false;
+      }
     };
 
-    const onVisibilityChange = () => {
-      logResumeState('visibilitychange');
+    const onVisible = () => {
+      void refreshOnResume();
     };
 
-    const onFocus = () => {
-      logResumeState('window_focus');
-    };
-
-    const onBlur = () => {
-      logResumeState('window_blur');
-    };
-
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    window.addEventListener('focus', onFocus);
-    window.addEventListener('blur', onBlur);
-
+    window.addEventListener('focus', onVisible);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener('blur', onBlur);
+      window.removeEventListener('focus', onVisible);
+      document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [initialChatReady, isConnecting]);
+  }, [userId]);
 
   const togglePin = useCallback((roomId: string) => {
     setPinnedRoomIds((prev) => {
@@ -1757,17 +1774,14 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         }
 
         const created = { ...json, status: normalizeFriendRequestStatus(json.status) as FriendRequest['status'] } as FriendRequest;
-        setFriendRequests((prev) => {
-          const withoutDupes = prev.filter((req) => req.id !== created.id);
-          return [created, ...withoutDupes];
-        });
+        await refreshFriendRequests();
         return created;
       } catch (error) {
         console.error('[ChatContext] friend request threw', error);
         return null;
       }
     },
-    [userId, withAuthHeaders]
+    [refreshFriendRequests, userId, withAuthHeaders]
   );
 
   const acceptFriendRequest = useCallback(
@@ -1794,13 +1808,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         }
 
         const acceptedRequest = friendRequests.find((req) => req.id === id) || null;
-        setFriendRequests((prev) => {
-          const remaining = prev.filter((req) => req.id !== id);
-          const updatedStatus = normalizeFriendRequestStatus('accepted');
-          const existing = prev.find((req) => req.id === id);
-          const updated = existing ? { ...existing, status: updatedStatus } : null;
-          return updated ? [updated, ...remaining] : remaining;
-        });
+        await refreshFriendRequests();
 
         const peerId = acceptedRequest
           ? (acceptedRequest.sender_id === userId ? acceptedRequest.receiver_id : acceptedRequest.sender_id)
@@ -1824,7 +1832,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         console.error('[ChatContext] respondToFriendRequest threw', error);
       }
     },
-    [friendRequests, refreshRooms, selectRoom, userId, withAuthHeaders]
+    [friendRequests, refreshFriendRequests, refreshRooms, selectRoom, userId, withAuthHeaders]
   );
 
   const declineFriendRequest = useCallback(
@@ -1850,18 +1858,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           return;
         }
 
-        setFriendRequests((prev) => {
-          const remaining = prev.filter((req) => req.id !== id);
-          const updatedStatus = normalizeFriendRequestStatus('rejected');
-          const existing = prev.find((req) => req.id === id);
-          const updated = existing ? { ...existing, status: updatedStatus } : null;
-          return updated ? [updated, ...remaining] : remaining;
-        });
+        await refreshFriendRequests();
       } catch (error) {
         console.error('[ChatContext] respondToFriendRequest threw', error);
       }
     },
-    [userId, withAuthHeaders]
+    [refreshFriendRequests, userId, withAuthHeaders]
   );
 
   const respondToFriendRequest = useCallback(
