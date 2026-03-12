@@ -28,9 +28,9 @@ import {
   MoreVertical,
   ChartNoAxesColumn,
   Plus,
-  RefreshCw,
   Search,
   Send,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { MessageAttachmentInput, RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
@@ -186,7 +186,7 @@ const ChatShell: React.FC = () => {
   const [composer, setComposer] = useState("");
   const [search, setSearch] = useState("");
   const [showNewConversation, setShowNewConversation] = useState(false);
-  const [conversationTab, setConversationTab] = useState<"direct" | "group" | "friends">("direct");
+  const [conversationTab, setConversationTab] = useState<"direct" | "group" | "friends" | "requests">("direct");
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -752,17 +752,10 @@ const ChatShell: React.FC = () => {
     setShowAttachmentMenu(false);
     setShowEmojiModal(false);
 
-    const shouldRestorePageScroll = typeof window !== "undefined";
-    const previousScrollY = shouldRestorePageScroll ? window.scrollY : 0;
-
     await selectRoom(room);
 
     window.requestAnimationFrame(() => {
       focusComposerWithoutScroll("room_select");
-
-      if (shouldRestorePageScroll && Math.abs(window.scrollY - previousScrollY) > 2) {
-        window.scrollTo({ top: previousScrollY, behavior: "auto" });
-      }
     });
   };
 
@@ -998,9 +991,9 @@ const ChatShell: React.FC = () => {
     const progressPercent = Math.min(100, Math.max(0, bootstrapProgress.percent));
 
     return (
-      <div className="page-shell">
-        <div className="page-maxwidth">
-          <section className="surface-card flex min-h-[calc(100vh-120px)] items-center justify-center px-6">
+      <div className="page-shell overflow-hidden">
+        <div className="page-maxwidth flex h-[calc(100dvh-2rem)] min-h-0 flex-col py-4">
+          <section className="surface-card flex min-h-0 flex-1 items-center justify-center px-6">
             <div className="w-full max-w-xl">
               <p className="text-center text-sm font-semibold text-deep-red">Loading VOFMUN ONE chats…</p>
               <div className="mt-4 h-3 w-full overflow-hidden rounded-full border border-deep-red/20 bg-[#f4ebe5]">
@@ -1031,10 +1024,10 @@ const ChatShell: React.FC = () => {
   }
 
   return (
-    <div className="page-shell">
-      <div className="page-maxwidth">
-        <section className="surface-card flex h-[calc(100vh-110px)] min-h-[700px] min-w-0 overflow-hidden">
-          <aside className="flex h-full flex-col overflow-hidden border-r border-soft-ivory" style={{ width: `${sidebarWidth}px` }}>
+    <div className="page-shell overflow-hidden">
+      <div className="page-maxwidth flex h-[calc(100dvh-2rem)] min-h-0 flex-col py-4">
+        <section className="surface-card flex min-h-0 min-w-0 flex-1 overflow-hidden">
+          <aside className="flex min-h-0 h-full flex-col overflow-hidden border-r border-soft-ivory" style={{ width: `${sidebarWidth}px` }}>
             <div className="flex items-center justify-between gap-2 px-5 pt-4">
               <p className="text-xl font-bold text-almost-black-green/60">
                 Chats
@@ -1069,11 +1062,14 @@ const ChatShell: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={refreshRooms}
+                  onClick={() => {
+                    setConversationTab("requests");
+                    setShowNewConversation(true);
+                  }}
                   className="rounded-lg border border-soft-ivory p-2 text-almost-black-green/60 hover:text-deep-red"
-                  aria-label="Refresh conversations"
+                  aria-label="Open connection requests"
                 >
-                  <RefreshCw className="h-4 w-4" />
+                  <UserPlus className="h-4 w-4" />
                 </button>
               </div>
             </div>
