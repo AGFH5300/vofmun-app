@@ -30,7 +30,7 @@ import {
   Plus,
   Search,
   Send,
-  UserPlus,
+  Bell,
   Users,
 } from "lucide-react";
 import { MessageAttachmentInput, RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
@@ -222,56 +222,13 @@ const ChatShell: React.FC = () => {
   const roomsPollBackoffRef = useRef(60000);
   const hasLoadedSidebarWidthRef = useRef(false);
   const hasSkippedInitialSidebarSaveRef = useRef(false);
-  const activeRoomIdDebugRef = useRef<string | null>(null);
 
-  const focusComposerWithoutScroll = (reason: string) => {
+  const focusComposerWithoutScroll = () => {
     const composerElement = composerRef.current;
     if (!composerElement) return;
 
-    console.debug("[MessagesScrollDebug] composer_focus_before", {
-      reason,
-      roomId: activeRoom?.id || null,
-      scrollYBefore: typeof window !== "undefined" ? window.scrollY : null,
-      activeElementBefore:
-        typeof document !== "undefined" && document.activeElement
-          ? {
-              tag: document.activeElement.tagName,
-              id: (document.activeElement as HTMLElement).id || null,
-              name: (document.activeElement as HTMLInputElement).name || null,
-            }
-          : null,
-    });
-
     composerElement.focus({ preventScroll: true });
-
-    console.debug("[MessagesScrollDebug] composer_focus_after", {
-      reason,
-      roomId: activeRoom?.id || null,
-      scrollYAfter: typeof window !== "undefined" ? window.scrollY : null,
-      activeElementAfter:
-        typeof document !== "undefined" && document.activeElement
-          ? {
-              tag: document.activeElement.tagName,
-              id: (document.activeElement as HTMLElement).id || null,
-              name: (document.activeElement as HTMLInputElement).name || null,
-            }
-          : null,
-    });
   };
-
-  useEffect(() => {
-    activeRoomIdDebugRef.current = activeRoom?.id || null;
-  }, [activeRoom?.id]);
-
-  useEffect(() => {
-    console.debug("[MessagesPageDebug] mounted");
-    return () => {
-      console.debug("[MessagesPageDebug] unmounted");
-      console.debug("[MessagesPageDebug] route_leave_cleanup", {
-        activeRoomId: activeRoomIdDebugRef.current,
-      });
-    };
-  }, []);
 
   const filteredRooms = useMemo(() => {
     if (!search.trim()) return rooms;
@@ -596,14 +553,6 @@ const ChatShell: React.FC = () => {
     const uploadedPaths: { bucket: string; path: string }[] = [];
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      console.log("Attachment upload context", {
-        userId: session?.user?.id,
-        roomId: activeRoom.id,
-        fileNames: files.map((file) => file.name),
-      });
 
       await Promise.all(
         files.map(async (file, index) => {
@@ -755,7 +704,7 @@ const ChatShell: React.FC = () => {
     await selectRoom(room);
 
     window.requestAnimationFrame(() => {
-      focusComposerWithoutScroll("room_select");
+      focusComposerWithoutScroll();
     });
   };
 
@@ -792,7 +741,7 @@ const ChatShell: React.FC = () => {
       ),
     );
     window.requestAnimationFrame(() => {
-      focusComposerWithoutScroll("emoji_apply");
+      focusComposerWithoutScroll();
     });
   };
   const attachmentOptions: AttachmentOption[] = [
@@ -942,20 +891,12 @@ const ChatShell: React.FC = () => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    console.debug("[MessagesSidebarDebug] restore effect start", { storageKey: SIDEBAR_WIDTH_STORAGE_KEY });
     const storedWidth = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
-    console.debug("[MessagesSidebarDebug] raw stored value", { storageKey: SIDEBAR_WIDTH_STORAGE_KEY, storedWidth });
 
     const parsed = Number(storedWidth);
     if (Number.isFinite(parsed)) {
       const clamped = clampSidebarWidth(parsed);
-      console.debug("[MessagesSidebarDebug] applied restored width", { parsed, clamped });
       setSidebarWidth(clamped);
-    } else {
-      console.debug("[MessagesSidebarDebug] stored width invalid, keeping default", {
-        storageKey: SIDEBAR_WIDTH_STORAGE_KEY,
-        fallbackWidth: SIDEBAR_DEFAULT_WIDTH,
-      });
     }
 
     hasLoadedSidebarWidthRef.current = true;
@@ -963,29 +904,14 @@ const ChatShell: React.FC = () => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!hasLoadedSidebarWidthRef.current) {
-      console.debug("[MessagesSidebarDebug] skipped save before restore completed", { sidebarWidth });
-      return;
-    }
+    if (!hasLoadedSidebarWidthRef.current) return;
 
     if (!hasSkippedInitialSidebarSaveRef.current) {
       hasSkippedInitialSidebarSaveRef.current = true;
-      console.debug("[MessagesSidebarDebug] skipped initial save pass to avoid overwriting restored width", {
-        sidebarWidth,
-      });
       return;
     }
 
     window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(sidebarWidth));
-    console.debug("[MessagesSidebarDebug] save write", {
-      storageKey: SIDEBAR_WIDTH_STORAGE_KEY,
-      sidebarWidth,
-    });
-  }, [sidebarWidth]);
-
-
-  useEffect(() => {
-    console.debug("[MessagesSidebarDebug] sidebarWidth state updated", { sidebarWidth });
   }, [sidebarWidth]);
 
   const showInitialLoader = !initialChatReady || !hasInitialLoaderMinElapsed;
@@ -994,8 +920,8 @@ const ChatShell: React.FC = () => {
     const progressPercent = Math.min(100, Math.max(0, bootstrapProgress.percent));
 
     return (
-      <div className="page-shell overflow-hidden">
-        <div className="page-maxwidth flex h-[calc(100dvh-2rem)] min-h-0 flex-col py-4">
+      <div className="page-shell h-[100dvh] overflow-hidden">
+        <div className="mx-auto flex h-full w-full max-w-[1120px] min-h-0 flex-col px-5 py-4">
           <section className="surface-card flex min-h-0 flex-1 items-center justify-center px-6">
             <div className="w-full max-w-xl">
               <p className="text-center text-sm font-semibold text-deep-red">Loading VOFMUN ONE chats…</p>
@@ -1027,8 +953,8 @@ const ChatShell: React.FC = () => {
   }
 
   return (
-    <div className="page-shell overflow-hidden">
-      <div className="page-maxwidth flex h-[calc(100dvh-2rem)] min-h-0 flex-col py-4">
+    <div className="page-shell h-[100dvh] overflow-hidden">
+      <div className="mx-auto flex h-full w-full max-w-[1120px] min-h-0 flex-col px-5 py-4">
         <section className="surface-card flex min-h-0 min-w-0 flex-1 overflow-hidden">
           <aside className="flex min-h-0 h-full flex-col overflow-hidden border-r border-soft-ivory" style={{ width: `${sidebarWidth}px` }}>
             <div className="flex items-center justify-between gap-2 px-5 pt-4">
@@ -1072,7 +998,7 @@ const ChatShell: React.FC = () => {
                   className="relative rounded-lg border border-soft-ivory p-2 text-almost-black-green/60 hover:text-deep-red"
                   aria-label={`Open connection requests${incomingPendingCount > 0 ? `. ${incomingPendingCount} pending incoming` : ""}`}
                 >
-                  <UserPlus className="h-4 w-4" />
+                  <Bell className="h-4 w-4" />
                   {incomingPendingCount > 0 ? (
                     <span className="absolute -right-1.5 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#c62828] px-1 text-[10px] font-semibold leading-none text-white">
                       {incomingPendingBadgeLabel}
@@ -1220,10 +1146,6 @@ const ChatShell: React.FC = () => {
               setIsDraggingDivider(true);
             }}
             onDoubleClick={() => {
-              console.debug("[MessagesSidebarDebug] divider double-click reset", {
-                from: sidebarWidth,
-                to: SIDEBAR_DEFAULT_WIDTH,
-              });
               setSidebarWidth(SIDEBAR_DEFAULT_WIDTH);
             }}
             onKeyDown={(event) => {
@@ -1715,9 +1637,6 @@ const ChatShell: React.FC = () => {
           open={showNewConversation}
           initialTab={conversationTab}
           onClose={() => {
-            console.debug("[MessagesScrollDebug] closing conversation modal", {
-              activeElement: (document.activeElement as HTMLElement | null)?.tagName || null,
-            });
             setShowNewConversation(false);
           }}
         />
