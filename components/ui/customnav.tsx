@@ -93,11 +93,11 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   const availableItems = useMemo(() => {
     const items = [...navigationItems];
 
-    if (currentUser && "adminID" in currentUser) {
+    if (currentUser?.role === "admin" || currentUser?.role === "secretariat") {
       items.push(...adminItems);
     }
 
-    if (currentUser && "chairID" in currentUser) {
+    if (currentUser?.role === "chair") {
       items.push(...chairItems);
     }
 

@@ -41,7 +41,7 @@ export const DelegateRoute = ({ children }: { children: React.ReactNode }) => {
   const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
 
-  const blocked = !isAuthenticated || !('delegateID' in (currentUser || {}));
+  const blocked = !isAuthenticated || currentUser?.role !== 'delegate';
 
   useEffect(() => {
     if (!authReady) return;
@@ -61,7 +61,7 @@ export const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
 
-  const blocked = !isAuthenticated || !('adminID' in (currentUser || {}));
+  const blocked = !isAuthenticated || currentUser?.role !== 'admin';
 
   useEffect(() => {
     if (!authReady) return;
@@ -80,7 +80,7 @@ export const ChairRoute = ({ children }: { children: React.ReactNode }) => {
   const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
 
-  const blocked = !isAuthenticated || !('chairID' in (currentUser || {}));
+  const blocked = !isAuthenticated || currentUser?.role !== 'chair';
 
   useEffect(() => {
     if (!authReady) return;
@@ -99,7 +99,7 @@ export const ParticipantRoute = ({ children }: { children: React.ReactNode }) =>
   const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
 
-  const blocked = !isAuthenticated || ('adminID' in (currentUser || {}));
+  const blocked = !isAuthenticated || currentUser?.role === 'admin' || currentUser?.role === 'secretariat';
 
   useEffect(() => {
     console.debug(`${PROTECTED_ROUTE_DEBUG_PREFIX} ParticipantRoute`, {

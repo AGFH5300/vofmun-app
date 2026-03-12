@@ -3,5 +3,5 @@
 import { UserType } from '@/db/types';
 
 export default function role(user: UserType): string {
-  return user?.role || 'admin';
+  return user?.role || '';
 }
