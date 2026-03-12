@@ -926,6 +926,9 @@ const ChatShell: React.FC = () => {
     [currentUserId, friendRequests],
   );
 
+  const incomingPendingCount = incomingRequests.length;
+  const incomingPendingBadgeLabel = incomingPendingCount > 9 ? "9+" : String(incomingPendingCount);
+
   useEffect(() => {
     const minimumLoaderDurationMs = 750;
     const timeout = window.setTimeout(() => {
@@ -1066,10 +1069,15 @@ const ChatShell: React.FC = () => {
                     setConversationTab("requests");
                     setShowNewConversation(true);
                   }}
-                  className="rounded-lg border border-soft-ivory p-2 text-almost-black-green/60 hover:text-deep-red"
-                  aria-label="Open connection requests"
+                  className="relative rounded-lg border border-soft-ivory p-2 text-almost-black-green/60 hover:text-deep-red"
+                  aria-label={`Open connection requests${incomingPendingCount > 0 ? `. ${incomingPendingCount} pending incoming` : ""}`}
                 >
                   <UserPlus className="h-4 w-4" />
+                  {incomingPendingCount > 0 ? (
+                    <span className="absolute -right-1.5 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#c62828] px-1 text-[10px] font-semibold leading-none text-white">
+                      {incomingPendingBadgeLabel}
+                    </span>
+                  ) : null}
                 </button>
               </div>
             </div>
