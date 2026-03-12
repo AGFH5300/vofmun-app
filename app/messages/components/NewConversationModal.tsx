@@ -269,211 +269,220 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     onClose();
   };
 
+  const tabOptions: Array<{ key: typeof tab; label: string }> = [
+    { key: 'direct', label: 'Direct' },
+    { key: 'group', label: 'Group' },
+    { key: 'friends', label: 'Friends' },
+    { key: 'requests', label: 'Requests' },
+  ];
+
+  const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, tabKey: typeof tab) => {
+    const currentIndex = tabOptions.findIndex((option) => option.key === tabKey);
+    if (currentIndex < 0) return;
+
+    if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+      event.preventDefault();
+      const direction = event.key === 'ArrowRight' ? 1 : -1;
+      const nextIndex = (currentIndex + direction + tabOptions.length) % tabOptions.length;
+      const nextTab = tabOptions[nextIndex];
+      setTab(nextTab.key);
+      document.getElementById(`new-conversation-tab-${nextTab.key}`)?.focus();
+      return;
+    }
+
+    if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      const nextTab = event.key === 'Home' ? tabOptions[0] : tabOptions[tabOptions.length - 1];
+      setTab(nextTab.key);
+      document.getElementById(`new-conversation-tab-${nextTab.key}`)?.focus();
+    }
+  };
+
   return (
     <Dialog open={open} onClose={onClose} className="relative z-50">
-      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-start justify-center overflow-y-auto px-4 py-10">
-        <Dialog.Panel className="w-full max-w-4xl rounded-3xl bg-white p-6 shadow-xl">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <Dialog.Title className="text-xl font-semibold text-deep-red">New conversation</Dialog.Title>
-              <p className="text-sm text-almost-black-green/70">Search delegates, connect, and open chats.</p>
+      <div className="fixed inset-0 bg-deep-red/38" aria-hidden="true" />
+      <div className="fixed inset-0 flex items-start justify-center overflow-y-auto px-4 py-10 md:items-center md:px-8">
+        <Dialog.Panel className="w-full max-w-3xl rounded-[2rem] border border-soft-rose bg-white p-6 shadow-[0_34px_80px_rgba(77,20,20,0.26),0_14px_36px_rgba(77,20,20,0.14)] transition-all duration-300 md:p-8">
+          <div className="flex items-start justify-between gap-5">
+            <div className="space-y-1.5">
+              <Dialog.Title className="font-serif text-3xl font-semibold text-deep-red">New conversation</Dialog.Title>
+              <p className="text-sm text-almost-black-green/80">Search delegates, connect, and open chats.</p>
             </div>
-            <button type="button" onClick={onClose} className="rounded-full p-2 text-almost-black-green/60 hover:bg-warm-light-grey">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-rose bg-pure-white text-almost-black-green/70 transition-colors hover:bg-soft-rose/55 hover:text-deep-red"
+              aria-label="Close new conversation modal"
+            >
               <X className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="mt-5 space-y-4">
-            <div className="inline-flex rounded-xl border border-soft-ivory bg-warm-light-grey/40 p-1">
-              <button
-                type="button"
-                onClick={() => setTab('direct')}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === 'direct' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-              >
-                Direct
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab('group')}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === 'group' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-              >
-                Group
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab('friends')}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === 'friends' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-              >
-                Friends
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab('requests')}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === 'requests' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-              >
-                Requests
-              </button>
+          <div className="mt-6 space-y-5">
+            <div className="inline-flex rounded-full border border-soft-rose bg-primary-peach/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]" role="tablist" aria-label="Conversation tabs">
+              {tabOptions.map((option) => {
+                const active = tab === option.key;
+                return (
+                  <button
+                    id={`new-conversation-tab-${option.key}`}
+                    key={option.key}
+                    type="button"
+                    role="tab"
+                    aria-controls={`new-conversation-panel-${option.key}`}
+                    aria-selected={active}
+                    tabIndex={active ? 0 : -1}
+                    onClick={() => setTab(option.key)}
+                    onKeyDown={(event) => handleTabKeyDown(event, option.key)}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+                      active
+                        ? 'border border-soft-rose bg-pure-white text-deep-red shadow-[0_4px_14px_rgba(112,30,30,0.14)]'
+                        : 'text-almost-black-green/80 hover:text-deep-red'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
             </div>
 
             {tab === 'direct' ? (
-              <div className="space-y-4">
-                    <div className="relative">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
-                      <input
-                        value={query}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setQuery(value);
-                          if (!value.trim()) {
-                            setResults([]);
-                            setHasSearched(false);
-                          }
-                        }}
-                        placeholder="Search by name or email"
-                        className="w-full rounded-2xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm"
-                        style={{ paddingLeft: '30px' }}
-                      />
-                    </div>
+              <div id="new-conversation-panel-direct" role="tabpanel" aria-labelledby="new-conversation-tab-direct" className="space-y-4">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/60" />
+                  <input
+                    value={query}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setQuery(value);
+                      if (!value.trim()) {
+                        setResults([]);
+                        setHasSearched(false);
+                      }
+                    }}
+                    placeholder="Search by name or email"
+                    className="w-full rounded-2xl border border-soft-rose bg-pure-white py-3 pl-10 pr-4 text-sm text-deep-red placeholder:text-almost-black-green/60 focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
+                  />
+                </div>
 
-                    {incomingRequestsList.length > 0 && (
-                      <div className="space-y-2 rounded-2xl border border-soft-ivory bg-warm-light-grey/40 p-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold text-deep-red">Incoming requests</p>
-                          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#c62828] px-2 text-xs font-semibold text-white">
-                            {incomingRequestsList.length}
-                          </span>
+                {acceptedConnection && (
+                  <div className="rounded-2xl border border-soft-rose bg-primary-peach/75 p-3.5">
+                    <p className="text-sm font-semibold text-deep-red">You and {acceptedConnection.name} are now connected.</p>
+                    <p className="mt-1 text-xs text-almost-black-green/80">Start a chat with your new friend now.</p>
+                    <button
+                      type="button"
+                      onClick={() => handleStartChat({ id: acceptedConnection.userId, full_name: acceptedConnection.name })}
+                      className="mt-3 inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-dark-burgundy"
+                    >
+                      <MessageCirclePlus className="h-4 w-4" /> Start chat
+                    </button>
+                  </div>
+                )}
+
+                {isSearching && canSearch && <p className="text-sm text-almost-black-green/65">Searching...</p>}
+                {!isSearching && !canSearch && (
+                  <div className="rounded-2xl border border-dashed border-soft-rose bg-pure-white px-4 py-8 text-center">
+                    <p className="text-sm text-almost-black-green/75">Start typing a name or email to search.</p>
+                  </div>
+                )}
+                {!isSearching && hasSearched && canSearch && !results.length && !error && <p className="text-sm text-almost-black-green/75">No people found.</p>}
+
+                <div className="space-y-2">
+                  {results.map((user) => {
+                    const relationship = relationshipState(user.id);
+                    const delegationLabel = getUserDelegationLabel(user);
+                    const state = relationship.type;
+                    return (
+                      <div
+                        key={user.id}
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-soft-rose bg-pure-white px-3.5 py-2.5 transition-colors hover:border-deep-red/30"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <UserAvatar user={user} size={36} />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-deep-red">{user.full_name}</p>
+                            {delegationLabel && <p className="truncate text-xs text-almost-black-green/75">{delegationLabel}</p>}
+                          </div>
                         </div>
-                        {incomingRequestsList.map((req) => (
-                          <div key={req.id} className="flex items-center justify-between rounded-xl border border-soft-ivory bg-white px-3 py-2">
-                            <p className="text-sm text-deep-red">{getRequestDisplayName(req.sender_id, req.sender)}</p>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleAcceptRequest(req)}
-                                disabled={respondingTo === req.id}
-                                className="inline-flex items-center gap-1 rounded-lg bg-[#701e1e] px-3 py-1 text-xs font-semibold text-white hover:bg-[#8b2424] disabled:cursor-wait disabled:opacity-70"
-                              >
-                                {respondingTo === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                                Accept
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeclineRequest(req.id)}
-                                disabled={respondingTo === req.id}
-                                className="rounded-lg border border-soft-ivory px-3 py-1 text-xs font-semibold text-deep-red disabled:cursor-wait disabled:opacity-70"
-                              >
-                                Decline
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
 
-                    {acceptedConnection && (
-                      <div className="rounded-2xl border border-[#c8e6c9] bg-[#edf7ed] p-3">
-                        <p className="text-sm font-semibold text-[#245b2a]">You and {acceptedConnection.name} are now connected.</p>
-                        <p className="mt-1 text-xs text-[#245b2a]/80">Start a chat with your new friend now.</p>
-                        <button
-                          type="button"
-                          onClick={() => handleStartChat({ id: acceptedConnection.userId, full_name: acceptedConnection.name })}
-                          className="mt-2 inline-flex items-center gap-2 rounded-xl bg-[#245b2a] px-3 py-2 text-xs font-semibold text-white hover:bg-[#1f4d24]"
-                        >
-                          <MessageCirclePlus className="h-4 w-4" /> Start chat
-                        </button>
-                      </div>
-                    )}
-
-                    {isSearching && canSearch && <p className="text-sm text-almost-black-green/60">Searching...</p>}
-                    {!isSearching && !canSearch && <p className="text-sm text-almost-black-green/60">Start typing a name or email to search.</p>}
-                    {!isSearching && hasSearched && canSearch && !results.length && !error && <p className="text-sm text-almost-black-green/60">No people found</p>}
-
-                    {results.map((user) => {
-                      const relationship = relationshipState(user.id);
-                      const delegationLabel = getUserDelegationLabel(user);
-                      const state = relationship.type;
-                      return (
-                        <div key={user.id} className="flex items-center justify-between rounded-xl border border-soft-ivory bg-white px-3 py-2">
-                          <div className="flex items-center gap-3">
-                            <UserAvatar user={user} size={36} />
-                            <div>
-                              <p className="text-sm font-semibold text-deep-red">{user.full_name}</p>
-                              {delegationLabel && <p className="text-xs text-almost-black-green/60">{delegationLabel}</p>}
-                            </div>
-                          </div>
-                          {state === 'connected' ? (
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex items-center gap-1 rounded-xl bg-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red">
-                                <BadgeCheck className="h-4 w-4 text-sky-500" /> In friends
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleStartChat(user)}
-                                disabled={openingChatFor === user.id}
-                                className="inline-flex items-center rounded-xl background-deep-red px-3 py-2 text-xs font-semibold text-white hover:bg-deep-red/90 disabled:cursor-wait disabled:opacity-70"
-                              >
-                                {openingChatFor === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Start chat'}
-                              </button>
-                            </div>
-                          ) : state === 'incoming' && relationship.request ? (
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleAcceptRequest(relationship.request)}
-                                disabled={respondingTo === relationship.request.id}
-                                className="inline-flex items-center gap-1 rounded-lg bg-deep-red px-3 py-1 text-xs font-semibold text-white disabled:cursor-wait disabled:opacity-70"
-                              >
-                                {respondingTo === relationship.request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3 w-3" />}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeclineRequest(relationship.request.id)}
-                                disabled={respondingTo === relationship.request.id}
-                                className="rounded-lg border border-soft-ivory px-3 py-1 text-xs font-semibold text-deep-red disabled:cursor-wait disabled:opacity-70"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          ) : state === 'outgoing' ? (
-                            <span className="text-xs font-semibold text-almost-black-green/60">Request sent</span>
-                          ) : (
+                        {state === 'connected' ? (
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-primary-peach px-3 py-1.5 text-xs font-semibold text-deep-red">
+                              <BadgeCheck className="h-3.5 w-3.5 text-rich-gold" /> In friends
+                            </span>
                             <button
                               type="button"
-                              onClick={() => handleSendRequest(user)}
-                              disabled={sendingRequestTo.has(user.id)}
-                              className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red disabled:cursor-wait disabled:opacity-70"
+                              onClick={() => handleStartChat(user)}
+                              disabled={openingChatFor === user.id}
+                              className="inline-flex items-center rounded-xl bg-deep-red px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-dark-burgundy disabled:cursor-wait disabled:opacity-70"
                             >
-                              {sendingRequestTo.has(user.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-                              Connect
+                              {openingChatFor === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Start chat'}
                             </button>
-                          )}
-                        </div>
-                      );
-                    })}
+                          </div>
+                        ) : state === 'incoming' && relationship.request ? (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleAcceptRequest(relationship.request)}
+                              disabled={respondingTo === relationship.request.id}
+                              className="inline-flex items-center gap-1 rounded-lg bg-deep-red px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-dark-burgundy disabled:cursor-wait disabled:opacity-70"
+                            >
+                              {respondingTo === relationship.request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3 w-3" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeclineRequest(relationship.request.id)}
+                              disabled={respondingTo === relationship.request.id}
+                              className="rounded-lg border border-soft-rose bg-pure-white px-2.5 py-1.5 text-xs font-semibold text-deep-red transition-colors hover:border-deep-red/40 disabled:cursor-wait disabled:opacity-70"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : state === 'outgoing' ? (
+                          <span className="text-xs font-semibold text-almost-black-green/75">Request sent</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSendRequest(user)}
+                            disabled={sendingRequestTo.has(user.id)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-soft-rose bg-pure-white px-3 py-1.5 text-xs font-semibold text-deep-red transition-colors hover:border-deep-red/45 disabled:cursor-wait disabled:opacity-70"
+                          >
+                            {sendingRequestTo.has(user.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                            Connect
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : tab === 'friends' ? (
-              <div className="space-y-2 rounded-2xl border border-soft-ivory bg-warm-light-grey/35 p-3">
-                <p className="text-sm font-semibold text-deep-red">Friends</p>
+              <div id="new-conversation-panel-friends" role="tabpanel" aria-labelledby="new-conversation-tab-friends" className="space-y-2.5">
                 {connectedContacts.length === 0 ? (
-                  <p className="text-sm text-almost-black-green/60">You do not have any accepted friends yet.</p>
+                  <div className="rounded-2xl border border-dashed border-soft-rose bg-pure-white px-4 py-8 text-center text-sm text-almost-black-green/75">
+                    You do not have any accepted friends yet.
+                  </div>
                 ) : (
                   connectedContacts.map((contact) => (
-                    <div key={contact.userId} className="flex items-center justify-between gap-3 rounded-2xl border border-soft-ivory bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(17,27,33,0.06)]">
+                    <div
+                      key={contact.userId}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-soft-rose bg-pure-white px-3.5 py-2.5 transition-colors hover:border-deep-red/30"
+                    >
                       <div className="flex min-w-0 items-center gap-3">
                         <UserAvatar user={{ id: contact.userId, full_name: contact.name, ...(contact.user || {}) }} size={36} />
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-deep-red">{contact.name}</p>
                           {getUserDelegationLabel(contact.user) ? (
-                            <p className="truncate text-xs text-almost-black-green/60">{getUserDelegationLabel(contact.user)}</p>
-                          ) : null}
+                            <p className="truncate text-xs text-almost-black-green/75">{getUserDelegationLabel(contact.user)}</p>
+                          ) : (
+                            <p className="truncate text-xs text-almost-black-green/65">Connected contact</p>
+                          )}
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => handleStartChat({ id: contact.userId, full_name: contact.name })}
                         disabled={openingChatFor === contact.userId}
-                        className="inline-flex items-center gap-2 rounded-xl background-deep-red px-3 py-2 text-xs font-semibold text-white hover:bg-deep-red/90 disabled:cursor-wait disabled:opacity-70"
+                        className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-dark-burgundy disabled:cursor-wait disabled:opacity-70"
                       >
                         {openingChatFor === contact.userId ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCirclePlus className="h-4 w-4" />}
                         Start chat
@@ -483,72 +492,97 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                 )}
               </div>
             ) : tab === 'group' ? (
-              <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="text-sm font-semibold text-almost-black-green">Group name</label>
-                    <input value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-sm" />
-                  </div>
+              <div id="new-conversation-panel-group" role="tabpanel" aria-labelledby="new-conversation-tab-group" className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-almost-black-green">Group name</label>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full rounded-2xl border border-soft-rose bg-pure-white px-4 py-2.5 text-sm text-deep-red focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
+                  />
                 </div>
 
-                <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (optional)" className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-sm" />
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Description (optional)"
+                  className="min-h-24 w-full rounded-2xl border border-soft-rose bg-pure-white px-4 py-2.5 text-sm text-deep-red placeholder:text-almost-black-green/60 focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
+                />
+
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
-                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search people to add" className="w-full rounded-2xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm" style={{ paddingLeft: '30px' }} />
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/60" />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search people to add"
+                    className="w-full rounded-2xl border border-soft-rose bg-pure-white py-3 pl-10 pr-4 text-sm text-deep-red placeholder:text-almost-black-green/60 focus:border-deep-red/55 focus:outline-none focus:ring-2 focus:ring-deep-red/20"
+                  />
                 </div>
 
-                <div className="max-h-60 space-y-2 overflow-y-auto">
+                <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
                   {results.map((user) => {
                     const isSelected = selected.some((item) => item.id === user.id);
                     return (
-                      <button key={user.id} type="button" onClick={() => toggleSelect(user)} className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 ${isSelected ? 'border-deep-red/50 bg-soft-rose/40' : 'border-soft-ivory bg-white'}`}>
-                        <div className="flex items-center gap-3">
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => toggleSelect(user)}
+                        className={`flex w-full items-center justify-between rounded-2xl border px-3.5 py-2.5 text-left transition-colors ${
+                          isSelected ? 'border-deep-red/45 bg-soft-rose/60' : 'border-soft-rose bg-pure-white hover:border-deep-red/30'
+                        }`}
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
                           <UserAvatar user={user} size={34} />
-                          <span className="text-sm font-semibold text-deep-red">{user.full_name}</span>
+                          <span className="truncate text-sm font-semibold text-deep-red">{user.full_name}</span>
                         </div>
-                        <Plus className="h-4 w-4 text-deep-red" />
+                        <Plus className={`h-4 w-4 ${isSelected ? 'rotate-45 text-deep-red' : 'text-almost-black-green/80'} transition-transform`} />
                       </button>
                     );
                   })}
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {selected.map((user) => (
-                    <span key={user.id} className="inline-flex items-center gap-2 rounded-full bg-soft-ivory px-3 py-1 text-xs font-semibold text-deep-red">
-                      <UserAvatar user={user} size={20} /> {user.full_name}
-                    </span>
-                  ))}
+                  {selected.length === 0 ? (
+                    <p className="rounded-full border border-dashed border-soft-rose px-3 py-1 text-xs text-almost-black-green/75">No members selected yet.</p>
+                  ) : (
+                    selected.map((user) => (
+                      <span key={user.id} className="inline-flex items-center gap-2 rounded-full border border-soft-rose bg-primary-peach/85 px-3 py-1 text-xs font-semibold text-deep-red">
+                        {user.full_name}
+                        <button type="button" onClick={() => toggleSelect(user)} className="rounded-full bg-pure-white p-0.5 text-deep-red">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))
+                  )}
                 </div>
 
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleCreateGroup}
-                    disabled={isCreatingGroup}
-                    className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-4 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
-                  >
-                    {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
-                    {isCreatingGroup ? 'Creating group...' : 'Create group'}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleCreateGroup}
+                  disabled={isCreatingGroup}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-deep-red px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-dark-burgundy disabled:cursor-wait disabled:opacity-70"
+                >
+                  {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+                  {isCreatingGroup ? 'Creating group...' : 'Create group'}
+                </button>
               </div>
             ) : (
-              <div className="space-y-4">
-                <section className="rounded-2xl border border-soft-ivory bg-white p-4 shadow-[0_8px_24px_rgba(38,22,22,0.05)]">
-                  <div className="mb-3 flex items-center justify-between gap-2">
+              <div id="new-conversation-panel-requests" role="tabpanel" aria-labelledby="new-conversation-tab-requests" className="space-y-5">
+                <section className="space-y-2.5">
+                  <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-deep-red">Incoming requests</h3>
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#c62828] px-2 text-xs font-semibold text-white">
+                    <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-soft-rose bg-pure-white px-2 py-0.5 text-xs font-semibold text-deep-red">
                       {incomingRequestsList.length}
                     </span>
                   </div>
 
                   {incomingRequestsList.length === 0 ? (
-                    <div className="flex items-center gap-2 rounded-xl border border-dashed border-soft-ivory bg-warm-light-grey/30 px-3 py-3 text-sm text-almost-black-green/65">
-                      <Inbox className="h-4 w-4 text-almost-black-green/50" />
+                    <div className="flex items-center gap-2 rounded-2xl border border-dashed border-soft-rose bg-pure-white px-4 py-3 text-sm text-almost-black-green/75">
+                      <Inbox className="h-4 w-4 text-almost-black-green/60" />
                       <p>No incoming requests right now.</p>
                     </div>
                   ) : (
-                    <div className="space-y-2.5">
+                    <div className="space-y-2">
                       {incomingRequestsList.map((req) => {
                         const displayName = getRequestDisplayName(req.sender_id, req.sender);
                         const metadata = getRequestMetaLine(req.sender);
@@ -561,37 +595,37 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                             .join('') || '?';
 
                         return (
-                          <div key={req.id} className="rounded-xl border border-soft-ivory bg-warm-light-grey/20 p-3">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex items-center gap-3">
-                                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-soft-ivory bg-white text-xs font-semibold text-deep-red">
-                                  {initials}
-                                </span>
-                                <div className="min-w-0 space-y-0.5">
-                                  <p className="truncate text-sm font-semibold text-deep-red">{displayName}</p>
-                                  {metadata ? <p className="truncate text-xs text-almost-black-green/60">{metadata}</p> : null}
-                                </div>
+                          <div
+                            key={req.id}
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-soft-rose bg-pure-white px-3.5 py-2.5 transition-colors hover:border-deep-red/30"
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+                              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-soft-rose bg-primary-peach/80 text-xs font-semibold text-deep-red">
+                                {initials}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-deep-red">{displayName}</p>
+                                {metadata ? <p className="truncate text-xs text-almost-black-green/75">{metadata}</p> : null}
                               </div>
-
-                              <div className="flex shrink-0 items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleAcceptRequest(req)}
-                                  disabled={respondingTo === req.id}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-[#701e1e] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#8b2424] disabled:cursor-wait disabled:opacity-70"
-                                >
-                                  {respondingTo === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                                  Accept
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeclineRequest(req.id)}
-                                  disabled={respondingTo === req.id}
-                                  className="rounded-lg border border-soft-ivory bg-white px-3 py-1.5 text-xs font-semibold text-almost-black-green/70 hover:border-deep-red/30 hover:text-deep-red disabled:cursor-wait disabled:opacity-70"
-                                >
-                                  Decline
-                                </button>
-                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleAcceptRequest(req)}
+                                disabled={respondingTo === req.id}
+                                className="inline-flex items-center gap-1 rounded-lg bg-deep-red px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-dark-burgundy disabled:cursor-wait disabled:opacity-70"
+                              >
+                                {respondingTo === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                                Accept
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeclineRequest(req.id)}
+                                disabled={respondingTo === req.id}
+                                className="rounded-lg border border-soft-rose bg-pure-white px-3 py-1.5 text-xs font-semibold text-almost-black-green/85 transition-colors hover:border-deep-red/45 hover:text-deep-red disabled:cursor-wait disabled:opacity-70"
+                              >
+                                Decline
+                              </button>
                             </div>
                           </div>
                         );
@@ -600,25 +634,25 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   )}
                 </section>
 
-                <section className="rounded-2xl border border-soft-ivory/90 bg-warm-light-grey/35 p-4">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-almost-black-green/65">Sent requests</h3>
-                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-soft-ivory bg-white px-1.5 text-[11px] font-semibold text-almost-black-green/70">
+                <section className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-deep-red">Sent requests</h3>
+                    <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-soft-rose bg-pure-white px-2 py-0.5 text-xs font-semibold text-deep-red">
                       {sentRequestsList.length}
                     </span>
                   </div>
 
                   {sentRequestsList.length === 0 ? (
-                    <div className="flex items-center gap-2 rounded-lg px-1 py-2 text-xs text-almost-black-green/60">
-                      <Clock3 className="h-3.5 w-3.5" />
+                    <div className="flex items-center gap-2 rounded-2xl border border-dashed border-soft-rose bg-pure-white px-4 py-3 text-sm text-almost-black-green/75">
+                      <Clock3 className="h-4 w-4 text-almost-black-green/60" />
                       <p>No pending sent requests.</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {sentRequestsList.map((req) => (
-                        <div key={req.id} className="flex items-center justify-between rounded-lg border border-soft-ivory/80 bg-white/80 px-3 py-2">
-                          <p className="truncate text-sm text-deep-red">{getRequestDisplayName(req.receiver_id, req.receiver)}</p>
-                          <span className="rounded-full bg-soft-ivory px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-almost-black-green/60">
+                        <div key={req.id} className="flex items-center justify-between rounded-2xl border border-soft-rose bg-pure-white px-3.5 py-2.5">
+                          <p className="truncate text-sm font-semibold text-deep-red">{getRequestDisplayName(req.receiver_id, req.receiver)}</p>
+                          <span className="rounded-full border border-soft-rose bg-primary-peach/80 px-2.5 py-1 text-[10px] font-semibold tracking-[0.08em] text-almost-black-green/80">
                             Awaiting response
                           </span>
                         </div>
@@ -630,7 +664,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             )}
           </div>
 
-          {error && <p className="mt-3 text-sm text-deep-red/80">{error}</p>}
+          {error && <p className="mt-4 text-sm text-deep-red/80">{error}</p>}
         </Dialog.Panel>
       </div>
     </Dialog>
