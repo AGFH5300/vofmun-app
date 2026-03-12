@@ -296,11 +296,9 @@ const Page = () => {
                                     </h2>
                                     <p className="text-sm text-almost-black-green/70">Auto-updates in real time.</p>
                                 </div>
-                                <div className="surface-card rounded-2xl border border-soft-ivory bg-white px-5 py-4 text-deep-red shadow-sm">
-                                    <p className="text-xs uppercase tracking-[0.35em] text-deep-red/70">Now</p>
-                                    <p className="text-2xl font-mono font-semibold text-deep-red">{timeString}</p>
-                                    <p className="text-xs text-almost-black-green/70">{dateString}</p>
-                                </div>
+                                <span className="badge-pill bg-deep-red/10 text-deep-red">
+                                    <Clock size={16} /> {dateString} · {timeString}
+                                </span>
                             </div>
 
                         <div className="mt-6 grid gap-4 md:grid-cols-3">
