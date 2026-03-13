@@ -46,7 +46,6 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
   const [selected, setSelected] = useState<UserSearchResult[]>([]);
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   const trimmedQuery = query.trim();
@@ -66,7 +65,6 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     setHasSearched(false);
     setSelected([]);
     setName('');
-    setDescription('');
     setSendingRequestTo(new Set());
     setRespondingTo(null);
     setOpeningChatFor(null);
@@ -253,18 +251,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     }
 
     setIsCreatingGroup(true);
-    console.debug('[GroupCreateDebug] create_group_payload', {
-      name: trimmedName,
-      memberIds,
-      memberCount: memberIds.length,
-    });
-    const room = await createGroupRoom({ name: trimmedName, description: description.trim(), memberIds });
+    const room = await createGroupRoom({ name: trimmedName, memberIds });
     setIsCreatingGroup(false);
-    console.debug('[GroupCreateDebug] create_group_result', {
-      roomId: room?.id || null,
-      roomType: room?.room_type || null,
-      selectedMemberIds: memberIds,
-    });
     if (!room) return;
     await selectRoom(room);
     onClose();
@@ -279,7 +267,11 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             <div>
               <Dialog.Title className="text-base font-semibold">New conversation</Dialog.Title>
             </div>
-            <button type="button" onClick={onClose} className="rounded-full p-2 text-almost-black-green/60 hover:bg-warm-light-grey">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-ivory/80 bg-white text-almost-black-green/60 transition hover:border-soft-ivory hover:bg-warm-light-grey hover:text-deep-red"
+            >
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -438,12 +430,12 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                 )}
               </div>
             ) : tab === 'group' ? (
-              <div className="mx-auto w-full max-w-2xl space-y-4">
-                <div className="rounded-2xl border border-soft-ivory bg-white p-5 shadow-[0_8px_24px_rgba(38,22,22,0.05)]">
-                  <h3 className="text-base font-semibold text-deep-red">Create a group conversation</h3>
-                  <div className="mt-4 space-y-4">
+              <div className="mx-auto w-full max-w-2xl space-y-3">
+                <div className="rounded-2xl border border-soft-ivory bg-white p-4 shadow-[0_8px_24px_rgba(38,22,22,0.05)]">
+                  <h3 className="text-sm font-semibold text-deep-red">Create a group conversation</h3>
+                  <div className="mt-3 space-y-3">
                     <div>
-                      <label className="text-sm font-semibold text-almost-black-green">Group name</label>
+                      <label className="text-xs font-semibold uppercase tracking-[0.12em] text-almost-black-green/70">Group name</label>
                       <input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
@@ -453,18 +445,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                     </div>
 
                     <div>
-                      <label className="text-sm font-semibold text-almost-black-green">Description (optional)</label>
-                      <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="What is this group for?"
-                        className="mt-1 min-h-20 w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2.5 text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-semibold text-almost-black-green">Add people</label>
-                      <p className="mt-0.5 text-xs text-almost-black-green/55">Search delegates by name or email to add them.</p>
+                      <label className="text-xs font-semibold uppercase tracking-[0.12em] text-almost-black-green/70">Add people</label>
                       <div className="relative mt-2">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
                         <input
@@ -482,49 +463,64 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                           style={{ paddingLeft: '30px' }}
                         />
                       </div>
+
+                      {(isSearching && canSearch) || (!isSearching && hasSearched && canSearch) ? (
+                        <div className="mt-2 max-h-48 space-y-1.5 overflow-y-auto rounded-xl border border-soft-ivory bg-warm-light-grey/20 p-2">
+                          {isSearching ? (
+                            <div className="flex items-center gap-2 rounded-lg bg-white px-2.5 py-2 text-xs text-almost-black-green/60">
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Searching delegates...
+                            </div>
+                          ) : null}
+
+                          {!isSearching && hasSearched && canSearch && !results.length && !error ? (
+                            <p className="rounded-lg bg-white px-2.5 py-2 text-xs text-almost-black-green/60">No delegates found.</p>
+                          ) : null}
+
+                          {!isSearching &&
+                            results.map((user) => {
+                              const isSelected = selected.some((item) => item.id === user.id);
+                              const delegationLabel = getUserDelegationLabel(user) || user.email || 'No delegation listed';
+                              return (
+                                <button
+                                  key={user.id}
+                                  type="button"
+                                  onClick={() => toggleSelect(user)}
+                                  className={`group flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-sm transition ${
+                                    isSelected
+                                      ? 'border-deep-red/40 bg-soft-rose/40'
+                                      : 'border-soft-ivory bg-white hover:border-deep-red/30 hover:bg-soft-rose/20'
+                                  }`}
+                                >
+                                  <div className="flex min-w-0 items-center gap-2.5">
+                                    <UserAvatar user={user} size={32} />
+                                    <div className="min-w-0">
+                                      <p className="truncate text-sm font-semibold text-deep-red">{user.full_name}</p>
+                                      <p className="truncate text-xs text-almost-black-green/60">{delegationLabel}</p>
+                                    </div>
+                                  </div>
+                                  {isSelected ? (
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-deep-red">
+                                      <BadgeCheck className="h-3.5 w-3.5" /> Added
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-soft-ivory bg-white text-deep-red transition group-hover:scale-105 group-hover:border-deep-red/40 group-hover:bg-soft-rose/35">
+                                      <Plus className="h-3.5 w-3.5" />
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
-                </div>
-
-                <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-soft-ivory bg-warm-light-grey/25 p-3">
-                  {isSearching && canSearch ? (
-                    <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm text-almost-black-green/60">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Searching delegates...
-                    </div>
-                  ) : null}
-
-                  {!isSearching && !canSearch ? <p className="text-sm text-almost-black-green/60">Start typing to find people to add.</p> : null}
-                  {!isSearching && hasSearched && canSearch && !results.length && !error ? <p className="text-sm text-almost-black-green/60">No delegates found for this search.</p> : null}
-
-                  {!isSearching &&
-                    results.map((user) => {
-                      const isSelected = selected.some((item) => item.id === user.id);
-                      const delegationLabel = getUserDelegationLabel(user) || user.email || 'No delegation listed';
-                      return (
-                        <button
-                          key={user.id}
-                          type="button"
-                          onClick={() => toggleSelect(user)}
-                          className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left ${isSelected ? 'border-deep-red/50 bg-soft-rose/40' : 'border-soft-ivory bg-white'}`}
-                        >
-                          <div className="flex min-w-0 items-center gap-3">
-                            <UserAvatar user={user} size={34} />
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-deep-red">{user.full_name}</p>
-                              <p className="truncate text-xs text-almost-black-green/60">{delegationLabel}</p>
-                            </div>
-                          </div>
-                          <Plus className="h-4 w-4 shrink-0 text-deep-red" />
-                        </button>
-                      );
-                    })}
                 </div>
 
                 <div className="space-y-2 rounded-2xl border border-soft-ivory bg-white p-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-almost-black-green/60">Selected members ({selected.length})</p>
                   {selected.length === 0 ? (
-                    <p className="text-sm text-almost-black-green/60">No members selected yet.</p>
+                    <p className="text-xs text-almost-black-green/60">No members selected yet.</p>
                   ) : (
                     <div className="grid gap-2 sm:grid-cols-2">
                       {selected.map((user) => {
@@ -541,7 +537,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                             <button
                               type="button"
                               onClick={() => toggleSelect(user)}
-                              className="rounded-full border border-soft-ivory bg-white p-1 text-almost-black-green/60 hover:text-deep-red"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-soft-ivory bg-white/95 text-almost-black-green/60 transition hover:border-deep-red/30 hover:bg-soft-rose/35 hover:text-deep-red"
                               aria-label={`Remove ${user.full_name}`}
                             >
                               <X className="h-3.5 w-3.5" />
@@ -559,7 +555,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                     type="button"
                     onClick={handleCreateGroup}
                     disabled={isCreatingGroup || !name.trim() || selected.length < 2}
-                    className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-deep-red/90 disabled:cursor-not-allowed disabled:bg-deep-red/60 disabled:opacity-100 background-deep-red"
+                    className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-deep-red/90 disabled:cursor-not-allowed disabled:bg-deep-red/35 disabled:text-white/80 disabled:shadow-none background-deep-red"
                   >
                     {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
                     {isCreatingGroup ? 'Creating group...' : 'Create group'}
