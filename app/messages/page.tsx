@@ -964,7 +964,7 @@ const ChatShell: React.FC = () => {
                   <span className="ml-2 inline-flex min-w-6 items-center justify-center rounded-full bg-deep-red px-2 py-0.5 text-xs font-semibold text-white">
                     {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
                   </span>
-                ) : null}
+                ) : <span className="ml-2 inline-block h-4 w-4" aria-hidden="true" />}
               </p>
               <div className="flex items-center gap-1">
                 <button
@@ -1176,7 +1176,7 @@ const ChatShell: React.FC = () => {
                   <h3 className="!mb-1 text-2xl font-semibold text-deep-red">
                     {activeRoomTitle}
                   </h3>
-                  {activeRoom && <div className="space-y-1">
+                  <div className="min-h-[2.5rem] space-y-1">
                     {activeRoom?.room_type === "dm" && activePeerDelegation && (
                       <p className="text-xs font-medium text-almost-black-green/65">
                         {activePeerDelegation}
@@ -1198,10 +1198,10 @@ const ChatShell: React.FC = () => {
                             : "text-almost-black-green/70"
                         }`}
                       >
-                        {headerSubtitle}
+                        {activeRoom ? headerSubtitle : "Choose a conversation to start chatting."}
                       </p>
                     </div>
-                  </div>}
+                  </div>
                 </div>
                 {activeRoom ? (
                   <div className="flex items-center gap-3">
@@ -1386,43 +1386,41 @@ const ChatShell: React.FC = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {activeRoom && (
-                <>
-                {showScrollToBottom && (
-                  <button
-                    type="button"
-                    onClick={handleScrollToBottom}
-                    className="absolute bottom-24 right-6 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-soft-ivory bg-white text-deep-red shadow-md transition hover:bg-soft-ivory"
-                    aria-label="Scroll to latest message"
-                  >
-                    <ChevronDown className="h-5 w-5" />
-                  </button>
-                )}
-                <div className="sticky bottom-0 bg-white px-2 py-3">
-                  {activeTypingDisplay}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    multiple
-                    onChange={(event) => {
-                      void handleAttachmentSelect(event.target.files);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                  <input
-                    ref={mediaInputRef}
-                    type="file"
-                    className="hidden"
-                    multiple
-                    accept="image/*,video/*"
-                    onChange={(event) => {
-                      void handleAttachmentSelect(event.target.files);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                  {(isUploadingAttachments || pendingAttachments.length > 0 || attachmentUploadError) && (
-                    <div className="mb-2 rounded-2xl border border-[#d7d7d7] bg-[#f7f7f7] px-3 py-2 text-xs text-[#4b4f53]">
+              {activeRoom && showScrollToBottom && (
+                <button
+                  type="button"
+                  onClick={handleScrollToBottom}
+                  className="absolute bottom-24 right-6 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-soft-ivory bg-white text-deep-red shadow-md transition hover:bg-soft-ivory"
+                  aria-label="Scroll to latest message"
+                >
+                  <ChevronDown className="h-5 w-5" />
+                </button>
+              )}
+              <div className="sticky bottom-0 bg-white px-2 py-3">
+                {activeRoom ? activeTypingDisplay : <div className="mb-2 h-5" aria-hidden="true" />}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  multiple
+                  onChange={(event) => {
+                    void handleAttachmentSelect(event.target.files);
+                    event.currentTarget.value = "";
+                  }}
+                />
+                <input
+                  ref={mediaInputRef}
+                  type="file"
+                  className="hidden"
+                  multiple
+                  accept="image/*,video/*"
+                  onChange={(event) => {
+                    void handleAttachmentSelect(event.target.files);
+                    event.currentTarget.value = "";
+                  }}
+                />
+                {activeRoom && (isUploadingAttachments || pendingAttachments.length > 0 || attachmentUploadError) && (
+                  <div className="mb-2 rounded-2xl border border-[#d7d7d7] bg-[#f7f7f7] px-3 py-2 text-xs text-[#4b4f53]">
                       {pendingAttachments.length > 0 ? (
                         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
                           {pendingAttachments.map((attachment) => (
@@ -1472,6 +1470,7 @@ const ChatShell: React.FC = () => {
                       {attachmentUploadError ? <p className="mt-1 text-deep-red">{attachmentUploadError}</p> : null}
                     </div>
                   )}
+                {activeRoom ? (
                   <div className="relative flex items-end gap-3">
                     {emojiSuggestions.length > 0 && (
                       <div className="absolute -top-20 left-4 z-30 max-w-[calc(100%-2rem)] rounded-2xl border border-[#d7d7d7] bg-white p-1.5 shadow-[0_14px_30px_rgba(17,27,33,0.2)]">
@@ -1593,8 +1592,47 @@ const ChatShell: React.FC = () => {
                       <Send className="h-5 w-5" />
                     </button>
                   </div>
-                </div>
-                {warmEmojiPicker && (
+                ) : (
+                  <div className="relative flex items-end gap-3">
+                    <div className="relative flex flex-1 items-end rounded-full border border-[#d7d7d7] bg-[#f5f5f5] pl-1 pr-2 transition">
+                      <button
+                        type="button"
+                        disabled
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[#b0b0b0]"
+                        aria-hidden="true"
+                      >
+                        <Plus className="h-7 w-7" strokeWidth={1.8} />
+                      </button>
+                      <textarea
+                        value=""
+                        readOnly
+                        disabled
+                        placeholder="Select a conversation to start messaging"
+                        rows={1}
+                        style={{ border: "none", boxShadow: "none" }}
+                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-[#202c33] placeholder:text-[#7a7f84] focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        disabled
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#b0b0b0]"
+                        aria-hidden="true"
+                      >
+                        <Laugh className="h-5 w-5" strokeWidth={1.8} />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex h-12 w-12 cursor-not-allowed items-center justify-center rounded-full bg-[#d7d7d7] text-[#8f8f8f]"
+                      aria-hidden="true"
+                    >
+                      <Send className="h-5 w-5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              {warmEmojiPicker && (
                   <div className="pointer-events-none absolute -left-[9999px] -top-[9999px] h-0 w-0 overflow-hidden opacity-0" aria-hidden>
                     <EmojiPicker
                       theme="light"
@@ -1630,8 +1668,6 @@ const ChatShell: React.FC = () => {
                     />
                   </div>
                 )}
-                </>
-              )}
             </div>
           </section>
         </section>
