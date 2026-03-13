@@ -222,7 +222,6 @@ const ChatShell: React.FC = () => {
   const roomsPollBackoffRef = useRef(60000);
   const hasLoadedSidebarWidthRef = useRef(false);
   const hasSkippedInitialSidebarSaveRef = useRef(false);
-  const hasOpenedAnyRoomRef = useRef(false);
 
   const focusComposerWithoutScroll = () => {
     const composerElement = composerRef.current;
@@ -702,17 +701,7 @@ const ChatShell: React.FC = () => {
     setShowAttachmentMenu(false);
     setShowEmojiModal(false);
 
-    const shouldPreserveDocumentScroll = !hasOpenedAnyRoomRef.current;
-    const previousWindowScrollY = shouldPreserveDocumentScroll ? window.scrollY : 0;
-
     await selectRoom(room);
-    hasOpenedAnyRoomRef.current = true;
-
-    if (shouldPreserveDocumentScroll) {
-      window.requestAnimationFrame(() => {
-        window.scrollTo({ top: previousWindowScrollY, behavior: "auto" });
-      });
-    }
 
     window.requestAnimationFrame(() => {
       focusComposerWithoutScroll();
@@ -1238,8 +1227,11 @@ const ChatShell: React.FC = () => {
               </div>
             </header>
 
-            {!activeRoom && (incomingRequests.length > 0 || outgoingRequests.length > 0) && (
-              <div className="border-b border-soft-ivory bg-warm-light-grey/35 px-6 py-4">
+            {(incomingRequests.length > 0 || outgoingRequests.length > 0) && (
+              <div
+                className={`border-b border-soft-ivory bg-warm-light-grey/35 px-6 py-4 ${activeRoom ? "pointer-events-none invisible" : ""}`}
+                aria-hidden={activeRoom ? true : undefined}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-almost-black-green/60">
                     Friend requests
@@ -1675,7 +1667,6 @@ const ChatShell: React.FC = () => {
                     try {
                       const room = await openDirectMessageRoomForUser(showAcceptedPrompt.userId);
                       if (room) {
-                        hasOpenedAnyRoomRef.current = true;
                         await selectRoom(room);
                       }
                       setShowAcceptedPrompt(null);
