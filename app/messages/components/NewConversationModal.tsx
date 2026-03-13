@@ -4,7 +4,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import { BadgeCheck, Check, Clock3, Inbox, Loader2, MessageCirclePlus, Plus, Search, UserPlus, Users, X } from 'lucide-react';
+import { BadgeCheck, Clock3, Inbox, Loader2, MessageCirclePlus, Plus, Search, UserPlus, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { FriendRequest, UserSearchResult } from '@/lib/chat/types';
 import { getUserDelegationLabel } from '@/lib/chat/delegation';
@@ -51,6 +51,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
   const trimmedQuery = query.trim();
   const canSearch = trimmedQuery.length >= 2;
+  const sharedSearchInputClassName = 'w-full rounded-2xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm';
 
   useEffect(() => {
     if (open) {
@@ -285,35 +286,37 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
           </div>
 
           <div className="mt-5 space-y-4">
-            <div className="inline-flex rounded-xl border border-soft-ivory bg-warm-light-grey/40 p-1">
-              <button
-                type="button"
-                onClick={() => setTab('direct')}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === 'direct' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-              >
-                Direct
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab('group')}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === 'group' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-              >
-                Group
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab('friends')}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === 'friends' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-              >
-                Friends
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab('requests')}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === 'requests' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-              >
-                Requests
-              </button>
+            <div className="flex justify-center">
+              <div className="inline-flex rounded-xl border border-soft-ivory bg-warm-light-grey/40 p-1.5 shadow-[0_4px_10px_rgba(17,27,33,0.04)]">
+                <button
+                  type="button"
+                  onClick={() => setTab('direct')}
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'direct' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+                >
+                  Direct
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab('group')}
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'group' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+                >
+                  Group
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab('friends')}
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'friends' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+                >
+                  Friends
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab('requests')}
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'requests' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+                >
+                  Requests
+                </button>
+              </div>
             </div>
 
             {tab === 'direct' ? (
@@ -331,45 +334,10 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                           }
                         }}
                         placeholder="Search by name or email"
-                        className="w-full rounded-2xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm"
+                        className={sharedSearchInputClassName}
                         style={{ paddingLeft: '30px' }}
                       />
                     </div>
-
-                    {incomingRequestsList.length > 0 && (
-                      <div className="space-y-2 rounded-2xl border border-soft-ivory bg-warm-light-grey/40 p-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold text-deep-red">Incoming requests</p>
-                          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#c62828] px-2 text-xs font-semibold text-white">
-                            {incomingRequestsList.length}
-                          </span>
-                        </div>
-                        {incomingRequestsList.map((req) => (
-                          <div key={req.id} className="flex items-center justify-between rounded-xl border border-soft-ivory bg-white px-3 py-2">
-                            <p className="text-sm text-deep-red">{getRequestDisplayName(req.sender_id, req.sender)}</p>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleAcceptRequest(req)}
-                                disabled={respondingTo === req.id}
-                                className="inline-flex items-center gap-1 rounded-lg bg-[#701e1e] px-3 py-1 text-xs font-semibold text-white hover:bg-[#8b2424] disabled:cursor-wait disabled:opacity-70"
-                              >
-                                {respondingTo === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                                Accept
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeclineRequest(req.id)}
-                                disabled={respondingTo === req.id}
-                                className="rounded-lg border border-soft-ivory px-3 py-1 text-xs font-semibold text-deep-red disabled:cursor-wait disabled:opacity-70"
-                              >
-                                Decline
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
 
                     {acceptedConnection && (
                       <div className="rounded-2xl border border-[#c8e6c9] bg-[#edf7ed] p-3">
@@ -416,25 +384,10 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                                 {openingChatFor === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Start chat'}
                               </button>
                             </div>
-                          ) : state === 'incoming' && relationship.request ? (
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleAcceptRequest(relationship.request)}
-                                disabled={respondingTo === relationship.request.id}
-                                className="inline-flex items-center gap-1 rounded-lg bg-deep-red px-3 py-1 text-xs font-semibold text-white disabled:cursor-wait disabled:opacity-70"
-                              >
-                                {respondingTo === relationship.request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3 w-3" />}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeclineRequest(relationship.request.id)}
-                                disabled={respondingTo === relationship.request.id}
-                                className="rounded-lg border border-soft-ivory px-3 py-1 text-xs font-semibold text-deep-red disabled:cursor-wait disabled:opacity-70"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
+                          ) : state === 'incoming' ? (
+                            <span className="rounded-full border border-soft-ivory bg-warm-light-grey/60 px-3 py-1 text-xs font-semibold text-almost-black-green/65">
+                              Respond in Requests
+                            </span>
                           ) : state === 'outgoing' ? (
                             <span className="text-xs font-semibold text-almost-black-green/60">Request sent</span>
                           ) : (
@@ -483,49 +436,130 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                 )}
               </div>
             ) : tab === 'group' ? (
-              <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="text-sm font-semibold text-almost-black-green">Group name</label>
-                    <input value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-sm" />
+              <div className="mx-auto w-full max-w-2xl space-y-4">
+                <div className="rounded-2xl border border-soft-ivory bg-white p-5 shadow-[0_8px_24px_rgba(38,22,22,0.05)]">
+                  <h3 className="text-base font-semibold text-deep-red">Create a group conversation</h3>
+                  <p className="mt-1 text-sm text-almost-black-green/65">Name your group, add members, and start chatting together.</p>
+
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="text-sm font-semibold text-almost-black-green">Group name</label>
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Security Council Drafting"
+                        className="mt-1 w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2.5 text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-semibold text-almost-black-green">Description (optional)</label>
+                      <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="What is this group for?"
+                        className="mt-1 min-h-20 w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2.5 text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-semibold text-almost-black-green">Add people</label>
+                      <p className="mt-0.5 text-xs text-almost-black-green/55">Search delegates by name or email to add them.</p>
+                      <div className="relative mt-2">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
+                        <input
+                          value={query}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setQuery(value);
+                            if (!value.trim()) {
+                              setResults([]);
+                              setHasSearched(false);
+                            }
+                          }}
+                          placeholder="Search by name or email"
+                          className={sharedSearchInputClassName}
+                          style={{ paddingLeft: '30px' }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (optional)" className="w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2 text-sm" />
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
-                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search people to add" className="w-full rounded-2xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm" style={{ paddingLeft: '30px' }} />
+                <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-soft-ivory bg-warm-light-grey/25 p-3">
+                  {isSearching && canSearch ? (
+                    <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm text-almost-black-green/60">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Searching delegates...
+                    </div>
+                  ) : null}
+
+                  {!isSearching && !canSearch ? <p className="text-sm text-almost-black-green/60">Start typing to find people to add.</p> : null}
+                  {!isSearching && hasSearched && canSearch && !results.length && !error ? <p className="text-sm text-almost-black-green/60">No delegates found for this search.</p> : null}
+
+                  {!isSearching &&
+                    results.map((user) => {
+                      const isSelected = selected.some((item) => item.id === user.id);
+                      const delegationLabel = getUserDelegationLabel(user) || user.email || 'No delegation listed';
+                      return (
+                        <button
+                          key={user.id}
+                          type="button"
+                          onClick={() => toggleSelect(user)}
+                          className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left ${isSelected ? 'border-deep-red/50 bg-soft-rose/40' : 'border-soft-ivory bg-white'}`}
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <UserAvatar user={user} size={34} />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-deep-red">{user.full_name}</p>
+                              <p className="truncate text-xs text-almost-black-green/60">{delegationLabel}</p>
+                            </div>
+                          </div>
+                          <Plus className="h-4 w-4 shrink-0 text-deep-red" />
+                        </button>
+                      );
+                    })}
                 </div>
 
-                <div className="max-h-60 space-y-2 overflow-y-auto">
-                  {results.map((user) => {
-                    const isSelected = selected.some((item) => item.id === user.id);
-                    return (
-                      <button key={user.id} type="button" onClick={() => toggleSelect(user)} className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 ${isSelected ? 'border-deep-red/50 bg-soft-rose/40' : 'border-soft-ivory bg-white'}`}>
-                        <div className="flex items-center gap-3">
-                          <UserAvatar user={user} size={34} />
-                          <span className="text-sm font-semibold text-deep-red">{user.full_name}</span>
-                        </div>
-                        <Plus className="h-4 w-4 text-deep-red" />
-                      </button>
-                    );
-                  })}
+                <div className="space-y-2 rounded-2xl border border-soft-ivory bg-white p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-almost-black-green/60">Selected members ({selected.length})</p>
+                  {selected.length === 0 ? (
+                    <p className="text-sm text-almost-black-green/60">No members selected yet.</p>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {selected.map((user) => {
+                        const delegationLabel = getUserDelegationLabel(user) || user.email || 'No delegation listed';
+                        return (
+                          <div key={user.id} className="flex items-center justify-between gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey/35 px-2.5 py-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <UserAvatar user={user} size={28} />
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-semibold text-deep-red">{user.full_name}</p>
+                                <p className="truncate text-[11px] text-almost-black-green/60">{delegationLabel}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleSelect(user)}
+                              className="rounded-full border border-soft-ivory bg-white p-1 text-almost-black-green/60 hover:text-deep-red"
+                              aria-label={`Remove ${user.full_name}`}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {selected.map((user) => (
-                    <span key={user.id} className="inline-flex items-center gap-2 rounded-full bg-soft-ivory px-3 py-1 text-xs font-semibold text-deep-red">
-                      <UserAvatar user={user} size={20} /> {user.full_name}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between rounded-2xl border border-soft-ivory bg-warm-light-grey/35 p-3">
+                  <p className="text-xs text-almost-black-green/65">Group requires a name and at least 2 members.</p>
                   <button
                     type="button"
                     onClick={handleCreateGroup}
-                    disabled={isCreatingGroup}
-                    className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-4 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+                    disabled={isCreatingGroup || !name.trim() || selected.length < 2}
+                    className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-deep-red/90 disabled:cursor-not-allowed disabled:bg-deep-red/60 disabled:opacity-100"
                   >
                     {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
                     {isCreatingGroup ? 'Creating group...' : 'Create group'}

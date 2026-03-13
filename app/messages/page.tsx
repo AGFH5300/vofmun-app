@@ -30,7 +30,7 @@ import {
   Plus,
   Search,
   Send,
-  Bell,
+  BellDot,
   Users,
 } from "lucide-react";
 import { MessageAttachmentInput, RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
@@ -998,7 +998,7 @@ const ChatShell: React.FC = () => {
                   className="relative rounded-lg border border-soft-ivory p-2 text-almost-black-green/60 hover:text-deep-red"
                   aria-label={`Open connection requests${incomingPendingCount > 0 ? `. ${incomingPendingCount} pending incoming` : ""}`}
                 >
-                  <Bell className="h-4 w-4" />
+                  <BellDot className="h-4 w-4" />
                   {incomingPendingCount > 0 ? (
                     <span className="absolute -right-1.5 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#c62828] px-1 text-[10px] font-semibold leading-none text-white">
                       {incomingPendingBadgeLabel}
