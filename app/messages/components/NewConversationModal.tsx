@@ -277,42 +277,45 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
         <Dialog.Panel className="w-full max-w-4xl rounded-3xl bg-white p-6 shadow-xl">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <Dialog.Title className="text-xl font-semibold text-deep-red">New conversation</Dialog.Title>
-              <p className="text-sm text-almost-black-green/70">Search delegates, connect, and open chats.</p>
+              <Dialog.Title className="text-base font-semibold">New conversation</Dialog.Title>
             </div>
             <button type="button" onClick={onClose} className="rounded-full p-2 text-almost-black-green/60 hover:bg-warm-light-grey">
               <X className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="mt-5 space-y-4">
+          <div className="space-y-4">
             <div className="flex justify-center">
               <div className="inline-flex rounded-xl border border-soft-ivory bg-warm-light-grey/40 p-1.5 shadow-[0_4px_10px_rgba(17,27,33,0.04)]">
                 <button
                   type="button"
                   onClick={() => setTab('direct')}
-                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'direct' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+                  className={`rounded-2xl px-4 py-2 text-sm font-semibold hover:bg-gray-100 ${tab === 'direct' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+                  style={{color: "var(--deep-red)"}}
                 >
                   Direct
                 </button>
                 <button
                   type="button"
                   onClick={() => setTab('group')}
-                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'group' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+                  className={`rounded-2xl px-4 py-2 text-sm font-semibold hover:bg-gray-100 ${tab === 'group' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+                  style={{color: "var(--deep-red)"}} 
                 >
                   Group
                 </button>
                 <button
                   type="button"
                   onClick={() => setTab('friends')}
-                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'friends' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+                  className={`rounded-2xl px-4 py-2 text-sm font-semibold hover:bg-gray-100 ${tab === 'friends' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+                  style={{color: "var(--deep-red)"}}
                 >
                   Friends
                 </button>
                 <button
                   type="button"
                   onClick={() => setTab('requests')}
-                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'requests' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+                  className={`rounded-2xl px-4 py-2 text-sm font-semibold hover:bg-gray-100 ${tab === 'requests' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
+                  style={{color: "var(--deep-red)"}}
                 >
                   Requests
                 </button>
@@ -406,8 +409,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                     })}
               </div>
             ) : tab === 'friends' ? (
-              <div className="space-y-2 rounded-2xl border border-soft-ivory bg-warm-light-grey/35 p-3">
-                <p className="text-sm font-semibold text-deep-red">Friends</p>
+              <div className="space-y-2 rounded-2xl bg-warm-light-grey/35">
                 {connectedContacts.length === 0 ? (
                   <p className="text-sm text-almost-black-green/60">You do not have any accepted friends yet.</p>
                 ) : (
@@ -439,8 +441,6 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
               <div className="mx-auto w-full max-w-2xl space-y-4">
                 <div className="rounded-2xl border border-soft-ivory bg-white p-5 shadow-[0_8px_24px_rgba(38,22,22,0.05)]">
                   <h3 className="text-base font-semibold text-deep-red">Create a group conversation</h3>
-                  <p className="mt-1 text-sm text-almost-black-green/65">Name your group, add members, and start chatting together.</p>
-
                   <div className="mt-4 space-y-4">
                     <div>
                       <label className="text-sm font-semibold text-almost-black-green">Group name</label>
@@ -554,12 +554,12 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                 </div>
 
                 <div className="flex items-center justify-between rounded-2xl border border-soft-ivory bg-warm-light-grey/35 p-3">
-                  <p className="text-xs text-almost-black-green/65">Group requires a name and at least 2 members.</p>
+                  <p className="text-xs text-almost-black-green/65">Group requires a name and at least 2 other members.</p>
                   <button
                     type="button"
                     onClick={handleCreateGroup}
                     disabled={isCreatingGroup || !name.trim() || selected.length < 2}
-                    className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-deep-red/90 disabled:cursor-not-allowed disabled:bg-deep-red/60 disabled:opacity-100"
+                    className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-deep-red/90 disabled:cursor-not-allowed disabled:bg-deep-red/60 disabled:opacity-100 background-deep-red"
                   >
                     {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
                     {isCreatingGroup ? 'Creating group...' : 'Create group'}
