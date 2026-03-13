@@ -222,6 +222,7 @@ const ChatShell: React.FC = () => {
   const roomsPollBackoffRef = useRef(60000);
   const hasLoadedSidebarWidthRef = useRef(false);
   const hasSkippedInitialSidebarSaveRef = useRef(false);
+  const hasOpenedAnyRoomRef = useRef(false);
 
   const focusComposerWithoutScroll = () => {
     const composerElement = composerRef.current;
@@ -701,7 +702,17 @@ const ChatShell: React.FC = () => {
     setShowAttachmentMenu(false);
     setShowEmojiModal(false);
 
+    const shouldPreserveDocumentScroll = !hasOpenedAnyRoomRef.current;
+    const previousWindowScrollY = shouldPreserveDocumentScroll ? window.scrollY : 0;
+
     await selectRoom(room);
+    hasOpenedAnyRoomRef.current = true;
+
+    if (shouldPreserveDocumentScroll) {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: previousWindowScrollY, behavior: "auto" });
+      });
+    }
 
     window.requestAnimationFrame(() => {
       focusComposerWithoutScroll();
@@ -1664,6 +1675,7 @@ const ChatShell: React.FC = () => {
                     try {
                       const room = await openDirectMessageRoomForUser(showAcceptedPrompt.userId);
                       if (room) {
+                        hasOpenedAnyRoomRef.current = true;
                         await selectRoom(room);
                       }
                       setShowAcceptedPrompt(null);
