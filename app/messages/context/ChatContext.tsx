@@ -1803,7 +1803,17 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         `${CHAT_API_URL}/api/rooms/group`,
         await withAuthHeaders({ method: 'POST', body: JSON.stringify(payload) })
       );
-      if (!response.ok) return null;
+      if (!response.ok) {
+        const json = (await response.json().catch(() => null)) as { error?: string } | null;
+        const errorMessage = json?.error || 'Unable to create group chat right now.';
+        console.error('[ChatContext] failed to create group room', {
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage,
+        });
+        toast.error(errorMessage);
+        return null;
+      }
       const room = (await response.json()) as RoomWithDetails;
       setRooms((prev) => [{ ...room, isPinned: pinnedRoomIds.has(room.id) }, ...prev]);
       return room;

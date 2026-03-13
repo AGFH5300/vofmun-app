@@ -38,6 +38,8 @@ interface SocketContext {
 const app = express();
 app.use(express.json());
 
+const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
 if (!supabaseAdmin) {
   throw new Error('Supabase admin client is not configured. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
 }
@@ -561,14 +563,29 @@ app.post('/api/rooms/direct', requireAuth, async (req: AuthedRequest, res: Respo
 
 app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
-    const { name, description, memberIds } = req.body as { name?: string; description?: string; memberIds?: string[] };
-    if (!name || !memberIds || memberIds.length === 0) {
+    const { name, description, memberIds } = req.body as {
+      name?: string;
+      description?: string | null;
+      memberIds?: unknown;
+    };
+    const trimmedName = String(name || '').trim();
+    const normalizedDescription = typeof description === 'string' ? description.trim() : '';
+
+    if (!trimmedName) {
+      return res.status(400).json({ error: 'Group name is required' });
+    }
+
+    if (!Array.isArray(memberIds) || memberIds.length === 0) {
       return res.status(400).json({ error: 'Missing group details' });
     }
 
     const normalizedMemberIds = Array.from(
       new Set(memberIds.map((id) => String(id).trim()).filter((id) => Boolean(id) && id !== req.userId))
     );
+
+    if (normalizedMemberIds.some((id) => !isUuid(id))) {
+      return res.status(400).json({ error: 'One or more participants are invalid' });
+    }
 
     if (normalizedMemberIds.length === 0) {
       return res.status(400).json({ error: 'Select at least one participant' });
@@ -580,7 +597,7 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
 
     console.debug('[GroupCreateDebug] request_received', {
       creatorUserId: req.userId,
-      name,
+      name: trimmedName,
       memberCount: normalizedMemberIds.length,
       memberIds: normalizedMemberIds,
     });
@@ -600,7 +617,12 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
 
     const { data: createdRoom, error } = await supabaseAdmin
       .from('chat_rooms')
-      .insert({ name, description: description || null, is_private: false, created_by: req.userId! })
+      .insert({
+        name: trimmedName,
+        description: normalizedDescription.length > 0 ? normalizedDescription : null,
+        is_private: false,
+        created_by: req.userId!,
+      })
       .select('*')
       .single();
 
