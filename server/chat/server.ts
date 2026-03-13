@@ -101,6 +101,21 @@ const fetchExistingAppUserIds = async (userIds: string[]): Promise<Set<string>> 
   return new Set((data || []).map((row: { id: string }) => String(row.id)));
 };
 
+const normalizeUniqueUserIds = (rawIds: unknown[]): string[] => {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  rawIds.forEach((id) => {
+    const value = String(id || '').trim();
+    if (!value) return;
+    if (seen.has(value)) return;
+    seen.add(value);
+    normalized.push(value);
+  });
+
+  return normalized;
+};
+
 const activeSockets = new Set<SocketContext>();
 const CHAT_SERVER_DEBUG_PREFIX = '[ChatServerDebug]';
 const isServerDebugEnabled = process.env.CHAT_SERVER_DEBUG === '1' || process.env.NODE_ENV !== 'production';
@@ -579,9 +594,14 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
       return res.status(400).json({ error: 'Missing group details' });
     }
 
-    const normalizedMemberIds = Array.from(
-      new Set(memberIds.map((id) => String(id).trim()).filter((id) => Boolean(id) && id !== req.userId))
-    );
+    const creatorUserId = String(req.userId || '').trim();
+    if (!creatorUserId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const normalizedMemberIds = normalizeUniqueUserIds(memberIds)
+      .map((id) => id.trim())
+      .filter((id) => id !== creatorUserId);
 
     if (normalizedMemberIds.some((id) => !isUuid(id))) {
       return res.status(400).json({ error: 'One or more participants are invalid' });
@@ -595,15 +615,21 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
       return res.status(400).json({ error: 'Select at least two participants for a group chat' });
     }
 
+    const finalMemberUserIds = normalizeUniqueUserIds([creatorUserId, ...normalizedMemberIds]);
+
     console.debug('[GroupCreateDebug] request_received', {
-      creatorUserId: req.userId,
+      creatorUserId,
       name: trimmedName,
-      memberCount: normalizedMemberIds.length,
+      memberCount: finalMemberUserIds.length,
       memberIds: normalizedMemberIds,
     });
 
-    const existingIds = await fetchExistingAppUserIds(normalizedMemberIds);
-    if (existingIds.size !== normalizedMemberIds.length) {
+    const existingIds = await fetchExistingAppUserIds(finalMemberUserIds);
+    if (!existingIds.has(creatorUserId)) {
+      return res.status(400).json({ error: 'Your chat profile is not available. Please sign in again.' });
+    }
+
+    if (existingIds.size !== finalMemberUserIds.length) {
       return res.status(400).json({ error: 'One or more participants are invalid' });
     }
 
@@ -621,7 +647,7 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
         name: trimmedName,
         description: normalizedDescription.length > 0 ? normalizedDescription : null,
         is_private: false,
-        created_by: req.userId!,
+        created_by: creatorUserId,
       })
       .select('*')
       .single();
@@ -630,26 +656,54 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
       return res.status(500).json({ error: 'Failed to create room' });
     }
 
-    const memberRows = [
-      { room_id: (createdRoom as any).id, user_id: req.userId!, role: 'admin' as const },
-      ...normalizedMemberIds.map((id) => ({ room_id: (createdRoom as any).id, user_id: id, role: 'member' as const })),
-    ];
+    const roomId = String((createdRoom as any).id || '');
+    const memberRows = finalMemberUserIds.map((userId) => ({
+      room_id: roomId,
+      user_id: userId,
+      role: userId === creatorUserId ? ('admin' as const) : ('member' as const),
+    }));
+
+    console.debug('[GroupCreateDebug] inserting_room_members', {
+      roomId,
+      creatorUserId,
+      memberRows,
+    });
 
     const { error: memberInsertError } = await supabaseAdmin
       .from('room_members')
       .insert(memberRows);
 
     if (memberInsertError) {
-      console.error('Error adding group room members', memberInsertError);
+      console.error('[GroupCreateDebug] room_members_insert_failed', {
+        roomId,
+        memberRows,
+        code: memberInsertError.code,
+        details: memberInsertError.details,
+        hint: memberInsertError.hint,
+        message: memberInsertError.message,
+      });
+
+      await supabaseAdmin.from('chat_rooms').delete().eq('id', roomId);
+
+      if (memberInsertError.code === '23505') {
+        return res.status(409).json({ error: 'Some participants were added more than once. Please retry.' });
+      }
+      if (memberInsertError.code === '23503') {
+        return res.status(400).json({ error: 'A participant could not be added due to an invalid user reference.' });
+      }
+      if (memberInsertError.code === '22P02') {
+        return res.status(400).json({ error: 'A participant ID was not in the expected format.' });
+      }
+
       return res.status(500).json({ error: 'Failed to create room members' });
     }
 
-    const members = await fetchRoomMembers((createdRoom as any).id);
-    const lastMessage = await fetchLastMessage((createdRoom as any).id);
+    const members = await fetchRoomMembers(roomId);
+    const lastMessage = await fetchLastMessage(roomId);
 
     console.debug('[GroupCreateDebug] room_created', {
-      roomId: (createdRoom as any).id,
-      creatorIncluded: members.some((member) => String(member.user_id) === String(req.userId)),
+      roomId,
+      creatorIncluded: members.some((member) => String(member.user_id) === creatorUserId),
       memberCount: members.length,
     });
 
