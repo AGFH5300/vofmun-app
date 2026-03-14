@@ -39,6 +39,7 @@ const app = express();
 app.use(express.json());
 
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+const isDevelopment = process.env.NODE_ENV !== 'production';
 
 if (!supabaseAdmin) {
   throw new Error('Supabase admin client is not configured. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
@@ -115,6 +116,13 @@ const normalizeUniqueUserIds = (rawIds: unknown[]): string[] => {
 
   return normalized;
 };
+
+const toDbErrorPayload = (error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null }) => ({
+  code: error.code || null,
+  message: error.message || null,
+  details: error.details || null,
+  hint: error.hint || null,
+});
 
 const activeSockets = new Set<SocketContext>();
 const CHAT_SERVER_DEBUG_PREFIX = '[ChatServerDebug]';
@@ -657,11 +665,14 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
     }
 
     const roomId = String((createdRoom as any).id || '');
-    const memberRows = finalMemberUserIds.map((userId) => ({
-      room_id: roomId,
-      user_id: userId,
-      role: userId === creatorUserId ? ('admin' as const) : ('member' as const),
-    }));
+    const existingRoomMemberIds = new Set(await fetchRoomMemberUserIds(roomId));
+    const memberRows = finalMemberUserIds
+      .filter((userId) => !existingRoomMemberIds.has(userId))
+      .map((userId) => ({
+        room_id: roomId,
+        user_id: userId,
+        role: 'member' as const,
+      }));
 
     console.debug('[GroupCreateDebug] inserting_room_members', {
       roomId,
@@ -669,18 +680,26 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
       memberRows,
     });
 
-    const { error: memberInsertError } = await supabaseAdmin
-      .from('room_members')
-      .insert(memberRows);
+    let memberInsertError: {
+      code?: string | null;
+      message?: string | null;
+      details?: string | null;
+      hint?: string | null;
+    } | null = null;
+
+    if (memberRows.length > 0) {
+      const insertResult = await supabaseAdmin
+        .from('room_members')
+        .insert(memberRows);
+      memberInsertError = insertResult.error;
+    }
 
     if (memberInsertError) {
+      const dbError = toDbErrorPayload(memberInsertError);
       console.error('[GroupCreateDebug] room_members_insert_failed', {
         roomId,
         memberRows,
-        code: memberInsertError.code,
-        details: memberInsertError.details,
-        hint: memberInsertError.hint,
-        message: memberInsertError.message,
+        dbError,
       });
 
       await supabaseAdmin.from('chat_rooms').delete().eq('id', roomId);
@@ -695,8 +714,21 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
         return res.status(400).json({ error: 'A participant ID was not in the expected format.' });
       }
 
-      return res.status(500).json({ error: 'Failed to create room members' });
+      return res.status(500).json({
+        error: 'Failed to create room members',
+        ...(isDevelopment ? { devError: dbError } : {}),
+      });
     }
+
+    const finalMemberIdsAfterInsert = new Set(await fetchRoomMemberUserIds(roomId));
+    logServerDebug('group:create:room_members_resolved', {
+      roomId,
+      requestedMemberIds: finalMemberUserIds,
+      insertedMemberRows: memberRows,
+      finalMemberIds: Array.from(finalMemberIdsAfterInsert),
+      creatorIncluded: finalMemberIdsAfterInsert.has(creatorUserId),
+      missingRequestedIds: finalMemberUserIds.filter((memberId) => !finalMemberIdsAfterInsert.has(memberId)),
+    });
 
     const members = await fetchRoomMembers(roomId);
     const lastMessage = await fetchLastMessage(roomId);

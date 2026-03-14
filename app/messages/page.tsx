@@ -222,6 +222,8 @@ const ChatShell: React.FC = () => {
   const roomsPollBackoffRef = useRef(60000);
   const hasLoadedSidebarWidthRef = useRef(false);
   const hasSkippedInitialSidebarSaveRef = useRef(false);
+  const showInitialLoaderRef = useRef(true);
+  const bootstrapTransitionScrollYRef = useRef(0);
 
   const focusComposerWithoutScroll = () => {
     const composerElement = composerRef.current;
@@ -915,6 +917,20 @@ const ChatShell: React.FC = () => {
   }, [sidebarWidth]);
 
   const showInitialLoader = !initialChatReady || !hasInitialLoaderMinElapsed;
+
+  useEffect(() => {
+    const wasShowingLoader = showInitialLoaderRef.current;
+
+    if (wasShowingLoader && !showInitialLoader && typeof window !== "undefined") {
+      window.scrollTo({ top: bootstrapTransitionScrollYRef.current, behavior: "auto" });
+    }
+
+    if (showInitialLoader && typeof window !== "undefined") {
+      bootstrapTransitionScrollYRef.current = window.scrollY;
+    }
+
+    showInitialLoaderRef.current = showInitialLoader;
+  }, [showInitialLoader]);
 
   if (showInitialLoader) {
     const progressPercent = Math.min(100, Math.max(0, bootstrapProgress.percent));
