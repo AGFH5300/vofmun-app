@@ -78,6 +78,7 @@ const ChatContext = createContext<ChatContextValue | undefined>(undefined);
 const CHAT_DEBUG_PREFIX = '[ChatDebug]';
 const CHAT_BOOTSTRAP_DEBUG_PREFIX = '[ChatBootstrapDebug]';
 const isChatDebugEnabled = process.env.NEXT_PUBLIC_CHAT_DEBUG === '1';
+const isDevelopment = process.env.NODE_ENV !== 'production';
 const isReceiptsDebugEnabled = process.env.NEXT_PUBLIC_CHAT_RECEIPTS_DEBUG === '1';
 const TYPING_TRUE_THROTTLE_MS = 1000;
 const TYPING_IDLE_TIMEOUT_MS = 2500;
@@ -1804,14 +1805,21 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         await withAuthHeaders({ method: 'POST', body: JSON.stringify(payload) })
       );
       if (!response.ok) {
-        const json = (await response.json().catch(() => null)) as { error?: string } | null;
+        const json = (await response.json().catch(() => null)) as
+          | { error?: string; devError?: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } }
+          | null;
         const errorMessage = json?.error || 'Unable to create group chat right now.';
+        const devError = json?.devError;
+        const devErrorSummary = devError
+          ? [devError.code, devError.message, devError.details, devError.hint].filter(Boolean).join(' | ')
+          : null;
         console.error('[ChatContext] failed to create group room', {
           status: response.status,
           statusText: response.statusText,
           errorMessage,
+          devError,
         });
-        toast.error(errorMessage);
+        toast.error(isDevelopment && devErrorSummary ? `${errorMessage}: ${devErrorSummary}` : errorMessage);
         return null;
       }
       const room = (await response.json()) as RoomWithDetails;
