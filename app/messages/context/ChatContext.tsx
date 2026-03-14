@@ -140,6 +140,26 @@ const getWebSocketUrl = () => {
 const normalizeFriendRequestStatus = (status?: string | null) => (status === 'declined' ? 'rejected' : status || 'pending');
 
 
+type ChatUserLike = MessageWithUser['user'] | FriendRequest['sender'] | null | undefined;
+
+const toDirectoryUser = (profile: ChatUserLike) => {
+  if (!profile?.id) return null;
+  const first = profile.first_name ?? null;
+  const last = profile.last_name ?? null;
+  const fullName =
+    profile.full_name?.trim() || `${first || ''} ${last || ''}`.trim() || profile.email || profile.id;
+
+  return {
+    id: String(profile.id),
+    email: profile.email || '',
+    full_name: fullName,
+    first_name: first,
+    last_name: last,
+    avatar_url: profile.avatar_url || null,
+  } satisfies FriendRequest['sender'];
+};
+
+
 const parseFriendRequestsResponse = (json: unknown): FriendRequest[] | null => {
   if (Array.isArray(json)) return json as FriendRequest[];
   if (json && typeof json === 'object' && 'requests' in json && Array.isArray((json as { requests?: unknown }).requests)) {
@@ -278,6 +298,40 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const friendRequestToastBootstrapRef = useRef(false);
   const friendRequestToastTransitionsRef = useRef<Set<string>>(new Set());
   const visibilityRefreshInFlightRef = useRef(false);
+  const userDirectoryRef = useRef<Record<string, FriendRequest['sender']>>({});
+
+  const mergeUsersIntoDirectory = useCallback((profiles: ChatUserLike[]) => {
+    const prepared = profiles
+      .map((profile) => toDirectoryUser(profile))
+      .filter((profile): profile is FriendRequest['sender'] => Boolean(profile));
+
+    if (prepared.length === 0) return;
+
+    setUserDirectory((prev) => {
+      let changed = false;
+      const next = { ...prev };
+
+      prepared.forEach((profile) => {
+        const existing = prev[profile.id];
+        if (!existing || !existing.full_name || existing.full_name === FALLBACK_USER_DISPLAY) {
+          next[profile.id] = { ...existing, ...profile };
+          changed = true;
+          return;
+        }
+
+        const shouldImproveName =
+          (!existing.full_name || existing.full_name === profile.id || existing.full_name === FALLBACK_USER_DISPLAY) &&
+          Boolean(profile.full_name && profile.full_name !== profile.id);
+
+        if (shouldImproveName) {
+          next[profile.id] = { ...existing, ...profile };
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
+  }, []);
 
   const setRoomUnreadCount = useCallback((roomId: string, count: number) => {
     const normalizedRoomId = toComparableId(roomId);
@@ -345,7 +399,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     const uniqueIds = Array.from(new Set(ids.map((id) => String(id)).filter(Boolean)));
     if (uniqueIds.length === 0) return;
 
-    const missingIds = uniqueIds.filter((id) => !userDirectory[id]);
+    const missingIds = uniqueIds.filter((id) => !userDirectoryRef.current[id]);
     if (missingIds.length === 0) return;
 
     const { data, error } = await supabase
@@ -360,20 +414,16 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
     if (!data?.length) return;
 
-    const nextEntries: Record<string, FriendRequest['sender']> = {};
-    data.forEach((row) => {
-      const fullName = `${row.first_name || ''} ${row.last_name || ''}`.trim();
-      nextEntries[row.id] = {
+    mergeUsersIntoDirectory(
+      data.map((row) => ({
         id: row.id,
         email: row.email || '',
-        full_name: fullName,
+        full_name: `${row.first_name || ''} ${row.last_name || ''}`.trim(),
         first_name: row.first_name || null,
         last_name: row.last_name || null,
-      };
-    });
-
-    setUserDirectory((prev) => ({ ...prev, ...nextEntries }));
-  }, [userDirectory]);
+      }))
+    );
+  }, [mergeUsersIntoDirectory]);
 
   const hydrateFriendRequestUsers = useCallback((request: FriendRequest): FriendRequest => {
     const senderProfile = request.sender || userDirectory[String(request.sender_id)] || undefined;
@@ -598,12 +648,31 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     }
     const data = (await response.json()) as RoomWithDetails[];
     logChatDebug('refreshRooms:success', { count: data.length, roomIds: data.map((room) => room.id) });
+    mergeUsersIntoDirectory(data.flatMap((room) => room.members.map((member) => member.user)));
+
     const enriched = data.map((room) => ({
       ...room,
+      members: room.members.map((member) => ({
+        ...member,
+        user: member.user || userDirectoryRef.current[String(member.user_id)] || undefined,
+      })),
       isPinned: pinnedRoomIds.has(room.id),
       unreadCount: unreadByRoomRef.current[room.id] ?? room.unreadCount ?? 0,
     }));
-    setRooms(enriched);
+    setRooms((prev) => {
+      const previousById = new Map(prev.map((room) => [room.id, room]));
+      return enriched.map((room) => {
+        const previous = previousById.get(room.id);
+        const previousMembersByUserId = new Map((previous?.members || []).map((member) => [String(member.user_id), member.user]));
+        return {
+          ...room,
+          members: room.members.map((member) => ({
+            ...member,
+            user: member.user || previousMembersByUserId.get(String(member.user_id)) || userDirectoryRef.current[String(member.user_id)] || undefined,
+          })),
+        };
+      });
+    });
     setUnreadByRoom((prev) => {
       const next = { ...prev };
       enriched.forEach((room) => {
@@ -623,7 +692,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
     }
     return enriched;
-  }, [fetchWithTimeout, pinnedRoomIds, userId, withAuthHeaders]);
+  }, [fetchWithTimeout, mergeUsersIntoDirectory, pinnedRoomIds, userId, withAuthHeaders]);
 
   const refreshFriendRequests = useCallback(async () => {
     if (!userId) return;
@@ -754,8 +823,18 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const response = await fetchWithTimeout(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, await withAuthHeaders());
       if (!response.ok) return false;
       const data = (await response.json()) as MessageWithUser[];
+      mergeUsersIntoDirectory(data.map((message) => message.user));
       const roomMemberIds = getRoomMemberIds(roomId, roomsRef.current);
-      const withResolvedStatus = data.map((message) => hydrateMessage(message, userId, roomMemberIds));
+      const withResolvedStatus = data.map((message) =>
+        hydrateMessage(
+          {
+            ...message,
+            user: message.user || userDirectoryRef.current[String(message.user_id)] || undefined,
+          },
+          userId,
+          roomMemberIds
+        )
+      );
       scheduleReceiptsForMessages(roomId, withResolvedStatus, false);
       if (typeof document !== 'undefined' && document.visibilityState !== 'hidden' && roomId === activeRoomIdRef.current) {
         scheduleReceiptsForMessages(roomId, withResolvedStatus, true);
@@ -775,7 +854,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       });
       return true;
     },
-    [fetchWithTimeout, scheduleReceiptsForMessages, userId, withAuthHeaders]
+    [fetchWithTimeout, mergeUsersIntoDirectory, scheduleReceiptsForMessages, userId, withAuthHeaders]
   );
 
   useEffect(() => {
@@ -921,8 +1000,17 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           const roomId = rawMessage?.room_id || payload.roomId;
           if (!rawMessage || !roomId) break;
           const normalizedRoomId = toComparableId(roomId);
+          mergeUsersIntoDirectory([rawMessage.user]);
           const memberIds = getRoomMemberIds(normalizedRoomId, roomsRef.current);
-          const message = hydrateMessage({ ...rawMessage, room_id: normalizedRoomId }, userIdRef.current, memberIds);
+          const message = hydrateMessage(
+            {
+              ...rawMessage,
+              room_id: normalizedRoomId,
+              user: rawMessage.user || userDirectoryRef.current[String(rawMessage.user_id)] || undefined,
+            },
+            userIdRef.current,
+            memberIds
+          );
           logChatDebug('socket:new_message', {
             roomId: normalizedRoomId,
             messageId: message.id,
@@ -1533,7 +1621,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
       }
 
-      const tempId = `temp-${Date.now()}`;
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const optimisticCreatedAt = new Date().toISOString();
       const optimistic: MessageWithUser = {
         id: tempId,
         tempId,
@@ -1542,7 +1631,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         content: trimmed,
         reply_to: replyTo,
         attachments,
+        created_at: optimisticCreatedAt,
         status: 'pending',
+        user: (userId && userDirectoryRef.current[String(userId)]) || undefined,
       };
       setMessages((prev) => ({ ...prev, [roomId]: [...(prev[roomId] || []), optimistic] }));
       try {
@@ -1576,12 +1667,22 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           throw new Error(`Failed to send message (status: ${response.status})`);
         }
         const saved = (await response.json()) as MessageWithUser;
+        mergeUsersIntoDirectory([saved.user]);
         logChatDebug('sendMessage:success', { roomId, messageId: saved.id, status: saved.status || 'unknown' });
         setMessages((prev) => {
           const list = prev[roomId] || [];
-          const withoutTemp = list.filter((msg) => msg.id !== tempId && msg.id !== saved.id);
+          const withoutTemp = list.filter((msg) => msg.id !== tempId && msg.id !== saved.id && msg.tempId !== saved.id);
           const memberIds = getRoomMemberIds(roomId, roomsRef.current);
-          return { ...prev, [roomId]: [...withoutTemp, hydrateMessage({ ...saved, status: 'sent' }, userIdRef.current, memberIds)] };
+          const hydratedSaved = hydrateMessage(
+            {
+              ...saved,
+              status: 'sent',
+              user: saved.user || userDirectoryRef.current[String(saved.user_id)] || optimistic.user,
+            },
+            userIdRef.current,
+            memberIds
+          );
+          return { ...prev, [roomId]: [...withoutTemp, hydratedSaved] };
         });
       } catch (error) {
         logChatDebug('sendMessage:error', {
@@ -1597,7 +1698,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
       }
     },
-    [userId, withAuthHeaders]
+    [mergeUsersIntoDirectory, userId, withAuthHeaders]
   );
 
   useEffect(() => {
@@ -1647,8 +1748,17 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
               receipts: normalizeMessageMeta(next.meta).receipts,
             });
           }
+          mergeUsersIntoDirectory([next.user]);
           const roomMemberIds = getRoomMemberIds(roomId, roomsRef.current);
-          const hydrated = hydrateMessage({ ...next, room_id: roomId }, userIdRef.current, roomMemberIds);
+          const hydrated = hydrateMessage(
+            {
+              ...next,
+              room_id: roomId,
+              user: next.user || userDirectoryRef.current[String(next.user_id)] || undefined,
+            },
+            userIdRef.current,
+            roomMemberIds
+          );
           setMessages((prev) => {
             const list = prev[roomId] || [];
             const hasExisting = list.some((item) => item.id === hydrated.id);
@@ -1687,7 +1797,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [activeRoom?.id]);
+  }, [activeRoom?.id, mergeUsersIntoDirectory]);
+
+  useEffect(() => {
+    userDirectoryRef.current = userDirectory;
+  }, [userDirectory]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
