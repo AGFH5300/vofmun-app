@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { toast } from 'sonner';
 import { MessageAttachment, MessageWithUser, RoomMember } from '@/lib/chat/types';
 import supabase from '@/lib/supabase';
 import { useSession } from '@/app/context/sessionContext';
@@ -18,6 +19,8 @@ interface Props {
   showAuthor?: boolean;
   showAvatar?: boolean;
   presenceDeliveredHint?: boolean;
+  onEditMessage?: (messageId: string, content: string) => Promise<void>;
+  onDeleteMessage?: (messageId: string) => Promise<void>;
 }
 
 const statusIcon: Record<string, React.ReactNode> = {
@@ -125,6 +128,8 @@ const MessageBubble: React.FC<Props> = ({
   showAuthor = true,
   showAvatar = true,
   presenceDeliveredHint = false,
+  onEditMessage,
+  onDeleteMessage,
 }) => {
   const { user } = useSession();
   const currentUserId = user?.id ? String(user.id) : null;
@@ -241,6 +246,19 @@ const MessageBubble: React.FC<Props> = ({
     [attachments]
   );
   const isLargeEmojiMessage = Boolean(message.content) && isEmojiOnlyMessage(message.content) && !/\s/.test(message.content.trim());
+  const isDeleted = Boolean(message.deleted_at);
+  const canEditMessage = isOwn && !isDeleted && typeof onEditMessage === 'function';
+  const canDeleteMessage = isOwn && !isDeleted && typeof onDeleteMessage === 'function';
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [editingText, setEditingText] = React.useState(message.content || '');
+  const [isSubmittingEdit, setIsSubmittingEdit] = React.useState(false);
+  const [isSubmittingDelete, setIsSubmittingDelete] = React.useState(false);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setEditingText(message.content || '');
+    }
+  }, [isEditing, message.content]);
 
   useEffect(() => {
     if (attachments.length === 0) {
@@ -310,10 +328,10 @@ const MessageBubble: React.FC<Props> = ({
     { icon: Smile, label: 'React' },
     { icon: Forward, label: 'Forward' },
     { icon: Copy, label: 'Copy' },
-    ...(isOwn ? [{ icon: Pencil, label: 'Edit' }] : []),
+    ...(canEditMessage ? [{ icon: Pencil, label: 'Edit' }] : []),
     { icon: Info, label: 'Info' },
     { divider: true },
-    ...(isOwn ? [{ icon: Trash2, label: 'Delete' }] : []),
+    ...(canDeleteMessage ? [{ icon: Trash2, label: 'Delete' }] : []),
     { icon: CheckCircle2, label: 'Select messages' },
   ];
 
@@ -445,13 +463,65 @@ const MessageBubble: React.FC<Props> = ({
         )}
 
         <div className="mt-1 flex items-end justify-between gap-2">
-          {message.content ? (
+          {isEditing ? (
+            <form
+              className="w-full"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const trimmed = editingText.trim();
+                if (!trimmed || trimmed === (message.content || '').trim()) {
+                  setIsEditing(false);
+                  return;
+                }
+
+                setIsSubmittingEdit(true);
+                try {
+                  await onEditMessage?.(String(message.id), trimmed);
+                  setIsEditing(false);
+                  toast.success('Message updated');
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Failed to edit message');
+                } finally {
+                  setIsSubmittingEdit(false);
+                }
+              }}
+            >
+              <textarea
+                value={editingText}
+                onChange={(event) => setEditingText(event.target.value)}
+                rows={2}
+                className="w-full resize-none rounded-lg border border-[#d5c5ba] bg-white/80 px-2 py-1.5 text-[14px] text-almost-black-green outline-none focus:border-[#8b2424]/50"
+                disabled={isSubmittingEdit}
+              />
+              <div className="mt-1 flex items-center gap-2 text-xs">
+                <button type="submit" disabled={isSubmittingEdit} className="rounded-md bg-[#701e1e] px-2 py-1 text-white disabled:opacity-60">
+                  {isSubmittingEdit ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-black/10 px-2 py-1 text-almost-black-green/75"
+                  onClick={() => {
+                    setEditingText(message.content || '');
+                    setIsEditing(false);
+                  }}
+                  disabled={isSubmittingEdit}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : message.content ? (
             <p
               className={`whitespace-pre-wrap text-almost-black-green ${
-                isLargeEmojiMessage ? 'text-[40px] leading-none' : 'text-[15px] leading-[1.3]'
+                isDeleted
+                  ? 'text-[14px] italic leading-[1.3] text-almost-black-green/55'
+                  : isLargeEmojiMessage
+                    ? 'text-[40px] leading-none'
+                    : 'text-[15px] leading-[1.3]'
               }`}
             >
               {message.content}
+              {message.edited_at && !isDeleted ? <span className="ml-1 text-[11px] text-almost-black-green/50">(edited)</span> : null}
             </p>
           ) : (
             <span />
@@ -479,10 +549,36 @@ const MessageBubble: React.FC<Props> = ({
               <button
                 key={entry.label}
                 type="button"
+                disabled={isSubmittingDelete}
                 onClick={(event) => {
                   event.stopPropagation();
                   if (entry.label === 'Copy') {
-                    void navigator.clipboard?.writeText(message.content || '');
+                    if (message.content?.trim()) {
+                      void navigator.clipboard?.writeText(message.content || '');
+                      toast.success('Message copied', {
+                        id: 'message-copied-toast',
+                        icon: <CheckCircle2 className="h-4 w-4 text-emerald-500" />,
+                      });
+                    }
+                  }
+                  if (entry.label === 'Edit') {
+                    setIsEditing(true);
+                  }
+                  if (entry.label === 'Delete') {
+                    const shouldDelete = window.confirm('Delete this message?');
+                    if (shouldDelete) {
+                      setIsSubmittingDelete(true);
+                      onDeleteMessage?.(String(message.id))
+                        .then(() => {
+                          toast.success('Message deleted');
+                        })
+                        .catch((error) => {
+                          toast.error(error instanceof Error ? error.message : 'Failed to delete message');
+                        })
+                        .finally(() => {
+                          setIsSubmittingDelete(false);
+                        });
+                    }
                   }
                   if (entry.label === 'Info') {
                     openInfoPanel();

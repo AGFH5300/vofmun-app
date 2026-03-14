@@ -908,6 +908,128 @@ app.post('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, 
   }
 });
 
+
+app.patch('/api/rooms/:roomId/messages/:messageId', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { roomId, messageId } = req.params;
+    const { content } = req.body as { content?: string };
+    const trimmedContent = String(content || '').trim();
+
+    if (!trimmedContent) {
+      return res.status(400).json({ error: 'Message content is required' });
+    }
+
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('messages')
+      .select('*')
+      .eq('id', messageId)
+      .eq('room_id', roomId)
+      .single();
+
+    if (existingError || !existing) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    if (String((existing as any).user_id) !== String(req.userId || '')) {
+      return res.status(403).json({ error: 'Only the sender can edit this message' });
+    }
+
+    if ((existing as any).deleted_at) {
+      return res.status(400).json({ error: 'Deleted messages cannot be edited' });
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('messages')
+      .update({ content: trimmedContent, edited_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', messageId)
+      .eq('room_id', roomId)
+      .select('*')
+      .single();
+
+    if (updateError || !updated) {
+      return res.status(500).json({ error: 'Failed to edit message' });
+    }
+
+    const profiles = await fetchProfilesByIds([String((updated as any).user_id)]);
+    const attachmentsByMessageId = await fetchAttachmentsByMessageIds([String((updated as any).id)]);
+    const payload: MessageWithUser = {
+      ...(updated as any),
+      user: profiles[(updated as any).user_id],
+      attachments: attachmentsByMessageId[String((updated as any).id)] || [],
+    };
+
+    broadcastToRoom(roomId, { type: 'message_updated', roomId, message: payload } as ChatSocketPayload);
+    return res.json(payload);
+  } catch (error) {
+    console.error('Error editing message', error);
+    return res.status(500).json({ error: 'Failed to edit message' });
+  }
+});
+
+app.delete('/api/rooms/:roomId/messages/:messageId', requireAuth, async (req: AuthedRequest, res: Response) => {
+  try {
+    const { roomId, messageId } = req.params;
+
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('messages')
+      .select('*')
+      .eq('id', messageId)
+      .eq('room_id', roomId)
+      .single();
+
+    if (existingError || !existing) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    if (String((existing as any).user_id) !== String(req.userId || '')) {
+      return res.status(403).json({ error: 'Only the sender can delete this message' });
+    }
+
+    if ((existing as any).deleted_at) {
+      const profiles = await fetchProfilesByIds([String((existing as any).user_id)]);
+      const attachmentsByMessageId = await fetchAttachmentsByMessageIds([String((existing as any).id)]);
+      const existingPayload: MessageWithUser = {
+        ...(existing as any),
+        user: profiles[(existing as any).user_id],
+        attachments: attachmentsByMessageId[String((existing as any).id)] || [],
+      };
+      return res.json(existingPayload);
+    }
+
+    const now = new Date().toISOString();
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('messages')
+      .update({
+        content: 'This message was deleted.',
+        deleted_at: now,
+        deleted_by: req.userId!,
+        updated_at: now,
+      })
+      .eq('id', messageId)
+      .eq('room_id', roomId)
+      .select('*')
+      .single();
+
+    if (updateError || !updated) {
+      return res.status(500).json({ error: 'Failed to delete message' });
+    }
+
+    const profiles = await fetchProfilesByIds([String((updated as any).user_id)]);
+    const attachmentsByMessageId = await fetchAttachmentsByMessageIds([String((updated as any).id)]);
+    const payload: MessageWithUser = {
+      ...(updated as any),
+      user: profiles[(updated as any).user_id],
+      attachments: attachmentsByMessageId[String((updated as any).id)] || [],
+    };
+
+    broadcastToRoom(roomId, { type: 'message_updated', roomId, message: payload } as ChatSocketPayload);
+    return res.json(payload);
+  } catch (error) {
+    console.error('Error deleting message', error);
+    return res.status(500).json({ error: 'Failed to delete message' });
+  }
+});
+
 // -------------------- RECEIPTS (FIXED) --------------------
 // This endpoint is served by EXPRESS, not Next's app/api, because /api/* is intercepted here.
 app.post('/api/rooms/:roomId/receipts', requireAuth, async (req: AuthedRequest, res: Response) => {

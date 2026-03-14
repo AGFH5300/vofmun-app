@@ -11,7 +11,7 @@ import supabase from "@/lib/supabase";
 import { getCurrentAppUser } from "@/lib/auth/getCurrentAppUser";
 import { mapAppUserToSessionUser } from "@/lib/auth/mapAppUserToSessionUser";
 import { useMobile } from "@/hooks/use-mobile";
-import { Eye, EyeOff, Rocket } from "lucide-react";
+import { Eye, EyeOff, Loader2, Rocket } from "lucide-react";
 import Cookies from "js-cookie";
 
 const Login = () => {
@@ -90,6 +90,7 @@ const Login = () => {
   }, [router]);
 
   const handleForgotPassword = async () => {
+    if (forgotLoading) return;
     setError("");
     setForgotMessage("");
     const trimmedEmail = email.trim().toLowerCase();
@@ -210,7 +211,13 @@ const Login = () => {
                     </p>
                   </motion.div>
 
-                  <div className="space-y-6 rounded-3xl border border-[#e5e4e3] bg-[#FFFDFB] p-8 shadow-[0_20px_45px_-20px_rgba(112,30,30,0.45)]">
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void handleForgotPassword();
+                    }}
+                    className="space-y-6 rounded-3xl border border-[#e5e4e3] bg-[#FFFDFB] p-8 shadow-[0_20px_45px_-20px_rgba(112,30,30,0.45)]"
+                  >
                     <div>
                       <label className="mb-3 block text-xs font-semibold uppercase tracking-[0.2em] text-[#8B2424]">
                         Email Address
@@ -239,12 +246,18 @@ const Login = () => {
 
                     <div className="flex flex-col gap-3 sm:flex-row">
                       <button
-                        type="button"
-                        onClick={handleForgotPassword}
+                        type="submit"
                         disabled={forgotLoading}
-                        className="rounded-xl bg-[#701E1E] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#8B2424] disabled:cursor-not-allowed disabled:opacity-70"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#701E1E] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#8B2424] disabled:cursor-not-allowed disabled:opacity-70"
                       >
-                        {forgotLoading ? "Sending reset link..." : "Send reset link"}
+                        {forgotLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Sending reset link...
+                          </>
+                        ) : (
+                          "Send reset link"
+                        )}
                       </button>
                       <button
                         type="button"
@@ -258,7 +271,7 @@ const Login = () => {
                         Back to login
                       </button>
                     </div>
-                  </div>
+                  </form>
                 </motion.div>
               ) : (
                 <motion.div
