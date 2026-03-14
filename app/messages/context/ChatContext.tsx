@@ -233,6 +233,81 @@ function toComparableId(value: string | number | null | undefined): string {
   return String(value ?? '');
 }
 
+const isPendingLocalMessage = (message: MessageWithUser) => {
+  const id = toComparableId(message.id);
+  return Boolean(message.tempId) || id.startsWith('temp-') || message.status === 'pending';
+};
+
+const normalizeMessageContentForMatch = (content?: string | null) => (content || '').trim();
+
+const getAttachmentMatchSignature = (attachments?: MessageWithUser['attachments']) => {
+  if (!attachments || attachments.length === 0) return '';
+  return [...attachments]
+    .map((attachment) => {
+      const bucket = attachment?.bucket || '';
+      const path = attachment?.path || '';
+      const name = attachment?.original_name || '';
+      const size = Number(attachment?.size_bytes || 0);
+      return `${bucket}:${path}:${name}:${size}`;
+    })
+    .sort()
+    .join('|');
+};
+
+const isLikelyOptimisticMatch = (candidate: MessageWithUser, incoming: MessageWithUser, currentUserId: string | null) => {
+  if (!isPendingLocalMessage(candidate)) return false;
+  if (toComparableId(candidate.room_id) !== toComparableId(incoming.room_id)) return false;
+  if (toComparableId(candidate.user_id) !== toComparableId(incoming.user_id)) return false;
+  if (!currentUserId || toComparableId(candidate.user_id) !== toComparableId(currentUserId)) return false;
+
+  const candidateContent = normalizeMessageContentForMatch(candidate.content);
+  const incomingContent = normalizeMessageContentForMatch(incoming.content);
+  if (candidateContent !== incomingContent) return false;
+
+  const candidateAttachments = getAttachmentMatchSignature(candidate.attachments);
+  const incomingAttachments = getAttachmentMatchSignature(incoming.attachments);
+  if (candidateAttachments !== incomingAttachments) return false;
+
+  const candidateCreatedAt = candidate.created_at ? new Date(candidate.created_at).getTime() : Number.NaN;
+  const incomingCreatedAt = incoming.created_at ? new Date(incoming.created_at).getTime() : Number.NaN;
+  if (Number.isFinite(candidateCreatedAt) && Number.isFinite(incomingCreatedAt)) {
+    const delta = Math.abs(incomingCreatedAt - candidateCreatedAt);
+    if (delta > 2 * 60 * 1000) return false;
+  }
+
+  return true;
+};
+
+const reconcileIncomingMessage = (
+  currentList: MessageWithUser[],
+  incoming: MessageWithUser,
+  currentUserId: string | null
+) => {
+  const byServerIdIndex = currentList.findIndex((item) => toComparableId(item.id) === toComparableId(incoming.id));
+  if (byServerIdIndex >= 0) {
+    const merged = [...currentList];
+    merged[byServerIdIndex] = {
+      ...merged[byServerIdIndex],
+      ...incoming,
+      tempId: undefined,
+    };
+    return merged;
+  }
+
+  const optimisticIndex = currentList.findIndex((item) => isLikelyOptimisticMatch(item, incoming, currentUserId));
+  if (optimisticIndex >= 0) {
+    const merged = [...currentList];
+    merged[optimisticIndex] = {
+      ...merged[optimisticIndex],
+      ...incoming,
+      tempId: undefined,
+    };
+    return merged;
+  }
+
+  return [...currentList, incoming];
+};
+
 
 export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [rooms, setRooms] = useState<RoomWithDetails[]>([]);
@@ -842,10 +917,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
       setMessages((prev) => {
         const existing = prev[roomId] || [];
-        const pendingOrFailed = existing.filter(
-          (message) => (message.status === 'pending' || message.status === 'error') && !withResolvedStatus.some((item) => item.id === message.id)
+        const reconciled = withResolvedStatus.reduce(
+          (acc, serverMessage) => reconcileIncomingMessage(acc, serverMessage, userIdRef.current),
+          existing as MessageWithUser[]
         );
-        const merged = [...withResolvedStatus, ...pendingOrFailed].sort((a, b) => {
+        const merged = reconciled.sort((a, b) => {
           const first = a.created_at ? new Date(a.created_at).getTime() : Number.MAX_SAFE_INTEGER;
           const second = b.created_at ? new Date(b.created_at).getTime() : Number.MAX_SAFE_INTEGER;
           return first - second;
@@ -1019,11 +1095,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           });
           setMessages((prev) => {
             const list = prev[normalizedRoomId] || [];
-            const withoutTemp = list.filter((item) => item.id !== message.id && item.tempId !== message.id);
-            if (withoutTemp.some((item) => item.id === message.id)) {
-              return prev;
-            }
-            return { ...prev, [normalizedRoomId]: [...withoutTemp, message] };
+            const reconciled = reconcileIncomingMessage(list, message, userIdRef.current);
+            return { ...prev, [normalizedRoomId]: reconciled };
           });
           setRooms((prev) =>
             prev.map((room) =>
@@ -1671,7 +1744,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         logChatDebug('sendMessage:success', { roomId, messageId: saved.id, status: saved.status || 'unknown' });
         setMessages((prev) => {
           const list = prev[roomId] || [];
-          const withoutTemp = list.filter((msg) => msg.id !== tempId && msg.id !== saved.id && msg.tempId !== saved.id);
           const memberIds = getRoomMemberIds(roomId, roomsRef.current);
           const hydratedSaved = hydrateMessage(
             {
@@ -1682,7 +1754,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             userIdRef.current,
             memberIds
           );
-          return { ...prev, [roomId]: [...withoutTemp, hydratedSaved] };
+          const reconciled = reconcileIncomingMessage(list, hydratedSaved, userIdRef.current);
+          return { ...prev, [roomId]: reconciled };
         });
       } catch (error) {
         logChatDebug('sendMessage:error', {

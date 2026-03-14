@@ -2,7 +2,7 @@
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { EmojiClickData } from "emoji-picker-react";
 import emojiDataset from "emoji-picker-react/dist/data/emojis-en.js";
@@ -304,7 +304,7 @@ const ChatShell: React.FC = () => {
     };
   }, [activeRoom?.id, sendTyping]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!activeRoom || !messagesContainerRef.current) return;
 
     const container = messagesContainerRef.current;
@@ -327,7 +327,7 @@ const ChatShell: React.FC = () => {
   }, [activeMessages, activeMessages.length, activeRoom, shouldScrollOnLoad]);
 
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!activeRoom?.id) return;
     setShouldScrollOnLoad(true);
   }, [activeRoom?.id]);
