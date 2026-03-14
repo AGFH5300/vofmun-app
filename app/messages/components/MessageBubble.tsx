@@ -364,7 +364,9 @@ const MessageBubble: React.FC<Props> = ({
         }`}
       >
         {showAuthor && (
-          <p className="text-[0.66rem] font-medium uppercase tracking-[0.08em] text-deep-red/85">{message.user?.full_name ?? 'Unknown user'}</p>
+          <p className="text-[0.66rem] font-medium uppercase tracking-[0.08em] text-deep-red/85">
+            {message.user?.full_name || `${message.user?.first_name || ''} ${message.user?.last_name || ''}`.trim() || message.user?.email || String(message.user_id || 'Participant')}
+          </p>
         )}
 
         {message.reply_to && (

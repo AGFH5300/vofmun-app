@@ -222,8 +222,6 @@ const ChatShell: React.FC = () => {
   const roomsPollBackoffRef = useRef(60000);
   const hasLoadedSidebarWidthRef = useRef(false);
   const hasSkippedInitialSidebarSaveRef = useRef(false);
-  const showInitialLoaderRef = useRef(true);
-  const bootstrapTransitionScrollYRef = useRef(0);
 
   const focusComposerWithoutScroll = () => {
     const composerElement = composerRef.current;
@@ -659,17 +657,23 @@ const ChatShell: React.FC = () => {
     if (!activeRoom || (trimmedComposer.length === 0 && uploadedAttachments.length === 0) || isUploadingAttachments) return;
     sendTyping(activeRoom.id, false);
 
-    if (trimmedComposer.length > 0) {
-      await sendMessage(activeRoom.id, trimmedComposer, []);
-    }
-
-    for (const attachment of uploadedAttachments) {
-      await sendMessage(activeRoom.id, "", [attachment]);
-    }
-
     setComposer("");
     setPendingAttachments([]);
     setAttachmentUploadError(null);
+
+    const sendOperations: Promise<void>[] = [];
+
+    if (trimmedComposer.length > 0) {
+      sendOperations.push(sendMessage(activeRoom.id, trimmedComposer, []));
+    }
+
+    uploadedAttachments.forEach((attachment) => {
+      sendOperations.push(sendMessage(activeRoom.id, "", [attachment]));
+    });
+
+    if (sendOperations.length > 0) {
+      await Promise.allSettled(sendOperations);
+    }
   };
 
   const removePendingAttachment = async (pendingId: string) => {
@@ -917,20 +921,6 @@ const ChatShell: React.FC = () => {
   }, [sidebarWidth]);
 
   const showInitialLoader = !initialChatReady || !hasInitialLoaderMinElapsed;
-
-  useEffect(() => {
-    const wasShowingLoader = showInitialLoaderRef.current;
-
-    if (wasShowingLoader && !showInitialLoader && typeof window !== "undefined") {
-      window.scrollTo({ top: bootstrapTransitionScrollYRef.current, behavior: "auto" });
-    }
-
-    if (showInitialLoader && typeof window !== "undefined") {
-      bootstrapTransitionScrollYRef.current = window.scrollY;
-    }
-
-    showInitialLoaderRef.current = showInitialLoader;
-  }, [showInitialLoader]);
 
   if (showInitialLoader) {
     const progressPercent = Math.min(100, Math.max(0, bootstrapProgress.percent));
@@ -1243,11 +1233,8 @@ const ChatShell: React.FC = () => {
               </div>
             </header>
 
-            {(incomingRequests.length > 0 || outgoingRequests.length > 0) && (
-              <div
-                className={`border-b border-soft-ivory bg-warm-light-grey/35 px-6 py-4 ${activeRoom ? "pointer-events-none invisible" : ""}`}
-                aria-hidden={activeRoom ? true : undefined}
-              >
+            {!activeRoom && (incomingRequests.length > 0 || outgoingRequests.length > 0) && (
+              <div className="border-b border-soft-ivory bg-warm-light-grey/35 px-6 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-almost-black-green/60">
                     Friend requests
