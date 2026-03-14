@@ -19,7 +19,6 @@ import {
   CalendarDays,
   ChevronDown,
   Circle,
-  CircleUser,
   FileText,
   Folder,
   Image,
@@ -32,6 +31,8 @@ import {
   Send,
   BellDot,
   Users,
+  UsersRound,
+  X,
 } from "lucide-react";
 import { MessageAttachmentInput, RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
 import supabase from "@/lib/supabase";
@@ -166,6 +167,8 @@ const ChatShell: React.FC = () => {
     refreshRooms,
     refreshRoomMessages,
     sendMessage,
+    editMessage,
+    deleteMessage,
     sendTyping,
     typingUsers,
     onlineUsers,
@@ -215,6 +218,7 @@ const ChatShell: React.FC = () => {
   const [activeEmojiIndex, setActiveEmojiIndex] = useState(0);
   const [isDraggingFilesOverChat, setIsDraggingFilesOverChat] = useState(false);
   const [hasInitialLoaderMinElapsed, setHasInitialLoaderMinElapsed] = useState(false);
+  const [hideSidebarRequests, setHideSidebarRequests] = useState(false);
   const dragDepthRef = useRef(0);
   const roomPollInFlightRef = useRef(false);
   const roomPollBackoffRef = useRef(30000);
@@ -753,7 +757,7 @@ const ChatShell: React.FC = () => {
   const attachmentOptions: AttachmentOption[] = [
     { label: "File", icon: Folder, color: "text-[#1794d4]", action: () => fileInputRef.current?.click() },
     { label: "Photos & videos", icon: Image, color: "text-[#2a77f1]", action: () => mediaInputRef.current?.click() },
-    { label: "Contact", icon: CircleUser, color: "text-[#ed6b2f]" },
+    { label: "Contact", icon: UsersRound, color: "text-[#ed6b2f]" },
     { label: "Poll", icon: ChartNoAxesColumn, color: "text-[#f4b53d]" },
     { label: "Event", icon: CalendarDays, color: "text-[#f05068]" },
   ];
@@ -1027,15 +1031,25 @@ const ChatShell: React.FC = () => {
               </div>
             </div>
 
-            {incomingRequests.length > 0 && (
+            {incomingRequests.length > 0 && !hideSidebarRequests && (
               <div className="m-3 space-y-3 rounded-2xl border border-soft-ivory bg-warm-light-grey/70 p-3">
                 <div className="flex items-center justify-between">
                   <p className="text-xs uppercase tracking-[0.22em] text-almost-black-green/60">
                     Connection requests
                   </p>
-                  <span className="rounded-full bg-deep-red/10 px-2 py-1 text-[0.7rem] font-semibold text-deep-red">
-                    {incomingRequests.length}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="rounded-full bg-deep-red/10 px-2 py-1 text-[0.7rem] font-semibold text-deep-red">
+                      {incomingRequests.length}
+                    </span>
+                    <button
+                      type="button"
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full text-almost-black-green/55 hover:bg-black/5 hover:text-deep-red"
+                      aria-label="Dismiss sidebar connection requests"
+                      onClick={() => setHideSidebarRequests(true)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   {incomingRequests.map((req) => {
@@ -1343,6 +1357,8 @@ const ChatShell: React.FC = () => {
                             showAuthor={activeRoom.room_type !== "dm"}
                             showAvatar={activeRoom.room_type !== "dm"}
                             presenceDeliveredHint={presenceDeliveredHint}
+                            onEditMessage={(messageId, content) => editMessage(activeRoom.id, messageId, content)}
+                            onDeleteMessage={(messageId) => deleteMessage(activeRoom.id, messageId)}
                           />
                         </div>
                       );

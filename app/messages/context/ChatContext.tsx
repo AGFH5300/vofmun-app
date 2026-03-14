@@ -56,6 +56,8 @@ interface ChatContextValue {
   refreshRooms: () => Promise<RoomWithDetails[]>;
   refreshRoomMessages: (roomId: string) => Promise<boolean>;
   sendMessage: (roomId: string, content: string, attachments?: MessageAttachmentInput[], replyTo?: string | null) => Promise<void>;
+  editMessage: (roomId: string, messageId: string, content: string) => Promise<void>;
+  deleteMessage: (roomId: string, messageId: string) => Promise<void>;
   sendTyping: (roomId: string, isTyping: boolean) => void;
   togglePin: (roomId: string) => void;
   createDirectRoom: (targetUserId: string) => Promise<RoomWithDetails | null>;
@@ -1131,6 +1133,44 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           }
           break;
         }
+
+        case 'message_updated': {
+          const rawMessage = payload.message;
+          const roomId = rawMessage?.room_id || payload.roomId;
+          if (!rawMessage || !roomId) break;
+
+          const normalizedRoomId = toComparableId(roomId);
+          mergeUsersIntoDirectory([rawMessage.user]);
+          const memberIds = getRoomMemberIds(normalizedRoomId, roomsRef.current);
+          const hydrated = hydrateMessage(
+            {
+              ...rawMessage,
+              room_id: normalizedRoomId,
+              user: rawMessage.user || userDirectoryRef.current[String(rawMessage.user_id)] || undefined,
+            },
+            userIdRef.current,
+            memberIds
+          );
+
+          setMessages((prev) => {
+            const list = prev[normalizedRoomId] || [];
+            const messageIndex = list.findIndex((item) => toComparableId(item.id) === toComparableId(hydrated.id));
+            if (messageIndex < 0) return prev;
+            const next = [...list];
+            next[messageIndex] = { ...next[messageIndex], ...hydrated };
+            return { ...prev, [normalizedRoomId]: next };
+          });
+
+          setRooms((prev) =>
+            prev.map((room) => {
+              if (toComparableId(room.id) !== normalizedRoomId) return room;
+              if (!room.lastMessage || toComparableId(room.lastMessage.id) !== toComparableId(hydrated.id)) return room;
+              return { ...room, lastMessage: { ...room.lastMessage, ...hydrated } };
+            })
+          );
+          break;
+        }
+
         case 'receipts_updated': {
           const normalizedRoomId = roomId ? toComparableId(roomId) : undefined;
           const messageIds = (payload.messageIds || payloadWithLegacy.message_ids || [])
@@ -1264,7 +1304,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
       }
     },
-    [incrementRoomUnreadCount, scheduleReceiptsForMessages]
+    [incrementRoomUnreadCount, mergeUsersIntoDirectory, scheduleReceiptsForMessages]
   );
 
   const connectSocket = useCallback(() => {
@@ -1774,6 +1814,81 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     [mergeUsersIntoDirectory, userId, withAuthHeaders]
   );
 
+
+  const applyUpdatedMessage = useCallback((roomId: string, updatedMessage: MessageWithUser) => {
+    const normalizedRoomId = toComparableId(roomId);
+    setMessages((prev) => {
+      const list = prev[normalizedRoomId] || [];
+      const memberIds = getRoomMemberIds(normalizedRoomId, roomsRef.current);
+      const hydrated = hydrateMessage(
+        {
+          ...updatedMessage,
+          room_id: normalizedRoomId,
+          user: updatedMessage.user || userDirectoryRef.current[String(updatedMessage.user_id)] || undefined,
+        },
+        userIdRef.current,
+        memberIds
+      );
+      const messageIndex = list.findIndex((item) => toComparableId(item.id) === toComparableId(hydrated.id));
+      if (messageIndex < 0) return prev;
+      const next = [...list];
+      next[messageIndex] = { ...next[messageIndex], ...hydrated };
+      return { ...prev, [normalizedRoomId]: next };
+    });
+
+    setRooms((prev) =>
+      prev.map((room) => {
+        if (toComparableId(room.id) !== normalizedRoomId) return room;
+        if (!room.lastMessage || toComparableId(room.lastMessage.id) !== toComparableId(updatedMessage.id)) return room;
+        return { ...room, lastMessage: { ...room.lastMessage, ...updatedMessage } };
+      })
+    );
+  }, []);
+
+  const editMessage = useCallback(
+    async (roomId: string, messageId: string, content: string) => {
+      const trimmed = content.trim();
+      if (!trimmed) throw new Error('Message content cannot be empty.');
+
+      const response = await fetch(
+        `${CHAT_API_URL}/api/rooms/${roomId}/messages/${messageId}`,
+        await withAuthHeaders({
+          method: 'PATCH',
+          headers: { Accept: 'application/json' },
+          body: JSON.stringify({ content: trimmed }),
+        })
+      );
+
+      const json = (await response.json().catch(() => null)) as MessageWithUser | { error?: string } | null;
+      if (!response.ok || !json || Array.isArray(json) || !('id' in json)) {
+        throw new Error((json && 'error' in json && json.error) || 'Failed to edit message');
+      }
+
+      applyUpdatedMessage(roomId, json);
+    },
+    [applyUpdatedMessage, withAuthHeaders]
+  );
+
+  const deleteMessage = useCallback(
+    async (roomId: string, messageId: string) => {
+      const response = await fetch(
+        `${CHAT_API_URL}/api/rooms/${roomId}/messages/${messageId}`,
+        await withAuthHeaders({
+          method: 'DELETE',
+          headers: { Accept: 'application/json' },
+        })
+      );
+
+      const json = (await response.json().catch(() => null)) as MessageWithUser | { error?: string } | null;
+      if (!response.ok || !json || Array.isArray(json) || !('id' in json)) {
+        throw new Error((json && 'error' in json && json.error) || 'Failed to delete message');
+      }
+
+      applyUpdatedMessage(roomId, json);
+    },
+    [applyUpdatedMessage, withAuthHeaders]
+  );
+
   useEffect(() => {
     if (!activeRoom?.id || !userId) return;
     const roomId = activeRoom.id;
@@ -2208,6 +2323,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       refreshRooms,
       refreshRoomMessages,
       sendMessage,
+      editMessage,
+      deleteMessage,
       sendTyping,
       togglePin,
       createDirectRoom,
@@ -2238,6 +2355,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       refreshRooms,
       refreshRoomMessages,
       sendMessage,
+      editMessage,
+      deleteMessage,
       sendTyping,
       togglePin,
       createDirectRoom,

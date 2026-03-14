@@ -115,6 +115,7 @@ export interface ChatSocketPayload {
     | 'typing'
     | 'user_typing'
     | 'new_message'
+    | 'message_updated'
     | 'user_online'
     | 'user_offline'
     | 'online_users'
