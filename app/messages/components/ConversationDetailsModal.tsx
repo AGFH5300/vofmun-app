@@ -6,7 +6,7 @@ import React from 'react';
 import { Dialog } from '@headlessui/react';
 import { RoomWithDetails } from '@/lib/chat/types';
 import UserAvatar from './UserAvatar';
-import { Ban, LogOut, UserPlus2 } from 'lucide-react';
+import { Ban, LogOut, UsersRound } from 'lucide-react';
 
 interface Props {
   room: RoomWithDetails | null;
@@ -85,7 +85,7 @@ const ConversationDetailsModal: React.FC<Props> = ({ room, open, onClose, curren
                 onClick={onAddMembers}
                 className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 text-sm font-semibold text-deep-red hover:bg-soft-ivory"
               >
-                <UserPlus2 className="h-4 w-4" /> Add members
+                <UsersRound className="h-4 w-4" /> Add members
               </button>
             )}
             <button
