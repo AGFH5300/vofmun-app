@@ -34,7 +34,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { MessageAttachmentInput, RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
+import { MessageAttachmentInput, MessageWithUser, RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
 import supabase from "@/lib/supabase";
 import { getUserDelegationLabel } from "@/lib/chat/delegation";
 import { toast } from "sonner";
@@ -187,6 +187,7 @@ const ChatShell: React.FC = () => {
   } = useChat();
 
   const [composer, setComposer] = useState("");
+  const [replyingToMessageId, setReplyingToMessageId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showNewConversation, setShowNewConversation] = useState(false);
   const [conversationTab, setConversationTab] = useState<"direct" | "group" | "friends" | "requests">("direct");
@@ -267,6 +268,14 @@ const ChatShell: React.FC = () => {
     [activeRoom, messages],
   );
   const activeRoomMembers = useMemo(() => activeRoom?.members || [], [activeRoom?.members]);
+  const activeMessagesById = useMemo(() => {
+    const byId: Record<string, MessageWithUser> = {};
+    activeMessages.forEach((item) => {
+      byId[String(item.id)] = item;
+    });
+    return byId;
+  }, [activeMessages]);
+  const replyingToMessage = replyingToMessageId ? activeMessagesById[String(replyingToMessageId)] || null : null;
 
 
   const emojiQuery = useMemo(() => {
@@ -298,6 +307,10 @@ const ChatShell: React.FC = () => {
   useEffect(() => {
     setActiveEmojiIndex(0);
   }, [emojiQuery]);
+
+  useEffect(() => {
+    setReplyingToMessageId(null);
+  }, [activeRoom?.id]);
 
   useEffect(() => {
     const roomId = activeRoom?.id;
@@ -668,15 +681,16 @@ const ChatShell: React.FC = () => {
     const sendOperations: Promise<void>[] = [];
 
     if (trimmedComposer.length > 0) {
-      sendOperations.push(sendMessage(activeRoom.id, trimmedComposer, []));
+      sendOperations.push(sendMessage(activeRoom.id, trimmedComposer, [], replyingToMessageId));
     }
 
-    uploadedAttachments.forEach((attachment) => {
-      sendOperations.push(sendMessage(activeRoom.id, "", [attachment]));
+    uploadedAttachments.forEach((attachment, index) => {
+      sendOperations.push(sendMessage(activeRoom.id, "", [attachment], index === 0 && trimmedComposer.length === 0 ? replyingToMessageId : null));
     });
 
     if (sendOperations.length > 0) {
       await Promise.allSettled(sendOperations);
+      setReplyingToMessageId(null);
     }
   };
 
@@ -1359,6 +1373,14 @@ const ChatShell: React.FC = () => {
                             presenceDeliveredHint={presenceDeliveredHint}
                             onEditMessage={(messageId, content) => editMessage(activeRoom.id, messageId, content)}
                             onDeleteMessage={(messageId) => deleteMessage(activeRoom.id, messageId)}
+                            onReplyMessage={(targetMessage) => {
+                              setReplyingToMessageId(String(targetMessage.id));
+                              window.requestAnimationFrame(() => {
+                                focusComposerWithoutScroll();
+                              });
+                            }}
+                            repliedToMessage={message.reply_to ? activeMessagesById[String(message.reply_to)] || null : null}
+                            isGroupRoom={activeRoom.room_type !== "dm"}
                           />
                         </div>
                       );
@@ -1490,6 +1512,25 @@ const ChatShell: React.FC = () => {
                     </div>
                   )}
                 {activeRoom ? (
+                  <div className="space-y-2">
+                    {replyingToMessage ? (
+                      <div className="flex items-start justify-between gap-3 rounded-xl border border-[#d7d7d7] bg-[#f7f7f7] px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-deep-red">Replying to {replyingToMessage.user?.full_name || "Participant"}</p>
+                          <p className="line-clamp-1 text-xs text-almost-black-green/75">
+                            {replyingToMessage.deleted_at ? "This message was deleted." : replyingToMessage.content || "(no text)"}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="rounded p-1 text-almost-black-green/60 hover:bg-black/5"
+                          onClick={() => setReplyingToMessageId(null)}
+                          aria-label="Cancel reply"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : null}
                   <div className="relative flex items-end gap-3">
                     {emojiSuggestions.length > 0 && (
                       <div className="absolute -top-20 left-4 z-30 max-w-[calc(100%-2rem)] rounded-2xl border border-[#d7d7d7] bg-white p-1.5 shadow-[0_14px_30px_rgba(17,27,33,0.2)]">
@@ -1610,6 +1651,7 @@ const ChatShell: React.FC = () => {
                     >
                       <Send className="h-5 w-5" />
                     </button>
+                  </div>
                   </div>
                 ) : (
                   <div className="relative flex items-end gap-3">

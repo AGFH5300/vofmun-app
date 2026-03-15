@@ -9,7 +9,7 @@ import supabase from '@/lib/supabase';
 import { useSession } from '@/app/context/sessionContext';
 import { normalizeMessageMeta } from '@/lib/chat/messageMeta';
 import UserAvatar from './UserAvatar';
-import { AlertCircle, Check, CheckCheck, CheckCircle2, Clock, Copy, Download, FileText, Forward, Info, Pencil, Reply, Smile, Trash2 } from 'lucide-react';
+import { AlertCircle, Check, CheckCheck, CheckCircle2, Clock, Copy, Download, FileText, Forward, Info, Pencil, Reply, Smile, Trash2, X } from 'lucide-react';
 
 interface Props {
   message: MessageWithUser;
@@ -21,6 +21,9 @@ interface Props {
   presenceDeliveredHint?: boolean;
   onEditMessage?: (messageId: string, content: string) => Promise<void>;
   onDeleteMessage?: (messageId: string) => Promise<void>;
+  onReplyMessage?: (message: MessageWithUser) => void;
+  repliedToMessage?: MessageWithUser | null;
+  isGroupRoom?: boolean;
 }
 
 const statusIcon: Record<string, React.ReactNode> = {
@@ -130,6 +133,10 @@ const MessageBubble: React.FC<Props> = ({
   presenceDeliveredHint = false,
   onEditMessage,
   onDeleteMessage,
+  onReplyMessage,
+  repliedToMessage = null,
+  roomMembers = [],
+  isGroupRoom = false,
 }) => {
   const { user } = useSession();
   const currentUserId = user?.id ? String(user.id) : null;
@@ -249,6 +256,9 @@ const MessageBubble: React.FC<Props> = ({
   const isDeleted = Boolean(message.deleted_at);
   const canEditMessage = isOwn && !isDeleted && typeof onEditMessage === 'function';
   const canDeleteMessage = isOwn && !isDeleted && typeof onDeleteMessage === 'function';
+  const canReplyMessage = typeof onReplyMessage === 'function';
+  const canViewInfo = isOwn;
+  const [touchStart, setTouchStart] = React.useState<{ x: number; y: number } | null>(null);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editingText, setEditingText] = React.useState(message.content || '');
   const [isSubmittingEdit, setIsSubmittingEdit] = React.useState(false);
@@ -324,12 +334,12 @@ const MessageBubble: React.FC<Props> = ({
   }, [attachmentSignature, attachments]);
 
   const contextActions: Array<{ icon: typeof Reply; label: string } | { divider: true }> = [
-    { icon: Reply, label: 'Reply' },
+    ...(canReplyMessage ? [{ icon: Reply, label: 'Reply' }] : []),
     { icon: Smile, label: 'React' },
     { icon: Forward, label: 'Forward' },
     { icon: Copy, label: 'Copy' },
     ...(canEditMessage ? [{ icon: Pencil, label: 'Edit' }] : []),
-    { icon: Info, label: 'Info' },
+    ...(canViewInfo ? [{ icon: Info, label: 'Info' }] : []),
     { divider: true },
     ...(canDeleteMessage ? [{ icon: Trash2, label: 'Delete' }] : []),
     { icon: CheckCircle2, label: 'Select messages' },
@@ -373,6 +383,25 @@ const MessageBubble: React.FC<Props> = ({
           const menuHeight = isOwn ? 314 : 264;
           setContextMenuPosition(clampPosition(event.clientX, event.clientY, menuWidth, menuHeight));
         }}
+        onTouchStart={(event) => {
+          const touch = event.touches[0];
+          if (!touch) return;
+          setTouchStart({ x: touch.clientX, y: touch.clientY });
+        }}
+        onTouchEnd={(event) => {
+          if (!canReplyMessage || !touchStart) return;
+          const touch = event.changedTouches[0];
+          if (!touch) return;
+          const deltaX = touch.clientX - touchStart.x;
+          const deltaY = touch.clientY - touchStart.y;
+          if (Math.abs(deltaY) > 40) return;
+          const swipeThreshold = 64;
+          const shouldReply = isOwn ? deltaX < -swipeThreshold : deltaX > swipeThreshold;
+          if (shouldReply) {
+            onReplyMessage?.(message);
+          }
+          setTouchStart(null);
+        }}
         className={`group relative max-w-[82%] border px-3 py-2 shadow-sm md:max-w-[74%] ${
           isOwn
             ? isFailed
@@ -389,11 +418,16 @@ const MessageBubble: React.FC<Props> = ({
 
         {message.reply_to && (
           <div
-            className={`mt-2 rounded-lg px-3 py-2 text-xs ${
-              isOwn ? (isFailed ? 'bg-deep-red/10 text-deep-red/80' : 'bg-white/70 text-almost-black-green/75') : 'bg-black/5 text-almost-black-green/70'
+            className={`mt-2 rounded-lg border-l-2 px-3 py-2 text-xs ${
+              isOwn ? (isFailed ? 'border-deep-red/50 bg-deep-red/10 text-deep-red/80' : 'border-deep-red/40 bg-white/70 text-almost-black-green/75') : 'border-deep-red/35 bg-black/5 text-almost-black-green/70'
             }`}
           >
-            Replying to a previous message
+            <p className="font-semibold text-deep-red/90">{repliedToMessage?.user?.full_name || 'Original message'}</p>
+            <p className="mt-0.5 line-clamp-2">
+              {repliedToMessage?.deleted_at
+                ? 'This message was deleted.'
+                : repliedToMessage?.content?.trim() || 'Original message unavailable.'}
+            </p>
           </div>
         )}
 
@@ -561,6 +595,9 @@ const MessageBubble: React.FC<Props> = ({
                       });
                     }
                   }
+                  if (entry.label === 'Reply') {
+                    onReplyMessage?.(message);
+                  }
                   if (entry.label === 'Edit') {
                     setIsEditing(true);
                   }
@@ -580,7 +617,7 @@ const MessageBubble: React.FC<Props> = ({
                         });
                     }
                   }
-                  if (entry.label === 'Info') {
+                  if (entry.label === 'Info' && canViewInfo) {
                     openInfoPanel();
                   }
                   setContextMenuPosition(null);
@@ -594,13 +631,13 @@ const MessageBubble: React.FC<Props> = ({
           })}
         </div>
       )}
-      {showInfoSheet && (
+      {showInfoSheet && canViewInfo && (
         <div
           className="fixed inset-0 z-[60]"
           onClick={() => setShowInfoSheet(false)}
         >
           <div
-            className="w-full max-w-[275px] rounded-xl border border-[#d8d8d8] bg-[#f3f3f3] text-[#111b21] shadow-xl"
+            className="w-full max-w-[320px] rounded-xl border border-[#d8d8d8] bg-[#f3f3f3] text-[#111b21] shadow-xl"
             style={
               infoPanelPosition
                 ? {
@@ -612,25 +649,77 @@ const MessageBubble: React.FC<Props> = ({
             }
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="divide-y divide-[#d0d0d0]">
-              <div className="flex items-center gap-2.5 px-3 py-2.5">
-                <CheckCheck className="h-4 w-4 text-[#58c8ff]" />
-                <span className="text-[0.95rem] font-medium leading-none">Read</span>
-                <span className="ml-auto text-xs font-medium text-[#2f3a40]/85">
-                  {readAt ? formatReceiptTime(readAt) : '•••'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2.5 px-3 py-2.5">
-                <CheckCheck className="h-4 w-4 text-[#707070]" />
-                <span className="text-[0.95rem] font-medium leading-none text-[#111b21]/90">Delivered</span>
-                <span className="ml-auto text-xs font-medium text-[#2f3a40]/80">
-                  {deliveredAt ? formatReceiptTime(deliveredAt) : '•••'}
-                </span>
-              </div>
+            <div className="flex items-center justify-between border-b border-[#d0d0d0] px-3 py-2">
+              <p className="text-sm font-semibold">Message info</p>
+              <button type="button" onClick={() => setShowInfoSheet(false)} className="rounded p-1 text-[#111b21]/70 hover:bg-black/5">
+                <X className="h-4 w-4" />
+              </button>
             </div>
+            {isGroupRoom ? (
+              <div className="space-y-3 p-3">
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[#2f3a40]/80">Read by</p>
+                  {readEntries.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {readEntries.map((entry) => {
+                        const member = roomMembers.find((candidate) => String(candidate.user_id) === String(entry.memberId));
+                        return (
+                          <div key={`read-${entry.memberId}`} className="flex items-center gap-2 rounded-lg bg-white/70 px-2.5 py-2">
+                            <UserAvatar user={member?.user} size={26} />
+                            <p className="min-w-0 flex-1 truncate text-xs font-medium">{member?.user?.full_name || 'Participant'}</p>
+                            <p className="text-[11px] text-[#2f3a40]/75">{formatReceiptTime(String(entry.at)) || '—'}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="rounded-lg bg-white/70 px-2.5 py-2 text-xs text-[#2f3a40]/70">No one has read this yet.</p>
+                  )}
+                </div>
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[#2f3a40]/80">Delivered to</p>
+                  {deliveredEntries.filter((entry) => !readEntries.some((readEntry) => readEntry.memberId === entry.memberId)).length > 0 ? (
+                    <div className="space-y-1.5">
+                      {deliveredEntries
+                        .filter((entry) => !readEntries.some((readEntry) => readEntry.memberId === entry.memberId))
+                        .map((entry) => {
+                          const member = roomMembers.find((candidate) => String(candidate.user_id) === String(entry.memberId));
+                          return (
+                            <div key={`delivered-${entry.memberId}`} className="flex items-center gap-2 rounded-lg bg-white/70 px-2.5 py-2">
+                              <UserAvatar user={member?.user} size={26} />
+                              <p className="min-w-0 flex-1 truncate text-xs font-medium">{member?.user?.full_name || 'Participant'}</p>
+                              <p className="text-[11px] text-[#2f3a40]/75">{formatReceiptTime(String(entry.at)) || '—'}</p>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <p className="rounded-lg bg-white/70 px-2.5 py-2 text-xs text-[#2f3a40]/70">No delivered-only receipts yet.</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="divide-y divide-[#d0d0d0]">
+                <div className="flex items-center gap-2.5 px-3 py-2.5">
+                  <CheckCheck className="h-4 w-4 text-[#58c8ff]" />
+                  <span className="text-[0.95rem] font-medium leading-none">Read</span>
+                  <span className="ml-auto text-xs font-medium text-[#2f3a40]/85">
+                    {readAt ? formatReceiptTime(readAt) : '•••'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2.5 px-3 py-2.5">
+                  <CheckCheck className="h-4 w-4 text-[#707070]" />
+                  <span className="text-[0.95rem] font-medium leading-none text-[#111b21]/90">Delivered</span>
+                  <span className="ml-auto text-xs font-medium text-[#2f3a40]/80">
+                    {deliveredAt ? formatReceiptTime(deliveredAt) : '•••'}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
+
     </div>
   );
 };

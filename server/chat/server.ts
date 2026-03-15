@@ -85,6 +85,33 @@ const fetchRoomMemberUserIds = async (roomId: string): Promise<string[]> => {
   return (data || []).map((row: any) => String(row.user_id)).filter(Boolean);
 };
 
+const persistMessageHistorySnapshot = async (
+  messageRow: Record<string, any>,
+  action: 'edit' | 'delete',
+  actedBy: string,
+  previousAttachments: any[] = []
+) => {
+  const historyPayload = {
+    message_id: String(messageRow.id),
+    room_id: String(messageRow.room_id),
+    action,
+    acted_by: actedBy,
+    previous_content: messageRow.content ?? null,
+    previous_attachments: previousAttachments,
+    previous_reply_to: messageRow.reply_to ?? null,
+    previous_user_id: messageRow.user_id ?? null,
+    previous_created_at: messageRow.created_at ?? null,
+    previous_edited_at: messageRow.edited_at ?? null,
+    previous_deleted_at: messageRow.deleted_at ?? null,
+    previous_message_row: messageRow,
+  };
+
+  const { error } = await supabaseAdmin.from('message_history').insert(historyPayload);
+  if (error) {
+    throw new Error(`Failed to persist message history: ${error.message || String(error)}`);
+  }
+};
+
 const fetchExistingAppUserIds = async (userIds: string[]): Promise<Set<string>> => {
   const uniqueIds = Array.from(new Set(userIds.map((id) => String(id).trim()).filter(Boolean)));
   if (uniqueIds.length === 0) return new Set<string>();
@@ -938,6 +965,19 @@ app.patch('/api/rooms/:roomId/messages/:messageId', requireAuth, async (req: Aut
       return res.status(400).json({ error: 'Deleted messages cannot be edited' });
     }
 
+    const { data: previousAttachments, error: previousAttachmentsError } = await supabaseAdmin
+      .from('message_attachments')
+      .select('*')
+      .eq('message_id', messageId)
+      .eq('room_id', roomId);
+
+    if (previousAttachmentsError) {
+      console.error('Error loading message attachments for history snapshot', previousAttachmentsError);
+      return res.status(500).json({ error: 'Failed to edit message' });
+    }
+
+    await persistMessageHistorySnapshot(existing as Record<string, any>, 'edit', String(req.userId || ''), previousAttachments || []);
+
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('messages')
       .update({ content: trimmedContent, edited_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -995,6 +1035,19 @@ app.delete('/api/rooms/:roomId/messages/:messageId', requireAuth, async (req: Au
       };
       return res.json(existingPayload);
     }
+
+    const { data: previousAttachments, error: previousAttachmentsError } = await supabaseAdmin
+      .from('message_attachments')
+      .select('*')
+      .eq('message_id', messageId)
+      .eq('room_id', roomId);
+
+    if (previousAttachmentsError) {
+      console.error('Error loading message attachments for history snapshot', previousAttachmentsError);
+      return res.status(500).json({ error: 'Failed to delete message' });
+    }
+
+    await persistMessageHistorySnapshot(existing as Record<string, any>, 'delete', String(req.userId || ''), previousAttachments || []);
 
     const now = new Date().toISOString();
     const { data: updated, error: updateError } = await supabaseAdmin
