@@ -85,17 +85,17 @@ const fetchRoomMemberUserIds = async (roomId: string): Promise<string[]> => {
   return (data || []).map((row: any) => String(row.user_id)).filter(Boolean);
 };
 
-const persistMessageHistorySnapshot = async (
+const saveMessageHistorySnapshotOnMessage = async (
   messageRow: Record<string, any>,
   action: 'edit' | 'delete',
   actedBy: string,
   previousAttachments: any[] = []
 ) => {
+  const snapshotSavedAt = new Date().toISOString();
   const historyPayload = {
-    message_id: String(messageRow.id),
-    room_id: String(messageRow.room_id),
-    action,
-    acted_by: actedBy,
+    history_action: action,
+    history_acted_by: actedBy,
+    history_saved_at: snapshotSavedAt,
     previous_content: messageRow.content ?? null,
     previous_attachments: previousAttachments,
     previous_reply_to: messageRow.reply_to ?? null,
@@ -106,9 +106,14 @@ const persistMessageHistorySnapshot = async (
     previous_message_row: messageRow,
   };
 
-  const { error } = await supabaseAdmin.from('message_history').insert(historyPayload);
+  const { error } = await supabaseAdmin
+    .from('messages')
+    .update(historyPayload)
+    .eq('id', String(messageRow.id))
+    .eq('room_id', String(messageRow.room_id));
+
   if (error) {
-    throw new Error(`Failed to persist message history: ${error.message || String(error)}`);
+    throw new Error(`Failed to persist message history snapshot: ${error.message || String(error)}`);
   }
 };
 
@@ -976,7 +981,7 @@ app.patch('/api/rooms/:roomId/messages/:messageId', requireAuth, async (req: Aut
       return res.status(500).json({ error: 'Failed to edit message' });
     }
 
-    await persistMessageHistorySnapshot(existing as Record<string, any>, 'edit', String(req.userId || ''), previousAttachments || []);
+    await saveMessageHistorySnapshotOnMessage(existing as Record<string, any>, 'edit', String(req.userId || ''), previousAttachments || []);
 
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('messages')
@@ -1047,7 +1052,7 @@ app.delete('/api/rooms/:roomId/messages/:messageId', requireAuth, async (req: Au
       return res.status(500).json({ error: 'Failed to delete message' });
     }
 
-    await persistMessageHistorySnapshot(existing as Record<string, any>, 'delete', String(req.userId || ''), previousAttachments || []);
+    await saveMessageHistorySnapshotOnMessage(existing as Record<string, any>, 'delete', String(req.userId || ''), previousAttachments || []);
 
     const now = new Date().toISOString();
     const { data: updated, error: updateError } = await supabaseAdmin
