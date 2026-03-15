@@ -5,7 +5,7 @@
 import React from 'react';
 import { RoomWithDetails } from '@/lib/chat/types';
 import { abbreviateDelegationLabel, getUserDelegationLabel } from '@/lib/chat/delegation';
-import { File, Pin, PinOff, UserRound, Users } from 'lucide-react';
+import { File, Pin, PinOff, UsersRound, Users } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 
 interface Props {
@@ -121,8 +121,8 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             </div>
           ) : (
             <div className="relative">
-              <div className="flex h-[42px] w-[42px] items-center justify-center rounded-full bg-soft-ivory text-deep-red">
-                {room.room_type === 'committee' ? <Users className="h-4 w-4" /> : <UserRound className="h-4 w-4" />}
+              <div className="flex h-[42px] w-[42px] items-center justify-center rounded-full bg-soft-ivory text-deep-red border border-soft-rose">
+                {room.room_type === 'committee' ? <Users className="h-4 w-4" /> : <UsersRound className="h-4 w-4" />}
               </div>
             </div>
           )}
