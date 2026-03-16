@@ -269,6 +269,7 @@ const MessageBubble: React.FC<Props> = ({
   const canReplyMessage = typeof onReplyMessage === 'function';
   const canViewInfo = isOwn;
   const canToggleSelectMode = typeof onEnterSelectMode === 'function';
+  const shouldRenderAvatar = !isOwn && showAvatar;
   const [touchStart, setTouchStart] = React.useState<{ x: number; y: number } | null>(null);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editingText, setEditingText] = React.useState(message.content || '');
@@ -395,8 +396,8 @@ const MessageBubble: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex w-full items-start gap-2">
-      <div className="mt-1 flex w-7 shrink-0 justify-center">
+    <div className="flex w-full items-start gap-1.5">
+      <div className="mt-1 flex w-6 shrink-0 justify-center">
         {isSelectMode && canSelectMessage ? (
           <button
             type="button"
@@ -410,12 +411,12 @@ const MessageBubble: React.FC<Props> = ({
         ) : null}
       </div>
       <div
-        className={`flex min-w-0 flex-1 gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${showAvatar ? '' : 'px-1'} ${
+        className={`flex min-w-0 flex-1 gap-1.5 ${isOwn ? 'justify-end' : 'justify-start'} ${
           isSelectMode && canSelectMessage ? 'cursor-pointer' : ''
         }`}
         onClick={handleSelectRowClick}
       >
-        {showAvatar && <UserAvatar user={message.user} size={36} />}
+        {shouldRenderAvatar && <UserAvatar user={message.user} size={32} />}
         <div
           ref={bubbleRef}
           onContextMenu={(event) => {
@@ -446,7 +447,7 @@ const MessageBubble: React.FC<Props> = ({
             }
             setTouchStart(null);
           }}
-          className={`group relative max-w-[82%] border px-3 py-2 shadow-sm md:max-w-[74%] ${
+          className={`group relative max-w-[82%] border px-2.5 py-1.5 shadow-sm md:max-w-[74%] ${
             isOwn
               ? isFailed
                 ? 'rounded-[8px] border-deep-red/30 bg-soft-rose/30 text-deep-red'
@@ -455,14 +456,14 @@ const MessageBubble: React.FC<Props> = ({
           } ${isSelectMode && canSelectMessage ? 'cursor-pointer' : ''} ${isSelected ? 'ring-2 ring-deep-red/35' : ''}`}
         >
         {showAuthor && (
-          <p className="text-[0.66rem] font-medium uppercase tracking-[0.08em] text-deep-red/85">
+          <p className="text-[0.62rem] font-medium uppercase tracking-[0.08em] text-deep-red/85">
             {message.user?.full_name || `${message.user?.first_name || ''} ${message.user?.last_name || ''}`.trim() || message.user?.email || String(message.user_id || 'Participant')}
           </p>
         )}
 
         {message.reply_to && (
           <div
-            className={`mt-2 rounded-lg border-l-2 px-3 py-2 text-xs ${
+            className={`mt-1.5 rounded-lg border-l-2 px-2.5 py-1.5 text-[11px] ${
               isOwn ? (isFailed ? 'border-deep-red/50 bg-deep-red/10 text-deep-red/80' : 'border-deep-red/40 bg-white/70 text-almost-black-green/75') : 'border-deep-red/35 bg-black/5 text-almost-black-green/70'
             }`}
           >
@@ -476,7 +477,7 @@ const MessageBubble: React.FC<Props> = ({
         )}
 
         {attachments.length > 0 && (
-          <div className="mt-2 space-y-2">
+          <div className="mt-1.5 space-y-1.5">
             {attachments.map((attachment) => {
               const url = attachmentUrls[attachment.path];
               const attachmentError = attachmentErrors[attachment.path];
@@ -540,7 +541,7 @@ const MessageBubble: React.FC<Props> = ({
           </div>
         )}
 
-        <div className="mt-1 flex items-end justify-between gap-2">
+        <div className="mt-0.5 flex items-end justify-between gap-1.5">
           {isEditing ? (
             <form
               className="w-full"
@@ -590,21 +591,21 @@ const MessageBubble: React.FC<Props> = ({
             </form>
           ) : message.content ? (
             <p
-              className={`whitespace-pre-wrap text-almost-black-green ${
+              className={`whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-almost-black-green ${
                 isDeleted
-                  ? 'text-[14px] italic leading-[1.3] text-almost-black-green/55'
+                  ? 'text-[13px] italic leading-[1.3] text-almost-black-green/55'
                   : isLargeEmojiMessage
                     ? 'text-[40px] leading-none'
-                    : 'text-[15px] leading-[1.3]'
+                    : 'text-[14px] leading-[1.3]'
               }`}
             >
               {message.content}
-              {message.edited_at && !isDeleted ? <span className="ml-1 text-[11px] text-almost-black-green/50">(edited)</span> : null}
+              {message.edited_at && !isDeleted ? <span className="ml-1 text-[10px] text-almost-black-green/50">(edited)</span> : null}
             </p>
           ) : (
             <span />
           )}
-          <div className="shrink-0 self-end pb-0.5 text-[0.72rem]">
+          <div className="shrink-0 self-end pb-0.5 text-[0.68rem]">
             <div className="flex items-center justify-end gap-0.5">
               <span className="text-almost-black-green/55">{timestamp}</span>
               {resolvedStatus && <span className={statusClass[resolvedStatus] || 'text-almost-black-green/50'}>{statusIcon[resolvedStatus]}</span>}
