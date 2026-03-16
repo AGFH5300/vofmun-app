@@ -14,9 +14,11 @@ import UserAvatar from "./components/UserAvatar";
 import ConversationList from "./components/ConversationList";
 import NewConversationModal from "./components/NewConversationModal";
 import ConversationDetailsModal from "./components/ConversationDetailsModal";
+import { useModalFocusTrap, useModalLayerLock } from "./hooks/useModalLayerLock";
 import {
   CheckCircle2,
   CalendarDays,
+  Copy,
   ChevronDown,
   Circle,
   FileText,
@@ -205,8 +207,10 @@ const ChatShell: React.FC = () => {
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const emojiButtonRef = useRef<HTMLButtonElement | null>(null);
   const emojiModalRef = useRef<HTMLDivElement | null>(null);
+  const acceptedPromptRef = useRef<HTMLDivElement | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  const [shouldScrollOnLoad, setShouldScrollOnLoad] = useState(false);
+  const pendingRoomScrollRef = useRef<string | null>(null);
+  const lastHandledMessageCountRef = useRef<Record<string, number>>({});
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachmentItem[]>([]);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
@@ -220,6 +224,8 @@ const ChatShell: React.FC = () => {
   const [isDraggingFilesOverChat, setIsDraggingFilesOverChat] = useState(false);
   const [hasInitialLoaderMinElapsed, setHasInitialLoaderMinElapsed] = useState(false);
   const [hideSidebarRequests, setHideSidebarRequests] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
   const dragDepthRef = useRef(0);
   const roomPollInFlightRef = useRef(false);
   const roomPollBackoffRef = useRef(30000);
@@ -227,6 +233,76 @@ const ChatShell: React.FC = () => {
   const roomsPollBackoffRef = useRef(60000);
   const hasLoadedSidebarWidthRef = useRef(false);
   const hasSkippedInitialSidebarSaveRef = useRef(false);
+
+
+  const toggleMessageSelection = (messageId: string) => {
+    setSelectedMessageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) {
+        next.delete(messageId);
+      } else {
+        next.add(messageId);
+      }
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setIsSelectMode(false);
+    setSelectedMessageIds(new Set());
+  };
+
+  const formatTranscriptTimestamp = (value?: string | null) => {
+    const date = value ? new Date(value) : new Date();
+    if (Number.isNaN(date.getTime())) return '00/00/0000, 00:00:00';
+
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+  };
+
+  const getMessageTextForTranscript = (message: MessageWithUser) => {
+    const content = (message.content || '').trim();
+    if (content) return content;
+
+    if (message.deleted_at) {
+      return 'This message was deleted.';
+    }
+
+    if ((message.attachments || []).length > 0) {
+      return '[Attachment]';
+    }
+
+    return '';
+  };
+
+  const copySelectedMessages = async () => {
+    const selectedMessages = activeMessages
+      .filter((message) => selectedMessageIds.has(String(message.id)))
+      .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
+
+    if (selectedMessages.length === 0) return;
+
+    const lines = selectedMessages.map((message) => {
+      const senderName =
+        message.user?.full_name ||
+        `${message.user?.first_name || ''} ${message.user?.last_name || ''}`.trim() ||
+        'Participant';
+      const content = getMessageTextForTranscript(message);
+      return `[${formatTranscriptTimestamp(message.created_at)}] ${senderName}: ${content}`;
+    });
+
+    await navigator.clipboard.writeText(lines.join('\n'));
+    toast.success('Messages copied', {
+      id: 'message-copied-toast',
+      icon: <CheckCircle2 className="h-4 w-4 text-emerald-500" />,
+    });
+  };
 
   const focusComposerWithoutScroll = () => {
     const composerElement = composerRef.current;
@@ -310,6 +386,8 @@ const ChatShell: React.FC = () => {
 
   useEffect(() => {
     setReplyingToMessageId(null);
+    setIsSelectMode(false);
+    setSelectedMessageIds(new Set());
   }, [activeRoom?.id]);
 
   useEffect(() => {
@@ -325,29 +403,27 @@ const ChatShell: React.FC = () => {
     if (!activeRoom || !messagesContainerRef.current) return;
 
     const container = messagesContainerRef.current;
-    if (shouldScrollOnLoad) {
-      if (activeMessages.length === 0) {
-        return;
-      }
+    const roomId = String(activeRoom.id);
+    const previousCount = lastHandledMessageCountRef.current[roomId] ?? 0;
 
+    if (pendingRoomScrollRef.current === roomId && activeMessages.length > 0) {
       container.scrollTop = container.scrollHeight;
       setShowScrollToBottom(false);
-      setShouldScrollOnLoad(false);
+      pendingRoomScrollRef.current = null;
+      lastHandledMessageCountRef.current[roomId] = activeMessages.length;
       return;
     }
 
-    const distanceFromBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight;
-    if (distanceFromBottom < 160) {
-      container.scrollTop = container.scrollHeight;
+    if (activeMessages.length > previousCount) {
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom < 160) {
+        container.scrollTop = container.scrollHeight;
+      }
     }
-  }, [activeMessages, activeMessages.length, activeRoom, shouldScrollOnLoad]);
 
-
-  useLayoutEffect(() => {
-    if (!activeRoom?.id) return;
-    setShouldScrollOnLoad(true);
-  }, [activeRoom?.id]);
+    lastHandledMessageCountRef.current[roomId] = activeMessages.length;
+  }, [activeMessages.length, activeRoom]);
 
   useEffect(() => {
     if (!showAttachmentMenu && !showEmojiModal) return;
@@ -389,6 +465,10 @@ const ChatShell: React.FC = () => {
       document.removeEventListener("mousedown", handlePointerDown);
     };
   }, [showAttachmentMenu, showEmojiModal]);
+
+
+  useModalLayerLock(showNewConversation || showDetails || Boolean(showAcceptedPrompt));
+  useModalFocusTrap(Boolean(showAcceptedPrompt), acceptedPromptRef, () => setShowAcceptedPrompt(null));
 
   useEffect(() => {
     const warmup = window.setTimeout(() => {
@@ -725,6 +805,7 @@ const ChatShell: React.FC = () => {
     setShowAttachmentMenu(false);
     setShowEmojiModal(false);
 
+    pendingRoomScrollRef.current = String(room.id);
     await selectRoom(room);
 
     window.requestAnimationFrame(() => {
@@ -748,11 +829,13 @@ const ChatShell: React.FC = () => {
     return sequence;
   }, [activeMessages]);
 
+  const selectedMessagesCount = selectedMessageIds.size;
+
   const activeTypingDisplay = roomTypingNames.length ? (
     <TypingIndicator names={roomTypingNames} />
   ) : null;
   const hasUploadedPendingAttachments = pendingAttachments.some((item) => item.status === "uploaded");
-  const canSendMessage = (composer.trim().length > 0 || hasUploadedPendingAttachments) && !isUploadingAttachments;
+  const canSendMessage = !isSelectMode && (composer.trim().length > 0 || hasUploadedPendingAttachments) && !isUploadingAttachments;
 
   useEffect(() => {
     setIsUploadingAttachments(pendingAttachments.some((item) => item.status === "uploading"));
@@ -1381,6 +1464,13 @@ const ChatShell: React.FC = () => {
                             }}
                             repliedToMessage={message.reply_to ? activeMessagesById[String(message.reply_to)] || null : null}
                             isGroupRoom={activeRoom.room_type !== "dm"}
+                            isSelectMode={isSelectMode}
+                            isSelected={selectedMessageIds.has(String(message.id))}
+                            onToggleSelectMessage={toggleMessageSelection}
+                            onEnterSelectMode={(targetMessage) => {
+                              setIsSelectMode(true);
+                              setSelectedMessageIds(new Set([String(targetMessage.id)]));
+                            }}
                           />
                         </div>
                       );
@@ -1585,6 +1675,7 @@ const ChatShell: React.FC = () => {
                       <textarea
                         ref={composerRef}
                         value={composer}
+                        disabled={isSelectMode}
                         onChange={(event) => {
                           setComposer(event.target.value);
                           sendTyping(activeRoom.id, true);
@@ -1623,7 +1714,7 @@ const ChatShell: React.FC = () => {
                             handleSend();
                           }
                         }}
-                        placeholder="Type your message"
+                        placeholder={isSelectMode ? "Selection mode active" : "Type your message"}
                         rows={1}
                         style={{ border: "none", boxShadow: "none" }}
                         className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-[#202c33] placeholder:text-[#7a7f84] focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
@@ -1693,6 +1784,33 @@ const ChatShell: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {isSelectMode && (
+                <div className="border-t border-soft-ivory bg-white px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-almost-black-green">{selectedMessagesCount} selected</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={selectedMessagesCount === 0}
+                        onClick={() => {
+                          void copySelectedMessages();
+                        }}
+                        className="inline-flex items-center gap-1 rounded-xl border border-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red disabled:opacity-50"
+                      >
+                        <Copy className="h-3.5 w-3.5" /> Copy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={exitSelectMode}
+                        className="rounded-xl border border-soft-ivory px-3 py-2 text-xs font-semibold text-almost-black-green/75"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               {warmEmojiPicker && (
                   <div className="pointer-events-none absolute -left-[9999px] -top-[9999px] h-0 w-0 overflow-hidden opacity-0" aria-hidden>
                     <EmojiPicker
@@ -1742,7 +1860,7 @@ const ChatShell: React.FC = () => {
         />
         {showAcceptedPrompt && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 px-4">
-            <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <div ref={acceptedPromptRef} tabIndex={-1} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
               <p className="text-lg font-semibold text-deep-red">You’re now connected.</p>
               <p className="mt-1 text-sm text-almost-black-green/70">Start a chat with your new friend?</p>
               <div className="mt-4 flex justify-end gap-2">

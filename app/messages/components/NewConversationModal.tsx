@@ -10,6 +10,7 @@ import { FriendRequest, UserSearchResult } from '@/lib/chat/types';
 import { getUserDelegationLabel } from '@/lib/chat/delegation';
 import UserAvatar from './UserAvatar';
 import { useChat } from '../context/ChatContext';
+import { useModalLayerLock } from '../hooks/useModalLayerLock';
 
 interface Props {
   open: boolean;
@@ -51,6 +52,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
   const trimmedQuery = query.trim();
   const canSearch = trimmedQuery.length >= 2;
   const sharedSearchInputClassName = 'w-full rounded-2xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm';
+
+  useModalLayerLock(open);
 
   useEffect(() => {
     if (open) {

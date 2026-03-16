@@ -9,7 +9,8 @@ import supabase from '@/lib/supabase';
 import { useSession } from '@/app/context/sessionContext';
 import { normalizeMessageMeta } from '@/lib/chat/messageMeta';
 import UserAvatar from './UserAvatar';
-import { AlertCircle, Check, CheckCheck, CheckCircle2, Clock, Copy, Download, FileText, Forward, Info, Pencil, Reply, Smile, Trash2, X } from 'lucide-react';
+import { AlertCircle, Check, CheckCheck, CheckCircle2, Circle, Clock, Copy, Download, FileText, Forward, Info, Pencil, Reply, Smile, Trash2, X } from 'lucide-react';
+import { useModalFocusTrap, useModalLayerLock } from '../hooks/useModalLayerLock';
 
 interface Props {
   message: MessageWithUser;
@@ -24,6 +25,10 @@ interface Props {
   onReplyMessage?: (message: MessageWithUser) => void;
   repliedToMessage?: MessageWithUser | null;
   isGroupRoom?: boolean;
+  isSelectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelectMessage?: (messageId: string) => void;
+  onEnterSelectMode?: (message: MessageWithUser) => void;
 }
 
 const statusIcon: Record<string, React.ReactNode> = {
@@ -137,6 +142,10 @@ const MessageBubble: React.FC<Props> = ({
   repliedToMessage = null,
   roomMembers = [],
   isGroupRoom = false,
+  isSelectMode = false,
+  isSelected = false,
+  onToggleSelectMessage,
+  onEnterSelectMode,
 }) => {
   const { user } = useSession();
   const currentUserId = user?.id ? String(user.id) : null;
@@ -145,6 +154,7 @@ const MessageBubble: React.FC<Props> = ({
   const [infoPanelPosition, setInfoPanelPosition] = React.useState<{ x: number; y: number } | null>(null);
   const [showInfoSheet, setShowInfoSheet] = React.useState(false);
   const bubbleRef = React.useRef<HTMLDivElement | null>(null);
+  const infoSheetRef = React.useRef<HTMLDivElement | null>(null);
   const isFailed = message.status === 'error';
   const resolvedStatus = resolveReceiptStatus(
     message,
@@ -258,6 +268,7 @@ const MessageBubble: React.FC<Props> = ({
   const canDeleteMessage = isOwn && !isDeleted && typeof onDeleteMessage === 'function';
   const canReplyMessage = typeof onReplyMessage === 'function';
   const canViewInfo = isOwn;
+  const canToggleSelectMode = typeof onEnterSelectMode === 'function';
   const [touchStart, setTouchStart] = React.useState<{ x: number; y: number } | null>(null);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editingText, setEditingText] = React.useState(message.content || '');
@@ -342,8 +353,12 @@ const MessageBubble: React.FC<Props> = ({
     ...(canViewInfo ? [{ icon: Info, label: 'Info' }] : []),
     { divider: true },
     ...(canDeleteMessage ? [{ icon: Trash2, label: 'Delete' }] : []),
-    { icon: CheckCircle2, label: 'Select messages' },
+    ...(canToggleSelectMode ? [{ icon: CheckCircle2, label: 'Select message' }] : []),
   ];
+
+
+  useModalLayerLock(showInfoSheet);
+  useModalFocusTrap(showInfoSheet, infoSheetRef, () => setShowInfoSheet(false));
 
   const handleAttachmentDownload = async (attachment: MessageAttachment) => {
     if (!attachment.bucket || !attachment.path) return;
@@ -372,10 +387,22 @@ const MessageBubble: React.FC<Props> = ({
 
   return (
     <div className={`flex gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${showAvatar ? '' : 'px-1'}`}>
+      {isSelectMode && (
+        <button
+          type="button"
+          onClick={() => onToggleSelectMessage?.(String(message.id))}
+          className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-deep-red/80"
+          aria-label={isSelected ? 'Deselect message' : 'Select message'}
+          aria-pressed={isSelected}
+        >
+          {isSelected ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
+        </button>
+      )}
       {showAvatar && <UserAvatar user={message.user} size={36} />}
       <div
         ref={bubbleRef}
         onContextMenu={(event) => {
+          if (isSelectMode) return;
           event.preventDefault();
           event.stopPropagation();
           window.dispatchEvent(new CustomEvent('vofmun-message-menu-opened', { detail: { id: bubbleMenuId } }));
@@ -389,7 +416,7 @@ const MessageBubble: React.FC<Props> = ({
           setTouchStart({ x: touch.clientX, y: touch.clientY });
         }}
         onTouchEnd={(event) => {
-          if (!canReplyMessage || !touchStart) return;
+          if (isSelectMode || !canReplyMessage || !touchStart) return;
           const touch = event.changedTouches[0];
           if (!touch) return;
           const deltaX = touch.clientX - touchStart.x;
@@ -402,13 +429,18 @@ const MessageBubble: React.FC<Props> = ({
           }
           setTouchStart(null);
         }}
+        onClick={() => {
+          if (isSelectMode) {
+            onToggleSelectMessage?.(String(message.id));
+          }
+        }}
         className={`group relative max-w-[82%] border px-3 py-2 shadow-sm md:max-w-[74%] ${
           isOwn
             ? isFailed
               ? 'rounded-[8px] border-deep-red/30 bg-soft-rose/30 text-deep-red'
               : 'rounded-[8px] border-[#dcc8bd] bg-[#efe3dc] text-almost-black-green'
             : 'rounded-[8px] border-soft-ivory bg-white text-almost-black-green'
-        }`}
+        } ${isSelectMode ? 'cursor-pointer' : ''} ${isSelected ? 'ring-2 ring-deep-red/35' : ''}`}
       >
         {showAuthor && (
           <p className="text-[0.66rem] font-medium uppercase tracking-[0.08em] text-deep-red/85">
@@ -620,6 +652,9 @@ const MessageBubble: React.FC<Props> = ({
                   if (entry.label === 'Info' && canViewInfo) {
                     openInfoPanel();
                   }
+                  if (entry.label === 'Select message') {
+                    onEnterSelectMode?.(message);
+                  }
                   setContextMenuPosition(null);
                 }}
                 className="flex w-full items-center gap-3 px-4 py-1.5 text-left text-[0.8rem] font-medium text-[#111b21]/90 hover:bg-[#ececec]"
@@ -637,6 +672,8 @@ const MessageBubble: React.FC<Props> = ({
           onClick={() => setShowInfoSheet(false)}
         >
           <div
+            ref={infoSheetRef}
+            tabIndex={-1}
             className="w-full max-w-[320px] rounded-xl border border-[#d8d8d8] bg-[#f3f3f3] text-[#111b21] shadow-xl"
             style={
               infoPanelPosition
