@@ -7,6 +7,7 @@ import { Dialog } from '@headlessui/react';
 import { RoomWithDetails } from '@/lib/chat/types';
 import UserAvatar from './UserAvatar';
 import { Ban, LogOut, UsersRound } from 'lucide-react';
+import { useModalLayerLock } from '../hooks/useModalLayerLock';
 
 interface Props {
   room: RoomWithDetails | null;
@@ -19,6 +20,8 @@ interface Props {
 }
 
 const ConversationDetailsModal: React.FC<Props> = ({ room, open, onClose, currentUserId, onAddMembers, onBlockUser, onLeave }) => {
+  useModalLayerLock(open);
+
   if (!room) return null;
 
   const isDirectMessage = room.room_type === 'dm';

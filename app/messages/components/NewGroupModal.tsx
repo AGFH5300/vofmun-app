@@ -8,6 +8,7 @@ import { Plus, Users } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import { UserSearchResult } from '@/lib/chat/types';
 import { useChat } from '../context/ChatContext';
+import { useModalLayerLock } from '../hooks/useModalLayerLock';
 
 interface Props {
   open: boolean;
@@ -30,6 +31,8 @@ const NewGroupModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
   const [hasSearched, setHasSearched] = useState(false);
 
   const trimmedQuery = query.trim();
+
+  useModalLayerLock(open);
   const canSearch = trimmedQuery.length >= 2;
 
   useEffect(() => {
