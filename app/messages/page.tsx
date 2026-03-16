@@ -1495,7 +1495,21 @@ const ChatShell: React.FC = () => {
                         Boolean(nextMessage?.created_at && message.created_at) &&
                         new Date(String(nextMessage?.created_at)).toDateString() ===
                           new Date(String(message.created_at)).toDateString();
-                      const bubbleSpacing = isSameSenderAsNext && isSameDayAsNext ? "mb-1.5" : "mb-3";
+                      const previousMessage = currentIndex > 0 ? activeMessages[currentIndex - 1] : undefined;
+                      const isSameSenderAsPrevious =
+                        Boolean(previousMessage) && String(previousMessage?.user_id) === String(message.user_id);
+                      const isSameDayAsPrevious =
+                        Boolean(previousMessage?.created_at && message.created_at) &&
+                        new Date(String(previousMessage?.created_at)).toDateString() ===
+                          new Date(String(message.created_at)).toDateString();
+                      const shouldShowGroupAvatar =
+                        activeRoom.room_type !== "dm" &&
+                        !isOwn &&
+                        !(isSameSenderAsNext && isSameDayAsNext);
+                      const shouldShowAuthor =
+                        activeRoom.room_type !== "dm" &&
+                        (!isSameSenderAsPrevious || !isSameDayAsPrevious);
+                      const bubbleSpacing = isSameSenderAsNext && isSameDayAsNext ? "mb-1" : "mb-2";
 
                       return (
                         <div key={item.id} data-message-id={item.id} className={bubbleSpacing}>
@@ -1504,8 +1518,8 @@ const ChatShell: React.FC = () => {
                             isOwn={isOwn}
                             roomMemberIds={activeRoomMembers.map((member) => String(member.user_id))}
                             roomMembers={activeRoomMembers}
-                            showAuthor={activeRoom.room_type !== "dm"}
-                            showAvatar={activeRoom.room_type !== "dm"}
+                            showAuthor={shouldShowAuthor}
+                            showAvatar={shouldShowGroupAvatar}
                             presenceDeliveredHint={presenceDeliveredHint}
                             onEditMessage={(messageId, content) => editMessage(activeRoom.id, messageId, content)}
                             onDeleteMessage={(messageId) => deleteMessage(activeRoom.id, messageId)}
