@@ -269,7 +269,8 @@ const MessageBubble: React.FC<Props> = ({
   const canReplyMessage = typeof onReplyMessage === 'function';
   const canViewInfo = isOwn;
   const canToggleSelectMode = typeof onEnterSelectMode === 'function';
-  const shouldRenderAvatar = !isOwn && showAvatar;
+  const shouldShowAvatarLane = !isOwn && isGroupRoom && !isSelectMode;
+  const shouldRenderAvatar = shouldShowAvatarLane && showAvatar;
   const [touchStart, setTouchStart] = React.useState<{ x: number; y: number } | null>(null);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editingText, setEditingText] = React.useState(message.content || '');
@@ -396,27 +397,32 @@ const MessageBubble: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex w-full items-start gap-1.5">
-      <div className="mt-1 flex w-6 shrink-0 justify-center">
-        {isSelectMode && canSelectMessage ? (
-          <button
-            type="button"
-            onClick={() => onToggleSelectMessage?.(String(message.id))}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-deep-red/80"
-            aria-label={isSelected ? 'Deselect message' : 'Select message'}
-            aria-pressed={isSelected}
-          >
-            {isSelected ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
-          </button>
-        ) : null}
-      </div>
+    <div className="flex w-full items-start gap-1">
+      {isSelectMode ? (
+        <div className="mt-1 flex w-6 shrink-0 justify-center">
+          {canSelectMessage ? (
+            <button
+              type="button"
+              onClick={() => onToggleSelectMessage?.(String(message.id))}
+              className="inline-flex h-6 w-6 items-center justify-center rounded-full text-deep-red/80"
+              aria-label={isSelected ? 'Deselect message' : 'Select message'}
+              aria-pressed={isSelected}
+            >
+              {isSelected ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
+            </button>
+          ) : null}
+        </div>
+      ) : shouldShowAvatarLane ? (
+        <div className="mt-1 flex w-8 shrink-0 items-start justify-center">
+          {shouldRenderAvatar ? <UserAvatar user={message.user} size={28} /> : <span className="h-7 w-7" aria-hidden="true" />}
+        </div>
+      ) : null}
       <div
         className={`flex min-w-0 flex-1 gap-1.5 ${isOwn ? 'justify-end' : 'justify-start'} ${
           isSelectMode && canSelectMessage ? 'cursor-pointer' : ''
         }`}
         onClick={handleSelectRowClick}
       >
-        {shouldRenderAvatar && <UserAvatar user={message.user} size={32} />}
         <div
           ref={bubbleRef}
           onContextMenu={(event) => {
