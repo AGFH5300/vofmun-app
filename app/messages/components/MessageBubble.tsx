@@ -274,6 +274,7 @@ const MessageBubble: React.FC<Props> = ({
   const [editingText, setEditingText] = React.useState(message.content || '');
   const [isSubmittingEdit, setIsSubmittingEdit] = React.useState(false);
   const [isSubmittingDelete, setIsSubmittingDelete] = React.useState(false);
+  const canSelectMessage = !isDeleted;
 
   useEffect(() => {
     if (!isEditing) {
@@ -353,7 +354,7 @@ const MessageBubble: React.FC<Props> = ({
     ...(canViewInfo ? [{ icon: Info, label: 'Info' }] : []),
     { divider: true },
     ...(canDeleteMessage ? [{ icon: Trash2, label: 'Delete' }] : []),
-    ...(canToggleSelectMode ? [{ icon: CheckCircle2, label: 'Select message' }] : []),
+    ...(canToggleSelectMode && canSelectMessage ? [{ icon: CheckCircle2, label: 'Select message' }] : []),
   ];
 
 
@@ -385,63 +386,74 @@ const MessageBubble: React.FC<Props> = ({
     }
   };
 
+  const handleSelectRowClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!isSelectMode || !canSelectMessage) return;
+
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('a,button,input,textarea,select,option,[role="button"]')) return;
+    onToggleSelectMessage?.(String(message.id));
+  };
+
   return (
-    <div className={`flex gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${showAvatar ? '' : 'px-1'}`}>
-      {isSelectMode && (
-        <button
-          type="button"
-          onClick={() => onToggleSelectMessage?.(String(message.id))}
-          className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-deep-red/80"
-          aria-label={isSelected ? 'Deselect message' : 'Select message'}
-          aria-pressed={isSelected}
-        >
-          {isSelected ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
-        </button>
-      )}
-      {showAvatar && <UserAvatar user={message.user} size={36} />}
+    <div className="flex w-full items-start gap-2">
+      <div className="mt-1 flex w-7 shrink-0 justify-center">
+        {isSelectMode && canSelectMessage ? (
+          <button
+            type="button"
+            onClick={() => onToggleSelectMessage?.(String(message.id))}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-deep-red/80"
+            aria-label={isSelected ? 'Deselect message' : 'Select message'}
+            aria-pressed={isSelected}
+          >
+            {isSelected ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
+          </button>
+        ) : null}
+      </div>
       <div
-        ref={bubbleRef}
-        onContextMenu={(event) => {
-          if (isSelectMode) return;
-          event.preventDefault();
-          event.stopPropagation();
-          window.dispatchEvent(new CustomEvent('vofmun-message-menu-opened', { detail: { id: bubbleMenuId } }));
-          const menuWidth = 220;
-          const menuHeight = isOwn ? 314 : 264;
-          setContextMenuPosition(clampPosition(event.clientX, event.clientY, menuWidth, menuHeight));
-        }}
-        onTouchStart={(event) => {
-          const touch = event.touches[0];
-          if (!touch) return;
-          setTouchStart({ x: touch.clientX, y: touch.clientY });
-        }}
-        onTouchEnd={(event) => {
-          if (isSelectMode || !canReplyMessage || !touchStart) return;
-          const touch = event.changedTouches[0];
-          if (!touch) return;
-          const deltaX = touch.clientX - touchStart.x;
-          const deltaY = touch.clientY - touchStart.y;
-          if (Math.abs(deltaY) > 40) return;
-          const swipeThreshold = 64;
-          const shouldReply = isOwn ? deltaX < -swipeThreshold : deltaX > swipeThreshold;
-          if (shouldReply) {
-            onReplyMessage?.(message);
-          }
-          setTouchStart(null);
-        }}
-        onClick={() => {
-          if (isSelectMode) {
-            onToggleSelectMessage?.(String(message.id));
-          }
-        }}
-        className={`group relative max-w-[82%] border px-3 py-2 shadow-sm md:max-w-[74%] ${
-          isOwn
-            ? isFailed
-              ? 'rounded-[8px] border-deep-red/30 bg-soft-rose/30 text-deep-red'
-              : 'rounded-[8px] border-[#dcc8bd] bg-[#efe3dc] text-almost-black-green'
-            : 'rounded-[8px] border-soft-ivory bg-white text-almost-black-green'
-        } ${isSelectMode ? 'cursor-pointer' : ''} ${isSelected ? 'ring-2 ring-deep-red/35' : ''}`}
+        className={`flex min-w-0 flex-1 gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${showAvatar ? '' : 'px-1'} ${
+          isSelectMode && canSelectMessage ? 'cursor-pointer' : ''
+        }`}
+        onClick={handleSelectRowClick}
       >
+        {showAvatar && <UserAvatar user={message.user} size={36} />}
+        <div
+          ref={bubbleRef}
+          onContextMenu={(event) => {
+            if (isSelectMode || isDeleted) return;
+            event.preventDefault();
+            event.stopPropagation();
+            window.dispatchEvent(new CustomEvent('vofmun-message-menu-opened', { detail: { id: bubbleMenuId } }));
+            const menuWidth = 220;
+            const menuHeight = isOwn ? 314 : 264;
+            setContextMenuPosition(clampPosition(event.clientX, event.clientY, menuWidth, menuHeight));
+          }}
+          onTouchStart={(event) => {
+            const touch = event.touches[0];
+            if (!touch) return;
+            setTouchStart({ x: touch.clientX, y: touch.clientY });
+          }}
+          onTouchEnd={(event) => {
+            if (isSelectMode || !canReplyMessage || !touchStart) return;
+            const touch = event.changedTouches[0];
+            if (!touch) return;
+            const deltaX = touch.clientX - touchStart.x;
+            const deltaY = touch.clientY - touchStart.y;
+            if (Math.abs(deltaY) > 40) return;
+            const swipeThreshold = 64;
+            const shouldReply = isOwn ? deltaX < -swipeThreshold : deltaX > swipeThreshold;
+            if (shouldReply) {
+              onReplyMessage?.(message);
+            }
+            setTouchStart(null);
+          }}
+          className={`group relative max-w-[82%] border px-3 py-2 shadow-sm md:max-w-[74%] ${
+            isOwn
+              ? isFailed
+                ? 'rounded-[8px] border-deep-red/30 bg-soft-rose/30 text-deep-red'
+                : 'rounded-[8px] border-[#dcc8bd] bg-[#efe3dc] text-almost-black-green'
+              : 'rounded-[8px] border-soft-ivory bg-white text-almost-black-green'
+          } ${isSelectMode && canSelectMessage ? 'cursor-pointer' : ''} ${isSelected ? 'ring-2 ring-deep-red/35' : ''}`}
+        >
         {showAuthor && (
           <p className="text-[0.66rem] font-medium uppercase tracking-[0.08em] text-deep-red/85">
             {message.user?.full_name || `${message.user?.first_name || ''} ${message.user?.last_name || ''}`.trim() || message.user?.email || String(message.user_id || 'Participant')}
@@ -599,6 +611,7 @@ const MessageBubble: React.FC<Props> = ({
             </div>
           </div>
         </div>
+      </div>
       </div>
       {contextMenuPosition && (
         <div

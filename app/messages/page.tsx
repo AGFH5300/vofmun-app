@@ -226,6 +226,8 @@ const ChatShell: React.FC = () => {
   const [hideSidebarRequests, setHideSidebarRequests] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
+  const previousShowInitialLoaderRef = useRef<boolean>(true);
+  const preservedPageScrollYRef = useRef<number | null>(null);
   const dragDepthRef = useRef(0);
   const roomPollInFlightRef = useRef(false);
   const roomPollBackoffRef = useRef(30000);
@@ -236,6 +238,9 @@ const ChatShell: React.FC = () => {
 
 
   const toggleMessageSelection = (messageId: string) => {
+    const targetMessage = activeMessagesById[messageId];
+    if (!targetMessage || targetMessage.deleted_at) return;
+
     setSelectedMessageIds((prev) => {
       const next = new Set(prev);
       if (next.has(messageId)) {
@@ -283,7 +288,7 @@ const ChatShell: React.FC = () => {
 
   const copySelectedMessages = async () => {
     const selectedMessages = activeMessages
-      .filter((message) => selectedMessageIds.has(String(message.id)))
+      .filter((message) => selectedMessageIds.has(String(message.id)) && !message.deleted_at)
       .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
 
     if (selectedMessages.length === 0) return;
@@ -1023,6 +1028,54 @@ const ChatShell: React.FC = () => {
 
   const showInitialLoader = !initialChatReady || !hasInitialLoaderMinElapsed;
 
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const wasShowingInitialLoader = previousShowInitialLoaderRef.current;
+    if (wasShowingInitialLoader && !showInitialLoader) {
+      const restoreY = preservedPageScrollYRef.current;
+      if (restoreY != null) {
+        window.requestAnimationFrame(() => {
+          window.scrollTo({ top: restoreY, behavior: "auto" });
+        });
+      }
+      preservedPageScrollYRef.current = null;
+    }
+
+    previousShowInitialLoaderRef.current = showInitialLoader;
+  }, [showInitialLoader]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (showInitialLoader) {
+      preservedPageScrollYRef.current = window.scrollY;
+    }
+  }, [showInitialLoader]);
+
+  useEffect(() => {
+    setSelectedMessageIds((prev) => {
+      if (!isSelectMode || prev.size === 0) return prev;
+
+      const validIds = new Set(
+        activeMessages
+          .filter((message) => !message.deleted_at)
+          .map((message) => String(message.id)),
+      );
+
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (validIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
+  }, [activeMessages, isSelectMode]);
+
   if (showInitialLoader) {
     const progressPercent = Math.min(100, Math.max(0, bootstrapProgress.percent));
 
@@ -1527,7 +1580,8 @@ const ChatShell: React.FC = () => {
                   <ChevronDown className="h-5 w-5" />
                 </button>
               )}
-              <div className="sticky bottom-0 bg-white px-2 py-3">
+              {!isSelectMode && (
+                <div className="sticky bottom-0 bg-white px-2 py-3">
                 {activeRoom ? activeTypingDisplay : <div className="mb-2 h-5" aria-hidden="true" />}
                 <input
                   ref={fileInputRef}
@@ -1783,7 +1837,8 @@ const ChatShell: React.FC = () => {
                     </button>
                   </div>
                 )}
-              </div>
+                </div>
+              )}
 
               {isSelectMode && (
                 <div className="border-t border-soft-ivory bg-white px-4 py-3">
