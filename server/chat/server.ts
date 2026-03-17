@@ -346,15 +346,31 @@ const fetchRoomMembers = async (roomId: string): Promise<RoomMember[]> => {
   }));
 };
 
-const fetchLastMessage = async (roomId: string): Promise<MessageWithUser | null> => {
+const fetchLastMessage = async (roomId: string, userId?: string | null): Promise<MessageWithUser | null> => {
   const { data } = await supabaseAdmin
     .from('messages')
     .select('*')
     .eq('room_id', roomId)
     .order('created_at', { ascending: false })
-    .limit(1);
+    .limit(50);
   if (!data || data.length === 0) return null;
-  const msg = data[0] as any;
+
+  let hiddenMessageIds = new Set<string>();
+  if (userId) {
+    const candidateIds = data.map((row: any) => String(row.id || '')).filter(Boolean);
+    if (candidateIds.length > 0) {
+      const { data: hiddenRows } = await supabaseAdmin
+        .from('message_hidden_for_users')
+        .select('message_id')
+        .eq('room_id', roomId)
+        .eq('user_id', userId)
+        .in('message_id', candidateIds);
+      hiddenMessageIds = new Set((hiddenRows || []).map((row: any) => String(row.message_id || '')).filter(Boolean));
+    }
+  }
+
+  const msg = data.find((row: any) => !hiddenMessageIds.has(String(row.id || '')));
+  if (!msg) return null;
   const messageId = String(msg.id || '');
   const [profiles, attachmentsByMessageId] = await Promise.all([
     fetchProfilesByIds([msg.user_id]),
@@ -382,7 +398,7 @@ app.get('/api/rooms', requireAuth, async (req: AuthedRequest, res: Response) => 
     const results: RoomWithDetails[] = [];
     for (const room of rooms || []) {
       const members = await fetchRoomMembers(room.id);
-      const lastMessage = await fetchLastMessage(room.id);
+      const lastMessage = await fetchLastMessage(room.id, req.userId);
       const room_type = deriveRoomType(room, members);
       results.push({ ...(room as any), members, lastMessage, room_type });
     }
@@ -607,7 +623,7 @@ app.post('/api/rooms/direct', requireAuth, async (req: AuthedRequest, res: Respo
     const { data: room } = await supabaseAdmin.from('chat_rooms').select('*').eq('id', roomId).single();
 
     const members = await fetchRoomMembers(roomId);
-    const lastMessage = await fetchLastMessage(roomId);
+    const lastMessage = await fetchLastMessage(roomId, req.userId);
 
     return res.json({ ...(room as any), members, lastMessage, room_type: deriveRoomType(room as any, members) } as RoomWithDetails);
   } catch (error) {
@@ -763,7 +779,7 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
     });
 
     const members = await fetchRoomMembers(roomId);
-    const lastMessage = await fetchLastMessage(roomId);
+    const lastMessage = await fetchLastMessage(roomId, req.userId);
 
     console.debug('[GroupCreateDebug] room_created', {
       roomId,
@@ -800,17 +816,25 @@ app.get('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, r
       return res.status(403).json({ error: 'Not a room member' });
     }
 
+    const { data: hiddenRows } = await supabaseAdmin
+      .from('message_hidden_for_users')
+      .select('message_id')
+      .eq('room_id', roomId)
+      .eq('user_id', req.userId!);
+    const hiddenMessageIds = new Set((hiddenRows || []).map((row: any) => String(row.message_id || '')).filter(Boolean));
+
     const { data: messages } = await supabaseAdmin
       .from('messages')
       .select('*')
       .eq('room_id', roomId)
       .order('created_at', { ascending: true });
+    const visibleMessages = (messages || []).filter((msg: any) => !hiddenMessageIds.has(String(msg.id || '')));
 
-    const profileIds = Array.from(new Set((messages || []).map((msg: any) => String(msg.user_id)).filter(Boolean)));
-    const messageIds = (messages || []).map((msg: any) => String(msg.id)).filter(Boolean);
+    const profileIds = Array.from(new Set(visibleMessages.map((msg: any) => String(msg.user_id)).filter(Boolean)));
+    const messageIds = visibleMessages.map((msg: any) => String(msg.id)).filter(Boolean);
     const profiles = await fetchProfilesByIds(profileIds);
     const attachmentsByMessageId = await fetchAttachmentsByMessageIds(messageIds);
-    const formatted = (messages || []).map((msg: any) => {
+    const formatted = visibleMessages.map((msg: any) => {
       const message = {
         ...msg,
         user: profiles[msg.user_id],

@@ -58,6 +58,7 @@ interface ChatContextValue {
   sendMessage: (roomId: string, content: string, attachments?: MessageAttachmentInput[], replyTo?: string | null) => Promise<void>;
   editMessage: (roomId: string, messageId: string, content: string) => Promise<void>;
   deleteMessage: (roomId: string, messageId: string) => Promise<void>;
+  deleteMessagesForMe: (roomId: string, messageIds: string[]) => Promise<void>;
   sendTyping: (roomId: string, isTyping: boolean) => void;
   togglePin: (roomId: string) => void;
   createDirectRoom: (targetUserId: string) => Promise<RoomWithDetails | null>;
@@ -376,6 +377,31 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const friendRequestToastTransitionsRef = useRef<Set<string>>(new Set());
   const visibilityRefreshInFlightRef = useRef(false);
   const userDirectoryRef = useRef<Record<string, FriendRequest['sender']>>({});
+  const hiddenMessageIdsByRoomRef = useRef<Record<string, Set<string>>>({});
+
+  const cacheHiddenMessageIdsForRoom = useCallback(async (roomId: string) => {
+    const normalizedRoomId = toComparableId(roomId);
+    const currentUserId = toComparableId(userIdRef.current);
+    if (!currentUserId) return new Set<string>();
+
+    const { data, error } = await supabase
+      .from('message_hidden_for_users')
+      .select('message_id')
+      .eq('room_id', normalizedRoomId)
+      .eq('user_id', currentUserId);
+
+    if (error) {
+      console.error('[ChatContext] failed to load hidden messages for room', {
+        roomId: normalizedRoomId,
+        error,
+      });
+      return hiddenMessageIdsByRoomRef.current[normalizedRoomId] || new Set<string>();
+    }
+
+    const hiddenIds = new Set((data || []).map((row: { message_id?: string | number | null }) => toComparableId(row.message_id)).filter(Boolean));
+    hiddenMessageIdsByRoomRef.current[normalizedRoomId] = hiddenIds;
+    return hiddenIds;
+  }, []);
 
   const mergeUsersIntoDirectory = useCallback((profiles: ChatUserLike[]) => {
     const prepared = profiles
@@ -900,9 +926,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const response = await fetchWithTimeout(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, await withAuthHeaders());
       if (!response.ok) return false;
       const data = (await response.json()) as MessageWithUser[];
-      mergeUsersIntoDirectory(data.map((message) => message.user));
+      const hiddenMessageIds = await cacheHiddenMessageIdsForRoom(roomId);
+      const visibleData = data.filter((message) => !hiddenMessageIds.has(toComparableId(message.id)));
+      mergeUsersIntoDirectory(visibleData.map((message) => message.user));
       const roomMemberIds = getRoomMemberIds(roomId, roomsRef.current);
-      const withResolvedStatus = data.map((message) =>
+      const withResolvedStatus = visibleData.map((message) =>
         hydrateMessage(
           {
             ...message,
@@ -932,7 +960,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       });
       return true;
     },
-    [fetchWithTimeout, mergeUsersIntoDirectory, scheduleReceiptsForMessages, userId, withAuthHeaders]
+    [cacheHiddenMessageIdsForRoom, fetchWithTimeout, mergeUsersIntoDirectory, scheduleReceiptsForMessages, userId, withAuthHeaders]
   );
 
   useEffect(() => {
@@ -1089,6 +1117,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             userIdRef.current,
             memberIds
           );
+          const roomHiddenIds = hiddenMessageIdsByRoomRef.current[normalizedRoomId];
+          if (roomHiddenIds?.has(toComparableId(message.id))) {
+            break;
+          }
           logChatDebug('socket:new_message', {
             roomId: normalizedRoomId,
             messageId: message.id,
@@ -1889,6 +1921,58 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     [applyUpdatedMessage, withAuthHeaders]
   );
 
+  const deleteMessagesForMe = useCallback(
+    async (roomId: string, messageIds: string[]) => {
+      const normalizedRoomId = toComparableId(roomId);
+      const uniqueMessageIds = Array.from(new Set(messageIds.map((id) => toComparableId(id)).filter(Boolean)));
+      if (!userId || uniqueMessageIds.length === 0) return;
+
+      const payload = uniqueMessageIds.map((messageId) => ({
+        room_id: normalizedRoomId,
+        message_id: messageId,
+        user_id: toComparableId(userId),
+      }));
+
+      const { error } = await supabase
+        .from('message_hidden_for_users')
+        .upsert(payload, { onConflict: 'message_id,user_id', ignoreDuplicates: true });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to delete messages for you');
+      }
+
+      const roomHiddenIds = hiddenMessageIdsByRoomRef.current[normalizedRoomId] || new Set<string>();
+      uniqueMessageIds.forEach((messageId) => roomHiddenIds.add(messageId));
+      hiddenMessageIdsByRoomRef.current[normalizedRoomId] = roomHiddenIds;
+
+      setMessages((prev) => {
+        const roomMessages = prev[normalizedRoomId] || [];
+        if (roomMessages.length === 0) return prev;
+        const hiddenSet = new Set(uniqueMessageIds);
+        const nextRoomMessages = roomMessages.filter((message) => !hiddenSet.has(toComparableId(message.id)));
+        return { ...prev, [normalizedRoomId]: nextRoomMessages };
+      });
+
+      setRooms((prev) =>
+        prev.map((room) => {
+          if (toComparableId(room.id) !== normalizedRoomId) return room;
+          const roomMessages = messagesRef.current[normalizedRoomId] || [];
+          const hiddenSet = new Set(uniqueMessageIds);
+          const visibleMessages = roomMessages.filter((message) => !hiddenSet.has(toComparableId(message.id)));
+          const fallbackLastMessage = visibleMessages[visibleMessages.length - 1] || null;
+          if (!room.lastMessage || !hiddenSet.has(toComparableId(room.lastMessage.id))) {
+            return room;
+          }
+          return {
+            ...room,
+            lastMessage: fallbackLastMessage,
+          };
+        })
+      );
+    },
+    [userId]
+  );
+
   useEffect(() => {
     if (!activeRoom?.id || !userId) return;
     const roomId = activeRoom.id;
@@ -2325,6 +2409,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       sendMessage,
       editMessage,
       deleteMessage,
+      deleteMessagesForMe,
       sendTyping,
       togglePin,
       createDirectRoom,
@@ -2357,6 +2442,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       sendMessage,
       editMessage,
       deleteMessage,
+      deleteMessagesForMe,
       sendTyping,
       togglePin,
       createDirectRoom,
