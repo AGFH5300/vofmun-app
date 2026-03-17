@@ -1803,7 +1803,7 @@ const ChatShell: React.FC = () => {
                         placeholder={isSelectMode ? "Selection mode active" : "Type your message"}
                         rows={1}
                         style={{ border: "none", boxShadow: "none" }}
-                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-[#202c33] placeholder:text-[#7a7f84] focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                        className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-[#202c33] placeholder:text-[#7a7f84] no-focus"
                       />
                       <button
                         ref={emojiButtonRef}
