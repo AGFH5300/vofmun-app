@@ -1935,7 +1935,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
       const { error } = await supabase
         .from('message_hidden_for_users')
-        .upsert(payload, { onConflict: 'message_id,user_id', ignoreDuplicates: true });
+        .upsert(payload, { onConflict: 'room_id,message_id,user_id', ignoreDuplicates: true });
 
       if (error) {
         throw new Error(error.message || 'Failed to delete messages for you');

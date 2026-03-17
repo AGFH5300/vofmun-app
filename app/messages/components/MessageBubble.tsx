@@ -21,8 +21,6 @@ interface Props {
   showAvatar?: boolean;
   presenceDeliveredHint?: boolean;
   onEditMessage?: (messageId: string, content: string) => Promise<void>;
-  onDeleteMessage?: (messageId: string) => Promise<void>;
-  onDeleteForMe?: (messageId: string) => Promise<void>;
   onReplyMessage?: (message: MessageWithUser) => void;
   repliedToMessage?: MessageWithUser | null;
   isGroupRoom?: boolean;
@@ -139,8 +137,6 @@ const MessageBubble: React.FC<Props> = ({
   showAvatar = true,
   presenceDeliveredHint = false,
   onEditMessage,
-  onDeleteMessage,
-  onDeleteForMe,
   onReplyMessage,
   repliedToMessage = null,
   roomMembers = [],
@@ -269,7 +265,7 @@ const MessageBubble: React.FC<Props> = ({
   const isLargeEmojiMessage = Boolean(message.content) && isEmojiOnlyMessage(message.content) && !/\s/.test(message.content.trim());
   const isDeleted = Boolean(message.deleted_at);
   const canEditMessage = isOwn && !isDeleted && typeof onEditMessage === 'function';
-  const canDeleteMessage = isOwn && !isDeleted && typeof onDeleteMessage === 'function';
+  const canOpenDeleteSelection = typeof onEnterDeleteSelectionMode === 'function';
   const canReplyMessage = typeof onReplyMessage === 'function';
   const canViewInfo = isOwn;
   const canToggleSelectMode = typeof onEnterSelectMode === 'function';
@@ -351,7 +347,7 @@ const MessageBubble: React.FC<Props> = ({
   }, [attachmentSignature, attachments]);
 
   const contextActions: Array<{ icon: typeof Reply; label: string } | { divider: true }> = isDeleted
-    ? [{ icon: Trash2, label: 'Delete for me' }]
+    ? [{ icon: Trash2, label: 'Delete' }]
     : [
         ...(canReplyMessage ? [{ icon: Reply, label: 'Reply' }] : []),
         { icon: Smile, label: 'React' },
@@ -360,7 +356,7 @@ const MessageBubble: React.FC<Props> = ({
         ...(canEditMessage ? [{ icon: Pencil, label: 'Edit' }] : []),
         ...(canViewInfo ? [{ icon: Info, label: 'Info' }] : []),
         { divider: true },
-        ...(canDeleteMessage ? [{ icon: Trash2, label: 'Delete' }] : []),
+        ...(canOpenDeleteSelection ? [{ icon: Trash2, label: 'Delete' }] : []),
         ...(canToggleSelectMode && canSelectMessage ? [{ icon: CheckCircle2, label: 'Select message' }] : []),
       ];
 
@@ -659,12 +655,6 @@ const MessageBubble: React.FC<Props> = ({
                   }
                   if (entry.label === 'Delete') {
                     onEnterDeleteSelectionMode?.(message);
-                  }
-                  if (entry.label === 'Delete for me') {
-                    onDeleteForMe?.(String(message.id))
-                      .catch((error) => {
-                        toast.error(error instanceof Error ? error.message : 'Failed to delete message for you');
-                      });
                   }
                   if (entry.label === 'Info' && canViewInfo) {
                     openInfoPanel();
