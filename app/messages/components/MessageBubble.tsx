@@ -30,6 +30,7 @@ interface Props {
   isSelected?: boolean;
   onToggleSelectMessage?: (messageId: string) => void;
   onEnterSelectMode?: (message: MessageWithUser) => void;
+  onEnterDeleteSelectionMode?: (message: MessageWithUser) => void;
 }
 
 const statusIcon: Record<string, React.ReactNode> = {
@@ -148,6 +149,7 @@ const MessageBubble: React.FC<Props> = ({
   isSelected = false,
   onToggleSelectMessage,
   onEnterSelectMode,
+  onEnterDeleteSelectionMode,
 }) => {
   const { user } = useSession();
   const currentUserId = user?.id ? String(user.id) : null;
@@ -277,7 +279,6 @@ const MessageBubble: React.FC<Props> = ({
   const [isEditing, setIsEditing] = React.useState(false);
   const [editingText, setEditingText] = React.useState(message.content || '');
   const [isSubmittingEdit, setIsSubmittingEdit] = React.useState(false);
-  const [isSubmittingDelete, setIsSubmittingDelete] = React.useState(false);
   const canSelectMessage = true;
 
   useEffect(() => {
@@ -639,7 +640,6 @@ const MessageBubble: React.FC<Props> = ({
               <button
                 key={entry.label}
                 type="button"
-                disabled={isSubmittingDelete}
                 onClick={(event) => {
                   event.stopPropagation();
                   if (entry.label === 'Copy') {
@@ -658,20 +658,7 @@ const MessageBubble: React.FC<Props> = ({
                     setIsEditing(true);
                   }
                   if (entry.label === 'Delete') {
-                    const shouldDelete = window.confirm('Delete this message?');
-                    if (shouldDelete) {
-                      setIsSubmittingDelete(true);
-                      onDeleteMessage?.(String(message.id))
-                        .then(() => {
-                          toast.success('Message deleted');
-                        })
-                        .catch((error) => {
-                          toast.error(error instanceof Error ? error.message : 'Failed to delete message');
-                        })
-                        .finally(() => {
-                          setIsSubmittingDelete(false);
-                        });
-                    }
+                    onEnterDeleteSelectionMode?.(message);
                   }
                   if (entry.label === 'Delete for me') {
                     onDeleteForMe?.(String(message.id))

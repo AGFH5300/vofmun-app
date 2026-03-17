@@ -236,6 +236,7 @@ const ChatShell: React.FC = () => {
   const [hasInitialLoaderMinElapsed, setHasInitialLoaderMinElapsed] = useState(false);
   const [hideSidebarRequests, setHideSidebarRequests] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
+  const [isDeleteSelectionMode, setIsDeleteSelectionMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
   const previousShowInitialLoaderRef = useRef<boolean>(true);
   const preservedPageScrollYRef = useRef<number | null>(null);
@@ -265,6 +266,7 @@ const ChatShell: React.FC = () => {
 
   const exitSelectMode = () => {
     setIsSelectMode(false);
+    setIsDeleteSelectionMode(false);
     setSelectedMessageIds(new Set());
   };
 
@@ -423,6 +425,7 @@ const ChatShell: React.FC = () => {
   useEffect(() => {
     setReplyingToMessageId(null);
     setIsSelectMode(false);
+    setIsDeleteSelectionMode(false);
     setSelectedMessageIds(new Set());
   }, [activeRoom?.id]);
 
@@ -927,12 +930,13 @@ const ChatShell: React.FC = () => {
   }, [visibleActiveMessages]);
 
   const selectedMessagesCount = selectedMessageIds.size;
+  const isAnySelectionModeActive = isSelectMode || isDeleteSelectionMode;
 
   const activeTypingDisplay = roomTypingNames.length ? (
     <TypingIndicator names={roomTypingNames} />
   ) : null;
   const hasUploadedPendingAttachments = pendingAttachments.some((item) => item.status === "uploaded");
-  const canSendMessage = !isSelectMode && (composer.trim().length > 0 || hasUploadedPendingAttachments) && !isUploadingAttachments;
+  const canSendMessage = !isAnySelectionModeActive && (composer.trim().length > 0 || hasUploadedPendingAttachments) && !isUploadingAttachments;
 
   useEffect(() => {
     setIsUploadingAttachments(pendingAttachments.some((item) => item.status === "uploading"));
@@ -1146,7 +1150,7 @@ const ChatShell: React.FC = () => {
 
   useEffect(() => {
     setSelectedMessageIds((prev) => {
-      if (!isSelectMode || prev.size === 0) return prev;
+      if (!(isSelectMode || isDeleteSelectionMode) || prev.size === 0) return prev;
 
       const validIds = new Set(
         activeMessages
@@ -1166,7 +1170,7 @@ const ChatShell: React.FC = () => {
 
       return changed ? next : prev;
     });
-  }, [activeMessages, isSelectMode]);
+  }, [activeMessages, isDeleteSelectionMode, isSelectMode]);
 
   if (showInitialLoader) {
     const progressPercent = Math.min(100, Math.max(0, bootstrapProgress.percent));
@@ -1624,11 +1628,17 @@ const ChatShell: React.FC = () => {
                             }}
                             repliedToMessage={message.reply_to ? activeMessagesById[String(message.reply_to)] || null : null}
                             isGroupRoom={activeRoom.room_type !== "dm"}
-                            isSelectMode={isSelectMode}
+                            isSelectMode={isAnySelectionModeActive}
                             isSelected={selectedMessageIds.has(String(message.id))}
                             onToggleSelectMessage={toggleMessageSelection}
                             onEnterSelectMode={(targetMessage) => {
+                              setIsDeleteSelectionMode(false);
                               setIsSelectMode(true);
+                              setSelectedMessageIds(new Set([String(targetMessage.id)]));
+                            }}
+                            onEnterDeleteSelectionMode={(targetMessage) => {
+                              setIsSelectMode(false);
+                              setIsDeleteSelectionMode(true);
                               setSelectedMessageIds(new Set([String(targetMessage.id)]));
                             }}
                           />
@@ -1687,7 +1697,7 @@ const ChatShell: React.FC = () => {
                   <ChevronDown className="h-5 w-5" />
                 </button>
               )}
-              {!isSelectMode && (
+              {!isAnySelectionModeActive && (
                 <div className="sticky bottom-0 bg-white px-2 py-3">
                 {activeRoom ? activeTypingDisplay : <div className="mb-2 h-5" aria-hidden="true" />}
                 <input
@@ -1836,7 +1846,7 @@ const ChatShell: React.FC = () => {
                       <textarea
                         ref={composerRef}
                         value={composer}
-                        disabled={isSelectMode}
+                        disabled={isAnySelectionModeActive}
                         onChange={(event) => {
                           setComposer(event.target.value);
                           sendTyping(activeRoom.id, true);
@@ -1875,7 +1885,7 @@ const ChatShell: React.FC = () => {
                             handleSend();
                           }
                         }}
-                        placeholder={isSelectMode ? "Selection mode active" : "Type your message"}
+                        placeholder={isAnySelectionModeActive ? "Selection mode active" : "Type your message"}
                         rows={1}
                         style={{ border: "none", boxShadow: "none" }}
                         className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-[#202c33] placeholder:text-[#7a7f84] no-focus"
@@ -1948,6 +1958,32 @@ const ChatShell: React.FC = () => {
               )}
 
               {isSelectMode && (
+                <div className="border-t border-soft-ivory bg-white px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-almost-black-green">{selectedMessagesCount} selected</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={selectedMessagesCount === 0}
+                        onClick={() => {
+                          void copySelectedMessages();
+                        }}
+                        className="inline-flex items-center gap-1 rounded-xl border border-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red disabled:opacity-50"
+                      >
+                        <Copy className="h-3.5 w-3.5" /> Copy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={exitSelectMode}
+                        className="rounded-xl border border-soft-ivory px-3 py-2 text-xs font-semibold text-almost-black-green/75"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {isDeleteSelectionMode && (
                 <div className="border-t border-soft-ivory bg-white px-4 py-3">
                   <div className="grid grid-cols-3 items-center gap-3">
                     <p className="text-sm font-semibold text-almost-black-green">{selectedMessagesCount} selected</p>
