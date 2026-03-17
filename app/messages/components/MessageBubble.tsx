@@ -22,6 +22,7 @@ interface Props {
   presenceDeliveredHint?: boolean;
   onEditMessage?: (messageId: string, content: string) => Promise<void>;
   onDeleteMessage?: (messageId: string) => Promise<void>;
+  onDeleteForMe?: (messageId: string) => void;
   onReplyMessage?: (message: MessageWithUser) => void;
   repliedToMessage?: MessageWithUser | null;
   isGroupRoom?: boolean;
@@ -138,6 +139,7 @@ const MessageBubble: React.FC<Props> = ({
   presenceDeliveredHint = false,
   onEditMessage,
   onDeleteMessage,
+  onDeleteForMe,
   onReplyMessage,
   repliedToMessage = null,
   roomMembers = [],
@@ -347,17 +349,19 @@ const MessageBubble: React.FC<Props> = ({
     };
   }, [attachmentSignature, attachments]);
 
-  const contextActions: Array<{ icon: typeof Reply; label: string } | { divider: true }> = [
-    ...(canReplyMessage ? [{ icon: Reply, label: 'Reply' }] : []),
-    { icon: Smile, label: 'React' },
-    { icon: Forward, label: 'Forward' },
-    { icon: Copy, label: 'Copy' },
-    ...(canEditMessage ? [{ icon: Pencil, label: 'Edit' }] : []),
-    ...(canViewInfo ? [{ icon: Info, label: 'Info' }] : []),
-    { divider: true },
-    ...(canDeleteMessage ? [{ icon: Trash2, label: 'Delete' }] : []),
-    ...(canToggleSelectMode && canSelectMessage ? [{ icon: CheckCircle2, label: 'Select message' }] : []),
-  ];
+  const contextActions: Array<{ icon: typeof Reply; label: string } | { divider: true }> = isDeleted
+    ? [{ icon: Trash2, label: 'Delete for me' }]
+    : [
+        ...(canReplyMessage ? [{ icon: Reply, label: 'Reply' }] : []),
+        { icon: Smile, label: 'React' },
+        { icon: Forward, label: 'Forward' },
+        { icon: Copy, label: 'Copy' },
+        ...(canEditMessage ? [{ icon: Pencil, label: 'Edit' }] : []),
+        ...(canViewInfo ? [{ icon: Info, label: 'Info' }] : []),
+        { divider: true },
+        ...(canDeleteMessage ? [{ icon: Trash2, label: 'Delete' }] : []),
+        ...(canToggleSelectMode && canSelectMessage ? [{ icon: CheckCircle2, label: 'Select message' }] : []),
+      ];
 
 
   useModalLayerLock(showInfoSheet);
@@ -426,12 +430,12 @@ const MessageBubble: React.FC<Props> = ({
         <div
           ref={bubbleRef}
           onContextMenu={(event) => {
-            if (isSelectMode || isDeleted) return;
+            if (isSelectMode) return;
             event.preventDefault();
             event.stopPropagation();
             window.dispatchEvent(new CustomEvent('vofmun-message-menu-opened', { detail: { id: bubbleMenuId } }));
             const menuWidth = 220;
-            const menuHeight = isOwn ? 314 : 264;
+            const menuHeight = isDeleted ? 60 : isOwn ? 314 : 264;
             setContextMenuPosition(clampPosition(event.clientX, event.clientY, menuWidth, menuHeight));
           }}
           onTouchStart={(event) => {
@@ -668,6 +672,9 @@ const MessageBubble: React.FC<Props> = ({
                           setIsSubmittingDelete(false);
                         });
                     }
+                  }
+                  if (entry.label === 'Delete for me') {
+                    onDeleteForMe?.(String(message.id));
                   }
                   if (entry.label === 'Info' && canViewInfo) {
                     openInfoPanel();

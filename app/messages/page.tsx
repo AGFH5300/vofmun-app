@@ -226,6 +226,7 @@ const ChatShell: React.FC = () => {
   const [hideSidebarRequests, setHideSidebarRequests] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
+  const [hiddenDeletedMessageIds, setHiddenDeletedMessageIds] = useState<Set<string>>(new Set());
   const previousShowInitialLoaderRef = useRef<boolean>(true);
   const preservedPageScrollYRef = useRef<number | null>(null);
   const dragDepthRef = useRef(0);
@@ -348,6 +349,10 @@ const ChatShell: React.FC = () => {
     () => (activeRoom ? messages[activeRoom.id] || [] : []),
     [activeRoom, messages],
   );
+  const visibleActiveMessages = useMemo(
+    () => activeMessages.filter((message) => !hiddenDeletedMessageIds.has(String(message.id))),
+    [activeMessages, hiddenDeletedMessageIds],
+  );
   const activeRoomMembers = useMemo(() => activeRoom?.members || [], [activeRoom?.members]);
   const activeMessagesById = useMemo(() => {
     const byId: Record<string, MessageWithUser> = {};
@@ -357,6 +362,18 @@ const ChatShell: React.FC = () => {
     return byId;
   }, [activeMessages]);
   const replyingToMessage = replyingToMessageId ? activeMessagesById[String(replyingToMessageId)] || null : null;
+
+  const hideDeletedMessageForMe = (messageId: string) => {
+    const targetMessage = activeMessagesById[messageId];
+    if (!targetMessage?.deleted_at) return;
+
+    setHiddenDeletedMessageIds((prev) => {
+      if (prev.has(messageId)) return prev;
+      const next = new Set(prev);
+      next.add(messageId);
+      return next;
+    });
+  };
 
 
   const emojiQuery = useMemo(() => {
@@ -823,7 +840,7 @@ const ChatShell: React.FC = () => {
       { type: "date"; label: string } | { type: "message"; id: string }
     > = [];
     let lastDate: string | null = null;
-    activeMessages.forEach((msg) => {
+    visibleActiveMessages.forEach((msg) => {
       const dateLabel = msg.created_at ? formatDateLabel(msg.created_at) : "";
       if (dateLabel && dateLabel !== lastDate) {
         sequence.push({ type: "date", label: dateLabel });
@@ -832,7 +849,7 @@ const ChatShell: React.FC = () => {
       sequence.push({ type: "message", id: msg.id });
     });
     return sequence;
-  }, [activeMessages]);
+  }, [visibleActiveMessages]);
 
   const selectedMessagesCount = selectedMessageIds.size;
 
@@ -1466,7 +1483,7 @@ const ChatShell: React.FC = () => {
                 className="flex-1 overflow-y-auto px-6 py-5"
               >
                 {activeRoom ? (
-                  activeMessages.length > 0 ? (
+                  visibleActiveMessages.length > 0 ? (
                     timeline.map((item) => {
                       if (item.type === "date") {
                       return (
@@ -1480,22 +1497,22 @@ const ChatShell: React.FC = () => {
                           </div>
                         );
                       }
-                      const message = activeMessages.find(
+                      const message = visibleActiveMessages.find(
                         (msg) => msg.id === item.id,
                       );
                       if (!message) return null;
                       const isOwn =
                         currentUserId != null &&
                         String(currentUserId) === String(message.user_id);
-                      const currentIndex = activeMessages.findIndex((msg) => msg.id === message.id);
-                      const nextMessage = currentIndex >= 0 ? activeMessages[currentIndex + 1] : undefined;
+                      const currentIndex = visibleActiveMessages.findIndex((msg) => msg.id === message.id);
+                      const nextMessage = currentIndex >= 0 ? visibleActiveMessages[currentIndex + 1] : undefined;
                       const isSameSenderAsNext =
                         Boolean(nextMessage) && String(nextMessage?.user_id) === String(message.user_id);
                       const isSameDayAsNext =
                         Boolean(nextMessage?.created_at && message.created_at) &&
                         new Date(String(nextMessage?.created_at)).toDateString() ===
                           new Date(String(message.created_at)).toDateString();
-                      const previousMessage = currentIndex > 0 ? activeMessages[currentIndex - 1] : undefined;
+                      const previousMessage = currentIndex > 0 ? visibleActiveMessages[currentIndex - 1] : undefined;
                       const isSameSenderAsPrevious =
                         Boolean(previousMessage) && String(previousMessage?.user_id) === String(message.user_id);
                       const isSameDayAsPrevious =
@@ -1523,6 +1540,7 @@ const ChatShell: React.FC = () => {
                             presenceDeliveredHint={presenceDeliveredHint}
                             onEditMessage={(messageId, content) => editMessage(activeRoom.id, messageId, content)}
                             onDeleteMessage={(messageId) => deleteMessage(activeRoom.id, messageId)}
+                            onDeleteForMe={hideDeletedMessageForMe}
                             onReplyMessage={(targetMessage) => {
                               setReplyingToMessageId(String(targetMessage.id));
                               window.requestAnimationFrame(() => {
