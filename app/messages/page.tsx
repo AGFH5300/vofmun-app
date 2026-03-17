@@ -20,6 +20,7 @@ import {
   CalendarDays,
   ChevronDown,
   Circle,
+  Copy,
   FileText,
   Folder,
   Image,
