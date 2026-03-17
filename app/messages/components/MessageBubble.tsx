@@ -22,7 +22,7 @@ interface Props {
   presenceDeliveredHint?: boolean;
   onEditMessage?: (messageId: string, content: string) => Promise<void>;
   onDeleteMessage?: (messageId: string) => Promise<void>;
-  onDeleteForMe?: (messageId: string) => void;
+  onDeleteForMe?: (messageId: string) => Promise<void>;
   onReplyMessage?: (message: MessageWithUser) => void;
   repliedToMessage?: MessageWithUser | null;
   isGroupRoom?: boolean;
@@ -278,7 +278,7 @@ const MessageBubble: React.FC<Props> = ({
   const [editingText, setEditingText] = React.useState(message.content || '');
   const [isSubmittingEdit, setIsSubmittingEdit] = React.useState(false);
   const [isSubmittingDelete, setIsSubmittingDelete] = React.useState(false);
-  const canSelectMessage = !isDeleted;
+  const canSelectMessage = true;
 
   useEffect(() => {
     if (!isEditing) {
@@ -674,7 +674,10 @@ const MessageBubble: React.FC<Props> = ({
                     }
                   }
                   if (entry.label === 'Delete for me') {
-                    onDeleteForMe?.(String(message.id));
+                    onDeleteForMe?.(String(message.id))
+                      .catch((error) => {
+                        toast.error(error instanceof Error ? error.message : 'Failed to delete message for you');
+                      });
                   }
                   if (entry.label === 'Info' && canViewInfo) {
                     openInfoPanel();

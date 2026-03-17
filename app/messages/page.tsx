@@ -18,7 +18,6 @@ import { useModalFocusTrap, useModalLayerLock } from "./hooks/useModalLayerLock"
 import {
   CheckCircle2,
   CalendarDays,
-  Copy,
   ChevronDown,
   Circle,
   FileText,
@@ -171,6 +170,7 @@ const ChatShell: React.FC = () => {
     sendMessage,
     editMessage,
     deleteMessage,
+    deleteMessagesForMe,
     sendTyping,
     typingUsers,
     onlineUsers,
@@ -189,6 +189,17 @@ const ChatShell: React.FC = () => {
   } = useChat();
 
   const [composer, setComposer] = useState("");
+  const [draftsByRoom, setDraftsByRoom] = useState<Record<string, string>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const stored = window.localStorage.getItem("vofmun.messages.roomDrafts");
+      if (!stored) return {};
+      const parsed = JSON.parse(stored);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  });
   const [replyingToMessageId, setReplyingToMessageId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showNewConversation, setShowNewConversation] = useState(false);
@@ -226,7 +237,6 @@ const ChatShell: React.FC = () => {
   const [hideSidebarRequests, setHideSidebarRequests] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
-  const [hiddenDeletedMessageIds, setHiddenDeletedMessageIds] = useState<Set<string>>(new Set());
   const previousShowInitialLoaderRef = useRef<boolean>(true);
   const preservedPageScrollYRef = useRef<number | null>(null);
   const dragDepthRef = useRef(0);
@@ -240,7 +250,7 @@ const ChatShell: React.FC = () => {
 
   const toggleMessageSelection = (messageId: string) => {
     const targetMessage = activeMessagesById[messageId];
-    if (!targetMessage || targetMessage.deleted_at) return;
+    if (!targetMessage) return;
 
     setSelectedMessageIds((prev) => {
       const next = new Set(prev);
@@ -349,10 +359,7 @@ const ChatShell: React.FC = () => {
     () => (activeRoom ? messages[activeRoom.id] || [] : []),
     [activeRoom, messages],
   );
-  const visibleActiveMessages = useMemo(
-    () => activeMessages.filter((message) => !hiddenDeletedMessageIds.has(String(message.id))),
-    [activeMessages, hiddenDeletedMessageIds],
-  );
+  const visibleActiveMessages = activeMessages;
   const activeRoomMembers = useMemo(() => activeRoom?.members || [], [activeRoom?.members]);
   const activeMessagesById = useMemo(() => {
     const byId: Record<string, MessageWithUser> = {};
@@ -363,17 +370,24 @@ const ChatShell: React.FC = () => {
   }, [activeMessages]);
   const replyingToMessage = replyingToMessageId ? activeMessagesById[String(replyingToMessageId)] || null : null;
 
-  const hideDeletedMessageForMe = (messageId: string) => {
-    const targetMessage = activeMessagesById[messageId];
-    if (!targetMessage?.deleted_at) return;
-
-    setHiddenDeletedMessageIds((prev) => {
-      if (prev.has(messageId)) return prev;
-      const next = new Set(prev);
-      next.add(messageId);
-      return next;
-    });
+  const hideDeletedMessageForMe = async (messageId: string) => {
+    if (!activeRoom) return;
+    await deleteMessagesForMe(activeRoom.id, [messageId]);
   };
+
+  const selectedMessages = useMemo(
+    () => activeMessages.filter((message) => selectedMessageIds.has(String(message.id))),
+    [activeMessages, selectedMessageIds],
+  );
+
+  const effectiveDeleteAction = useMemo<"delete_for_everyone" | "delete_for_me">(() => {
+    if (selectedMessages.length === 0) return "delete_for_me";
+    const canDeleteForEveryone = selectedMessages.every((message) => {
+      const isOwn = String(message.user_id) === String(currentUserId || "");
+      return isOwn && !message.deleted_at;
+    });
+    return canDeleteForEveryone ? "delete_for_everyone" : "delete_for_me";
+  }, [currentUserId, selectedMessages]);
 
 
   const emojiQuery = useMemo(() => {
@@ -411,6 +425,50 @@ const ChatShell: React.FC = () => {
     setIsSelectMode(false);
     setSelectedMessageIds(new Set());
   }, [activeRoom?.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("vofmun.messages.roomDrafts", JSON.stringify(draftsByRoom));
+  }, [draftsByRoom]);
+
+  useEffect(() => {
+    const roomId = String(activeRoom?.id || "");
+    if (!roomId) {
+      setComposer("");
+      return;
+    }
+    setComposer(draftsByRoom[roomId] || "");
+  }, [activeRoom?.id, draftsByRoom]);
+
+  useEffect(() => {
+    const roomId = String(activeRoom?.id || "");
+    if (!roomId) return;
+    setDraftsByRoom((prev) => {
+      if ((prev[roomId] || "") === composer) return prev;
+      return { ...prev, [roomId]: composer };
+    });
+  }, [activeRoom?.id, composer]);
+
+  useEffect(() => {
+    setSelectedMessageIds((prev) => {
+      if (prev.size === 0) return prev;
+      const visibleMessageIds = new Set(activeMessages.map((message) => String(message.id)));
+      const next = new Set(Array.from(prev).filter((id) => visibleMessageIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [activeMessages]);
+
+  useEffect(() => {
+    if (!isSelectMode) return;
+    const onCopy = (event: KeyboardEvent) => {
+      const isCopy = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c";
+      if (!isCopy) return;
+      event.preventDefault();
+      void copySelectedMessages();
+    };
+    window.addEventListener("keydown", onCopy);
+    return () => window.removeEventListener("keydown", onCopy);
+  }, [isSelectMode, copySelectedMessages]);
 
   useEffect(() => {
     const roomId = activeRoom?.id;
@@ -793,7 +851,24 @@ const ChatShell: React.FC = () => {
     if (sendOperations.length > 0) {
       await Promise.allSettled(sendOperations);
       setReplyingToMessageId(null);
+      setDraftsByRoom((prev) => {
+        if (!activeRoom) return prev;
+        const roomId = String(activeRoom.id);
+        if (!prev[roomId]) return prev;
+        return { ...prev, [roomId]: "" };
+      });
     }
+  };
+
+  const handleDeleteSelectedMessages = async () => {
+    if (!activeRoom || selectedMessages.length === 0) return;
+    const selectedIds = selectedMessages.map((message) => String(message.id));
+    if (effectiveDeleteAction === "delete_for_everyone") {
+      await Promise.allSettled(selectedIds.map((messageId) => deleteMessage(activeRoom.id, messageId)));
+    } else {
+      await deleteMessagesForMe(activeRoom.id, selectedIds);
+    }
+    exitSelectMode();
   };
 
   const removePendingAttachment = async (pendingId: string) => {
@@ -1874,19 +1949,21 @@ const ChatShell: React.FC = () => {
 
               {isSelectMode && (
                 <div className="border-t border-soft-ivory bg-white px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="grid grid-cols-3 items-center gap-3">
                     <p className="text-sm font-semibold text-almost-black-green">{selectedMessagesCount} selected</p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex justify-center">
                       <button
                         type="button"
                         disabled={selectedMessagesCount === 0}
                         onClick={() => {
-                          void copySelectedMessages();
+                          void handleDeleteSelectedMessages();
                         }}
-                        className="inline-flex items-center gap-1 rounded-xl border border-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red disabled:opacity-50"
+                        className="rounded-xl border border-[#f2d4d4] bg-[#fff4f4] px-3 py-2 text-xs font-semibold text-deep-red disabled:opacity-50"
                       >
-                        <Copy className="h-3.5 w-3.5" /> Copy
+                        {effectiveDeleteAction === "delete_for_everyone" ? "Delete for everyone" : "Delete for me"}
                       </button>
+                    </div>
+                    <div className="flex justify-end">
                       <button
                         type="button"
                         onClick={exitSelectMode}
