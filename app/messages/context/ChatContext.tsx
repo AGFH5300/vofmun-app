@@ -453,9 +453,27 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     });
   }, []);
 
+  const isDocumentVisible = useCallback(
+    () => typeof document === 'undefined' || document.visibilityState !== 'hidden',
+    []
+  );
+
+  const isRoomActivelyRead = useCallback(
+    (roomId: string | null | undefined) => {
+      const normalizedRoomId = toComparableId(roomId);
+      if (!normalizedRoomId) return false;
+      return normalizedRoomId === toComparableId(activeRoomIdRef.current) && isDocumentVisible();
+    },
+    [isDocumentVisible]
+  );
+
   const setRoomUnreadCount = useCallback((roomId: string, count: number) => {
     const normalizedRoomId = toComparableId(roomId);
     const safeCount = Math.max(0, Math.floor(count));
+    unreadByRoomRef.current = {
+      ...unreadByRoomRef.current,
+      [normalizedRoomId]: safeCount,
+    };
     setUnreadByRoom((prev) => {
       const previous = prev[normalizedRoomId] || 0;
       if (previous === safeCount) return prev;
@@ -469,7 +487,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     });
     setRooms((prev) =>
       prev.map((room) =>
-        room.id === normalizedRoomId
+        toComparableId(room.id) === normalizedRoomId
           ? {
               ...room,
               unreadCount: safeCount,
@@ -481,8 +499,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const incrementRoomUnreadCount = useCallback((roomId: string) => {
     const normalizedRoomId = toComparableId(roomId);
+    const nextCount = (unreadByRoomRef.current[normalizedRoomId] || 0) + 1;
+    unreadByRoomRef.current = {
+      ...unreadByRoomRef.current,
+      [normalizedRoomId]: nextCount,
+    };
     setUnreadByRoom((prev) => {
-      const nextCount = (prev[normalizedRoomId] || 0) + 1;
       const next = { ...prev, [normalizedRoomId]: nextCount };
       console.debug('[MessagesUnreadDebug] room_unread_increment', {
         roomId: normalizedRoomId,
@@ -492,10 +514,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     });
     setRooms((prev) =>
       prev.map((room) =>
-        room.id === normalizedRoomId
+        toComparableId(room.id) === normalizedRoomId
           ? {
               ...room,
-              unreadCount: (room.unreadCount || 0) + 1,
+              unreadCount: nextCount,
             }
           : room
       )
@@ -776,6 +798,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const serverLastMessage = room.lastMessage && !hiddenMessageIdsByRoomRef.current[normalizedRoomId]?.has(toComparableId(room.lastMessage.id))
         ? room.lastMessage
         : null;
+      const serverUnreadCount = typeof room.unreadCount === 'number' ? Math.max(0, room.unreadCount) : 0;
+      const localUnreadCount = unreadByRoomRef.current[normalizedRoomId];
+      const mergedUnreadCount = isRoomActivelyRead(normalizedRoomId)
+        ? 0
+        : Math.max(localUnreadCount ?? 0, serverUnreadCount);
 
       return {
         ...room,
@@ -786,7 +813,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           user: member.user || userDirectoryRef.current[String(member.user_id)] || undefined,
         })),
         isPinned: pinnedRoomIds.has(normalizedRoomId),
-        unreadCount: unreadByRoomRef.current[normalizedRoomId] ?? room.unreadCount ?? 0,
+        unreadCount: mergedUnreadCount,
       };
     });
     setRooms((prev) => {
@@ -803,16 +830,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         };
       });
     });
-    setUnreadByRoom((prev) => {
-      const next = { ...prev };
-      enriched.forEach((room) => {
-        const fromServer = typeof room.unreadCount === 'number' ? Math.max(0, room.unreadCount) : null;
-        if (fromServer !== null && next[room.id] === undefined) {
-          next[room.id] = fromServer;
-        }
-      });
-      return next;
-    });
+    const nextUnreadByRoom = enriched.reduce<Record<string, number>>((acc, room) => {
+      acc[room.id] = Math.max(0, Math.floor(room.unreadCount || 0));
+      return acc;
+    }, {});
+    unreadByRoomRef.current = nextUnreadByRoom;
+    setUnreadByRoom(nextUnreadByRoom);
 
     const activeRoomId = activeRoomIdRef.current;
     if (activeRoomId) {
@@ -822,7 +845,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
     }
     return enriched;
-  }, [fetchWithTimeout, mergeUsersIntoDirectory, pinnedRoomIds, userId, withAuthHeaders]);
+  }, [fetchWithTimeout, getVisibleLastMessageForRoom, isRoomActivelyRead, mergeUsersIntoDirectory, pinnedRoomIds, userId, withAuthHeaders]);
 
   const refreshFriendRequests = useCallback(async () => {
     if (!userId) return;
@@ -976,8 +999,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           return first - second;
         });
       scheduleReceiptsForMessages(normalizedRoomId, withResolvedStatus, false);
-      if (typeof document !== 'undefined' && document.visibilityState !== 'hidden' && normalizedRoomId === activeRoomIdRef.current) {
+      if (isRoomActivelyRead(normalizedRoomId)) {
         scheduleReceiptsForMessages(normalizedRoomId, withResolvedStatus, true);
+        setRoomUnreadCount(normalizedRoomId, 0);
       }
 
       messagesRef.current = {
@@ -997,7 +1021,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       );
       return true;
     },
-    [cacheHiddenMessageIdsForRoom, fetchWithTimeout, mergeUsersIntoDirectory, scheduleReceiptsForMessages, userId, withAuthHeaders]
+    [cacheHiddenMessageIdsForRoom, fetchWithTimeout, isRoomActivelyRead, mergeUsersIntoDirectory, scheduleReceiptsForMessages, setRoomUnreadCount, userId, withAuthHeaders]
   );
 
   useEffect(() => {
@@ -1074,9 +1098,14 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       activeRoomIdRef.current = room.id;
       pendingRoomJoinRef.current = room.id;
       setActiveRoom(rooms.find((candidate) => candidate.id === room.id) || room);
-      setRoomUnreadCount(room.id, 0);
+      if (isRoomActivelyRead(room.id)) {
+        setRoomUnreadCount(room.id, 0);
+      }
       if (!messagesRef.current[room.id]) {
         await refreshRoomMessages(room.id);
+      }
+      if (isRoomActivelyRead(room.id)) {
+        setRoomUnreadCount(room.id, 0);
       }
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const payload: ChatSocketPayload = { type: 'join_room', roomId: room.id } as ChatSocketPayload;
@@ -1089,7 +1118,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
       }
     },
-    [refreshRoomMessages, rooms, sendTyping, setRoomUnreadCount]
+    [isRoomActivelyRead, refreshRoomMessages, rooms, sendTyping, setRoomUnreadCount]
   );
 
   const handleSocketMessage = useCallback(
@@ -1181,7 +1210,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           );
           const isOwnMessage = toComparableId(message.user_id) === toComparableId(userIdRef.current);
           const isActiveRoom = normalizedRoomId === activeRoomIdRef.current;
-          const isVisible = typeof document !== 'undefined' && document.visibilityState !== 'hidden';
+          const isVisible = isDocumentVisible();
           const shouldIncrementUnread = !isOwnMessage && (!isActiveRoom || !isVisible);
           if (shouldIncrementUnread) {
             incrementRoomUnreadCount(normalizedRoomId);
@@ -1196,8 +1225,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           if (normalizedRoomId === activeRoomIdRef.current) {
             const roomMessages = [...(messagesRef.current[normalizedRoomId] || []), message];
             scheduleReceiptsForMessages(normalizedRoomId, roomMessages, false);
-            if (typeof document !== 'undefined' && document.visibilityState !== 'hidden') {
+            if (isRoomActivelyRead(normalizedRoomId)) {
               scheduleReceiptsForMessages(normalizedRoomId, roomMessages, true);
+              setRoomUnreadCount(normalizedRoomId, 0);
             }
           }
           break;
@@ -2155,6 +2185,14 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       window.removeEventListener('focus', clearActiveRoomWhenVisible);
     };
   }, [setRoomUnreadCount]);
+
+  useEffect(() => {
+    const activeRoomId = activeRoom?.id;
+    if (!activeRoomId || !isRoomActivelyRead(activeRoomId)) return;
+    if ((unreadByRoom[activeRoomId] || 0) === 0) return;
+    console.debug('[MessagesUnreadDebug] clear_active_room_on_activation', { roomId: activeRoomId });
+    setRoomUnreadCount(activeRoomId, 0);
+  }, [activeRoom?.id, isRoomActivelyRead, setRoomUnreadCount, unreadByRoom]);
 
 
   useEffect(() => {
