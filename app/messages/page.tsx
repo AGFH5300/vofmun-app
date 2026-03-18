@@ -442,7 +442,7 @@ const ChatShell: React.FC = () => {
       return;
     }
     setComposer(draftsByRoom[roomId] || "");
-  }, [activeRoom?.id, draftsByRoom]);
+  }, [activeRoom?.id]);
 
   useEffect(() => {
     const roomId = String(activeRoom?.id || "");
