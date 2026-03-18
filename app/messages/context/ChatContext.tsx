@@ -744,6 +744,26 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     [unreadByRoom]
   );
 
+  const roomsWithUnreadState = useMemo(
+    () =>
+      rooms.map((room) => {
+        const normalizedRoomId = toComparableId(room.id);
+        const canonicalUnreadCount = isRoomActivelyRead(normalizedRoomId)
+          ? 0
+          : Math.max(0, Math.floor(unreadByRoom[normalizedRoomId] ?? room.unreadCount ?? 0));
+
+        if (canonicalUnreadCount === (room.unreadCount || 0)) {
+          return room;
+        }
+
+        return {
+          ...room,
+          unreadCount: canonicalUnreadCount,
+        };
+      }),
+    [isRoomActivelyRead, rooms, unreadByRoom]
+  );
+
   useEffect(() => {
     if (typeof document === 'undefined' || typeof window === 'undefined') return;
     if (!defaultDocumentTitleRef.current) {
@@ -1204,6 +1224,14 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
                 ? {
                     ...room,
                     lastMessage: message,
+                    unreadCount: Math.max(
+                      0,
+                      Math.floor(
+                        unreadByRoomRef.current[normalizedRoomId] ??
+                          room.unreadCount ??
+                          0
+                      )
+                    ),
                   }
                 : room
             )
@@ -2488,7 +2516,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const value = useMemo<ChatContextValue>(
     () => ({
-      rooms,
+      rooms: roomsWithUnreadState,
       activeRoom,
       messages,
       typingUsers,
@@ -2522,7 +2550,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       openDirectMessageRoomForUser,
     }),
     [
-      rooms,
+      roomsWithUnreadState,
       activeRoom,
       messages,
       typingUsers,
