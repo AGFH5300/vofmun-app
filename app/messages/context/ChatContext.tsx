@@ -403,6 +403,23 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     return hiddenIds;
   }, []);
 
+  const filterHiddenMessagesForRoom = useCallback((roomId: string, roomMessages: MessageWithUser[]) => {
+    const normalizedRoomId = toComparableId(roomId);
+    const hiddenIds = hiddenMessageIdsByRoomRef.current[normalizedRoomId];
+    if (!hiddenIds || hiddenIds.size === 0) return roomMessages;
+    return roomMessages.filter((message) => !hiddenIds.has(toComparableId(message.id)));
+  }, []);
+
+  const getVisibleLastMessageForRoom = useCallback(
+    (roomId: string, roomMessages?: MessageWithUser[]) => {
+      const normalizedRoomId = toComparableId(roomId);
+      const sourceMessages = roomMessages ?? messagesRef.current[normalizedRoomId] ?? [];
+      const visibleMessages = filterHiddenMessagesForRoom(normalizedRoomId, sourceMessages);
+      return visibleMessages[visibleMessages.length - 1] || null;
+    },
+    [filterHiddenMessagesForRoom]
+  );
+
   const mergeUsersIntoDirectory = useCallback((profiles: ChatUserLike[]) => {
     const prepared = profiles
       .map((profile) => toDirectoryUser(profile))
@@ -753,15 +770,25 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     logChatDebug('refreshRooms:success', { count: data.length, roomIds: data.map((room) => room.id) });
     mergeUsersIntoDirectory(data.flatMap((room) => room.members.map((member) => member.user)));
 
-    const enriched = data.map((room) => ({
-      ...room,
-      members: room.members.map((member) => ({
-        ...member,
-        user: member.user || userDirectoryRef.current[String(member.user_id)] || undefined,
-      })),
-      isPinned: pinnedRoomIds.has(room.id),
-      unreadCount: unreadByRoomRef.current[room.id] ?? room.unreadCount ?? 0,
-    }));
+    const enriched = data.map((room) => {
+      const normalizedRoomId = toComparableId(room.id);
+      const locallyVisibleLastMessage = getVisibleLastMessageForRoom(normalizedRoomId);
+      const serverLastMessage = room.lastMessage && !hiddenMessageIdsByRoomRef.current[normalizedRoomId]?.has(toComparableId(room.lastMessage.id))
+        ? room.lastMessage
+        : null;
+
+      return {
+        ...room,
+        id: normalizedRoomId,
+        lastMessage: locallyVisibleLastMessage || serverLastMessage,
+        members: room.members.map((member) => ({
+          ...member,
+          user: member.user || userDirectoryRef.current[String(member.user_id)] || undefined,
+        })),
+        isPinned: pinnedRoomIds.has(normalizedRoomId),
+        unreadCount: unreadByRoomRef.current[normalizedRoomId] ?? room.unreadCount ?? 0,
+      };
+    });
     setRooms((prev) => {
       const previousById = new Map(prev.map((room) => [room.id, room]));
       return enriched.map((room) => {
@@ -923,41 +950,51 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const refreshRoomMessages = useCallback(
     async (roomId: string) => {
       if (!userId) return false;
-      const response = await fetchWithTimeout(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, await withAuthHeaders());
+      const normalizedRoomId = toComparableId(roomId);
+      const response = await fetchWithTimeout(`${CHAT_API_URL}/api/rooms/${normalizedRoomId}/messages`, await withAuthHeaders());
       if (!response.ok) return false;
       const data = (await response.json()) as MessageWithUser[];
-      const hiddenMessageIds = await cacheHiddenMessageIdsForRoom(roomId);
+      const hiddenMessageIds = await cacheHiddenMessageIdsForRoom(normalizedRoomId);
       const visibleData = data.filter((message) => !hiddenMessageIds.has(toComparableId(message.id)));
       mergeUsersIntoDirectory(visibleData.map((message) => message.user));
-      const roomMemberIds = getRoomMemberIds(roomId, roomsRef.current);
-      const withResolvedStatus = visibleData.map((message) =>
-        hydrateMessage(
-          {
-            ...message,
-            user: message.user || userDirectoryRef.current[String(message.user_id)] || undefined,
-          },
-          userId,
-          roomMemberIds
+      const roomMemberIds = getRoomMemberIds(normalizedRoomId, roomsRef.current);
+      const withResolvedStatus = visibleData
+        .map((message) =>
+          hydrateMessage(
+            {
+              ...message,
+              room_id: normalizedRoomId,
+              user: message.user || userDirectoryRef.current[String(message.user_id)] || undefined,
+            },
+            userId,
+            roomMemberIds
+          )
         )
-      );
-      scheduleReceiptsForMessages(roomId, withResolvedStatus, false);
-      if (typeof document !== 'undefined' && document.visibilityState !== 'hidden' && roomId === activeRoomIdRef.current) {
-        scheduleReceiptsForMessages(roomId, withResolvedStatus, true);
-      }
-
-      setMessages((prev) => {
-        const existing = prev[roomId] || [];
-        const reconciled = withResolvedStatus.reduce(
-          (acc, serverMessage) => reconcileIncomingMessage(acc, serverMessage, userIdRef.current),
-          existing as MessageWithUser[]
-        );
-        const merged = reconciled.sort((a, b) => {
+        .sort((a, b) => {
           const first = a.created_at ? new Date(a.created_at).getTime() : Number.MAX_SAFE_INTEGER;
           const second = b.created_at ? new Date(b.created_at).getTime() : Number.MAX_SAFE_INTEGER;
           return first - second;
         });
-        return { ...prev, [roomId]: merged };
-      });
+      scheduleReceiptsForMessages(normalizedRoomId, withResolvedStatus, false);
+      if (typeof document !== 'undefined' && document.visibilityState !== 'hidden' && normalizedRoomId === activeRoomIdRef.current) {
+        scheduleReceiptsForMessages(normalizedRoomId, withResolvedStatus, true);
+      }
+
+      messagesRef.current = {
+        ...messagesRef.current,
+        [normalizedRoomId]: withResolvedStatus,
+      };
+      setMessages((prev) => ({ ...prev, [normalizedRoomId]: withResolvedStatus }));
+      setRooms((prev) =>
+        prev.map((room) =>
+          toComparableId(room.id) === normalizedRoomId
+            ? {
+                ...room,
+                lastMessage: withResolvedStatus[withResolvedStatus.length - 1] || null,
+              }
+            : room
+        )
+      );
       return true;
     },
     [cacheHiddenMessageIdsForRoom, fetchWithTimeout, mergeUsersIntoDirectory, scheduleReceiptsForMessages, userId, withAuthHeaders]
@@ -1924,43 +1961,59 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const deleteMessagesForMe = useCallback(
     async (roomId: string, messageIds: string[]) => {
       const normalizedRoomId = toComparableId(roomId);
+      const normalizedUserId = toComparableId(userId);
       const uniqueMessageIds = Array.from(new Set(messageIds.map((id) => toComparableId(id)).filter(Boolean)));
-      if (!userId || uniqueMessageIds.length === 0) return;
+      if (!normalizedUserId || uniqueMessageIds.length === 0) return;
 
       const payload = uniqueMessageIds.map((messageId) => ({
         room_id: normalizedRoomId,
         message_id: messageId,
-        user_id: toComparableId(userId),
+        user_id: normalizedUserId,
       }));
+
+      console.debug('[ChatContext] deleteMessagesForMe:start', {
+        roomId: normalizedRoomId,
+        messageIds: uniqueMessageIds,
+        payload,
+      });
 
       const { error } = await supabase
         .from('message_hidden_for_users')
         .upsert(payload, { onConflict: 'room_id,message_id,user_id', ignoreDuplicates: true });
 
       if (error) {
+        console.error('[ChatContext] deleteMessagesForMe:error', {
+          roomId: normalizedRoomId,
+          messageIds: uniqueMessageIds,
+          payload,
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
         throw new Error(error.message || 'Failed to delete messages for you');
       }
 
-      const roomHiddenIds = hiddenMessageIdsByRoomRef.current[normalizedRoomId] || new Set<string>();
+      const roomHiddenIds = new Set(hiddenMessageIdsByRoomRef.current[normalizedRoomId] || []);
       uniqueMessageIds.forEach((messageId) => roomHiddenIds.add(messageId));
       hiddenMessageIdsByRoomRef.current[normalizedRoomId] = roomHiddenIds;
 
-      setMessages((prev) => {
-        const roomMessages = prev[normalizedRoomId] || [];
-        if (roomMessages.length === 0) return prev;
-        const hiddenSet = new Set(uniqueMessageIds);
-        const nextRoomMessages = roomMessages.filter((message) => !hiddenSet.has(toComparableId(message.id)));
-        return { ...prev, [normalizedRoomId]: nextRoomMessages };
-      });
+      const currentRoomMessages = messagesRef.current[normalizedRoomId] || [];
+      const nextRoomMessages = currentRoomMessages.filter((message) => !roomHiddenIds.has(toComparableId(message.id)));
+      messagesRef.current = {
+        ...messagesRef.current,
+        [normalizedRoomId]: nextRoomMessages,
+      };
+      setMessages((prev) => ({
+        ...prev,
+        [normalizedRoomId]: (prev[normalizedRoomId] || []).filter((message) => !roomHiddenIds.has(toComparableId(message.id))),
+      }));
 
+      const fallbackLastMessage = getVisibleLastMessageForRoom(normalizedRoomId, nextRoomMessages);
       setRooms((prev) =>
         prev.map((room) => {
           if (toComparableId(room.id) !== normalizedRoomId) return room;
-          const roomMessages = messagesRef.current[normalizedRoomId] || [];
-          const hiddenSet = new Set(uniqueMessageIds);
-          const visibleMessages = roomMessages.filter((message) => !hiddenSet.has(toComparableId(message.id)));
-          const fallbackLastMessage = visibleMessages[visibleMessages.length - 1] || null;
-          if (!room.lastMessage || !hiddenSet.has(toComparableId(room.lastMessage.id))) {
+          if (room.lastMessage && !roomHiddenIds.has(toComparableId(room.lastMessage.id))) {
             return room;
           }
           return {
@@ -1969,8 +2022,16 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           };
         })
       );
+
+      console.debug('[ChatContext] deleteMessagesForMe:success', {
+        roomId: normalizedRoomId,
+        messageIds: uniqueMessageIds,
+        hiddenCount: roomHiddenIds.size,
+        remainingVisibleCount: nextRoomMessages.length,
+        fallbackLastMessageId: fallbackLastMessage?.id ?? null,
+      });
     },
-    [userId]
+    [getVisibleLastMessageForRoom, userId]
   );
 
   useEffect(() => {
