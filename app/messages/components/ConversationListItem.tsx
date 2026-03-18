@@ -55,6 +55,9 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
   const [contextMenuPosition, setContextMenuPosition] = React.useState<{ x: number; y: number } | null>(null);
   const meta = getDisplayMeta(room, currentUserId);
   const last = room.lastMessage;
+  const unreadCount = Math.max(0, Math.floor(room.unreadCount || 0));
+  const hasUnread = unreadCount > 0;
+  const unreadBadgeLabel = unreadCount > 99 ? '99+' : String(unreadCount);
   const dmPeer =
     room.room_type === 'dm'
       ? room.members.find((m) => String(m.user_id) !== String(currentUserId || ''))?.user || room.members[0]?.user
@@ -136,31 +139,31 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
               </div>
               <div className="flex flex-col items-end gap-2">
                 {last?.created_at && (
-                  <span className="text-[0.7rem] text-almost-black-green/50">
+                  <span className={`text-[0.7rem] ${hasUnread ? 'font-semibold text-deep-red' : 'text-almost-black-green/50'}`}>
                     {new Date(last.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
+                {hasUnread ? (
+                  <span className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-[#25d366] px-1.5 py-0.5 text-[0.7rem] font-bold leading-none text-white shadow-sm">
+                    {unreadBadgeLabel}
+                  </span>
+                ) : null}
               </div>
             </div>
             {last ? (
               shouldShowAttachmentPreview ? (
-                <p className="mt-1 inline-flex max-w-full items-center gap-1.5 line-clamp-1 text-xs text-almost-black-green/70">
+                <p className={`mt-1 inline-flex max-w-full items-center gap-1.5 line-clamp-1 text-xs ${hasUnread ? 'font-semibold text-almost-black-green' : 'text-almost-black-green/70'}`}>
                   <File className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{attachmentLabel}</span>
                 </p>
               ) : (
-                <p className="mt-1 line-clamp-1 text-xs text-almost-black-green/70">
+                <p className={`mt-1 line-clamp-1 text-xs ${hasUnread ? 'font-semibold text-almost-black-green' : 'text-almost-black-green/70'}`}>
                   {`${room.room_type === 'dm' ? '' : last.user?.full_name ? `${last.user.full_name}: ` : ''}${lastMessageText}`}
                 </p>
               )
             ) : (
               <p className="mt-1 line-clamp-1 text-xs text-almost-black-green/70">No messages yet</p>
             )}
-            {room.unreadCount ? (
-              <span className="mt-2 inline-flex items-center rounded-full bg-deep-red/10 px-2 py-0.5 text-[0.7rem] font-semibold text-deep-red">
-                {room.unreadCount} new
-              </span>
-            ) : null}
           </div>
         </div>
       </div>
