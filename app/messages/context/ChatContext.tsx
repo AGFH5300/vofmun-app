@@ -477,13 +477,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     setUnreadByRoom((prev) => {
       const previous = prev[normalizedRoomId] || 0;
       if (previous === safeCount) return prev;
-      const next = { ...prev, [normalizedRoomId]: safeCount };
-      console.debug('[MessagesUnreadDebug] room_unread_set', {
-        roomId: normalizedRoomId,
-        previous,
-        next: safeCount,
-      });
-      return next;
+      return { ...prev, [normalizedRoomId]: safeCount };
     });
     setRooms((prev) =>
       prev.map((room) =>
@@ -505,12 +499,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       [normalizedRoomId]: nextCount,
     };
     setUnreadByRoom((prev) => {
-      const next = { ...prev, [normalizedRoomId]: nextCount };
-      console.debug('[MessagesUnreadDebug] room_unread_increment', {
-        roomId: normalizedRoomId,
-        next: nextCount,
-      });
-      return next;
+      return { ...prev, [normalizedRoomId]: nextCount };
     });
     setRooms((prev) =>
       prev.map((room) =>
@@ -773,10 +762,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     document.title = totalUnreadCount > 0 ? `(${totalUnreadCount}) ${baseTitle}` : baseTitle;
     window.localStorage.setItem('vofmun.messages.unreadTotal', String(totalUnreadCount));
     window.dispatchEvent(new CustomEvent('vofmun:messages-unread-updated', { detail: { totalUnreadCount } }));
-    console.debug('[MessagesUnreadDebug] total_unread_and_title_updated', {
-      totalUnreadCount,
-      title: document.title,
-    });
   }, [totalUnreadCount]);
 
   useEffect(() => {
@@ -1242,13 +1227,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           const shouldIncrementUnread = !isOwnMessage && (!isActiveRoom || !isVisible);
           if (shouldIncrementUnread) {
             incrementRoomUnreadCount(normalizedRoomId);
-          } else {
-            console.debug('[MessagesUnreadDebug] room_unread_not_incremented', {
-              roomId: normalizedRoomId,
-              isOwnMessage,
-              isActiveRoom,
-              isVisible,
-            });
           }
           if (normalizedRoomId === activeRoomIdRef.current) {
             const roomMessages = [...(messagesRef.current[normalizedRoomId] || []), message];
@@ -2201,7 +2179,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const activeRoomId = activeRoomIdRef.current;
       if (!activeRoomId) return;
       if ((unreadByRoomRef.current[activeRoomId] || 0) > 0) {
-        console.debug('[MessagesUnreadDebug] clear_active_room_on_visibility', { roomId: activeRoomId });
         setRoomUnreadCount(activeRoomId, 0);
       }
     };
@@ -2218,7 +2195,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     const activeRoomId = activeRoom?.id;
     if (!activeRoomId || !isRoomActivelyRead(activeRoomId)) return;
     if ((unreadByRoom[activeRoomId] || 0) === 0) return;
-    console.debug('[MessagesUnreadDebug] clear_active_room_on_activation', { roomId: activeRoomId });
     setRoomUnreadCount(activeRoomId, 0);
   }, [activeRoom?.id, isRoomActivelyRead, setRoomUnreadCount, unreadByRoom]);
 

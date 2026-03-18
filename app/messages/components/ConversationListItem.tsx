@@ -129,22 +129,25 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
               </div>
             </div>
           )}
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-base font-semibold leading-5 text-deep-red">{meta.name}</p>
+              <div className="min-w-0 flex-1">
+                <p className={`truncate text-base leading-5 text-deep-red ${hasUnread ? 'font-bold' : 'font-semibold'}`}>{meta.name}</p>
                 {meta.shortDelegation ? (
-                  <p className="mt-0.5 text-sm font-medium leading-4 text-almost-black-green/70">({meta.shortDelegation})</p>
+                  <p className="mt-0.5 truncate text-sm font-medium leading-4 text-almost-black-green/70">({meta.shortDelegation})</p>
                 ) : null}
               </div>
-              <div className="flex flex-col items-end gap-2">
+              <div className="ml-2 flex shrink-0 flex-col items-end gap-2">
                 {last?.created_at && (
                   <span className={`text-[0.7rem] ${hasUnread ? 'font-semibold text-deep-red' : 'text-almost-black-green/50'}`}>
                     {new Date(last.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
                 {hasUnread ? (
-                  <span className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-[#25d366] px-1.5 py-0.5 text-[0.7rem] font-bold leading-none text-white shadow-sm">
+                  <span
+                    aria-label={`${unreadCount} unread message${unreadCount === 1 ? '' : 's'}`}
+                    className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-[#25d366] px-1.5 py-0.5 text-[0.7rem] font-bold leading-none text-white shadow-sm ring-2 ring-white"
+                  >
                     {unreadBadgeLabel}
                   </span>
                 ) : null}
