@@ -1169,7 +1169,7 @@ const ChatShell: React.FC = () => {
 
       const validIds = new Set(
         activeMessages
-          .filter((message) => !message.deleted_at)
+          .filter((message) => (isDeleteSelectionMode ? true : !message.deleted_at))
           .map((message) => String(message.id)),
       );
 
@@ -2010,10 +2010,17 @@ const ChatShell: React.FC = () => {
                         onClick={() => {
                           void handleDeleteSelectedMessages();
                         }}
-                        className="inline-flex items-center gap-2 rounded-xl border border-[#f2d4d4] bg-[#fff4f4] px-3 py-2 text-xs font-semibold text-deep-red disabled:opacity-50"
+                        className="inline-flex items-center gap-2 rounded-xl border border-[#f2d4d4] bg-[#fff4f4] px-3 py-2 text-xs font-semibold text-deep-red disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-busy={isDeleteActionInFlight}
                       >
                         {isDeleteActionInFlight && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                        {effectiveDeleteAction === "delete_for_everyone" ? "Delete for everyone" : "Delete for me"}
+                        {isDeleteActionInFlight
+                          ? effectiveDeleteAction === "delete_for_everyone"
+                            ? "Deleting for everyone…"
+                            : "Deleting for me…"
+                          : effectiveDeleteAction === "delete_for_everyone"
+                            ? "Delete for everyone"
+                            : "Delete for me"}
                       </button>
                     </div>
                     <div className="flex justify-end">
