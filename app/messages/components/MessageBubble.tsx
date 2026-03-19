@@ -235,6 +235,7 @@ const MessageBubble: React.FC<Props> = ({
   const timestamp = message.created_at
     ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
+  const metadataTailWidth = isOwn ? '4.35rem' : '2.9rem';
 
   const receiptMeta = normalizeMessageMeta(message.meta);
   const resolvedCurrentUserId = currentUserId ? String(currentUserId) : null;
@@ -617,7 +618,7 @@ const MessageBubble: React.FC<Props> = ({
               </div>
             </form>
           ) : message.content ? (
-            <div className="relative min-w-0 max-w-full pr-14 pb-4">
+            <div className="relative min-w-0 max-w-full pb-4">
               <div
                 className={`min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-almost-black-green ${
                   isDeleted
@@ -629,6 +630,11 @@ const MessageBubble: React.FC<Props> = ({
               >
                 {message.content}
                 {message.edited_at && !isDeleted ? <span className="ml-1 text-[10px] text-almost-black-green/50">(edited)</span> : null}
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-[0.95rem] align-baseline"
+                  style={{ width: metadataTailWidth }}
+                />
               </div>
               {isCollapsibleTextMessage ? (
                 <button
