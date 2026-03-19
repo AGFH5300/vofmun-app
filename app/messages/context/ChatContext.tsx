@@ -354,7 +354,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const typingExpiryRef = useRef<Map<string, Map<string, number>>>(new Map());
   const receiptDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingReceiptQueueRef = useRef<{ roomId: string; delivered: Set<string>; read: Set<string> } | null>(null);
-  const lastReceiptKeyRef = useRef<string | null>(null);
+  const postedReceiptKeysRef = useRef<Map<string, string>>(new Map());
+  const scheduledReceiptKeysRef = useRef<Map<string, string>>(new Map());
   const inFlightReceiptKeysRef = useRef<Set<string>>(new Set());
   const lastScheduledReadLogKeyRef = useRef<string | null>(null);
   const initialBootstrapStartedRef = useRef(false);
@@ -666,6 +667,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     [userId]
   );
 
+  const getReceiptSignature = useCallback((roomId: string, messageIds: string[], markRead: boolean) => {
+    const normalizedMessageIds = Array.from(new Set(messageIds.map((id) => String(id)))).sort();
+    return `${roomId}|${markRead ? 'read' : 'delivered'}|${normalizedMessageIds.join(',')}`;
+  }, []);
+
   useEffect(() => {
     if (!authReady) {
       if (isAuthenticated && user) {
@@ -934,8 +940,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (!userId || messageIds.length === 0) return;
 
       const normalizedMessageIds = Array.from(new Set(messageIds.map((id) => String(id)))).sort();
-      const receiptKey = `${roomId}|${markRead ? 'read' : 'delivered'}|${normalizedMessageIds.join(',')}`;
-      if (lastReceiptKeyRef.current === receiptKey || inFlightReceiptKeysRef.current.has(receiptKey)) {
+      const receiptKey = getReceiptSignature(roomId, normalizedMessageIds, markRead);
+      const dedupeScopeKey = `${roomId}|${markRead ? 'read' : 'delivered'}`;
+      if (postedReceiptKeysRef.current.get(dedupeScopeKey) === receiptKey || inFlightReceiptKeysRef.current.has(receiptKey)) {
         logReceiptsDebug('receipt_post:deduped', { roomId, markRead, messageIds: normalizedMessageIds });
         return;
       }
@@ -949,7 +956,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           body: JSON.stringify(payload),
         }));
         if (response.ok) {
-          lastReceiptKeyRef.current = receiptKey;
+          postedReceiptKeysRef.current.set(dedupeScopeKey, receiptKey);
         }
         const responseBody = await response
           .clone()
@@ -965,7 +972,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         inFlightReceiptKeysRef.current.delete(receiptKey);
       }
     },
-    [userId, withAuthHeaders]
+    [getReceiptSignature, userId, withAuthHeaders]
   );
 
   const flushScheduledReceipts = useCallback(async () => {
@@ -975,6 +982,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
     const deliveredIds = Array.from(queued.delivered);
     const readIds = Array.from(queued.read);
+
+    scheduledReceiptKeysRef.current.delete(`${queued.roomId}|delivered`);
+    scheduledReceiptKeysRef.current.delete(`${queued.roomId}|read`);
 
     if (deliveredIds.length > 0) {
       await markReceipts(queued.roomId, deliveredIds, false);
@@ -987,7 +997,22 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const scheduleReceiptsForMessages = useCallback(
     (roomId: string, roomMessages: MessageWithUser[], markRead: boolean) => {
       const ids = collectReceiptCandidates(roomMessages, markRead);
-      if (ids.length === 0) return;
+      const dedupeScopeKey = `${roomId}|${markRead ? 'read' : 'delivered'}`;
+      if (ids.length === 0) {
+        scheduledReceiptKeysRef.current.delete(dedupeScopeKey);
+        return;
+      }
+
+      const receiptKey = getReceiptSignature(roomId, ids, markRead);
+      if (
+        scheduledReceiptKeysRef.current.get(dedupeScopeKey) === receiptKey ||
+        postedReceiptKeysRef.current.get(dedupeScopeKey) === receiptKey ||
+        inFlightReceiptKeysRef.current.has(receiptKey)
+      ) {
+        return;
+      }
+
+      scheduledReceiptKeysRef.current.set(dedupeScopeKey, receiptKey);
 
       if (markRead) {
         const logKey = `${roomId}|${ids.join(',')}`;
@@ -1028,7 +1053,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         void flushScheduledReceipts();
       }, RECEIPT_DEBOUNCE_MS);
     },
-    [collectReceiptCandidates, flushScheduledReceipts]
+    [collectReceiptCandidates, flushScheduledReceipts, getReceiptSignature]
   );
 
   const refreshRoomMessages = useCallback(
@@ -1539,6 +1564,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         receiptDebounceTimerRef.current = null;
       }
       pendingReceiptQueueRef.current = null;
+      postedReceiptKeysRef.current.clear();
+      scheduledReceiptKeysRef.current.clear();
+      inFlightReceiptKeysRef.current.clear();
       const socket = wsRef.current;
       wsRef.current = null;
       joinedSocketRoomIdsRef.current = new Set();
@@ -2101,17 +2129,18 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     [getVisibleLastMessageForRoom, userId]
   );
 
+  const activeRoomMessages = activeRoom?.id ? messages[activeRoom.id] || [] : [];
+
   useEffect(() => {
     if (!activeRoom?.id || !userId) return;
     const roomId = activeRoom.id;
-    const roomMessages = messages[roomId] || [];
-    if (roomMessages.length === 0) return;
+    if (activeRoomMessages.length === 0) return;
 
-    scheduleReceiptsForMessages(roomId, roomMessages, false);
+    scheduleReceiptsForMessages(roomId, activeRoomMessages, false);
     if (typeof document !== 'undefined' && document.visibilityState !== 'hidden') {
-      scheduleReceiptsForMessages(roomId, roomMessages, true);
+      scheduleReceiptsForMessages(roomId, activeRoomMessages, true);
     }
-  }, [activeRoom?.id, messages, scheduleReceiptsForMessages, userId]);
+  }, [activeRoom?.id, activeRoomMessages, scheduleReceiptsForMessages, userId]);
 
   useEffect(() => {
     if (!activeRoom?.id || !userId) return;

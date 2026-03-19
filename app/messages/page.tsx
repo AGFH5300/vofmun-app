@@ -250,6 +250,7 @@ const ChatShell: React.FC = () => {
   const roomsPollBackoffRef = useRef(60000);
   const hasLoadedSidebarWidthRef = useRef(false);
   const hasSkippedInitialSidebarSaveRef = useRef(false);
+  const composerRoomSnapshotRef = useRef<{ roomId: string; draft: string } | null>(null);
 
 
   const toggleMessageSelection = (messageId: string) => {
@@ -331,6 +332,30 @@ const ChatShell: React.FC = () => {
     if (!composerElement) return;
 
     composerElement.focus({ preventScroll: true });
+  };
+
+  const restoreFocusAfterEmojiClose = (preferButton = false) => {
+    window.requestAnimationFrame(() => {
+      if (preferButton && emojiButtonRef.current) {
+        emojiButtonRef.current.focus({ preventScroll: true });
+        return;
+      }
+      if (composerRef.current && !composerRef.current.disabled) {
+        composerRef.current.focus({ preventScroll: true });
+        return;
+      }
+      emojiButtonRef.current?.focus({ preventScroll: true });
+    });
+  };
+
+  const closeEmojiModal = (options?: { restoreFocus?: boolean; preferButton?: boolean }) => {
+    setShowEmojiModal((current) => {
+      if (!current) return current;
+      if (options?.restoreFocus) {
+        restoreFocusAfterEmojiClose(Boolean(options.preferButton));
+      }
+      return false;
+    });
   };
 
   const filteredRooms = useMemo(() => {
@@ -438,15 +463,26 @@ const ChatShell: React.FC = () => {
   useEffect(() => {
     const roomId = String(activeRoom?.id || "");
     if (!roomId) {
-      setComposer("");
+      composerRoomSnapshotRef.current = null;
+      setComposer((current) => (current === "" ? current : ""));
       return;
     }
-    setComposer(draftsByRoom[roomId] || "");
-  }, [activeRoom?.id]);
+
+    const nextDraft = draftsByRoom[roomId] || "";
+    const previousSnapshot = composerRoomSnapshotRef.current;
+    if (previousSnapshot?.roomId === roomId && previousSnapshot.draft === nextDraft) {
+      return;
+    }
+
+    composerRoomSnapshotRef.current = { roomId, draft: nextDraft };
+    setComposer((current) => (current === nextDraft ? current : nextDraft));
+  }, [activeRoom?.id, draftsByRoom]);
 
   useEffect(() => {
     const roomId = String(activeRoom?.id || "");
     if (!roomId) return;
+
+    composerRoomSnapshotRef.current = { roomId, draft: composer };
     setDraftsByRoom((prev) => {
       if ((prev[roomId] || "") === composer) return prev;
       return { ...prev, [roomId]: composer };
@@ -512,18 +548,25 @@ const ChatShell: React.FC = () => {
   useEffect(() => {
     if (!showAttachmentMenu && !showEmojiModal) return;
 
-    const closeFloatingMenus = () => {
+    const closeFloatingMenus = (options?: { restoreEmojiFocus?: boolean; preferEmojiButton?: boolean }) => {
       setShowAttachmentMenu(false);
-      setShowEmojiModal(false);
+      closeEmojiModal({
+        restoreFocus: options?.restoreEmojiFocus,
+        preferButton: options?.preferEmojiButton,
+      });
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        closeFloatingMenus();
+        closeFloatingMenus({ restoreEmojiFocus: true });
       }
     };
 
-    window.addEventListener("contextmenu", closeFloatingMenus);
+    const handleContextMenu = () => {
+      closeFloatingMenus();
+    };
+
+    window.addEventListener("contextmenu", handleContextMenu);
     window.addEventListener("keydown", handleKeyDown);
 
     const handlePointerDown = (event: MouseEvent) => {
@@ -534,7 +577,7 @@ const ChatShell: React.FC = () => {
       const clickedAttachmentMenu = attachmentMenuRef.current?.contains(target);
 
       if (showEmojiModal && !clickedEmojiButton && !clickedEmojiModal) {
-        setShowEmojiModal(false);
+        closeEmojiModal({ restoreFocus: true, preferButton: true });
       }
       if (showAttachmentMenu && !clickedAttachmentButton && !clickedAttachmentMenu) {
         setShowAttachmentMenu(false);
@@ -544,7 +587,7 @@ const ChatShell: React.FC = () => {
     document.addEventListener("mousedown", handlePointerDown);
 
     return () => {
-      window.removeEventListener("contextmenu", closeFloatingMenus);
+      window.removeEventListener("contextmenu", handleContextMenu);
       window.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("mousedown", handlePointerDown);
     };
@@ -905,7 +948,7 @@ const ChatShell: React.FC = () => {
     setShowAttachmentMenu((value) => {
       const next = !value;
       if (next) {
-        setShowEmojiModal(false);
+        closeEmojiModal();
       }
       return next;
     });
@@ -913,12 +956,12 @@ const ChatShell: React.FC = () => {
 
   const openEmojiModal = () => {
     setShowAttachmentMenu(false);
-    setShowEmojiModal(true);
+    setShowEmojiModal((current) => (current ? current : true));
   };
 
   const handleSelectRoom = async (room: RoomWithDetails) => {
     setShowAttachmentMenu(false);
-    setShowEmojiModal(false);
+    closeEmojiModal();
 
     pendingRoomScrollRef.current = String(room.id);
     await selectRoom(room);
@@ -1863,7 +1906,8 @@ const ChatShell: React.FC = () => {
                         value={composer}
                         disabled={isAnySelectionModeActive}
                         onChange={(event) => {
-                          setComposer(event.target.value);
+                          const nextValue = event.target.value;
+                          setComposer((current) => (current === nextValue ? current : nextValue));
                           sendTyping(activeRoom.id, true);
                         }}
                         onFocus={() => sendTyping(activeRoom.id, true)}
@@ -1908,7 +1952,13 @@ const ChatShell: React.FC = () => {
                       <button
                         ref={emojiButtonRef}
                         type="button"
-                        onClick={openEmojiModal}
+                        onClick={() => {
+                          if (showEmojiModal) {
+                            closeEmojiModal({ restoreFocus: true, preferButton: true });
+                            return;
+                          }
+                          openEmojiModal();
+                        }}
                         className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#ececec]"
                         aria-label="Open emoji picker"
                       >
@@ -2037,7 +2087,7 @@ const ChatShell: React.FC = () => {
                 </div>
               )}
               {warmEmojiPicker && (
-                  <div className="pointer-events-none absolute -left-[9999px] -top-[9999px] h-0 w-0 overflow-hidden opacity-0" aria-hidden>
+                  <div className="pointer-events-none absolute -left-[9999px] -top-[9999px] h-0 w-0 overflow-hidden opacity-0" inert>
                     <EmojiPicker
                       theme="light"
                       width={1}
@@ -2068,6 +2118,7 @@ const ChatShell: React.FC = () => {
                       searchDisabled={false}
                       onEmojiClick={(emojiData: EmojiClickData) => {
                         setComposer((value) => `${value}${emojiData.emoji}`);
+                        closeEmojiModal({ restoreFocus: true });
                       }}
                     />
                   </div>
