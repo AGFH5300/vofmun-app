@@ -281,35 +281,7 @@ const isLikelyOptimisticMatch = (candidate: MessageWithUser, incoming: MessageWi
   return true;
 };
 
-const reconcileIncomingMessage = (
-  currentList: MessageWithUser[],
-  incoming: MessageWithUser,
-  currentUserId: string | null
-) => {
-  const byServerIdIndex = currentList.findIndex((item) => toComparableId(item.id) === toComparableId(incoming.id));
-  if (byServerIdIndex >= 0) {
-    const merged = [...currentList];
-    merged[byServerIdIndex] = {
-      ...merged[byServerIdIndex],
-      ...incoming,
-      tempId: undefined,
-    };
-    return merged;
-  }
 
-  const optimisticIndex = currentList.findIndex((item) => isLikelyOptimisticMatch(item, incoming, currentUserId));
-  if (optimisticIndex >= 0) {
-    const merged = [...currentList];
-    merged[optimisticIndex] = {
-      ...merged[optimisticIndex],
-      ...incoming,
-      tempId: undefined,
-    };
-    return merged;
-  }
-
-  return [...currentList, incoming];
-};
 
 
 export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
@@ -513,6 +485,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           : room
       )
     );
+  }, []);
+
+  const resolveLiveRoomId = useCallback((roomId?: string | null) => {
+    const requestedRoomId = toComparableId(roomId);
+    const activeRoomId = toComparableId(activeRoomIdRef.current);
+    return activeRoomId || requestedRoomId;
   }, []);
 
   const applyIncomingMessageToRoomList = useCallback((
@@ -1124,6 +1102,59 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     refreshRoomMessagesRef.current = refreshRoomMessages;
   }, [refreshRoomMessages]);
 
+  const upsertRoomMessage = useCallback((roomId: string, nextMessage: MessageWithUser, options?: { replaceExistingOnly?: boolean }) => {
+    const normalizedRoomId = toComparableId(roomId);
+    const roomMemberIds = getRoomMemberIds(normalizedRoomId, roomsRef.current);
+    const hydratedMessage = hydrateMessage(
+      {
+        ...nextMessage,
+        room_id: normalizedRoomId,
+        user: nextMessage.user || userDirectoryRef.current[String(nextMessage.user_id)] || undefined,
+      },
+      userIdRef.current,
+      roomMemberIds
+    );
+
+    const currentList = messagesRef.current[normalizedRoomId] || [];
+    const existingIndex = currentList.findIndex((item) => toComparableId(item.id) === toComparableId(hydratedMessage.id));
+    const optimisticIndex = existingIndex >= 0 ? -1 : currentList.findIndex((item) => isLikelyOptimisticMatch(item, hydratedMessage, userIdRef.current));
+
+    if (options?.replaceExistingOnly && existingIndex < 0 && optimisticIndex < 0) {
+      return null;
+    }
+
+    let nextRoomMessages: MessageWithUser[];
+    if (existingIndex >= 0) {
+      nextRoomMessages = [...currentList];
+      nextRoomMessages[existingIndex] = {
+        ...nextRoomMessages[existingIndex],
+        ...hydratedMessage,
+      };
+    } else if (optimisticIndex >= 0) {
+      nextRoomMessages = [...currentList];
+      nextRoomMessages[optimisticIndex] = {
+        ...nextRoomMessages[optimisticIndex],
+        ...hydratedMessage,
+        tempId: undefined,
+      };
+    } else {
+      nextRoomMessages = [...currentList, hydratedMessage];
+    }
+
+    nextRoomMessages = nextRoomMessages.sort((a, b) => {
+      const first = a.created_at ? new Date(a.created_at).getTime() : Number.MAX_SAFE_INTEGER;
+      const second = b.created_at ? new Date(b.created_at).getTime() : Number.MAX_SAFE_INTEGER;
+      return first - second;
+    });
+
+    messagesRef.current = {
+      ...messagesRef.current,
+      [normalizedRoomId]: nextRoomMessages,
+    };
+    setMessages((prev) => ({ ...prev, [normalizedRoomId]: nextRoomMessages }));
+    return { roomId: normalizedRoomId, message: hydratedMessage, roomMessages: nextRoomMessages };
+  }, []);
+
   const sendTyping = useCallback(
     (roomId: string, isTyping: boolean) => {
       logChatDebug('sendTyping:attempt', {
@@ -1272,11 +1303,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             fromUserId: message.user_id,
             contentPreview: String(message.content || '').slice(0, 80),
           });
-          setMessages((prev) => {
-            const list = prev[normalizedRoomId] || [];
-            const reconciled = reconcileIncomingMessage(list, message, userIdRef.current);
-            return { ...prev, [normalizedRoomId]: reconciled };
-          });
+          const upsertedMessage = upsertRoomMessage(normalizedRoomId, message);
+          const currentRoomMessages = upsertedMessage?.roomMessages || messagesRef.current[normalizedRoomId] || [];
           const isOwnMessage = toComparableId(message.user_id) === toComparableId(userIdRef.current);
           const isActiveRoom = normalizedRoomId === activeRoomIdRef.current;
           const isVisible = isDocumentVisible();
@@ -1286,10 +1314,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             incrementRoomUnreadCount(normalizedRoomId);
           }
           if (normalizedRoomId === activeRoomIdRef.current) {
-            const roomMessages = [...(messagesRef.current[normalizedRoomId] || []), message];
-            scheduleReceiptsForMessages(normalizedRoomId, roomMessages, false);
+            scheduleReceiptsForMessages(normalizedRoomId, currentRoomMessages, false);
             if (isRoomActivelyRead(normalizedRoomId)) {
-              scheduleReceiptsForMessages(normalizedRoomId, roomMessages, true);
+              scheduleReceiptsForMessages(normalizedRoomId, currentRoomMessages, true);
             }
           }
           break;
@@ -1313,14 +1340,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             memberIds
           );
 
-          setMessages((prev) => {
-            const list = prev[normalizedRoomId] || [];
-            const messageIndex = list.findIndex((item) => toComparableId(item.id) === toComparableId(hydrated.id));
-            if (messageIndex < 0) return prev;
-            const next = [...list];
-            next[messageIndex] = { ...next[messageIndex], ...hydrated };
-            return { ...prev, [normalizedRoomId]: next };
-          });
+          upsertRoomMessage(normalizedRoomId, hydrated, { replaceExistingOnly: true });
 
           setRooms((prev) =>
             prev.map((room) => {
@@ -1465,7 +1485,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
       }
     },
-    [applyIncomingMessageToRoomList, incrementRoomUnreadCount, isDocumentVisible, isRoomActivelyRead, mergeUsersIntoDirectory, scheduleReceiptsForMessages, setRoomUnreadCount, joinSocketRooms]
+    [applyIncomingMessageToRoomList, incrementRoomUnreadCount, isDocumentVisible, isRoomActivelyRead, joinSocketRooms, mergeUsersIntoDirectory, scheduleReceiptsForMessages, upsertRoomMessage]
   );
 
   const connectSocket = useCallback(() => {
@@ -1583,6 +1603,28 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     joinSocketRooms([...rooms.map((room) => room.id), activeRoomIdRef.current]);
   }, [isConnecting, joinSocketRooms, rooms]);
 
+  useEffect(() => {
+    if (!userId) return;
+
+    const ensureLiveSocket = () => {
+      const socket = wsRef.current;
+      if (!socket || socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED) {
+        connectSocket();
+        return;
+      }
+
+      if (socket.readyState === WebSocket.OPEN) {
+        joinSocketRooms([...roomsRef.current.map((room) => room.id), activeRoomIdRef.current]);
+      }
+    };
+
+    window.addEventListener('focus', ensureLiveSocket);
+    document.addEventListener('visibilitychange', ensureLiveSocket);
+    return () => {
+      window.removeEventListener('focus', ensureLiveSocket);
+      document.removeEventListener('visibilitychange', ensureLiveSocket);
+    };
+  }, [connectSocket, joinSocketRooms, userId]);
 
   useEffect(() => {
     console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} gate`, {
@@ -1886,10 +1928,17 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const trimmed = content.trim();
       if (!trimmed && attachments.length === 0) return;
 
-      if (process.env.NODE_ENV !== 'production' && userId && LEGACY_CHAT_ID_PREFIX_RE.test(String(userId))) {
+      const liveRoomId = resolveLiveRoomId(roomId);
+      if (!liveRoomId) {
+        logChatDebug('sendMessage:aborted_missing_live_room', { requestedRoomId: roomId });
+        return;
+      }
+
+      const currentUserId = userIdRef.current;
+      if (process.env.NODE_ENV !== 'production' && currentUserId && LEGACY_CHAT_ID_PREFIX_RE.test(String(currentUserId))) {
         console.error('[ChatContext] Legacy chat identity detected for sendMessage userId. Expected Supabase auth user.id.', {
-          userId,
-          roomId,
+          userId: currentUserId,
+          roomId: liveRoomId,
         });
       }
 
@@ -1898,31 +1947,44 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const optimistic: MessageWithUser = {
         id: tempId,
         tempId,
-        room_id: roomId,
-        user_id: userId ?? 'me',
+        room_id: liveRoomId,
+        user_id: currentUserId ?? 'me',
         content: trimmed,
         reply_to: replyTo,
-        attachments,
+        attachments: attachments.map((attachment, index) => ({
+          ...attachment,
+          id: `optimistic-attachment-${tempId}-${index}`,
+          message_id: tempId,
+          created_by: currentUserId ?? 'me',
+          created_at: optimisticCreatedAt,
+        })),
         created_at: optimisticCreatedAt,
         status: 'pending',
-        user: (userId && userDirectoryRef.current[String(userId)]) || undefined,
+        user: (currentUserId && userDirectoryRef.current[String(currentUserId)]) || undefined,
       };
-      setMessages((prev) => ({ ...prev, [roomId]: [...(prev[roomId] || []), optimistic] }));
+      const currentRoomMessages = messagesRef.current[liveRoomId] || [];
+      const optimisticRoomMessages = [...currentRoomMessages, optimistic];
+      messagesRef.current = {
+        ...messagesRef.current,
+        [liveRoomId]: optimisticRoomMessages,
+      };
+      setMessages((prev) => ({ ...prev, [liveRoomId]: optimisticRoomMessages }));
+      applyIncomingMessageToRoomList(liveRoomId, optimistic);
       try {
         logChatDebug('sendMessage:attempt', {
-          roomId,
+          roomId: liveRoomId,
           replyTo: replyTo || null,
           contentLength: trimmed.length,
           attachmentCount: attachments.length,
         });
         console.debug('sendMessage payload', {
-          roomId,
+          roomId: liveRoomId,
           content: trimmed,
           contentLength: typeof trimmed === 'string' ? trimmed.trim().length : 0,
           attachments,
           attachmentsLength: Array.isArray(attachments) ? attachments.length : -1,
         });
-        const response = await fetch(`${CHAT_API_URL}/api/rooms/${roomId}/messages`, await withAuthHeaders({
+        const response = await fetch(`${CHAT_API_URL}/api/rooms/${liveRoomId}/messages`, await withAuthHeaders({
           method: 'POST',
           body: JSON.stringify({ content: trimmed, reply_to: replyTo, attachments }),
         }));
@@ -1930,47 +1992,48 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           const errorText = await response.text();
           console.error('sendMessage failed', {
             status: response.status,
-            roomId,
+            roomId: liveRoomId,
             content: trimmed,
             attachments,
             errorText,
           });
-          logChatDebug('sendMessage:failed_response', { status: response.status, statusText: response.statusText, roomId });
+          logChatDebug('sendMessage:failed_response', { status: response.status, statusText: response.statusText, roomId: liveRoomId });
           throw new Error(`Failed to send message (status: ${response.status})`);
         }
         const saved = (await response.json()) as MessageWithUser;
         mergeUsersIntoDirectory([saved.user]);
-        logChatDebug('sendMessage:success', { roomId, messageId: saved.id, status: saved.status || 'unknown' });
-        setMessages((prev) => {
-          const list = prev[roomId] || [];
-          const memberIds = getRoomMemberIds(roomId, roomsRef.current);
-          const hydratedSaved = hydrateMessage(
-            {
-              ...saved,
-              status: 'sent',
-              user: saved.user || userDirectoryRef.current[String(saved.user_id)] || optimistic.user,
-            },
-            userIdRef.current,
-            memberIds
-          );
-          const reconciled = reconcileIncomingMessage(list, hydratedSaved, userIdRef.current);
-          return { ...prev, [roomId]: reconciled };
+        logChatDebug('sendMessage:success', { roomId: liveRoomId, messageId: saved.id, status: saved.status || 'unknown' });
+        const savedResult = upsertRoomMessage(liveRoomId, {
+          ...saved,
+          status: 'sent',
+          user: saved.user || userDirectoryRef.current[String(saved.user_id)] || optimistic.user,
         });
+        if (savedResult) {
+          applyIncomingMessageToRoomList(liveRoomId, savedResult.message);
+        }
       } catch (error) {
         logChatDebug('sendMessage:error', {
-          roomId,
+          roomId: liveRoomId,
           error: error instanceof Error ? error.message : 'unknown-error',
         });
-        setMessages((prev) => {
-          const list = prev[roomId] || [];
-          return {
-            ...prev,
-            [roomId]: list.map((msg) => (msg.id === tempId ? { ...msg, status: 'error' as MessageStatus } : msg)),
-          };
-        });
+        const failedRoomMessages = (messagesRef.current[liveRoomId] || []).map((msg) =>
+          msg.id === tempId ? { ...msg, status: 'error' as MessageStatus } : msg
+        );
+        messagesRef.current = {
+          ...messagesRef.current,
+          [liveRoomId]: failedRoomMessages,
+        };
+        setMessages((prev) => ({
+          ...prev,
+          [liveRoomId]: failedRoomMessages,
+        }));
+        const failedLastMessage = failedRoomMessages[failedRoomMessages.length - 1] || null;
+        if (failedLastMessage) {
+          applyIncomingMessageToRoomList(liveRoomId, failedLastMessage);
+        }
       }
     },
-    [mergeUsersIntoDirectory, userId, withAuthHeaders]
+    [applyIncomingMessageToRoomList, mergeUsersIntoDirectory, resolveLiveRoomId, upsertRoomMessage, withAuthHeaders]
   );
 
 
