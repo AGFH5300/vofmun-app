@@ -634,7 +634,22 @@ const MessageBubble: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={() => setIsExpanded((value) => !value)}
-                  className="mt-1 inline-flex text-[11px] font-semibold text-deep-red transition hover:text-deep-red/80"
+                  style={{
+                    marginTop: "0.25rem",
+                    display: "inline-flex",
+                    fontSize: "12px",
+                    fontWeight: 900,
+                    color: "#8b2424",
+                    transition: "color 0.2s ease, font-weight 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "#8b2424";
+                    e.currentTarget.style.fontWeight = "700";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "#8b2424";
+                    e.currentTarget.style.fontWeight = "600";
+                  }}
                 >
                   {isExpanded ? 'Read less' : 'Read more'}
                 </button>
