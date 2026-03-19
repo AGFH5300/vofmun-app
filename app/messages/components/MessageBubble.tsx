@@ -2,7 +2,7 @@
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { MessageAttachment, MessageWithUser, RoomMember } from '@/lib/chat/types';
 import supabase from '@/lib/supabase';
@@ -75,6 +75,12 @@ const isEmojiOnlyMessage = (value: string) => {
   if (!trimmed) return false;
   return /\p{Extended_Pictographic}/u.test(trimmed) && EMOJI_ONLY_MESSAGE_REGEX.test(trimmed);
 };
+
+
+const MESSAGE_COLLAPSE_MAX_CHARS = 240;
+const MESSAGE_COLLAPSE_MAX_LINES = 6;
+
+const getMessageLineCount = (value: string) => value.split(/\r\n|\r|\n/).length;
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
@@ -149,10 +155,10 @@ const MessageBubble: React.FC<Props> = ({
 }) => {
   const { user } = useSession();
   const currentUserId = user?.id ? String(user.id) : null;
-  const [contextMenuPosition, setContextMenuPosition] = React.useState<{ x: number; y: number } | null>(null);
-  const bubbleMenuId = React.useMemo(() => `message-menu-${message.id}`, [message.id]);
-  const [infoPanelPosition, setInfoPanelPosition] = React.useState<{ x: number; y: number } | null>(null);
-  const [showInfoSheet, setShowInfoSheet] = React.useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const bubbleMenuId = useMemo(() => `message-menu-${message.id}`, [message.id]);
+  const [infoPanelPosition, setInfoPanelPosition] = useState<{ x: number; y: number } | null>(null);
+  const [showInfoSheet, setShowInfoSheet] = useState(false);
   const bubbleRef = React.useRef<HTMLDivElement | null>(null);
   const infoSheetRef = React.useRef<HTMLDivElement | null>(null);
   const isFailed = message.status === 'error';
@@ -254,11 +260,11 @@ const MessageBubble: React.FC<Props> = ({
   const readAt = readEntries[0]?.at ? String(readEntries[0].at) : null;
 
 
-  const [attachmentUrls, setAttachmentUrls] = React.useState<Record<string, string>>({});
-  const [attachmentErrors, setAttachmentErrors] = React.useState<Record<string, string>>({});
-  const [downloadingAttachmentPath, setDownloadingAttachmentPath] = React.useState<string | null>(null);
-  const attachments = React.useMemo(() => message.attachments || [], [message.attachments]);
-  const attachmentSignature = React.useMemo(
+  const [attachmentUrls, setAttachmentUrls] = useState<Record<string, string>>({});
+  const [attachmentErrors, setAttachmentErrors] = useState<Record<string, string>>({});
+  const [downloadingAttachmentPath, setDownloadingAttachmentPath] = useState<string | null>(null);
+  const attachments = useMemo(() => message.attachments || [], [message.attachments]);
+  const attachmentSignature = useMemo(
     () => attachments.map((attachment) => `${attachment.id}:${attachment.bucket}:${attachment.path}`).join('|'),
     [attachments]
   );
@@ -271,17 +277,31 @@ const MessageBubble: React.FC<Props> = ({
   const canToggleSelectMode = typeof onEnterSelectMode === 'function';
   const shouldShowAvatarLane = !isOwn && isGroupRoom && !isSelectMode;
   const shouldRenderAvatar = shouldShowAvatarLane && showAvatar;
-  const [touchStart, setTouchStart] = React.useState<{ x: number; y: number } | null>(null);
-  const [isEditing, setIsEditing] = React.useState(false);
-  const [editingText, setEditingText] = React.useState(message.content || '');
-  const [isSubmittingEdit, setIsSubmittingEdit] = React.useState(false);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingText, setEditingText] = useState(message.content || '');
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
   const canSelectMessage = true;
+
+  const messageContent = message.content || '';
+  const messageLineCount = getMessageLineCount(messageContent);
+  const isCollapsibleTextMessage =
+    Boolean(messageContent.trim()) &&
+    attachments.length === 0 &&
+    !isDeleted &&
+    !isLargeEmojiMessage &&
+    (messageContent.length > MESSAGE_COLLAPSE_MAX_CHARS || messageLineCount > MESSAGE_COLLAPSE_MAX_LINES);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     if (!isEditing) {
       setEditingText(message.content || '');
     }
   }, [isEditing, message.content]);
+
+  useEffect(() => {
+    setIsExpanded(false);
+  }, [message.id, message.content]);
 
   useEffect(() => {
     if (attachments.length === 0) {
@@ -454,7 +474,7 @@ const MessageBubble: React.FC<Props> = ({
             }
             setTouchStart(null);
           }}
-          className={`group relative max-w-[82%] border px-2.5 py-1.5 shadow-sm md:max-w-[74%] ${
+          className={`group relative min-w-0 max-w-[82%] border px-2.5 py-1.5 shadow-sm md:max-w-[74%] ${
             isOwn
               ? isFailed
                 ? 'rounded-[8px] border-deep-red/30 bg-soft-rose/30 text-deep-red'
@@ -597,18 +617,29 @@ const MessageBubble: React.FC<Props> = ({
               </div>
             </form>
           ) : message.content ? (
-            <p
-              className={`whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-almost-black-green ${
-                isDeleted
-                  ? 'text-[13px] italic leading-[1.3] text-almost-black-green/55'
-                  : isLargeEmojiMessage
-                    ? 'text-[40px] leading-none'
-                    : 'text-[14px] leading-[1.3]'
-              }`}
-            >
-              {message.content}
-              {message.edited_at && !isDeleted ? <span className="ml-1 text-[10px] text-almost-black-green/50">(edited)</span> : null}
-            </p>
+            <div className="min-w-0 max-w-full flex-1">
+              <div
+                className={`min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-almost-black-green ${
+                  isDeleted
+                    ? 'text-[13px] italic leading-[1.3] text-almost-black-green/55'
+                    : isLargeEmojiMessage
+                      ? 'text-[40px] leading-none'
+                      : 'text-[14px] leading-[1.3]'
+                } ${isCollapsibleTextMessage && !isExpanded ? 'line-clamp-6' : ''}`}
+              >
+                {message.content}
+                {message.edited_at && !isDeleted ? <span className="ml-1 text-[10px] text-almost-black-green/50">(edited)</span> : null}
+              </div>
+              {isCollapsibleTextMessage ? (
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded((value) => !value)}
+                  className="mt-1 inline-flex text-[11px] font-semibold text-deep-red transition hover:text-deep-red/80"
+                >
+                  {isExpanded ? 'Read less' : 'Read more'}
+                </button>
+              ) : null}
+            </div>
           ) : (
             <span />
           )}
