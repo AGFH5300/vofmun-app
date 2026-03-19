@@ -89,6 +89,29 @@ END;
 $$;
 
 
+
+--
+-- Name: get_room_unread_counts(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_room_unread_counts(p_user_id text) RETURNS TABLE(room_id uuid, unread_count bigint)
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+  select
+    rm.room_id,
+    count(m.id) filter (
+      where m.deleted_at is null
+        and coalesce(m.user_id, '') <> p_user_id
+        and coalesce(m.meta #>> array['receipts', 'read', p_user_id], '') = ''
+    )::bigint as unread_count
+  from public.room_members rm
+  left join public.messages m
+    on m.room_id = rm.room_id
+  where rm.user_id = p_user_id
+  group by rm.room_id
+$$;
+
 --
 -- Name: mark_message_receipts(uuid, uuid[], character varying, boolean); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -944,6 +967,11 @@ ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.room_members ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: FUNCTION get_room_unread_counts(text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT EXECUTE ON FUNCTION public.get_room_unread_counts(text) TO authenticated;
+
 -- PostgreSQL database dump complete
 --
 
