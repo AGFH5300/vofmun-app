@@ -342,7 +342,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
-  const pendingRoomJoinRef = useRef<string | null>(null);
+  const pendingRoomJoinIdsRef = useRef<Set<string>>(new Set());
   const activeRoomIdRef = useRef<string | null>(null);
   const roomsRef = useRef<RoomWithDetails[]>([]);
   const onlineUsersRef = useRef<Set<string>>(new Set());
@@ -378,6 +378,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const visibilityRefreshInFlightRef = useRef(false);
   const userDirectoryRef = useRef<Record<string, FriendRequest['sender']>>({});
   const hiddenMessageIdsByRoomRef = useRef<Record<string, Set<string>>>({});
+  const joinedSocketRoomIdsRef = useRef<Set<string>>(new Set());
 
   const cacheHiddenMessageIdsForRoom = useCallback(async (roomId: string) => {
     const normalizedRoomId = toComparableId(roomId);
@@ -511,6 +512,57 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           : room
       )
     );
+  }, []);
+
+  const applyIncomingMessageToRoomList = useCallback((
+    roomId: string,
+    message: MessageWithUser,
+    options?: { incrementUnread?: boolean }
+  ) => {
+    const normalizedRoomId = toComparableId(roomId);
+    const shouldIncrementUnread = Boolean(options?.incrementUnread);
+
+    setRooms((prev) => {
+      let didUpdate = false;
+      const nextRooms = prev.map((room) => {
+        if (toComparableId(room.id) !== normalizedRoomId) return room;
+
+        didUpdate = true;
+        const nextUnreadCount = shouldIncrementUnread
+          ? Math.max(0, Math.floor(unreadByRoomRef.current[normalizedRoomId] ?? room.unreadCount ?? 0)) + 1
+          : Math.max(0, Math.floor(unreadByRoomRef.current[normalizedRoomId] ?? room.unreadCount ?? 0));
+
+        return {
+          ...room,
+          lastMessage: message,
+          unreadCount: nextUnreadCount,
+        };
+      });
+
+      return didUpdate ? nextRooms : prev;
+    });
+  }, []);
+
+  const joinSocketRooms = useCallback((roomIds: Array<string | null | undefined>) => {
+    const socket = wsRef.current;
+    const normalizedRoomIds = Array.from(new Set(roomIds.map((roomId) => toComparableId(roomId)).filter(Boolean)));
+    if (normalizedRoomIds.length === 0) return;
+
+    normalizedRoomIds.forEach((roomId) => pendingRoomJoinIdsRef.current.add(roomId));
+
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+    normalizedRoomIds.forEach((roomId) => {
+      if (joinedSocketRoomIdsRef.current.has(roomId)) {
+        pendingRoomJoinIdsRef.current.delete(roomId);
+        return;
+      }
+
+      socket.send(JSON.stringify({ type: 'join_room', roomId } satisfies ChatSocketPayload));
+      joinedSocketRoomIdsRef.current.add(roomId);
+      logChatDebug('socket:join_room_sent', { roomId });
+      pendingRoomJoinIdsRef.current.delete(roomId);
+    });
   }, []);
 
   const fetchWithTimeout = useCallback(async (input: RequestInfo | URL, init?: RequestInit, timeoutMs = BOOTSTRAP_FETCH_TIMEOUT_MS) => {
@@ -698,6 +750,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   useEffect(() => {
     roomsRef.current = rooms;
   }, [rooms]);
+
+  useEffect(() => {
+    joinSocketRooms(rooms.map((room) => room.id));
+  }, [joinSocketRooms, rooms]);
 
   useEffect(() => {
     const activeRoomId = activeRoomIdRef.current;
@@ -1101,7 +1157,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         sendTyping(previousRoomId, false);
       }
       activeRoomIdRef.current = room.id;
-      pendingRoomJoinRef.current = room.id;
+      pendingRoomJoinIdsRef.current.add(room.id);
       setActiveRoom(rooms.find((candidate) => candidate.id === room.id) || room);
       if (isRoomActivelyRead(room.id)) {
         setRoomUnreadCount(room.id, 0);
@@ -1113,9 +1169,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         setRoomUnreadCount(room.id, 0);
       }
       if (wsRef.current?.readyState === WebSocket.OPEN) {
-        const payload: ChatSocketPayload = { type: 'join_room', roomId: room.id } as ChatSocketPayload;
-        logChatDebug('selectRoom:join_room', payload as unknown as Record<string, unknown>);
-        wsRef.current.send(JSON.stringify(payload));
+        joinSocketRooms([room.id]);
       } else {
         logChatDebug('selectRoom:join_room_skipped_socket_not_open', {
           roomId: room.id,
@@ -1123,7 +1177,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
       }
     },
-    [isRoomActivelyRead, refreshRoomMessages, rooms, sendTyping, setRoomUnreadCount]
+    [isRoomActivelyRead, joinSocketRooms, refreshRoomMessages, rooms, sendTyping, setRoomUnreadCount]
   );
 
   const handleSocketMessage = useCallback(
@@ -1158,12 +1212,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         case 'authenticated': {
           reconnectAttemptRef.current = 0;
           logChatDebug('socket:authenticated', { activeRoomId: activeRoomIdRef.current });
-          const roomId = pendingRoomJoinRef.current || activeRoomIdRef.current;
-          if (roomId && wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({ type: 'join_room', roomId } satisfies ChatSocketPayload));
-            logChatDebug('socket:authenticated:join_room_sent', { roomId });
-            pendingRoomJoinRef.current = null;
-          }
+          joinSocketRooms([
+            activeRoomIdRef.current,
+            ...roomsRef.current.map((room) => room.id),
+            ...Array.from(pendingRoomJoinIdsRef.current),
+          ]);
           break;
         }
         case 'auth_error': {
@@ -1203,28 +1256,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             const reconciled = reconcileIncomingMessage(list, message, userIdRef.current);
             return { ...prev, [normalizedRoomId]: reconciled };
           });
-          setRooms((prev) =>
-            prev.map((room) =>
-              room.id === normalizedRoomId
-                ? {
-                    ...room,
-                    lastMessage: message,
-                    unreadCount: Math.max(
-                      0,
-                      Math.floor(
-                        unreadByRoomRef.current[normalizedRoomId] ??
-                          room.unreadCount ??
-                          0
-                      )
-                    ),
-                  }
-                : room
-            )
-          );
           const isOwnMessage = toComparableId(message.user_id) === toComparableId(userIdRef.current);
           const isActiveRoom = normalizedRoomId === activeRoomIdRef.current;
           const isVisible = isDocumentVisible();
           const shouldIncrementUnread = !isOwnMessage && (!isActiveRoom || !isVisible);
+          applyIncomingMessageToRoomList(normalizedRoomId, message, { incrementUnread: shouldIncrementUnread });
           if (shouldIncrementUnread) {
             incrementRoomUnreadCount(normalizedRoomId);
           }
@@ -1409,7 +1445,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
       }
     },
-    [incrementRoomUnreadCount, mergeUsersIntoDirectory, scheduleReceiptsForMessages]
+    [applyIncomingMessageToRoomList, incrementRoomUnreadCount, isDocumentVisible, isRoomActivelyRead, mergeUsersIntoDirectory, scheduleReceiptsForMessages, setRoomUnreadCount, joinSocketRooms]
   );
 
   const connectSocket = useCallback(() => {
@@ -1427,6 +1463,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     }
     setIsConnecting(true);
     const ws = new WebSocket(url);
+    joinedSocketRoomIdsRef.current = new Set();
     wsRef.current = ws;
 
     ws.onopen = async () => {
@@ -1438,11 +1475,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       logChatDebug('socket:onopen:send_auth', authPayload as unknown as Record<string, unknown>);
       ws.send(JSON.stringify(authPayload));
 
-      const roomId = pendingRoomJoinRef.current || activeRoomIdRef.current;
-      if (roomId) {
-        ws.send(JSON.stringify({ type: 'join_room', roomId } satisfies ChatSocketPayload));
-        logChatDebug('socket:onopen:join_room_sent', { roomId });
-      }
+      joinSocketRooms([activeRoomIdRef.current, ...roomsRef.current.map((room) => room.id)]);
     };
 
     ws.onmessage = handleSocketMessage;
@@ -1460,6 +1493,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (wsRef.current === ws) {
         wsRef.current = null;
       }
+      joinedSocketRoomIdsRef.current = new Set();
       if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
 
       if (!shouldReconnectRef.current) {
@@ -1479,7 +1513,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       logChatDebug('socket:onerror', { eventType: event.type });
       ws.close();
     };
-  }, [getAccessToken, handleSocketMessage, userId]);
+  }, [getAccessToken, handleSocketMessage, joinSocketRooms, userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -1507,6 +1541,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       pendingReceiptQueueRef.current = null;
       const socket = wsRef.current;
       wsRef.current = null;
+      joinedSocketRoomIdsRef.current = new Set();
       if (socket) {
         socket.onopen = null;
         socket.onmessage = null;
@@ -1522,12 +1557,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   useEffect(() => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    const roomId = pendingRoomJoinRef.current;
-    if (!roomId) return;
-    wsRef.current.send(JSON.stringify({ type: 'join_room', roomId } satisfies ChatSocketPayload));
-    logChatDebug('socket:flush_pending_join_room', { roomId });
-    pendingRoomJoinRef.current = null;
-  }, [isConnecting]);
+    joinSocketRooms([...rooms.map((room) => room.id), activeRoomIdRef.current]);
+  }, [isConnecting, joinSocketRooms, rooms]);
 
 
   useEffect(() => {

@@ -31,7 +31,8 @@ interface AuthedRequest extends Request {
 
 interface SocketContext {
   userId: string;
-  roomId?: string;
+  roomIds: Set<string>;
+  activeRoomId?: string;
   socket: WebSocket;
 }
 
@@ -211,7 +212,7 @@ const broadcast = (predicate: (ctx: SocketContext) => boolean, payload: ChatSock
 
 const broadcastToRoom = (roomId: string, payload: ChatSocketPayload) => {
   logServerDebug('broadcastToRoom', { roomId, type: payload.type });
-  broadcast((ctx) => ctx.roomId === roomId, payload);
+  broadcast((ctx) => ctx.roomIds.has(roomId), payload);
 };
 
 const normalizeReceiptsMeta = (meta: unknown) => {
@@ -1344,7 +1345,7 @@ wss.on('connection', (socket, req) => {
     hasAuthorizationHeader: Boolean(req.headers['authorization']),
     url: req.url || null,
   });
-  const context: Partial<SocketContext> = { socket };
+  const context: Partial<SocketContext> = { socket, roomIds: new Set<string>() };
   let authenticated = false;
   let disconnected = false;
 
@@ -1393,7 +1394,8 @@ wss.on('connection', (socket, req) => {
     clearTimeout(authTimeout);
     logServerDebug('socket:disconnect', {
       userId: context.userId || null,
-      roomId: context.roomId || null,
+      roomIds: Array.from(context.roomIds || []),
+      activeRoomId: context.activeRoomId || null,
       activeSocketCountBefore: activeSockets.size,
     });
     if (authenticated && context.userId) decrementUserConnection(context.userId);
@@ -1406,7 +1408,8 @@ wss.on('connection', (socket, req) => {
       logServerDebug('socket:message_received', {
         type: data.type,
         userId: context.userId || null,
-        roomId: context.roomId || null,
+        roomIds: Array.from(context.roomIds || []),
+        activeRoomId: context.activeRoomId || null,
         payload: data,
       });
 
@@ -1447,20 +1450,21 @@ wss.on('connection', (socket, req) => {
             });
           }
 
-          context.roomId = data.roomId;
+          context.roomIds?.add(data.roomId);
+          context.activeRoomId = data.roomId;
           socket.send(JSON.stringify({ type: 'room_joined', roomId: data.roomId } satisfies ChatSocketPayload));
           return;
         }
         case 'typing': {
-          if (!authenticated || !context.userId || !context.roomId || !data.roomId || data.roomId !== context.roomId) return;
+          if (!authenticated || !context.userId || !context.activeRoomId || !data.roomId || data.roomId !== context.activeRoomId) return;
           logServerDebug('socket:typing:event', {
-            roomId: context.roomId,
+            roomId: context.activeRoomId,
             resolvedUserId: context.userId,
             isTyping: data.isTyping ?? true,
           });
-          broadcastToRoom(context.roomId, {
+          broadcastToRoom(context.activeRoomId, {
             type: 'user_typing',
-            roomId: context.roomId,
+            roomId: context.activeRoomId,
             userId: context.userId,
             isTyping: data.isTyping ?? true,
           });
