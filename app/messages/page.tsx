@@ -210,6 +210,7 @@ const ChatShell: React.FC = () => {
   const [showDetails, setShowDetails] = useState(false);
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const previousRequestsRef = useRef<Record<string, string>>({});
+  const activeRoomIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -454,6 +455,26 @@ const ChatShell: React.FC = () => {
     setIsDeleteActionInFlight(false);
     setSelectedMessageIds(new Set());
   }, [activeRoom?.id]);
+
+  useEffect(() => {
+    activeRoomIdRef.current = activeRoom?.id ? String(activeRoom.id) : null;
+  }, [activeRoom?.id]);
+
+  useEffect(() => {
+    setPendingAttachments([]);
+    setAttachmentUploadError(null);
+    setShowAttachmentMenu(false);
+    dragDepthRef.current = 0;
+    setIsDraggingFilesOverChat(false);
+  }, [activeRoom?.id]);
+
+  useEffect(() => {
+    return () => {
+      activeRoomIdRef.current = null;
+      composerRoomSnapshotRef.current = null;
+      dragDepthRef.current = 0;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -873,13 +894,14 @@ const ChatShell: React.FC = () => {
   };
 
   const handleSend = async () => {
+    const roomId = activeRoomIdRef.current;
     const uploadedAttachments = pendingAttachments
       .filter((item) => item.status === "uploaded" && item.attachment)
       .map((item) => item.attachment as MessageAttachmentInput);
     const trimmedComposer = composer.trim();
 
-    if (!activeRoom || (trimmedComposer.length === 0 && uploadedAttachments.length === 0) || isUploadingAttachments) return;
-    sendTyping(activeRoom.id, false);
+    if (!roomId || (trimmedComposer.length === 0 && uploadedAttachments.length === 0) || isUploadingAttachments) return;
+    sendTyping(roomId, false);
 
     setComposer("");
     setPendingAttachments([]);
@@ -888,24 +910,23 @@ const ChatShell: React.FC = () => {
     const sendOperations: Promise<void>[] = [];
 
     if (trimmedComposer.length > 0) {
-      sendOperations.push(sendMessage(activeRoom.id, trimmedComposer, [], replyingToMessageId));
+      sendOperations.push(sendMessage(roomId, trimmedComposer, [], replyingToMessageId));
     }
 
     uploadedAttachments.forEach((attachment, index) => {
-      sendOperations.push(sendMessage(activeRoom.id, "", [attachment], index === 0 && trimmedComposer.length === 0 ? replyingToMessageId : null));
+      sendOperations.push(sendMessage(roomId, "", [attachment], index === 0 && trimmedComposer.length === 0 ? replyingToMessageId : null));
     });
 
     if (sendOperations.length > 0) {
       await Promise.allSettled(sendOperations);
       setReplyingToMessageId(null);
       setDraftsByRoom((prev) => {
-        if (!activeRoom) return prev;
-        const roomId = String(activeRoom.id);
         if (!prev[roomId]) return prev;
         return { ...prev, [roomId]: "" };
       });
     }
   };
+
 
   const handleDeleteSelectedMessages = async () => {
     if (!activeRoom || selectedMessages.length === 0 || isDeleteActionInFlight) return;
