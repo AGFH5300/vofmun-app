@@ -568,7 +568,7 @@ const MessageBubble: React.FC<Props> = ({
           </div>
         )}
 
-        <div className="mt-0.5 flex items-end justify-between gap-1.5">
+        <div className="mt-0.5 min-w-0">
           {isEditing ? (
             <form
               className="w-full"
@@ -617,7 +617,7 @@ const MessageBubble: React.FC<Props> = ({
               </div>
             </form>
           ) : message.content ? (
-            <div className="min-w-0 max-w-full flex-1">
+            <div className="relative min-w-0 max-w-full pr-14 pb-4">
               <div
                 className={`min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-almost-black-green ${
                   isDeleted
@@ -654,16 +654,21 @@ const MessageBubble: React.FC<Props> = ({
                   {isExpanded ? 'Read less' : 'Read more'}
                 </button>
               ) : null}
+              <div className="pointer-events-none absolute bottom-0 right-0 text-[0.68rem]">
+                <div className="flex items-center justify-end gap-0.5 whitespace-nowrap rounded-sm bg-transparent pl-2">
+                  <span className="text-almost-black-green/55">{timestamp}</span>
+                  {resolvedStatus && <span className={statusClass[resolvedStatus] || 'text-almost-black-green/50'}>{statusIcon[resolvedStatus]}</span>}
+                </div>
+              </div>
             </div>
           ) : (
-            <span />
-          )}
-          <div className="shrink-0 self-end pb-0.5 text-[0.68rem]">
-            <div className="flex items-center justify-end gap-0.5">
-              <span className="text-almost-black-green/55">{timestamp}</span>
-              {resolvedStatus && <span className={statusClass[resolvedStatus] || 'text-almost-black-green/50'}>{statusIcon[resolvedStatus]}</span>}
+            <div className="flex items-end justify-end text-[0.68rem]">
+              <div className="flex items-center justify-end gap-0.5">
+                <span className="text-almost-black-green/55">{timestamp}</span>
+                {resolvedStatus && <span className={statusClass[resolvedStatus] || 'text-almost-black-green/50'}>{statusIcon[resolvedStatus]}</span>}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
       </div>

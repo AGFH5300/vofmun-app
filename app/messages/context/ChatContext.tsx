@@ -957,6 +957,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         }));
         if (response.ok) {
           postedReceiptKeysRef.current.set(dedupeScopeKey, receiptKey);
+          if (markRead && isRoomActivelyRead(roomId)) {
+            setRoomUnreadCount(roomId, 0);
+          }
         }
         const responseBody = await response
           .clone()
@@ -972,7 +975,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         inFlightReceiptKeysRef.current.delete(receiptKey);
       }
     },
-    [getReceiptSignature, userId, withAuthHeaders]
+    [getReceiptSignature, isRoomActivelyRead, setRoomUnreadCount, userId, withAuthHeaders]
   );
 
   const flushScheduledReceipts = useCallback(async () => {
@@ -1087,7 +1090,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       scheduleReceiptsForMessages(normalizedRoomId, withResolvedStatus, false);
       if (isRoomActivelyRead(normalizedRoomId)) {
         scheduleReceiptsForMessages(normalizedRoomId, withResolvedStatus, true);
-        setRoomUnreadCount(normalizedRoomId, 0);
       }
 
       messagesRef.current = {
@@ -1107,7 +1109,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       );
       return true;
     },
-    [cacheHiddenMessageIdsForRoom, fetchWithTimeout, isRoomActivelyRead, mergeUsersIntoDirectory, scheduleReceiptsForMessages, setRoomUnreadCount, userId, withAuthHeaders]
+    [cacheHiddenMessageIdsForRoom, fetchWithTimeout, isRoomActivelyRead, mergeUsersIntoDirectory, scheduleReceiptsForMessages, userId, withAuthHeaders]
   );
 
   useEffect(() => {
@@ -1184,14 +1186,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       activeRoomIdRef.current = room.id;
       pendingRoomJoinIdsRef.current.add(room.id);
       setActiveRoom(rooms.find((candidate) => candidate.id === room.id) || room);
-      if (isRoomActivelyRead(room.id)) {
-        setRoomUnreadCount(room.id, 0);
-      }
       if (!messagesRef.current[room.id]) {
         await refreshRoomMessages(room.id);
-      }
-      if (isRoomActivelyRead(room.id)) {
-        setRoomUnreadCount(room.id, 0);
       }
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         joinSocketRooms([room.id]);
@@ -1202,7 +1198,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
       }
     },
-    [isRoomActivelyRead, joinSocketRooms, refreshRoomMessages, rooms, sendTyping, setRoomUnreadCount]
+    [joinSocketRooms, refreshRoomMessages, rooms, sendTyping]
   );
 
   const handleSocketMessage = useCallback(
@@ -1294,7 +1290,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             scheduleReceiptsForMessages(normalizedRoomId, roomMessages, false);
             if (isRoomActivelyRead(normalizedRoomId)) {
               scheduleReceiptsForMessages(normalizedRoomId, roomMessages, true);
-              setRoomUnreadCount(normalizedRoomId, 0);
             }
           }
           break;
@@ -2231,33 +2226,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   useEffect(() => {
     userDirectoryRef.current = userDirectory;
   }, [userDirectory]);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const clearActiveRoomWhenVisible = () => {
-      if (document.visibilityState === 'hidden') return;
-      const activeRoomId = activeRoomIdRef.current;
-      if (!activeRoomId) return;
-      if ((unreadByRoomRef.current[activeRoomId] || 0) > 0) {
-        setRoomUnreadCount(activeRoomId, 0);
-      }
-    };
-
-    document.addEventListener('visibilitychange', clearActiveRoomWhenVisible);
-    window.addEventListener('focus', clearActiveRoomWhenVisible);
-    return () => {
-      document.removeEventListener('visibilitychange', clearActiveRoomWhenVisible);
-      window.removeEventListener('focus', clearActiveRoomWhenVisible);
-    };
-  }, [setRoomUnreadCount]);
-
-  useEffect(() => {
-    const activeRoomId = activeRoom?.id;
-    if (!activeRoomId || !isRoomActivelyRead(activeRoomId)) return;
-    if ((unreadByRoom[activeRoomId] || 0) === 0) return;
-    setRoomUnreadCount(activeRoomId, 0);
-  }, [activeRoom?.id, isRoomActivelyRead, setRoomUnreadCount, unreadByRoom]);
-
 
   useEffect(() => {
     if (!userId || typeof document === 'undefined') return;
