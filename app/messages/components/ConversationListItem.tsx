@@ -146,7 +146,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
                 {hasUnread ? (
                   <span
                     aria-label={`${unreadCount} unread message${unreadCount === 1 ? '' : 's'}`}
-                    className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-[#25d366] px-1.5 py-0.5 text-[0.7rem] font-bold leading-none text-white shadow-sm ring-2 ring-white"
+                    className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full background-deep-red px-1.5 py-0.5 text-[0.7rem] font-bold leading-none text-white shadow-sm ring-2 ring-white"
                   >
                     {unreadBadgeLabel}
                   </span>
