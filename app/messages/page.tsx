@@ -1018,6 +1018,12 @@ const ChatShell: React.FC = () => {
   const canSendMessage = !isAnySelectionModeActive && (composer.trim().length > 0 || hasUploadedPendingAttachments) && !isUploadingAttachments;
 
   useEffect(() => {
+    setShowAttachmentMenu(false);
+    setShowEmojiModal(false);
+    setAttachmentUploadError(null);
+  }, [activeRoom?.id]);
+
+  useEffect(() => {
     setIsUploadingAttachments(pendingAttachments.some((item) => item.status === "uploading"));
   }, [pendingAttachments]);
 
@@ -1384,13 +1390,13 @@ const ChatShell: React.FC = () => {
                       `${sender?.first_name || ""} ${sender?.last_name || ""}`.trim() ||
                       req.sender_id;
                     const roleLine = `${sender?.role_title || sender?.role || "Participant"}${sender?.committee ? ` • ${sender.committee}` : ""}${sender?.country ? ` • ${sender.country}` : ""}`;
-                    const avatarUser =
-                      sender ||
-                      ({
-                        id: req.sender_id,
-                        full_name: displayName,
-                        email: sender?.email || "",
-                      } as UserSearchResult);
+                    const avatarUser: UserSearchResult = sender
+                      ? { ...sender, email: sender.email || "" }
+                      : {
+                          id: req.sender_id,
+                          full_name: displayName,
+                          email: "",
+                        };
 
                     const handleAccept = async () => {
                       setRespondingId(req.id);
@@ -2110,7 +2116,6 @@ const ChatShell: React.FC = () => {
               {warmEmojiPicker && (
                   <div className="pointer-events-none absolute -left-[9999px] -top-[9999px] h-0 w-0 overflow-hidden opacity-0" inert>
                     <EmojiPicker
-                      theme="light"
                       width={1}
                       height={1}
                       lazyLoadEmojis={false}
@@ -2130,7 +2135,6 @@ const ChatShell: React.FC = () => {
                     }}
                   >
                     <EmojiPicker
-                      theme="light"
                       width="100%"
                       height={320}
                       lazyLoadEmojis={false}
