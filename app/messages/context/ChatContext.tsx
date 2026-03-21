@@ -2,7 +2,7 @@
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ChatSocketPayload,
   FriendRequest,
@@ -779,7 +779,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   }, []);
 
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     activeRoomIdRef.current = activeRoom?.id || null;
   }, [activeRoom?.id]);
 
@@ -812,7 +812,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     messagesRef.current = messages;
   }, [messages]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     userIdRef.current = userId;
   }, [userId]);
 

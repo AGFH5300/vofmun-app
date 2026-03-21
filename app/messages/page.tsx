@@ -210,7 +210,6 @@ const ChatShell: React.FC = () => {
   const [showDetails, setShowDetails] = useState(false);
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const previousRequestsRef = useRef<Record<string, string>>({});
-  const activeRoomIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -457,10 +456,6 @@ const ChatShell: React.FC = () => {
   }, [activeRoom?.id]);
 
   useEffect(() => {
-    activeRoomIdRef.current = activeRoom?.id ? String(activeRoom.id) : null;
-  }, [activeRoom?.id]);
-
-  useEffect(() => {
     setPendingAttachments([]);
     setAttachmentUploadError(null);
     setShowAttachmentMenu(false);
@@ -470,7 +465,6 @@ const ChatShell: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      activeRoomIdRef.current = null;
       composerRoomSnapshotRef.current = null;
       dragDepthRef.current = 0;
     };
@@ -894,7 +888,7 @@ const ChatShell: React.FC = () => {
   };
 
   const handleSend = async () => {
-    const roomId = activeRoomIdRef.current;
+    const roomId = activeRoom?.id ? String(activeRoom.id) : null;
     const uploadedAttachments = pendingAttachments
       .filter((item) => item.status === "uploaded" && item.attachment)
       .map((item) => item.attachment as MessageAttachmentInput);
@@ -992,9 +986,40 @@ const ChatShell: React.FC = () => {
     });
   };
 
+  const unreadDivider = useMemo(() => {
+    if (!activeRoom || !currentUserId) return null;
+
+    const unreadCount = Math.max(0, Math.floor(activeRoom.unreadCount || 0));
+    if (unreadCount === 0 || visibleActiveMessages.length === 0) return null;
+
+    let unreadIncomingSeen = 0;
+    let firstUnreadMessageId: string | null = null;
+
+    for (let index = visibleActiveMessages.length - 1; index >= 0; index -= 1) {
+      const message = visibleActiveMessages[index];
+      if (String(message.user_id) === String(currentUserId)) {
+        continue;
+      }
+
+      unreadIncomingSeen += 1;
+      if (unreadIncomingSeen === unreadCount) {
+        firstUnreadMessageId = String(message.id);
+        break;
+      }
+    }
+
+    if (!firstUnreadMessageId) return null;
+
+    return {
+      firstUnreadMessageId,
+      count: unreadCount,
+      label: unreadCount === 1 ? "1 unread message" : `${unreadCount} unread messages`,
+    };
+  }, [activeRoom, currentUserId, visibleActiveMessages]);
+
   const timeline = useMemo(() => {
     const sequence: Array<
-      { type: "date"; label: string } | { type: "message"; id: string }
+      { type: "date"; label: string } | { type: "unread"; id: string; label: string } | { type: "message"; id: string }
     > = [];
     let lastDate: string | null = null;
     visibleActiveMessages.forEach((msg) => {
@@ -1003,10 +1028,13 @@ const ChatShell: React.FC = () => {
         sequence.push({ type: "date", label: dateLabel });
         lastDate = dateLabel;
       }
+      if (unreadDivider?.firstUnreadMessageId === String(msg.id)) {
+        sequence.push({ type: "unread", id: unreadDivider.firstUnreadMessageId, label: unreadDivider.label });
+      }
       sequence.push({ type: "message", id: msg.id });
     });
     return sequence;
-  }, [visibleActiveMessages]);
+  }, [unreadDivider, visibleActiveMessages]);
 
   const selectedMessagesCount = selectedMessageIds.size;
   const isAnySelectionModeActive = isSelectMode || isDeleteSelectionMode;
@@ -1658,6 +1686,17 @@ const ChatShell: React.FC = () => {
                             <span className="rounded-full border border-soft-ivory bg-white px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-almost-black-green/60 shadow-sm">
                               {item.label}
                             </span>
+                          </div>
+                        );
+                      }
+                      if (item.type === "unread") {
+                        return (
+                          <div key={`unread-${item.id}`} className="my-3 flex items-center gap-3">
+                            <div className="h-px flex-1 bg-[#d9d9d9]" />
+                            <span className="shrink-0 rounded-full border border-[#f0c9c9] bg-[#fff4f4] px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-deep-red/85 shadow-sm">
+                              {item.label}
+                            </span>
+                            <div className="h-px flex-1 bg-[#d9d9d9]" />
                           </div>
                         );
                       }
