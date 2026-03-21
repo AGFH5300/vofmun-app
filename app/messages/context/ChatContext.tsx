@@ -91,6 +91,7 @@ const RECONNECT_MAX_DELAY_MS = 12000;
 const RECEIPT_DEBOUNCE_MS = 300;
 const BOOTSTRAP_FETCH_TIMEOUT_MS = 12000;
 const FRIEND_REQUEST_REFRESH_DEBOUNCE_MS = 80;
+const SOCKET_RESUME_REPAIR_THROTTLE_MS = 2000;
 
 const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 
@@ -144,6 +145,10 @@ const normalizeFriendRequestStatus = (status?: string | null) => (status === 'de
 
 
 type ChatUserLike = MessageWithUser['user'] | FriendRequest['sender'] | null | undefined;
+type RoomUnreadCountRow = {
+  room_id: string;
+  unread_count: number | string | null;
+};
 
 const toDirectoryUser = (profile: ChatUserLike) => {
   if (!profile?.id) return null;
@@ -349,6 +354,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const friendRequestToastBootstrapRef = useRef(false);
   const friendRequestToastTransitionsRef = useRef<Set<string>>(new Set());
   const visibilityRefreshInFlightRef = useRef(false);
+  const repairSyncInFlightRef = useRef(false);
+  const lastRepairSyncAtRef = useRef(0);
   const userDirectoryRef = useRef<Record<string, FriendRequest['sender']>>({});
   const hiddenMessageIdsByRoomRef = useRef<Record<string, Set<string>>>({});
   const joinedSocketRoomIdsRef = useRef<Set<string>>(new Set());
@@ -490,7 +497,31 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const resolveLiveRoomId = useCallback((roomId?: string | null) => {
     const requestedRoomId = toComparableId(roomId);
     const activeRoomId = toComparableId(activeRoomIdRef.current);
-    return activeRoomId || requestedRoomId;
+    return requestedRoomId || activeRoomId;
+  }, []);
+
+  const fetchAuthoritativeUnreadCounts = useCallback(async (currentUserId: string) => {
+    const normalizedUserId = toComparableId(currentUserId);
+    if (!normalizedUserId) return {} as Record<string, number>;
+
+    const { data, error } = await supabase.rpc('get_room_unread_counts', {
+      p_user_id: normalizedUserId,
+    });
+
+    if (error) {
+      console.error('[ChatContext] failed to hydrate authoritative unread counts', {
+        userId: normalizedUserId,
+        error,
+      });
+      return {} as Record<string, number>;
+    }
+
+    return ((data || []) as RoomUnreadCountRow[]).reduce<Record<string, number>>((acc, row) => {
+      const roomId = toComparableId(row.room_id);
+      if (!roomId) return acc;
+      acc[roomId] = Math.max(0, Math.floor(Number(row.unread_count || 0)));
+      return acc;
+    }, {});
   }, []);
 
   const applyIncomingMessageToRoomList = useCallback((
@@ -777,9 +808,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     () =>
       rooms.map((room) => {
         const normalizedRoomId = toComparableId(room.id);
-        const canonicalUnreadCount = isRoomActivelyRead(normalizedRoomId)
-          ? 0
-          : Math.max(0, Math.floor(unreadByRoom[normalizedRoomId] ?? room.unreadCount ?? 0));
+        const canonicalUnreadCount = Math.max(0, Math.floor(unreadByRoom[normalizedRoomId] ?? room.unreadCount ?? 0));
 
         if (canonicalUnreadCount === (room.unreadCount || 0)) {
           return room;
@@ -790,7 +819,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           unreadCount: canonicalUnreadCount,
         };
       }),
-    [isRoomActivelyRead, rooms, unreadByRoom]
+    [rooms, unreadByRoom]
   );
 
   useEffect(() => {
@@ -828,7 +857,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const refreshRooms = useCallback(async () => {
     if (!userId) return [] as RoomWithDetails[];
     logChatDebug('refreshRooms:start', { userId, endpoint: `${CHAT_API_URL}/api/rooms` });
-    const response = await fetchWithTimeout(`${CHAT_API_URL}/api/rooms`, await withAuthHeaders());
+    const [response, authoritativeUnreadByRoom] = await Promise.all([
+      fetchWithTimeout(`${CHAT_API_URL}/api/rooms`, await withAuthHeaders()),
+      fetchAuthoritativeUnreadCounts(userId),
+    ]);
     if (!response.ok) {
       logChatDebug('refreshRooms:failed', { status: response.status, statusText: response.statusText });
       return [] as RoomWithDetails[];
@@ -845,9 +877,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         : null;
       const serverUnreadCount = typeof room.unreadCount === 'number' ? Math.max(0, room.unreadCount) : 0;
       const localUnreadCount = unreadByRoomRef.current[normalizedRoomId];
-      const mergedUnreadCount = isRoomActivelyRead(normalizedRoomId)
-        ? 0
-        : Math.max(localUnreadCount ?? 0, serverUnreadCount);
+      const rpcUnreadCount = authoritativeUnreadByRoom[normalizedRoomId];
+      const mergedUnreadCount = Math.max(localUnreadCount ?? 0, serverUnreadCount, rpcUnreadCount ?? 0);
 
       return {
         ...room,
@@ -890,7 +921,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
     }
     return enriched;
-  }, [fetchWithTimeout, getVisibleLastMessageForRoom, isRoomActivelyRead, mergeUsersIntoDirectory, pinnedRoomIds, userId, withAuthHeaders]);
+  }, [fetchAuthoritativeUnreadCounts, fetchWithTimeout, getVisibleLastMessageForRoom, mergeUsersIntoDirectory, pinnedRoomIds, userId, withAuthHeaders]);
 
   const refreshFriendRequests = useCallback(async () => {
     if (!userId) return;
@@ -935,7 +966,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         }));
         if (response.ok) {
           postedReceiptKeysRef.current.set(dedupeScopeKey, receiptKey);
-          if (markRead && isRoomActivelyRead(roomId)) {
+          if (markRead) {
             setRoomUnreadCount(roomId, 0);
           }
         }
@@ -953,7 +984,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         inFlightReceiptKeysRef.current.delete(receiptKey);
       }
     },
-    [getReceiptSignature, isRoomActivelyRead, setRoomUnreadCount, userId, withAuthHeaders]
+    [getReceiptSignature, setRoomUnreadCount, userId, withAuthHeaders]
   );
 
   const flushScheduledReceipts = useCallback(async () => {
@@ -1102,6 +1133,40 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     refreshRoomMessagesRef.current = refreshRoomMessages;
   }, [refreshRoomMessages]);
 
+  const runRepairSync = useCallback(async (reason: 'focus' | 'visibility' | 'online' | 'pageshow' | 'socket-authenticated') => {
+    const currentUserId = userIdRef.current;
+    if (!currentUserId || repairSyncInFlightRef.current) return;
+
+    const now = Date.now();
+    if (now - lastRepairSyncAtRef.current < SOCKET_RESUME_REPAIR_THROTTLE_MS) return;
+
+    repairSyncInFlightRef.current = true;
+    lastRepairSyncAtRef.current = now;
+
+    try {
+      const refreshedRooms = await refreshRoomsRef.current();
+      await refreshFriendRequestsRef.current();
+
+      const liveActiveRoomId = activeRoomIdRef.current;
+      if (liveActiveRoomId && refreshedRooms.some((room) => toComparableId(room.id) === toComparableId(liveActiveRoomId))) {
+        await refreshRoomMessagesRef.current(liveActiveRoomId);
+      }
+
+      logChatDebug('repairSync:success', {
+        reason,
+        roomCount: refreshedRooms.length,
+        activeRoomId: liveActiveRoomId,
+      });
+    } catch (error) {
+      console.error('[ChatContext] repair sync failed', {
+        reason,
+        error: error instanceof Error ? error.message : 'unknown-error',
+      });
+    } finally {
+      repairSyncInFlightRef.current = false;
+    }
+  }, []);
+
   const upsertRoomMessage = useCallback((roomId: string, nextMessage: MessageWithUser, options?: { replaceExistingOnly?: boolean }) => {
     const normalizedRoomId = toComparableId(roomId);
     const roomMemberIds = getRoomMemberIds(normalizedRoomId, roomsRef.current);
@@ -1216,7 +1281,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
       activeRoomIdRef.current = room.id;
       pendingRoomJoinIdsRef.current.add(room.id);
-      setActiveRoom(rooms.find((candidate) => candidate.id === room.id) || room);
+      setActiveRoom(roomsRef.current.find((candidate) => candidate.id === room.id) || room);
       if (!messagesRef.current[room.id]) {
         await refreshRoomMessages(room.id);
       }
@@ -1229,7 +1294,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
       }
     },
-    [joinSocketRooms, refreshRoomMessages, rooms, sendTyping]
+    [joinSocketRooms, refreshRoomMessages, sendTyping]
   );
 
   const handleSocketMessage = useCallback(
@@ -1269,6 +1334,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             ...roomsRef.current.map((room) => room.id),
             ...Array.from(pendingRoomJoinIdsRef.current),
           ]);
+          void runRepairSync('socket-authenticated');
           break;
         }
         case 'auth_error': {
@@ -1485,7 +1551,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
       }
     },
-    [applyIncomingMessageToRoomList, incrementRoomUnreadCount, isDocumentVisible, isRoomActivelyRead, joinSocketRooms, mergeUsersIntoDirectory, scheduleReceiptsForMessages, upsertRoomMessage]
+    [applyIncomingMessageToRoomList, incrementRoomUnreadCount, isDocumentVisible, isRoomActivelyRead, joinSocketRooms, mergeUsersIntoDirectory, runRepairSync, scheduleReceiptsForMessages, upsertRoomMessage]
   );
 
   const connectSocket = useCallback(() => {
@@ -1579,6 +1645,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         receiptDebounceTimerRef.current = null;
       }
       pendingReceiptQueueRef.current = null;
+      repairSyncInFlightRef.current = false;
+      lastRepairSyncAtRef.current = 0;
       postedReceiptKeysRef.current.clear();
       scheduledReceiptKeysRef.current.clear();
       inFlightReceiptKeysRef.current.clear();
@@ -1607,24 +1675,41 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     if (!userId) return;
 
     const ensureLiveSocket = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       const socket = wsRef.current;
       if (!socket || socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED) {
         connectSocket();
+        void runRepairSync('visibility');
         return;
       }
 
       if (socket.readyState === WebSocket.OPEN) {
         joinSocketRooms([...roomsRef.current.map((room) => room.id), activeRoomIdRef.current]);
+        void runRepairSync('visibility');
       }
     };
 
+    const handleOnline = () => {
+      void runRepairSync('online');
+      ensureLiveSocket();
+    };
+
+    const handlePageShow = () => {
+      void runRepairSync('pageshow');
+      ensureLiveSocket();
+    };
+
     window.addEventListener('focus', ensureLiveSocket);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('pageshow', handlePageShow);
     document.addEventListener('visibilitychange', ensureLiveSocket);
     return () => {
       window.removeEventListener('focus', ensureLiveSocket);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('pageshow', handlePageShow);
       document.removeEventListener('visibilitychange', ensureLiveSocket);
     };
-  }, [connectSocket, joinSocketRooms, userId]);
+  }, [connectSocket, joinSocketRooms, runRepairSync, userId]);
 
   useEffect(() => {
     console.debug(`${CHAT_BOOTSTRAP_DEBUG_PREFIX} gate`, {
@@ -2297,13 +2382,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (document.visibilityState === 'hidden' || visibilityRefreshInFlightRef.current) return;
       visibilityRefreshInFlightRef.current = true;
       try {
-        const refreshedRooms = await refreshRoomsRef.current();
-        await refreshFriendRequestsRef.current();
-
-        const activeRoomId = activeRoomIdRef.current;
-        if (activeRoomId && refreshedRooms.some((room) => room.id === activeRoomId)) {
-          await refreshRoomMessagesRef.current(activeRoomId);
-        }
+        await runRepairSync('focus');
       } finally {
         visibilityRefreshInFlightRef.current = false;
       }
@@ -2319,7 +2398,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       window.removeEventListener('focus', onVisible);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [userId]);
+  }, [runRepairSync, userId]);
 
   const togglePin = useCallback((roomId: string) => {
     setPinnedRoomIds((prev) => {
