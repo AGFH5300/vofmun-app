@@ -2,7 +2,7 @@
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { MessageAttachment, MessageWithUser, RoomMember } from '@/lib/chat/types';
 import supabase from '@/lib/supabase';
@@ -235,7 +235,8 @@ const MessageBubble: React.FC<Props> = ({
   const timestamp = message.created_at
     ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
-  const metadataTailWidth = isOwn ? '4.35rem' : '2.9rem';
+  const metadataRef = useRef<HTMLDivElement | null>(null);
+  const [metadataWidth, setMetadataWidth] = useState(isOwn ? 70 : 46);
 
   const receiptMeta = normalizeMessageMeta(message.meta);
   const resolvedCurrentUserId = currentUserId ? String(currentUserId) : null;
@@ -293,6 +294,16 @@ const MessageBubble: React.FC<Props> = ({
     !isLargeEmojiMessage &&
     (messageContent.length > MESSAGE_COLLAPSE_MAX_CHARS || messageLineCount > MESSAGE_COLLAPSE_MAX_LINES);
   const [isExpanded, setIsExpanded] = useState(false);
+  const textOnlyShortMessageLength = (message.content || '').trim().length;
+  const shouldApplyShortBubbleMinWidth =
+    attachments.length === 0 &&
+    !isDeleted &&
+    !isLargeEmojiMessage &&
+    textOnlyShortMessageLength > 0 &&
+    textOnlyShortMessageLength <= 12 &&
+    messageLineCount <= 1;
+  const metadataTailWidth = `${Math.max(28, metadataWidth + 6)}px`;
+  const dynamicShortBubbleMinWidth = shouldApplyShortBubbleMinWidth ? `${Math.min(220, Math.max(92, metadataWidth + 42))}px` : undefined;
 
   useEffect(() => {
     if (!isEditing) {
@@ -303,6 +314,24 @@ const MessageBubble: React.FC<Props> = ({
   useEffect(() => {
     setIsExpanded(false);
   }, [message.id, message.content]);
+
+  useLayoutEffect(() => {
+    const node = metadataRef.current;
+    if (!node || typeof window === 'undefined') return;
+
+    const measure = () => {
+      const nextWidth = Math.ceil(node.getBoundingClientRect().width);
+      if (!nextWidth) return;
+      setMetadataWidth((prev) => (prev === nextWidth ? prev : nextWidth));
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isOwn, resolvedStatus, timestamp]);
 
   useEffect(() => {
     if (attachments.length === 0) {
@@ -482,6 +511,7 @@ const MessageBubble: React.FC<Props> = ({
                 : 'rounded-[8px] border-[#dcc8bd] bg-[#efe3dc] text-almost-black-green'
               : 'rounded-[8px] border-soft-ivory bg-white text-almost-black-green'
           } ${isSelectMode && canSelectMessage ? 'cursor-pointer' : ''} ${isSelected ? 'ring-2 ring-deep-red/35' : ''}`}
+          style={dynamicShortBubbleMinWidth ? { minWidth: dynamicShortBubbleMinWidth } : undefined}
         >
         {showAuthor && (
           <p className="text-[0.62rem] font-medium uppercase tracking-[0.08em] text-deep-red/85">
@@ -660,7 +690,7 @@ const MessageBubble: React.FC<Props> = ({
                   {isExpanded ? 'Read less' : 'Read more'}
                 </button>
               ) : null}
-              <div className="pointer-events-none absolute bottom-0 right-0 text-[0.68rem]">
+              <div ref={metadataRef} className="pointer-events-none absolute bottom-0 right-0 text-[0.68rem]">
                 <div className="flex items-center justify-end gap-0.5 whitespace-nowrap rounded-sm bg-transparent pl-2">
                   <span className="text-almost-black-green/55">{timestamp}</span>
                   {resolvedStatus && <span className={statusClass[resolvedStatus] || 'text-almost-black-green/50'}>{statusIcon[resolvedStatus]}</span>}
@@ -669,7 +699,7 @@ const MessageBubble: React.FC<Props> = ({
             </div>
           ) : (
             <div className="flex items-end justify-end text-[0.68rem]">
-              <div className="flex items-center justify-end gap-0.5">
+              <div ref={metadataRef} className="flex items-center justify-end gap-0.5">
                 <span className="text-almost-black-green/55">{timestamp}</span>
                 {resolvedStatus && <span className={statusClass[resolvedStatus] || 'text-almost-black-green/50'}>{statusIcon[resolvedStatus]}</span>}
               </div>
