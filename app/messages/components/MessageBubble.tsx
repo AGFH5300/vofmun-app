@@ -683,7 +683,7 @@ const MessageBubble: React.FC<Props> = ({
               </div>
             </form>
           ) : message.content ? (
-            <div className="relative min-w-0 max-w-full pb-4">
+            <div className="relative min-w-0 max-w-full">
               {shouldApplyShortBubbleMinWidth || canUseInlineMetadataLayout ? (
                 <span
                   ref={shortTextMeasureRef}
