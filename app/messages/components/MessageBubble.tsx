@@ -79,6 +79,7 @@ const isEmojiOnlyMessage = (value: string) => {
 
 const MESSAGE_COLLAPSE_MAX_CHARS = 240;
 const MESSAGE_COLLAPSE_MAX_LINES = 6;
+const INLINE_METADATA_MAX_WIDTH = 240;
 
 const getMessageLineCount = (value: string) => value.split(/\r\n|\r|\n/).length;
 
@@ -304,7 +305,16 @@ const MessageBubble: React.FC<Props> = ({
     textOnlyShortMessageLength > 0 &&
     textOnlyShortMessageLength <= 12 &&
     messageLineCount <= 1;
-  const shouldReserveMetadataTail = Boolean(message.content) && !isLargeEmojiMessage;
+  const canUseInlineMetadataLayout =
+    attachments.length === 0 &&
+    !isDeleted &&
+    !isLargeEmojiMessage &&
+    !isCollapsibleTextMessage &&
+    messageLineCount === 1 &&
+    Boolean(messageContent.trim()) &&
+    shortTextWidth > 0 &&
+    shortTextWidth + metadataWidth + 18 <= INLINE_METADATA_MAX_WIDTH;
+  const shouldReserveMetadataTail = Boolean(message.content) && !isLargeEmojiMessage && !canUseInlineMetadataLayout;
   const metadataTailWidth = `${Math.max(28, metadataWidth + 8)}px`;
   const dynamicShortBubbleMinWidth = shouldApplyShortBubbleMinWidth
     ? `${Math.min(240, Math.max(96, Math.ceil(shortTextWidth + metadataWidth + 28)))}px`
@@ -674,7 +684,7 @@ const MessageBubble: React.FC<Props> = ({
             </form>
           ) : message.content ? (
             <div className="relative min-w-0 max-w-full pb-4">
-              {shouldApplyShortBubbleMinWidth ? (
+              {shouldApplyShortBubbleMinWidth || canUseInlineMetadataLayout ? (
                 <span
                   ref={shortTextMeasureRef}
                   aria-hidden="true"
@@ -684,25 +694,54 @@ const MessageBubble: React.FC<Props> = ({
                   {message.edited_at && !isDeleted ? <span className="ml-1 text-[10px]">(edited)</span> : null}
                 </span>
               ) : null}
-              <div
-                className={`min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-almost-black-green ${
-                  isDeleted
-                    ? 'text-[13px] italic leading-[1.3] text-almost-black-green/55'
-                    : isLargeEmojiMessage
-                      ? 'text-[40px] leading-none'
-                      : 'text-[14px] leading-[1.3]'
-                } ${isCollapsibleTextMessage && !isExpanded ? 'line-clamp-6' : ''}`}
-              >
-                {message.content}
-                {message.edited_at && !isDeleted ? <span className="ml-1 text-[10px] text-almost-black-green/50">(edited)</span> : null}
-                {shouldReserveMetadataTail ? (
-                  <span
-                    aria-hidden="true"
-                    className="inline-block h-[0.95rem] align-baseline"
-                    style={{ width: metadataTailWidth }}
-                  />
-                ) : null}
-              </div>
+              {canUseInlineMetadataLayout ? (
+                <div className="flex min-w-0 max-w-full items-end gap-1.5">
+                  <div
+                    className={`min-w-0 flex-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-almost-black-green ${
+                      isDeleted
+                        ? 'text-[13px] italic leading-[1.3] text-almost-black-green/55'
+                        : isLargeEmojiMessage
+                          ? 'text-[40px] leading-none'
+                          : 'text-[14px] leading-[1.3]'
+                    }`}
+                  >
+                    {message.content}
+                    {message.edited_at && !isDeleted ? <span className="ml-1 text-[10px] text-almost-black-green/50">(edited)</span> : null}
+                  </div>
+                  <div ref={metadataRef} className="flex shrink-0 items-center gap-0.5 self-end whitespace-nowrap pb-[1px] text-[0.68rem]">
+                    <span className="text-almost-black-green/55">{timestamp}</span>
+                    {resolvedStatus && <span className={statusClass[resolvedStatus] || 'text-almost-black-green/50'}>{statusIcon[resolvedStatus]}</span>}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div
+                    className={`min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-almost-black-green ${
+                      isDeleted
+                        ? 'text-[13px] italic leading-[1.3] text-almost-black-green/55'
+                        : isLargeEmojiMessage
+                          ? 'text-[40px] leading-none'
+                          : 'text-[14px] leading-[1.3]'
+                    } ${isCollapsibleTextMessage && !isExpanded ? 'line-clamp-6' : ''}`}
+                  >
+                    {message.content}
+                    {message.edited_at && !isDeleted ? <span className="ml-1 text-[10px] text-almost-black-green/50">(edited)</span> : null}
+                    {shouldReserveMetadataTail ? (
+                      <span
+                        aria-hidden="true"
+                        className="inline-block h-[0.95rem] align-baseline"
+                        style={{ width: metadataTailWidth }}
+                      />
+                    ) : null}
+                  </div>
+                  <div ref={metadataRef} className="pointer-events-none absolute bottom-0 right-0 text-[0.68rem]">
+                    <div className="flex items-center justify-end gap-0.5 whitespace-nowrap rounded-sm bg-transparent pl-2">
+                      <span className="text-almost-black-green/55">{timestamp}</span>
+                      {resolvedStatus && <span className={statusClass[resolvedStatus] || 'text-almost-black-green/50'}>{statusIcon[resolvedStatus]}</span>}
+                    </div>
+                  </div>
+                </>
+              )}
               {isCollapsibleTextMessage ? (
                 <button
                   type="button"
@@ -727,12 +766,6 @@ const MessageBubble: React.FC<Props> = ({
                   {isExpanded ? 'Read less' : 'Read more'}
                 </button>
               ) : null}
-              <div ref={metadataRef} className="pointer-events-none absolute bottom-0 right-0 text-[0.68rem]">
-                <div className="flex items-center justify-end gap-0.5 whitespace-nowrap rounded-sm bg-transparent pl-2">
-                  <span className="text-almost-black-green/55">{timestamp}</span>
-                  {resolvedStatus && <span className={statusClass[resolvedStatus] || 'text-almost-black-green/50'}>{statusIcon[resolvedStatus]}</span>}
-                </div>
-              </div>
             </div>
           ) : (
             <div className="flex items-end justify-end text-[0.68rem]">
