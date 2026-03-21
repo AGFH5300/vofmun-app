@@ -18,6 +18,7 @@ import supabase from '@/lib/supabase';
 import { normalizeMessageMeta, resolveOwnMessageStatus } from '@/lib/chat/messageMeta';
 import { getBrowserAccessToken, withBrowserAuthHeaders } from '@/lib/auth/browserAuthFetch';
 import { toast } from 'sonner';
+import type { RealtimeChannel, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
 
 const CHAT_WS_URL = process.env.NEXT_PUBLIC_CHAT_WS_URL;
 const CHAT_API_URL = process.env.NEXT_PUBLIC_CHAT_API_URL || '';
@@ -150,6 +151,19 @@ type RoomUnreadCountRow = {
   unread_count: number | string | null;
 };
 
+type MessageBroadcastEvent = 'INSERT' | 'UPDATE' | 'DELETE';
+type MessageBroadcastPayload = {
+  eventType?: MessageBroadcastEvent;
+  schema?: string;
+  table?: string;
+  commit_timestamp?: string;
+  new?: MessageWithUser | null;
+  old?: Partial<MessageWithUser> | null;
+  record?: MessageWithUser | null;
+  old_record?: Partial<MessageWithUser> | null;
+  message?: MessageWithUser | null;
+};
+
 const toDirectoryUser = (profile: ChatUserLike) => {
   if (!profile?.id) return null;
   const first = profile.first_name ?? null;
@@ -214,7 +228,7 @@ const getRoomMemberIds = (roomId: string, rooms: RoomWithDetails[]): string[] =>
 
 const hydrateMessage = (message: MessageWithUser, currentUserId: string | null, roomMemberIds: string[]): MessageWithUser => ({
   ...message,
-  meta: normalizeMessageMeta(message.meta),
+  meta: normalizeMessageMeta(message.meta) as unknown as MessageWithUser['meta'],
   status: resolveOwnMessageStatus(message, currentUserId, roomMemberIds),
 });
 
@@ -341,6 +355,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const refreshRoomsRef = useRef<() => Promise<RoomWithDetails[]>>(async () => []);
   const refreshFriendRequestsRef = useRef<() => Promise<void>>(async () => {});
   const refreshRoomMessagesRef = useRef<(roomId: string) => Promise<boolean>>(async () => false);
+  const ensureRoomSubscriptionsRef = useRef<(roomIds: Array<string | null | undefined>) => void>(() => {});
   const unreadByRoomRef = useRef<Record<string, number>>({});
   const defaultDocumentTitleRef = useRef<string | null>(null);
   const isMountedRef = useRef(true);
@@ -359,6 +374,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const userDirectoryRef = useRef<Record<string, FriendRequest['sender']>>({});
   const hiddenMessageIdsByRoomRef = useRef<Record<string, Set<string>>>({});
   const joinedSocketRoomIdsRef = useRef<Set<string>>(new Set());
+  const roomChannelsRef = useRef<Map<string, RealtimeChannel>>(new Map());
 
   const cacheHiddenMessageIdsForRoom = useCallback(async (roomId: string) => {
     const normalizedRoomId = toComparableId(roomId);
@@ -402,9 +418,13 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   );
 
   const mergeUsersIntoDirectory = useCallback((profiles: ChatUserLike[]) => {
-    const prepared = profiles
-      .map((profile) => toDirectoryUser(profile))
-      .filter((profile): profile is FriendRequest['sender'] => Boolean(profile));
+    const prepared = profiles.reduce<NonNullable<FriendRequest['sender']>[]>((acc, profile) => {
+      const normalizedProfile = toDirectoryUser(profile);
+      if (normalizedProfile) {
+        acc.push(normalizedProfile);
+      }
+      return acc;
+    }, []);
 
     if (prepared.length === 0) return;
 
@@ -552,6 +572,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       return didUpdate ? nextRooms : prev;
     });
   }, []);
+
 
   const joinSocketRooms = useCallback((roomIds: Array<string | null | undefined>) => {
     const socket = wsRef.current;
@@ -920,6 +941,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         setActiveRoom(updated);
       }
     }
+    ensureRoomSubscriptionsRef.current(enriched.map((room) => room.id));
     return enriched;
   }, [fetchAuthoritativeUnreadCounts, fetchWithTimeout, getVisibleLastMessageForRoom, mergeUsersIntoDirectory, pinnedRoomIds, userId, withAuthHeaders]);
 
@@ -1145,6 +1167,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
     try {
       const refreshedRooms = await refreshRoomsRef.current();
+      ensureRoomSubscriptionsRef.current(refreshedRooms.map((room) => room.id));
       await refreshFriendRequestsRef.current();
 
       const liveActiveRoomId = activeRoomIdRef.current;
@@ -1220,6 +1243,140 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     return { roomId: normalizedRoomId, message: hydratedMessage, roomMessages: nextRoomMessages };
   }, []);
 
+  const removeRoomMessage = useCallback((roomId: string, messageId: string) => {
+    const normalizedRoomId = toComparableId(roomId);
+    const normalizedMessageId = toComparableId(messageId);
+    if (!normalizedRoomId || !normalizedMessageId) return;
+
+    const currentRoomMessages = messagesRef.current[normalizedRoomId] || [];
+    const nextRoomMessages = currentRoomMessages.filter((message) => toComparableId(message.id) !== normalizedMessageId);
+    if (nextRoomMessages.length === currentRoomMessages.length) return;
+
+    messagesRef.current = {
+      ...messagesRef.current,
+      [normalizedRoomId]: nextRoomMessages,
+    };
+    setMessages((prev) => ({
+      ...prev,
+      [normalizedRoomId]: nextRoomMessages,
+    }));
+
+    const fallbackLastMessage = getVisibleLastMessageForRoom(normalizedRoomId, nextRoomMessages);
+    setRooms((prev) =>
+      prev.map((room) => {
+        if (toComparableId(room.id) !== normalizedRoomId) return room;
+        if (room.lastMessage && toComparableId(room.lastMessage.id) !== normalizedMessageId) return room;
+        return {
+          ...room,
+          lastMessage: fallbackLastMessage,
+        };
+      })
+    );
+  }, [getVisibleLastMessageForRoom]);
+
+  const applyRealtimeMessageChange = useCallback((
+    roomId: string,
+    eventType: MessageBroadcastEvent,
+    payload: MessageBroadcastPayload
+  ) => {
+    const normalizedRoomId = toComparableId(roomId);
+    if (!normalizedRoomId) return;
+
+    if (eventType === 'DELETE') {
+      const deletedId = toComparableId(payload.old?.id || payload.old_record?.id);
+      if (deletedId) {
+        removeRoomMessage(normalizedRoomId, deletedId);
+      }
+      return;
+    }
+
+    const rawMessage = payload.new || payload.record || payload.message;
+    if (!rawMessage?.id) return;
+
+    mergeUsersIntoDirectory([rawMessage.user]);
+    const roomHiddenIds = hiddenMessageIdsByRoomRef.current[normalizedRoomId];
+    if (roomHiddenIds?.has(toComparableId(rawMessage.id))) {
+      return;
+    }
+
+    const upsertedMessage = upsertRoomMessage(normalizedRoomId, {
+      ...rawMessage,
+      room_id: normalizedRoomId,
+      user: rawMessage.user || userDirectoryRef.current[String(rawMessage.user_id)] || undefined,
+    });
+    if (!upsertedMessage) return;
+
+    const canonicalMessage = upsertedMessage.message;
+    const roomMessages = upsertedMessage.roomMessages;
+    const isOwnMessage = toComparableId(canonicalMessage.user_id) === toComparableId(userIdRef.current);
+    const isActiveRoom = normalizedRoomId === toComparableId(activeRoomIdRef.current);
+    const shouldIncrementUnread = eventType === 'INSERT' && !isOwnMessage && (!isActiveRoom || !isDocumentVisible());
+
+    applyIncomingMessageToRoomList(normalizedRoomId, canonicalMessage, { incrementUnread: shouldIncrementUnread });
+    if (shouldIncrementUnread) {
+      incrementRoomUnreadCount(normalizedRoomId);
+    }
+
+    if (isActiveRoom) {
+      scheduleReceiptsForMessages(normalizedRoomId, roomMessages, false);
+      if (isRoomActivelyRead(normalizedRoomId)) {
+        scheduleReceiptsForMessages(normalizedRoomId, roomMessages, true);
+      }
+    }
+  }, [
+    applyIncomingMessageToRoomList,
+    incrementRoomUnreadCount,
+    isDocumentVisible,
+    isRoomActivelyRead,
+    mergeUsersIntoDirectory,
+    removeRoomMessage,
+    scheduleReceiptsForMessages,
+    upsertRoomMessage,
+  ]);
+
+  const ensureRoomSubscriptions = useCallback((roomIds: Array<string | null | undefined>) => {
+    const uniqueRoomIds = Array.from(new Set(roomIds.map((roomId) => toComparableId(roomId)).filter(Boolean)));
+    const activeRoomIds = new Set(uniqueRoomIds);
+
+    roomChannelsRef.current.forEach((channel, roomId) => {
+      if (activeRoomIds.has(roomId)) return;
+      roomChannelsRef.current.delete(roomId);
+      void supabase.removeChannel(channel);
+    });
+
+    uniqueRoomIds.forEach((roomId) => {
+      if (roomChannelsRef.current.has(roomId)) return;
+
+      const channel = supabase
+        .channel(`room:${roomId}`, { config: { private: true } })
+        .on('broadcast', { event: 'INSERT' }, ({ payload }) => {
+          applyRealtimeMessageChange(roomId, 'INSERT', payload as MessageBroadcastPayload);
+        })
+        .on('broadcast', { event: 'UPDATE' }, ({ payload }) => {
+          applyRealtimeMessageChange(roomId, 'UPDATE', payload as MessageBroadcastPayload);
+        })
+        .on('broadcast', { event: 'DELETE' }, ({ payload }) => {
+          applyRealtimeMessageChange(roomId, 'DELETE', payload as MessageBroadcastPayload);
+        })
+        .subscribe((status: REALTIME_SUBSCRIBE_STATES) => {
+          logChatDebug('realtime:room_subscription_status', { roomId, status });
+        });
+
+      roomChannelsRef.current.set(roomId, channel);
+    });
+  }, [applyRealtimeMessageChange]);
+
+  useEffect(() => {
+    ensureRoomSubscriptionsRef.current = ensureRoomSubscriptions;
+  }, [ensureRoomSubscriptions]);
+
+  const teardownRoomSubscriptions = useCallback(() => {
+    roomChannelsRef.current.forEach((channel) => {
+      void supabase.removeChannel(channel);
+    });
+    roomChannelsRef.current.clear();
+  }, []);
+
   const sendTyping = useCallback(
     (roomId: string, isTyping: boolean) => {
       logChatDebug('sendTyping:attempt', {
@@ -1275,26 +1432,28 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const selectRoom = useCallback(
     async (room: RoomWithDetails) => {
-      const previousRoomId = activeRoomIdRef.current;
-      if (previousRoomId && previousRoomId !== room.id) {
+      const normalizedRoomId = toComparableId(room.id);
+      const previousRoomId = toComparableId(activeRoomIdRef.current);
+      if (previousRoomId && previousRoomId !== normalizedRoomId) {
         sendTyping(previousRoomId, false);
       }
-      activeRoomIdRef.current = room.id;
-      pendingRoomJoinIdsRef.current.add(room.id);
-      setActiveRoom(roomsRef.current.find((candidate) => candidate.id === room.id) || room);
-      if (!messagesRef.current[room.id]) {
-        await refreshRoomMessages(room.id);
+      activeRoomIdRef.current = normalizedRoomId;
+      pendingRoomJoinIdsRef.current.add(normalizedRoomId);
+      ensureRoomSubscriptions([normalizedRoomId, ...roomsRef.current.map((candidate) => candidate.id)]);
+      setActiveRoom(roomsRef.current.find((candidate) => toComparableId(candidate.id) === normalizedRoomId) || { ...room, id: normalizedRoomId });
+      if (!messagesRef.current[normalizedRoomId]) {
+        await refreshRoomMessages(normalizedRoomId);
       }
       if (wsRef.current?.readyState === WebSocket.OPEN) {
-        joinSocketRooms([room.id]);
+        joinSocketRooms([normalizedRoomId]);
       } else {
         logChatDebug('selectRoom:join_room_skipped_socket_not_open', {
-          roomId: room.id,
+          roomId: normalizedRoomId,
           readyState: wsRef.current?.readyState ?? 'missing',
         });
       }
     },
-    [joinSocketRooms, refreshRoomMessages, sendTyping]
+    [ensureRoomSubscriptions, joinSocketRooms, refreshRoomMessages, sendTyping]
   );
 
   const handleSocketMessage = useCallback(
@@ -1343,78 +1502,13 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           wsRef.current?.close();
           break;
         }
-        case 'new_message': {
-          const rawMessage = payload.message;
-          const roomId = rawMessage?.room_id || payload.roomId;
-          if (!rawMessage || !roomId) break;
-          const normalizedRoomId = toComparableId(roomId);
-          mergeUsersIntoDirectory([rawMessage.user]);
-          const memberIds = getRoomMemberIds(normalizedRoomId, roomsRef.current);
-          const message = hydrateMessage(
-            {
-              ...rawMessage,
-              room_id: normalizedRoomId,
-              user: rawMessage.user || userDirectoryRef.current[String(rawMessage.user_id)] || undefined,
-            },
-            userIdRef.current,
-            memberIds
-          );
-          const roomHiddenIds = hiddenMessageIdsByRoomRef.current[normalizedRoomId];
-          if (roomHiddenIds?.has(toComparableId(message.id))) {
-            break;
-          }
-          logChatDebug('socket:new_message', {
-            roomId: normalizedRoomId,
-            messageId: message.id,
-            fromUserId: message.user_id,
-            contentPreview: String(message.content || '').slice(0, 80),
-          });
-          const upsertedMessage = upsertRoomMessage(normalizedRoomId, message);
-          const currentRoomMessages = upsertedMessage?.roomMessages || messagesRef.current[normalizedRoomId] || [];
-          const isOwnMessage = toComparableId(message.user_id) === toComparableId(userIdRef.current);
-          const isActiveRoom = normalizedRoomId === activeRoomIdRef.current;
-          const isVisible = isDocumentVisible();
-          const shouldIncrementUnread = !isOwnMessage && (!isActiveRoom || !isVisible);
-          applyIncomingMessageToRoomList(normalizedRoomId, message, { incrementUnread: shouldIncrementUnread });
-          if (shouldIncrementUnread) {
-            incrementRoomUnreadCount(normalizedRoomId);
-          }
-          if (normalizedRoomId === activeRoomIdRef.current) {
-            scheduleReceiptsForMessages(normalizedRoomId, currentRoomMessages, false);
-            if (isRoomActivelyRead(normalizedRoomId)) {
-              scheduleReceiptsForMessages(normalizedRoomId, currentRoomMessages, true);
-            }
-          }
-          break;
-        }
-
+        case 'new_message':
         case 'message_updated': {
-          const rawMessage = payload.message;
-          const roomId = rawMessage?.room_id || payload.roomId;
-          if (!rawMessage || !roomId) break;
-
-          const normalizedRoomId = toComparableId(roomId);
-          mergeUsersIntoDirectory([rawMessage.user]);
-          const memberIds = getRoomMemberIds(normalizedRoomId, roomsRef.current);
-          const hydrated = hydrateMessage(
-            {
-              ...rawMessage,
-              room_id: normalizedRoomId,
-              user: rawMessage.user || userDirectoryRef.current[String(rawMessage.user_id)] || undefined,
-            },
-            userIdRef.current,
-            memberIds
-          );
-
-          upsertRoomMessage(normalizedRoomId, hydrated, { replaceExistingOnly: true });
-
-          setRooms((prev) =>
-            prev.map((room) => {
-              if (toComparableId(room.id) !== normalizedRoomId) return room;
-              if (!room.lastMessage || toComparableId(room.lastMessage.id) !== toComparableId(hydrated.id)) return room;
-              return { ...room, lastMessage: { ...room.lastMessage, ...hydrated } };
-            })
-          );
+          logChatDebug('socket:message_event_ignored_in_favor_of_broadcast', {
+            payloadType,
+            roomId: roomId || payload.message?.room_id || null,
+            messageId: payload.message?.id || null,
+          });
           break;
         }
 
@@ -1551,7 +1645,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
       }
     },
-    [applyIncomingMessageToRoomList, incrementRoomUnreadCount, isDocumentVisible, isRoomActivelyRead, joinSocketRooms, mergeUsersIntoDirectory, runRepairSync, scheduleReceiptsForMessages, upsertRoomMessage]
+    [joinSocketRooms, runRepairSync]
   );
 
   const connectSocket = useCallback(() => {
@@ -1650,6 +1744,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       postedReceiptKeysRef.current.clear();
       scheduledReceiptKeysRef.current.clear();
       inFlightReceiptKeysRef.current.clear();
+      activeRoomIdRef.current = null;
+      pendingRoomJoinIdsRef.current.clear();
+      teardownRoomSubscriptions();
       const socket = wsRef.current;
       wsRef.current = null;
       joinedSocketRoomIdsRef.current = new Set();
@@ -1664,12 +1761,20 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         userId,
       });
     };
-  }, [connectSocket, userId]);
+  }, [connectSocket, teardownRoomSubscriptions, userId]);
 
   useEffect(() => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     joinSocketRooms([...rooms.map((room) => room.id), activeRoomIdRef.current]);
   }, [isConnecting, joinSocketRooms, rooms]);
+
+  useEffect(() => {
+    if (!userId) {
+      teardownRoomSubscriptions();
+      return;
+    }
+    ensureRoomSubscriptions([...rooms.map((room) => room.id), activeRoomIdRef.current]);
+  }, [ensureRoomSubscriptions, rooms, userId, teardownRoomSubscriptions]);
 
   useEffect(() => {
     if (!userId) return;
@@ -2301,75 +2406,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       document.removeEventListener('visibilitychange', onFocus);
     };
   }, [activeRoom?.id, scheduleReceiptsForMessages, userId]);
-
-  useEffect(() => {
-    if (!activeRoom?.id) return;
-    const roomId = activeRoom.id;
-    const channel = supabase
-      .channel(`messages:${roomId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'messages', filter: `room_id=eq.${roomId}` },
-        (payload) => {
-          const next = payload.new as MessageWithUser;
-          if (!next?.id) return;
-          if (payload.eventType === 'UPDATE') {
-            logReceiptsDebug('realtime:update:meta_receipts', {
-              roomId,
-              messageId: next.id,
-              receipts: normalizeMessageMeta(next.meta).receipts,
-            });
-          }
-          mergeUsersIntoDirectory([next.user]);
-          const roomMemberIds = getRoomMemberIds(roomId, roomsRef.current);
-          const hydrated = hydrateMessage(
-            {
-              ...next,
-              room_id: roomId,
-              user: next.user || userDirectoryRef.current[String(next.user_id)] || undefined,
-            },
-            userIdRef.current,
-            roomMemberIds
-          );
-          setMessages((prev) => {
-            const list = prev[roomId] || [];
-            const hasExisting = list.some((item) => item.id === hydrated.id);
-            const merged = hasExisting
-              ? list.map((item) =>
-                  item.id === hydrated.id
-                    ? (() => {
-                        const mergedMeta = mergeMessageMeta(item.meta, hydrated.meta);
-                        const mergedMessage = {
-                          ...item,
-                          ...hydrated,
-                          meta: mergedMeta,
-                          user: item.user || hydrated.user,
-                        };
-                        return {
-                          ...mergedMessage,
-                          status: resolveOwnMessageStatus(mergedMessage, userIdRef.current, roomMemberIds),
-                        };
-                      })()
-                    : item
-                )
-              : [...list, hydrated];
-            return {
-              ...prev,
-              [roomId]: merged.sort((a, b) => {
-                const first = a.created_at ? new Date(a.created_at).getTime() : Number.MAX_SAFE_INTEGER;
-                const second = b.created_at ? new Date(b.created_at).getTime() : Number.MAX_SAFE_INTEGER;
-                return first - second;
-              }),
-            };
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [activeRoom?.id, mergeUsersIntoDirectory]);
 
   useEffect(() => {
     userDirectoryRef.current = userDirectory;

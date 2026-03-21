@@ -236,7 +236,9 @@ const MessageBubble: React.FC<Props> = ({
     ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
   const metadataRef = useRef<HTMLDivElement | null>(null);
+  const shortTextMeasureRef = useRef<HTMLSpanElement | null>(null);
   const [metadataWidth, setMetadataWidth] = useState(isOwn ? 70 : 46);
+  const [shortTextWidth, setShortTextWidth] = useState(0);
 
   const receiptMeta = normalizeMessageMeta(message.meta);
   const resolvedCurrentUserId = currentUserId ? String(currentUserId) : null;
@@ -302,8 +304,11 @@ const MessageBubble: React.FC<Props> = ({
     textOnlyShortMessageLength > 0 &&
     textOnlyShortMessageLength <= 12 &&
     messageLineCount <= 1;
-  const metadataTailWidth = `${Math.max(28, metadataWidth + 6)}px`;
-  const dynamicShortBubbleMinWidth = shouldApplyShortBubbleMinWidth ? `${Math.min(220, Math.max(92, metadataWidth + 42))}px` : undefined;
+  const shouldReserveMetadataTail = Boolean(message.content) && !isLargeEmojiMessage;
+  const metadataTailWidth = `${Math.max(28, metadataWidth + 8)}px`;
+  const dynamicShortBubbleMinWidth = shouldApplyShortBubbleMinWidth
+    ? `${Math.min(240, Math.max(96, Math.ceil(shortTextWidth + metadataWidth + 28)))}px`
+    : undefined;
 
   useEffect(() => {
     if (!isEditing) {
@@ -332,6 +337,26 @@ const MessageBubble: React.FC<Props> = ({
     observer.observe(node);
     return () => observer.disconnect();
   }, [isOwn, resolvedStatus, timestamp]);
+
+  useLayoutEffect(() => {
+    const node = shortTextMeasureRef.current;
+    if (!node || typeof window === 'undefined' || !shouldApplyShortBubbleMinWidth) {
+      setShortTextWidth(0);
+      return;
+    }
+
+    const measure = () => {
+      const nextWidth = Math.ceil(node.getBoundingClientRect().width);
+      setShortTextWidth((prev) => (prev === nextWidth ? prev : nextWidth));
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [message.content, message.edited_at, shouldApplyShortBubbleMinWidth]);
 
   useEffect(() => {
     if (attachments.length === 0) {
@@ -649,6 +674,16 @@ const MessageBubble: React.FC<Props> = ({
             </form>
           ) : message.content ? (
             <div className="relative min-w-0 max-w-full pb-4">
+              {shouldApplyShortBubbleMinWidth ? (
+                <span
+                  ref={shortTextMeasureRef}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-0 top-0 -z-10 whitespace-pre text-[14px] font-normal leading-[1.3] opacity-0"
+                >
+                  {message.content}
+                  {message.edited_at && !isDeleted ? <span className="ml-1 text-[10px]">(edited)</span> : null}
+                </span>
+              ) : null}
               <div
                 className={`min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-almost-black-green ${
                   isDeleted
@@ -660,11 +695,13 @@ const MessageBubble: React.FC<Props> = ({
               >
                 {message.content}
                 {message.edited_at && !isDeleted ? <span className="ml-1 text-[10px] text-almost-black-green/50">(edited)</span> : null}
-                <span
-                  aria-hidden="true"
-                  className="inline-block h-[0.95rem] align-baseline"
-                  style={{ width: metadataTailWidth }}
-                />
+                {shouldReserveMetadataTail ? (
+                  <span
+                    aria-hidden="true"
+                    className="inline-block h-[0.95rem] align-baseline"
+                    style={{ width: metadataTailWidth }}
+                  />
+                ) : null}
               </div>
               {isCollapsibleTextMessage ? (
                 <button
