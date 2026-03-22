@@ -91,6 +91,7 @@ const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 12000;
 const RECEIPT_DEBOUNCE_MS = 300;
 const BOOTSTRAP_FETCH_TIMEOUT_MS = 12000;
+const SEND_FETCH_TIMEOUT_MS = 15000;
 const FRIEND_REQUEST_REFRESH_DEBOUNCE_MS = 80;
 const SOCKET_RESUME_REPAIR_THROTTLE_MS = 2000;
 
@@ -2174,10 +2175,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           attachments,
           attachmentsLength: Array.isArray(attachments) ? attachments.length : -1,
         });
-        const response = await fetch(`${CHAT_API_URL}/api/rooms/${liveRoomId}/messages`, await withAuthHeaders({
+        const response = await fetchWithTimeout(`${CHAT_API_URL}/api/rooms/${liveRoomId}/messages`, await withAuthHeaders({
           method: 'POST',
           body: JSON.stringify({ content: trimmed, reply_to: replyTo, attachments }),
-        }));
+        }), SEND_FETCH_TIMEOUT_MS);
         if (!response.ok) {
           const errorText = await response.text();
           console.error('sendMessage failed', {
@@ -2223,7 +2224,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         }
       }
     },
-    [applyIncomingMessageToRoomList, mergeUsersIntoDirectory, resolveLiveRoomId, upsertRoomMessage, withAuthHeaders]
+    [applyIncomingMessageToRoomList, fetchWithTimeout, mergeUsersIntoDirectory, resolveLiveRoomId, upsertRoomMessage, withAuthHeaders]
   );
 
 

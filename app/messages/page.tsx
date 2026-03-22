@@ -108,6 +108,13 @@ type PendingAttachmentItem = {
   error?: string;
 };
 
+type ActiveUnreadDividerSession = {
+  roomId: string;
+  entryUnreadCount: number;
+  label: string;
+  firstUnreadMessageId: string | null;
+};
+
 const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
   const resolvedEmojiDataset = (emojiDataset as EmojiDatasetModule) as EmojiDatasetModule;
   const source =
@@ -236,6 +243,7 @@ const ChatShell: React.FC = () => {
   const [isDraggingFilesOverChat, setIsDraggingFilesOverChat] = useState(false);
   const [hasInitialLoaderMinElapsed, setHasInitialLoaderMinElapsed] = useState(false);
   const [hideSidebarRequests, setHideSidebarRequests] = useState(false);
+  const [activeUnreadDividerSession, setActiveUnreadDividerSession] = useState<ActiveUnreadDividerSession | null>(null);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [isDeleteSelectionMode, setIsDeleteSelectionMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
@@ -986,11 +994,31 @@ const ChatShell: React.FC = () => {
     });
   };
 
-  const unreadDivider = useMemo(() => {
-    if (!activeRoom || !currentUserId) return null;
+  useEffect(() => {
+    const roomId = activeRoom?.id ? String(activeRoom.id) : "";
+    if (!roomId) {
+      setActiveUnreadDividerSession(null);
+      return;
+    }
 
-    const unreadCount = Math.max(0, Math.floor(activeRoom.unreadCount || 0));
-    if (unreadCount === 0 || visibleActiveMessages.length === 0) return null;
+    setActiveUnreadDividerSession((current) => {
+      if (current?.roomId === roomId) return current;
+
+      const entryUnreadCount = Math.max(0, Math.floor(activeRoom?.unreadCount || 0));
+      return {
+        roomId,
+        entryUnreadCount,
+        label: entryUnreadCount === 1 ? "1 unread message" : `${entryUnreadCount} unread messages`,
+        firstUnreadMessageId: null,
+      };
+    });
+  }, [activeRoom?.id, activeRoom?.unreadCount]);
+
+  useEffect(() => {
+    if (!activeUnreadDividerSession || !activeRoom || !currentUserId) return;
+    if (activeUnreadDividerSession.roomId !== String(activeRoom.id)) return;
+    if (activeUnreadDividerSession.entryUnreadCount <= 0 || activeUnreadDividerSession.firstUnreadMessageId) return;
+    if (visibleActiveMessages.length === 0) return;
 
     let unreadIncomingSeen = 0;
     let firstUnreadMessageId: string | null = null;
@@ -1002,20 +1030,36 @@ const ChatShell: React.FC = () => {
       }
 
       unreadIncomingSeen += 1;
-      if (unreadIncomingSeen === unreadCount) {
+      if (unreadIncomingSeen === activeUnreadDividerSession.entryUnreadCount) {
         firstUnreadMessageId = String(message.id);
         break;
       }
     }
 
-    if (!firstUnreadMessageId) return null;
+    if (!firstUnreadMessageId) return;
+
+    setActiveUnreadDividerSession((current) => {
+      if (!current || current.roomId !== String(activeRoom.id) || current.firstUnreadMessageId === firstUnreadMessageId) {
+        return current;
+      }
+      return {
+        ...current,
+        firstUnreadMessageId,
+      };
+    });
+  }, [activeRoom, activeUnreadDividerSession, currentUserId, visibleActiveMessages]);
+
+  const unreadDivider = useMemo(() => {
+    if (!activeRoom || !activeUnreadDividerSession) return null;
+    if (activeUnreadDividerSession.roomId !== String(activeRoom.id)) return null;
+    if (activeUnreadDividerSession.entryUnreadCount <= 0 || !activeUnreadDividerSession.firstUnreadMessageId) return null;
 
     return {
-      firstUnreadMessageId,
-      count: unreadCount,
-      label: unreadCount === 1 ? "1 unread message" : `${unreadCount} unread messages`,
+      firstUnreadMessageId: activeUnreadDividerSession.firstUnreadMessageId,
+      count: activeUnreadDividerSession.entryUnreadCount,
+      label: activeUnreadDividerSession.label,
     };
-  }, [activeRoom, currentUserId, visibleActiveMessages]);
+  }, [activeRoom, activeUnreadDividerSession]);
 
   const timeline = useMemo(() => {
     const sequence: Array<
