@@ -16,7 +16,7 @@ import {
 import { useSession } from '@/app/context/sessionContext';
 import supabase from '@/lib/supabase';
 import { normalizeMessageMeta, resolveOwnMessageStatus } from '@/lib/chat/messageMeta';
-import { getBrowserAccessToken, withBrowserAuthHeaders } from '@/lib/auth/browserAuthFetch';
+import { getBrowserAccessToken } from '@/lib/auth/browserAuthFetch';
 import { toast } from 'sonner';
 import type { RealtimeChannel, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
 
@@ -662,19 +662,64 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     [userDirectory]
   );
 
+  const accessTokenRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+      if (error) {
+        console.error('[ChatContext] failed to prime Supabase access token', {
+          error: error.message,
+        });
+        return;
+      }
+      accessTokenRef.current = data.session?.access_token || null;
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      accessTokenRef.current = session?.access_token || null;
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   const getAccessToken = useCallback(async (): Promise<string | null> => {
+    const cachedToken = accessTokenRef.current;
+    if (cachedToken) return cachedToken;
+
     const token = await getBrowserAccessToken("ChatContext");
+    accessTokenRef.current = token;
     if (!token) {
       console.error('[ChatContext] failed to resolve Supabase access token');
     }
     return token;
   }, []);
 
-  const withAuthHeaders = useCallback(
-    async (extra?: RequestInit): Promise<RequestInit> =>
-      withBrowserAuthHeaders(extra, "ChatContext"),
-    []
-  );
+  const withAuthHeaders = useCallback(async (extra?: RequestInit): Promise<RequestInit> => {
+    const headers = new Headers(extra?.headers);
+    const accessToken = await getAccessToken();
+
+    if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    if (accessToken) {
+      headers.set('Authorization', `Bearer ${accessToken}`);
+    }
+
+    return {
+      credentials: 'include',
+      ...extra,
+      headers,
+    };
+  }, [getAccessToken]);
 
   const collectReceiptCandidates = useCallback(
     (roomMessages: MessageWithUser[], markRead: boolean) => {
