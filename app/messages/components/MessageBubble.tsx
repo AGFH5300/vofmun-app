@@ -539,12 +539,12 @@ const MessageBubble: React.FC<Props> = ({
             }
             setTouchStart(null);
           }}
-          className={`group relative min-w-0 max-w-[82%] border px-2.5 py-1.5 shadow-sm md:max-w-[74%] ${
+          className={`group relative min-w-0 max-w-[82%] px-2.5 py-1.5 shadow-[0_8px_32px_rgba(26,28,28,0.06)] md:max-w-[74%] ${
             isOwn
               ? isFailed
-                ? 'rounded-[8px] border-deep-red/30 bg-soft-rose/30 text-deep-red'
-                : 'rounded-[8px] border-[#dcc8bd] bg-[#efe3dc] text-almost-black-green'
-              : 'rounded-[8px] border-soft-ivory bg-white text-almost-black-green'
+                ? 'rounded-[10px] bg-soft-rose/30 text-deep-red'
+                : 'rounded-[10px] bg-[radial-gradient(circle_at_top,#500608,#6e1d1b)] text-white'
+              : 'rounded-[10px] bg-[#f4f3f3] text-almost-black-green'
           } ${isSelectMode && canSelectMessage ? 'cursor-pointer' : ''} ${isSelected ? 'ring-2 ring-deep-red/35' : ''}`}
           style={dynamicShortBubbleMinWidth ? { minWidth: dynamicShortBubbleMinWidth } : undefined}
         >
