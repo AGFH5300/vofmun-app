@@ -18,7 +18,7 @@ const UserAvatar: React.FC<Props> = ({ user, size = 36 }) => {
 
   return (
     <div
-      className="flex items-center justify-center rounded-full bg-soft-ivory text-deep-red border border-soft-rose"
+      className="flex items-center justify-center rounded-full bg-soft-ivory text-deep-red"
       style={{ width: size, height: size }}
     >
       {user?.full_name ? user.full_name.charAt(0).toUpperCase() : <User2 size={size * 0.5} />}

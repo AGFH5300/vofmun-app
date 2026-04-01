@@ -106,6 +106,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
+  const isMessagesRoute = pathname === "/messages" || pathname.startsWith("/messages/");
 
   const getDisplayName = () => {
     if (!currentUser) return "";
@@ -171,7 +172,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
   if (isMobile) {
     return (
-      <nav className="relative z-40 border-b border-slate-200 bg-white text-slate-900 shadow-[0_10px_30px_-25px_rgba(15,23,42,0.25)]">
+      <nav className={`relative z-40 text-slate-900 shadow-[0_10px_30px_-25px_rgba(15,23,42,0.25)] ${isMessagesRoute ? "bg-[#fff0e5cc] backdrop-blur-xl" : "border-b border-slate-200 bg-white"}`}>
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4">
           {brand}
           <button
@@ -241,7 +242,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   }
 
   return (
-    <nav className="relative z-40 border-b border-slate-200 bg-white text-slate-900 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.2)]">
+    <nav className={`relative z-40 text-slate-900 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.2)] ${isMessagesRoute ? "bg-[#fff0e5cc] backdrop-blur-xl" : "border-b border-slate-200 bg-white"}`}>
       <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between gap-6 px-6">
         {brand}
 
@@ -256,7 +257,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
                   href={item.to}
                   className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                     active
-                      ? "bg-slate-900 text-white shadow-[0_16px_32px_-28px_rgba(15,23,42,0.35)]"
+                      ? `${isMessagesRoute ? "bg-[radial-gradient(circle_at_top,#500608,#6e1d1b)]" : "bg-slate-900"} text-white shadow-[0_16px_32px_-28px_rgba(15,23,42,0.35)]`
                       : "text-slate-600 hover:bg-slate-200 hover:text-slate-900"
                   }`}
                   aria-current={active ? "page" : undefined}

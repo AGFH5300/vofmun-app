@@ -110,10 +110,10 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             onSelect(room);
           }
         }}
-        className={`group w-full cursor-pointer border-x-0 border-b border-t-0 px-4 py-3 text-left transition focus:outline-none focus-visible:outline-none ${
+        className={`group w-full cursor-pointer px-4 py-3 text-left transition focus:outline-none focus-visible:outline-none ${
           isActive
-            ? 'border-[#d9d9d9] bg-[#ece5dd]'
-            : 'border-[#efefef] bg-white hover:bg-[#f8f8f8]'
+            ? 'rounded-2xl bg-[#e2e2e2]'
+            : 'rounded-2xl bg-[#ffffff] hover:bg-[#f4f3f3]'
         }`}
       >
         <div className="flex items-start gap-3">
@@ -124,7 +124,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             </div>
           ) : (
             <div className="relative">
-              <div className="flex h-[42px] w-[42px] items-center justify-center rounded-full bg-soft-ivory text-deep-red border border-soft-rose">
+              <div className="flex h-[42px] w-[42px] items-center justify-center rounded-full bg-soft-ivory text-deep-red">
                 {room.room_type === 'committee' ? <Users className="h-4 w-4" /> : <UsersRound className="h-4 w-4" />}
               </div>
             </div>
@@ -172,7 +172,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
       </div>
       {contextMenuPosition && (
         <div
-          className="fixed z-50 min-w-[190px] overflow-hidden rounded-xl border border-soft-ivory bg-white p-1 shadow-2xl"
+          className="fixed z-50 min-w-[190px] overflow-hidden rounded-xl bg-white p-1 shadow-[0_8px_32px_rgba(26,28,28,0.06)]"
           style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
         >
           <button

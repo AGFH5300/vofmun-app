@@ -62,7 +62,7 @@ const ConversationList: React.FC<Props> = ({
           </ul>
         )}
         {!hasAnyRooms && (
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-soft-ivory px-6 py-10 text-center">
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 rounded-2xl bg-[#ffffff] px-6 py-10 text-center shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
             <MessageCircle className="text-deep-red/50" size={42} />
             <div>
               <p className="text-base font-semibold text-deep-red">You don’t have any conversations yet</p>
