@@ -4,6 +4,7 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import type { EmojiClickData } from "emoji-picker-react";
 import emojiDataset from "emoji-picker-react/dist/data/emojis-en.js";
 import { ParticipantRoute } from "@/components/protectedroute";
@@ -40,6 +41,7 @@ import { MessageAttachmentInput, MessageWithUser, RoomWithDetails, UserSearchRes
 import supabase from "@/lib/supabase";
 import { getUserDelegationLabel } from "@/lib/chat/delegation";
 import { toast } from "sonner";
+import { useSession } from "@/app/context/sessionContext";
 
 const formatDateLabel = (dateString: string) => {
   const date = new Date(dateString);
@@ -168,6 +170,7 @@ const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
 })();
 
 const ChatShell: React.FC = () => {
+  const { user, logout } = useSession();
   const {
     rooms,
     activeRoom,
@@ -1242,6 +1245,15 @@ const ChatShell: React.FC = () => {
 
   const incomingPendingCount = incomingRequests.length;
   const incomingPendingBadgeLabel = incomingPendingCount > 9 ? "9+" : String(incomingPendingCount);
+  const sharedResources = useMemo(() => {
+    if (!activeRoom) return [];
+    return (messages[activeRoom.id] || [])
+      .flatMap((entry) => entry.attachments || [])
+      .filter((attachment) => attachment?.id && attachment.original_name)
+      .slice(-6)
+      .reverse()
+      .slice(0, 3);
+  }, [activeRoom, messages]);
 
   useEffect(() => {
     const minimumLoaderDurationMs = 750;
@@ -1366,28 +1378,38 @@ const ChatShell: React.FC = () => {
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-[#f9f9f9] [font-family:var(--font-manrope),var(--font-sans)] text-almost-black-green">
-      <div className="sticky top-0 z-20 bg-[#fff0e5cc] px-5 py-4 backdrop-blur-xl shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
-        <div className="mx-auto flex w-full max-w-[1300px] items-center justify-between gap-4">
-          <div>
-            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-almost-black-green/55">VOFMUN ONE</p>
-            <h1 className="[font-family:var(--font-newsreader),var(--font-serif)] text-3xl font-semibold leading-tight text-[#6e1d1b]">Delegate Messaging</h1>
+    <div className="h-[100dvh] overflow-hidden bg-[#ececec] [font-family:var(--font-manrope),var(--font-sans)] text-almost-black-green">
+      <header className="border-b border-[#dfd4cc] bg-[#f7efe7]">
+        <div className="mx-auto flex h-[74px] w-full max-w-[1360px] items-center justify-between px-8">
+          <div className="flex items-center gap-10">
+            <Link href="/home" className="[font-family:var(--font-newsreader),var(--font-serif)] text-[2rem] font-semibold text-[#732220]">VOFMUN ONE</Link>
+            <nav className="hidden items-center gap-9 text-[24px] font-semibold uppercase tracking-[0.08em] text-[#8f95a2] lg:flex">
+              <Link href="/home">Dashboard</Link>
+              <Link href="/live-updates">Live Updates</Link>
+              <Link href="/glossary">Glossary</Link>
+              <Link href="/resolutions">Resolutions</Link>
+              <span className="border-b-2 border-[#7a2523] pb-1 text-[#7a2523]">Messaging</span>
+            </nav>
           </div>
-          <button
-            type="button"
-            onClick={() => setConversationTab("requests")}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#e2e2e2] px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#6e1d1b] hover:bg-[#dadada]"
-          >
-            <BellDot className="h-4 w-4" />
-            Requests
+          <div className="flex items-center gap-4 text-xs font-semibold uppercase tracking-[0.08em] text-[#7e8a9e]">
+            <span>{user?.country || "Country"}</span>
+            <button type="button" onClick={logout} className="rounded-xl bg-[#7b201f] px-5 py-2.5 text-white">LOG OUT</button>
+          </div>
+        </div>
+      </header>
+      <div className="border-b border-[#ddd] bg-[#ececec]">
+        <div className="mx-auto flex h-[72px] w-full max-w-[1360px] items-center justify-between px-8">
+          <h1 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[44px] font-semibold text-[#6f1f1d]">Delegate Messaging</h1>
+          <button type="button" onClick={() => setConversationTab("requests")} className="text-[#73849a]">
+            <BellDot className="h-5 w-5" />
           </button>
         </div>
       </div>
-      <div className="mx-auto flex h-[calc(100%-92px)] w-full max-w-[1300px] min-h-0 flex-col px-5 py-4">
-        <section className="flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl bg-[#f4f3f3] p-2">
-          <aside className="flex min-h-0 h-full flex-col overflow-hidden rounded-xl bg-[#f4f3f3]" style={{ width: `${sidebarWidth}px` }}>
-            <div className="flex items-center justify-between gap-2 px-5 pt-4">
-              <p className="[font-family:var(--font-newsreader),var(--font-serif)] text-3xl font-semibold text-[#6e1d1b]">
+      <div className="mx-auto flex h-[calc(100%-146px)] w-full max-w-[1360px] min-h-0 flex-col px-8 py-4">
+        <section className="grid min-h-0 min-w-0 flex-1 grid-cols-[320px_minmax(0,1fr)_285px] overflow-hidden bg-[#efefef]">
+          <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-[#dfdfdf] bg-[#f1f1f1]" style={{ width: `${sidebarWidth}px` }}>
+            <div className="flex items-center justify-between gap-2 px-4 pt-4">
+              <p className="text-lg font-semibold text-[#6e1d1b]">
                 Chats
                 {totalUnreadCount > 0 ? (
                   <span className="ml-2 inline-flex min-w-6 items-center justify-center rounded-full bg-deep-red px-2 py-0.5 text-xs font-semibold text-white">
@@ -1402,7 +1424,7 @@ const ChatShell: React.FC = () => {
                     setConversationTab("direct");
                     setShowNewConversation(true);
                   }}
-                  className="rounded-xl bg-[#e2e2e2] p-2 text-almost-black-green/60 hover:text-deep-red"
+                    className="rounded-lg p-1.5 text-almost-black-green/60 hover:bg-white hover:text-deep-red"
                   aria-label="New direct chat"
                 >
                   <Plus className="h-4 w-4" />
@@ -1413,7 +1435,7 @@ const ChatShell: React.FC = () => {
                     setConversationTab("friends");
                     setShowNewConversation(true);
                   }}
-                  className="rounded-xl bg-[#e2e2e2] p-2 text-almost-black-green/60 hover:text-deep-red"
+                    className="rounded-lg p-1.5 text-almost-black-green/60 hover:bg-white hover:text-deep-red"
                   aria-label="Open friends and connections"
                 >
                   <Users className="h-4 w-4" />
@@ -1424,7 +1446,7 @@ const ChatShell: React.FC = () => {
                     setConversationTab("requests");
                     setShowNewConversation(true);
                   }}
-                  className="relative rounded-xl bg-[#e2e2e2] p-2 text-almost-black-green/60 hover:text-deep-red"
+                    className="relative rounded-lg p-1.5 text-almost-black-green/60 hover:bg-white hover:text-deep-red"
                   aria-label={`Open connection requests${incomingPendingCount > 0 ? `. ${incomingPendingCount} pending incoming` : ""}`}
                 >
                   <BellDot className="h-4 w-4" />
@@ -1437,13 +1459,13 @@ const ChatShell: React.FC = () => {
               </div>
             </div>
 
-            <div className="px-5 py-4">
+            <div className="px-4 py-3">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="w-full rounded-xl bg-white py-2.5 pl-12 pr-3 text-sm focus:outline-none focus:ring-0"
+                  className="w-full rounded-xl border border-[#e1e1e1] bg-white py-2 pl-10 pr-3 text-sm focus:outline-none focus:ring-0"
                   style={{ paddingLeft:"30px" }}
                   placeholder="Search conversations"
                 />
@@ -1555,7 +1577,7 @@ const ChatShell: React.FC = () => {
               </div>
             )}
 
-            <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
               <ConversationList
                 rooms={filteredRooms}
                 activeRoomId={activeRoom?.id}
@@ -1597,7 +1619,7 @@ const ChatShell: React.FC = () => {
                 setSidebarWidth((prev) => clampSidebarWidth(prev + 16));
               }
             }}
-            className="group relative hidden w-0 flex-none outline-none lg:block"
+            className="hidden"
           >
             <div className="absolute inset-y-0 left-1/2 w-2 -translate-x-1/2 cursor-col-resize bg-transparent">
               <span
@@ -1608,11 +1630,11 @@ const ChatShell: React.FC = () => {
             </div>
           </div>
 
-          <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl bg-[#fff]">
-            <header className="bg-[#f4f3f3] px-6 py-5">
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-r border-[#dfdfdf] bg-[#ffffff]">
+            <header className="border-b border-[#e6e6e6] bg-[#f7f7f7] px-6 py-4">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h3 className="!mb-1 [font-family:var(--font-newsreader),var(--font-serif)] text-3xl font-semibold text-deep-red">
+                  <h3 className="!mb-1 [font-family:var(--font-newsreader),var(--font-serif)] text-[42px] font-semibold text-deep-red">
                     {activeRoomTitle}
                   </h3>
                   <div className="min-h-[2.5rem] space-y-1">
@@ -1657,7 +1679,7 @@ const ChatShell: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowDetails(true)}
-                      className="rounded-xl bg-[#e2e2e2] p-2 text-almost-black-green/60 hover:text-deep-red"
+                      className="rounded-lg p-1.5 text-almost-black-green/60 hover:bg-white hover:text-deep-red"
                     >
                       <MoreVertical className="h-4 w-4" />
                     </button>
@@ -2249,6 +2271,33 @@ const ChatShell: React.FC = () => {
                 )}
             </div>
           </section>
+          <aside className="hidden min-h-0 flex-col gap-8 overflow-y-auto bg-[#f3f3f3] px-6 py-6 lg:flex">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8390a4]">Channel Details</p>
+              <div className="mt-3 rounded-2xl bg-[#e9e7e7] p-4 text-sm text-almost-black-green/75">
+                <p>{activeRoom?.description || "Official discussion channel for this room."}</p>
+                <p className="mt-3 text-xs text-[#8e99ac]">{activeRoomMembers.length} Delegates Online</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8390a4]">Shared Resources</p>
+              <div className="mt-3 space-y-3">
+                {sharedResources.length > 0 ? sharedResources.map((file) => (
+                  <div key={file.id} className="rounded-xl bg-white px-3 py-2 text-sm">
+                    <p className="truncate font-semibold text-almost-black-green">{file.original_name}</p>
+                    <p className="text-xs text-almost-black-green/55">{formatSize(file.size_bytes)} • {file.mime_type || "File"}</p>
+                  </div>
+                )) : <p className="text-sm text-almost-black-green/55">No files shared yet.</p>}
+                <button type="button" className="mt-1 w-full rounded-xl border border-[#d5c4bf] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#7b201f]">View All Files</button>
+              </div>
+            </div>
+            <div className="rounded-2xl bg-[#ebe4e3] p-4">
+              <p className="font-semibold text-[#7b201f]">Committee Rules</p>
+              <p className="mt-2 text-sm italic text-almost-black-green/65">
+                All messages must adhere to parliamentary procedure. Personal attacks or non-diplomatic language may result in removal.
+              </p>
+            </div>
+          </aside>
         </section>
 
         <NewConversationModal

@@ -110,10 +110,10 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             onSelect(room);
           }
         }}
-        className={`group w-full cursor-pointer px-4 py-3 text-left transition focus:outline-none focus-visible:outline-none ${
+        className={`group w-full cursor-pointer px-3 py-2.5 text-left transition focus:outline-none focus-visible:outline-none ${
           isActive
-            ? 'rounded-2xl bg-[#e2e2e2]'
-            : 'rounded-2xl bg-[#ffffff] hover:bg-[#f4f3f3]'
+            ? 'rounded-xl bg-[#e1e1e1]'
+            : 'rounded-xl bg-transparent hover:bg-[#ffffff]'
         }`}
       >
         <div className="flex items-start gap-3">
@@ -132,7 +132,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className={`truncate text-base leading-5 text-deep-red ${hasUnread ? 'font-bold' : 'font-semibold'}`}>{meta.name}</p>
+                <p className={`truncate text-[16px] leading-5 text-deep-red ${hasUnread ? 'font-bold' : 'font-semibold'}`}>{meta.name}</p>
                 {meta.shortDelegation ? (
                   <p className="mt-0.5 truncate text-sm font-medium leading-4 text-almost-black-green/70">({meta.shortDelegation})</p>
                 ) : null}
@@ -155,12 +155,12 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             </div>
             {last ? (
               shouldShowAttachmentPreview ? (
-                <p className={`mt-1 inline-flex max-w-full items-center gap-1.5 line-clamp-1 text-xs ${hasUnread ? 'font-semibold text-almost-black-green' : 'text-almost-black-green/70'}`}>
+                <p className={`mt-0.5 inline-flex max-w-full items-center gap-1.5 line-clamp-1 text-xs ${hasUnread ? 'font-semibold text-almost-black-green' : 'text-almost-black-green/70'}`}>
                   <File className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{attachmentLabel}</span>
                 </p>
               ) : (
-                <p className={`mt-1 line-clamp-1 text-xs ${hasUnread ? 'font-semibold text-almost-black-green' : 'text-almost-black-green/70'}`}>
+                <p className={`mt-0.5 line-clamp-1 text-xs ${hasUnread ? 'font-semibold text-almost-black-green' : 'text-almost-black-green/70'}`}>
                   {`${room.room_type === 'dm' ? '' : last.user?.full_name ? `${last.user.full_name}: ` : ''}${lastMessageText}`}
                 </p>
               )

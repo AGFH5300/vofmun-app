@@ -42,24 +42,47 @@ const ConversationList: React.FC<Props> = ({
   }, [rooms]);
 
   const hasAnyRooms = rooms.length > 0;
+  const channelRooms = orderedRooms.filter((room) => room.room_type !== "dm");
+  const privateRooms = orderedRooms.filter((room) => room.room_type === "dm");
 
   return (
     <div className="h-full">
       <div className="pb-6">
         {hasAnyRooms && (
-          <ul>
-            {orderedRooms.map((room) => (
-              <ConversationListItem
-                key={room.id}
-                room={room}
-                isActive={room.id === activeRoomId}
-                onSelect={onSelect}
-                onTogglePin={onTogglePin}
-                currentUserId={currentUserId}
-                onlineUsers={onlineUsers}
-              />
-            ))}
-          </ul>
+          <div className="space-y-4">
+            <div>
+              <p className="mb-1 px-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#8390a4]">Channels</p>
+              <ul className="space-y-1">
+                {channelRooms.map((room) => (
+                  <ConversationListItem
+                    key={room.id}
+                    room={room}
+                    isActive={room.id === activeRoomId}
+                    onSelect={onSelect}
+                    onTogglePin={onTogglePin}
+                    currentUserId={currentUserId}
+                    onlineUsers={onlineUsers}
+                  />
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="mb-1 px-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#8390a4]">Private Messages</p>
+              <ul className="space-y-1">
+                {privateRooms.map((room) => (
+                  <ConversationListItem
+                    key={room.id}
+                    room={room}
+                    isActive={room.id === activeRoomId}
+                    onSelect={onSelect}
+                    onTogglePin={onTogglePin}
+                    currentUserId={currentUserId}
+                    onlineUsers={onlineUsers}
+                  />
+                ))}
+              </ul>
+            </div>
+          </div>
         )}
         {!hasAnyRooms && (
           <div className="mt-8 flex flex-col items-center justify-center gap-3 rounded-2xl bg-[#ffffff] px-6 py-10 text-center shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
