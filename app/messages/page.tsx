@@ -1366,12 +1366,12 @@ const ChatShell: React.FC = () => {
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-[#f9f9f9] font-['Manrope',var(--font-sans)] text-almost-black-green">
+    <div className="h-[100dvh] overflow-hidden bg-[#f9f9f9] [font-family:var(--font-manrope),var(--font-sans)] text-almost-black-green">
       <div className="sticky top-0 z-20 bg-[#fff0e5cc] px-5 py-4 backdrop-blur-xl shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
         <div className="mx-auto flex w-full max-w-[1300px] items-center justify-between gap-4">
           <div>
             <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-almost-black-green/55">VOFMUN ONE</p>
-            <h1 className="font-['Newsreader',var(--font-serif)] text-3xl font-semibold leading-tight text-[#6e1d1b]">Delegate Messaging</h1>
+            <h1 className="[font-family:var(--font-newsreader),var(--font-serif)] text-3xl font-semibold leading-tight text-[#6e1d1b]">Delegate Messaging</h1>
           </div>
           <button
             type="button"
@@ -1387,7 +1387,7 @@ const ChatShell: React.FC = () => {
         <section className="flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl bg-[#f4f3f3] p-2">
           <aside className="flex min-h-0 h-full flex-col overflow-hidden rounded-xl bg-[#f4f3f3]" style={{ width: `${sidebarWidth}px` }}>
             <div className="flex items-center justify-between gap-2 px-5 pt-4">
-              <p className="font-['Newsreader',var(--font-serif)] text-3xl font-semibold text-[#6e1d1b]">
+              <p className="[font-family:var(--font-newsreader),var(--font-serif)] text-3xl font-semibold text-[#6e1d1b]">
                 Chats
                 {totalUnreadCount > 0 ? (
                   <span className="ml-2 inline-flex min-w-6 items-center justify-center rounded-full bg-deep-red px-2 py-0.5 text-xs font-semibold text-white">
@@ -1612,7 +1612,7 @@ const ChatShell: React.FC = () => {
             <header className="bg-[#f4f3f3] px-6 py-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h3 className="!mb-1 font-['Newsreader',var(--font-serif)] text-3xl font-semibold text-deep-red">
+                  <h3 className="!mb-1 [font-family:var(--font-newsreader),var(--font-serif)] text-3xl font-semibold text-deep-red">
                     {activeRoomTitle}
                   </h3>
                   <div className="min-h-[2.5rem] space-y-1">

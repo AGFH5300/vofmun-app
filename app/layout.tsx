@@ -9,7 +9,19 @@ import '@fontsource/open-sans';
 import '@fontsource/playfair-display';
 import '@fontsource/poppins';
 import type { Metadata } from 'next';
+import { Manrope, Newsreader } from 'next/font/google';
 import Providers from './providers';
+
+
+const manrope = Manrope({
+  subsets: ['latin'],
+  variable: '--font-manrope',
+});
+
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  variable: '--font-newsreader',
+});
 
 export const metadata: Metadata = {
   title: 'VOFMUN ONE',
@@ -19,7 +31,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
-      <body>
+      <body className={`${manrope.variable} ${newsreader.variable}`}>
         <Providers>{children}</Providers>
       </body>
     </html>
