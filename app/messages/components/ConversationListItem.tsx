@@ -112,8 +112,8 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
         }}
         className={`group w-full cursor-pointer px-3 py-2.5 text-left transition focus:outline-none focus-visible:outline-none ${
           isActive
-            ? 'rounded-xl bg-[#e1e1e1]'
-            : 'rounded-xl bg-transparent hover:bg-[#ffffff]'
+            ? 'rounded-xl border-l-4 border-[#6E1D1B] bg-[#e2e2e2]'
+            : 'rounded-xl bg-transparent hover:bg-[#e2e2e2]'
         }`}
       >
         <div className="flex items-start gap-3">
@@ -124,7 +124,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             </div>
           ) : (
             <div className="relative">
-              <div className="flex h-[42px] w-[42px] items-center justify-center rounded-full bg-soft-ivory text-deep-red">
+              <div className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-soft-ivory text-deep-red">
                 {room.room_type === 'committee' ? <Users className="h-4 w-4" /> : <UsersRound className="h-4 w-4" />}
               </div>
             </div>
@@ -132,9 +132,9 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className={`truncate text-[16px] leading-5 text-deep-red ${hasUnread ? 'font-bold' : 'font-semibold'}`}>{meta.name}</p>
+                <p className={`truncate text-sm leading-5 ${isActive ? 'text-[#6E1D1B]' : 'text-almost-black-green'} ${hasUnread ? 'font-bold' : 'font-semibold'}`}>{meta.name}</p>
                 {meta.shortDelegation ? (
-                  <p className="mt-0.5 truncate text-sm font-medium leading-4 text-almost-black-green/70">({meta.shortDelegation})</p>
+                  <p className="mt-0.5 truncate text-xs font-medium leading-4 text-almost-black-green/70">({meta.shortDelegation})</p>
                 ) : null}
               </div>
               <div className="ml-2 flex shrink-0 flex-col items-end gap-2">

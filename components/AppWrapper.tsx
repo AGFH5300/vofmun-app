@@ -20,7 +20,7 @@ export default function AppWrapper({ children }: AppWrapperProps) {
   // Standalone auth pages should not show global navigation/footer
   const isStandaloneAuthRoute = pathname === "/login" || pathname === "/reset-password";
   const isMessagesRoute = pathname === "/messages" || pathname.startsWith("/messages/");
-  const showNav = !isStandaloneAuthRoute && !isMessagesRoute;
+  const showNav = !isStandaloneAuthRoute;
   
   // Get activeLink from pathname
   const getActiveLink = () => {
@@ -43,7 +43,7 @@ export default function AppWrapper({ children }: AppWrapperProps) {
           activeLink={getActiveLink()}
         />
       )}
-      <main className="flex-1">{children}</main>
+      <main className={`flex-1 ${showNav ? "pt-20" : ""}`}>{children}</main>
       {!isStandaloneAuthRoute && !isMessagesRoute && <SiteFooter />}
     </div>
   );

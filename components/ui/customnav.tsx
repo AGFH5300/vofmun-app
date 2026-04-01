@@ -8,15 +8,10 @@ import { usePathname } from "next/navigation";
 import { useSession } from "@/app/context/sessionContext";
 import { useMobile } from "@/hooks/use-mobile";
 import {
-  Home,
-  FileText,
-  MessageSquare,
-  BookOpen,
   Menu,
   X,
-  Bell,
   LogOut,
-  LayoutGrid,
+  Flag,
 } from "lucide-react";
 
 interface CustomNavProps {
@@ -27,7 +22,6 @@ interface CustomNavProps {
 interface NavItem {
   name: string;
   to: string;
-  icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
 }
 
 const CustomNav: React.FC<CustomNavProps> = () => {
@@ -70,23 +64,23 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
   const navigationItems: NavItem[] = useMemo(
     () => [
-      { name: "Home", to: "/home", icon: Home },
-      { name: "Live Updates", to: "/live-updates", icon: Bell },
-      { name: "Glossary", to: "/glossary", icon: BookOpen },
-      { name: "Resolutions", to: "/resolutions", icon: FileText },
-      { name: "Speech Repository", to: "/speechrepo", icon: MessageSquare },
-      { name: "Messages", to: "/messages", icon: MessageSquare },
+      { name: "Dashboard", to: "/home" },
+      { name: "Live Updates", to: "/live-updates" },
+      { name: "Glossary", to: "/glossary" },
+      { name: "Resolutions", to: "/resolutions" },
+      { name: "Messaging", to: "/messages" },
+      { name: "Speech Repo", to: "/speechrepo" },
     ],
     []
   );
 
   const adminItems: NavItem[] = useMemo(
-    () => [{ name: "Admin Panel", to: "/admin", icon: LayoutGrid }],
+    () => [{ name: "Admin", to: "/admin" }],
     []
   );
 
   const chairItems: NavItem[] = useMemo(
-    () => [{ name: "Chair Dashboard", to: "/chair", icon: LayoutGrid }],
+    () => [{ name: "Chair", to: "/chair" }],
     []
   );
 
@@ -106,78 +100,25 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
-  const isMessagesRoute = pathname === "/messages" || pathname.startsWith("/messages/");
-
-  const getDisplayName = () => {
-    if (!currentUser) return "";
-    return `${currentUser.firstname} ${currentUser.lastname}`;
-  };
-
-  const sansFontFamily = "var(--font-dm-sans, 'DM Sans', 'Segoe UI', sans-serif)";
-
-  const brand = (
-    <Link
-      href="/home"
-      className="flex items-center gap-3 text-slate-900"
-      style={{ fontFamily: sansFontFamily }}
-    >
-      <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-transparent">
-        <img src="/logo.svg" alt="VOFMUN" className="h-10 w-10 object-contain" />
-      </span>
-      <div className="text-left leading-tight">
-        <p
-          className="text-xs font-semibold uppercase tracking-[0.32em]"
-        >
-          VOFMUN ONE
-        </p>
-      </div>
-    </Link>
-  );
-
-  const getInitials = () => {
-    if (!currentUser) return "V";
-    const first = currentUser.firstname?.[0] ?? "";
-    const last = currentUser.lastname?.[0] ?? "";
-    const initials = `${first}${last}`.trim();
-    return initials ? initials.toUpperCase() : "V";
-  };
-
   const renderBadge = (name: string) => {
-    if (name !== "Messages" || messageUnreadCount <= 0) return null;
+    if (name !== "Messaging" || messageUnreadCount <= 0) return null;
     return (
-      <span className="absolute -right-2 -top-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[0.7rem] font-semibold text-white">
+      <span className="absolute -right-2 -top-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
         {messageUnreadCount > 99 ? "99+" : messageUnreadCount}
       </span>
     );
   };
 
-  const renderUserDetails = () => {
-    if (!currentUser) {
-      return null;
-    }
-
-    return (
-      <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-900 shadow-[0_8px_18px_-14px_rgba(15,23,42,0.25)]">
-          {getInitials()}
-        </span>
-        <div className="leading-tight">
-          <p className="text-sm font-semibold text-slate-900">{getDisplayName()}</p>
-        </div>
-      </div>
-    );
-  };
-
-  const userDetails = renderUserDetails();
-
   if (isMobile) {
     return (
-      <nav className={`relative z-40 text-slate-900 shadow-[0_10px_30px_-25px_rgba(15,23,42,0.25)] ${isMessagesRoute ? "bg-[#fff0e5cc] backdrop-blur-xl" : "border-b border-slate-200 bg-white"}`}>
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4">
-          {brand}
+      <nav className="fixed left-0 right-0 top-0 z-50 bg-[#fff0e5cc] shadow-[0_8px_32px_rgba(26,28,28,0.06)] backdrop-blur-md">
+        <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between px-4">
+          <Link href="/home" className="[font-family:var(--font-newsreader),var(--font-serif)] text-lg font-bold text-[#6E1D1B]">
+            VOFMUN ONE
+          </Link>
           <button
             onClick={() => setIsMenuOpen((prev) => !prev)}
-            className="rounded-md border border-slate-200 bg-slate-100 p-2 text-slate-900 transition hover:border-slate-300 hover:bg-slate-200"
+            className="rounded-md p-2 text-[#6E1D1B] transition hover:bg-[#f4f3f3]"
             aria-expanded={isMenuOpen}
             aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
           >
@@ -186,52 +127,38 @@ const CustomNav: React.FC<CustomNavProps> = () => {
         </div>
 
         {isMenuOpen && (
-          <div className="border-t border-slate-200 bg-white px-4 pb-6">
+          <div className="bg-white px-4 pb-6">
             <div className="space-y-4 pt-4">
               {availableItems.map((item) => {
-                const Icon = item.icon ?? Home;
                 const active = isActive(item.to);
                 return (
                   <Link
                     key={item.name}
                     href={item.to}
-                    className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
+                    className={`flex items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
                       active
-                        ? "border-slate-300 bg-slate-900 text-white"
-                        : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+                        ? "bg-[#f4f3f3] text-[#6E1D1B]"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                     }`}
                     aria-current={active ? "page" : undefined}
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    <span
-                      className={`flex h-9 w-9 items-center justify-center rounded-md ${
-                        active
-                          ? "bg-slate-800 text-white"
-                          : "bg-slate-200 text-slate-700"
-                      }`}
-                    >
-                      <Icon size={18} strokeWidth={1.75} />
-                    </span>
                     <span className="flex-1 whitespace-nowrap">{item.name}</span>
+                    {renderBadge(item.name)}
                   </Link>
                 );
               })}
 
-              <div className="space-y-3 border-t border-slate-200 pt-4">
-                {userDetails && (
-                  <div className="rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-slate-900">
-                    {userDetails}
-                  </div>
-                )}
+              <div className="space-y-3 pt-2">
                 <button
                   onClick={() => {
                     logout();
                     setIsMenuOpen(false);
                   }}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#6E1D1B] px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-95"
                 >
                   <LogOut size={18} />
-                  <span>Sign Out</span>
+                  <span>Log Out</span>
                 </button>
               </div>
             </div>
@@ -242,55 +169,54 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   }
 
   return (
-    <nav className={`relative z-40 text-slate-900 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.2)] ${isMessagesRoute ? "bg-[#fff0e5cc] backdrop-blur-xl" : "border-b border-slate-200 bg-white"}`}>
-      <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between gap-6 px-6">
-        {brand}
-
-        <div className="hidden flex-1 items-center justify-center md:flex">
-          <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5">
+    <nav className="fixed left-0 right-0 top-0 z-50 bg-[#fff0e5cc] shadow-[0_8px_32px_rgba(26,28,28,0.06)] backdrop-blur-md">
+      <div className="mx-auto flex h-20 w-full max-w-[1440px] items-center justify-between gap-6 px-8">
+        <div className="flex items-center gap-8">
+          <Link href="/home" className="[font-family:var(--font-newsreader),var(--font-serif)] text-xl font-bold text-[#6E1D1B]">
+            VOFMUN ONE
+          </Link>
+          <div className="hidden items-center gap-6 md:flex">
             {availableItems.map((item) => {
-              const Icon = item.icon ?? Home;
               const active = isActive(item.to);
               return (
                 <Link
                   key={item.name}
                   href={item.to}
-                  className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                  className={`relative py-1 text-xs uppercase tracking-[0.2em] transition-colors ${
                     active
-                      ? `${isMessagesRoute ? "bg-[radial-gradient(circle_at_top,#500608,#6e1d1b)]" : "bg-slate-900"} text-white shadow-[0_16px_32px_-28px_rgba(15,23,42,0.35)]`
-                      : "text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+                      ? "border-b-2 border-[#6E1D1B] font-bold text-[#6E1D1B]"
+                      : "font-medium text-slate-500 hover:text-[#6E1D1B]"
                   }`}
                   aria-current={active ? "page" : undefined}
                 >
-                  <span className="relative inline-flex">
-                    <Icon size={16} strokeWidth={1.75} />
-                    {renderBadge(item.name)}
-                  </span>
-                  <span className="whitespace-nowrap">{item.name}</span>
+                  {item.name}
+                  {renderBadge(item.name)}
                 </Link>
               );
             })}
           </div>
         </div>
 
-        <div className="hidden items-center gap-3 md:flex">
-          {userDetails && (
-            <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-slate-900">
-              {userDetails}
-            </div>
-          )}
+        <div className="hidden items-center gap-4 md:flex">
+          <div className="flex items-center gap-2">
+            <Flag className="h-4 w-4 text-[#6E1D1B]" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+              {currentUser?.country || "Country"}
+            </span>
+          </div>
+          <div className="h-6 w-px bg-[#dcc0bd]/60" />
           <button
             onClick={logout}
-            className="flex items-center gap-2 rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+            className="flex items-center gap-2 rounded-lg bg-[#6E1D1B] px-6 py-2 text-xs font-bold uppercase tracking-[0.16em] text-white transition hover:opacity-95"
           >
-            <LogOut size={16} />
-            <span>Sign Out</span>
+            <LogOut size={14} />
+            <span>Log Out</span>
           </button>
         </div>
 
         <button
           onClick={() => setIsMenuOpen((prev) => !prev)}
-          className="rounded-md border border-slate-200 bg-slate-100 p-2 text-slate-900 transition hover:border-slate-300 hover:bg-slate-200 md:hidden"
+          className="rounded-md p-2 text-[#6E1D1B] transition hover:bg-[#f4f3f3] md:hidden"
           aria-expanded={isMenuOpen}
           aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
         >
@@ -299,53 +225,38 @@ const CustomNav: React.FC<CustomNavProps> = () => {
       </div>
 
       {isMenuOpen && (
-        <div className="border-t border-slate-200 bg-white px-6 pb-6 md:hidden">
+        <div className="bg-white px-6 pb-6 md:hidden">
           <div className="space-y-4 pt-4">
             {availableItems.map((item) => {
-              const Icon = item.icon ?? Home;
               const active = isActive(item.to);
               return (
                 <Link
                   key={item.name}
                   href={item.to}
-                  className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
+                  className={`flex items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
                     active
-                      ? "border-slate-300 bg-slate-900 text-white"
-                      : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+                      ? "bg-[#f4f3f3] text-[#6E1D1B]"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`}
                   aria-current={active ? "page" : undefined}
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  <span
-                    className={`relative flex h-9 w-9 items-center justify-center rounded-md ${
-                      active
-                        ? "bg-slate-800 text-white"
-                        : "bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    <Icon size={18} strokeWidth={1.75} />
-                    {renderBadge(item.name)}
-                  </span>
                   <span className="flex-1 whitespace-nowrap">{item.name}</span>
+                  {renderBadge(item.name)}
                 </Link>
               );
             })}
 
-            <div className="space-y-3 border-t border-slate-200 pt-4">
-              {userDetails && (
-                <div className="rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-slate-900">
-                  {userDetails}
-                </div>
-              )}
+            <div className="space-y-3 pt-2">
               <button
                 onClick={() => {
                   logout();
                   setIsMenuOpen(false);
                 }}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#6E1D1B] px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-95"
               >
                 <LogOut size={18} />
-                <span>Sign Out</span>
+                <span>Log Out</span>
               </button>
             </div>
           </div>
