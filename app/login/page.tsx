@@ -37,10 +37,26 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedPassword = password.trim();
+
+    if (!trimmedEmail && !trimmedPassword) {
+      setError("Please enter your email address and password.");
+      return;
+    }
+
+    if (!trimmedEmail) {
+      setError("Please enter your email address.");
+      return;
+    }
+
+    if (!trimmedPassword) {
+      setError("Please enter your password.");
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -49,7 +65,7 @@ const Login = () => {
       });
 
       if (signInError) {
-        setError(signInError.message || "Invalid email or password");
+        setError("Invalid email or password.");
         setLoading(false);
         return;
       }
@@ -318,6 +334,7 @@ const Login = () => {
                   <input
                     type="email"
                     placeholder="Your Email Address"
+                    autoComplete="email"
                     className="w-full rounded-xl border border-[#e5e4e3] bg-[#f2f2f2] px-4 py-3 text-[#1C1C1C] shadow-[0_8px_18px_-12px_rgba(139,36,36,0.6)] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-[#8B2424] focus:ring-4 focus:ring-[#8B2424]/30"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -336,6 +353,7 @@ const Login = () => {
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Your Password"
+                    autoComplete="current-password"
                     className="w-full rounded-xl border border-[#e5e4e3] bg-[#f2f2f2] px-4 py-3 pr-12 text-[#1C1C1C] shadow-[0_8px_18px_-12px_rgba(139,36,36,0.6)] outline-none transition-all placeholder:text-[#8B2424]/40 focus:border-[#8B2424] focus:ring-4 focus:ring-[#8B2424]/30"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
