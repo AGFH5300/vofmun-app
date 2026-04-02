@@ -539,12 +539,12 @@ const MessageBubble: React.FC<Props> = ({
             }
             setTouchStart(null);
           }}
-          className={`group relative min-w-0 max-w-[82%] px-2.5 py-1.5 shadow-[0_8px_32px_rgba(26,28,28,0.06)] md:max-w-[74%] ${
+          className={`group relative min-w-0 max-w-[70%] px-3 py-2 shadow-[0_8px_32px_rgba(26,28,28,0.06)] ${isOwn ? "md:max-w-[68%]" : "md:max-w-[72%]"} ${
             isOwn
               ? isFailed
                 ? 'rounded-[10px] bg-soft-rose/30 text-deep-red'
-                : 'rounded-[10px] bg-[radial-gradient(circle_at_top,#500608,#6e1d1b)] text-white'
-              : 'rounded-[10px] bg-[#f4f3f3] text-almost-black-green'
+                : 'rounded-[11px] bg-[radial-gradient(circle_at_top,#500608,#6e1d1b)] text-white'
+              : 'rounded-[11px] bg-[#f4f3f3] text-almost-black-green'
           } ${isSelectMode && canSelectMessage ? 'cursor-pointer' : ''} ${isSelected ? 'ring-2 ring-deep-red/35' : ''}`}
           style={dynamicShortBubbleMinWidth ? { minWidth: dynamicShortBubbleMinWidth } : undefined}
         >
@@ -606,10 +606,7 @@ const MessageBubble: React.FC<Props> = ({
               }
 
               return (
-                <div
-                  key={attachment.id || attachment.path}
-                  className="flex items-center gap-3 rounded-xl border border-black/10 bg-white/85 px-3 py-2.5"
-                >
+                <div key={attachment.id || attachment.path} className="flex items-center gap-3 rounded-lg border border-black/10 bg-white/85 px-3 py-2">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#efe3dc] text-deep-red">
                     <FileText className="h-4 w-4 shrink-0" />
                   </div>

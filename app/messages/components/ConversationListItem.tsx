@@ -110,7 +110,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             onSelect(room);
           }
         }}
-        className={`group w-full cursor-pointer px-3 py-2.5 text-left transition focus:outline-none focus-visible:outline-none ${
+        className={`group w-full cursor-pointer px-3 py-2 text-left transition focus:outline-none focus-visible:outline-none ${
           isActive
             ? 'rounded-xl border-l-4 border-[#6E1D1B] bg-[#e2e2e2]'
             : 'rounded-xl bg-transparent hover:bg-[#e2e2e2]'
@@ -132,9 +132,9 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className={`truncate text-sm leading-5 ${isActive ? 'text-[#6E1D1B]' : 'text-almost-black-green'} ${hasUnread ? 'font-bold' : 'font-semibold'}`}>{meta.name}</p>
+                <p className={`truncate text-[13px] leading-5 ${isActive ? 'text-[#6E1D1B]' : 'text-almost-black-green'} ${hasUnread ? 'font-bold' : 'font-semibold'}`}>{meta.name}</p>
                 {meta.shortDelegation ? (
-                  <p className="mt-0.5 truncate text-xs font-medium leading-4 text-almost-black-green/70">({meta.shortDelegation})</p>
+                  <p className="mt-0.5 truncate text-[11px] font-medium leading-4 text-almost-black-green/65">({meta.shortDelegation})</p>
                 ) : null}
               </div>
               <div className="ml-2 flex shrink-0 flex-col items-end gap-2">
@@ -146,7 +146,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
                 {hasUnread ? (
                   <span
                     aria-label={`${unreadCount} unread message${unreadCount === 1 ? '' : 's'}`}
-                    className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full background-deep-red px-1.5 py-0.5 text-[0.7rem] font-bold leading-none text-white shadow-sm ring-2 ring-white"
+                    className="inline-flex min-w-[1.4rem] items-center justify-center rounded-full background-deep-red px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white"
                   >
                     {unreadBadgeLabel}
                   </span>
@@ -155,12 +155,12 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             </div>
             {last ? (
               shouldShowAttachmentPreview ? (
-                <p className={`mt-0.5 inline-flex max-w-full items-center gap-1.5 line-clamp-1 text-xs ${hasUnread ? 'font-semibold text-almost-black-green' : 'text-almost-black-green/70'}`}>
+                <p className={`mt-0.5 inline-flex max-w-full items-center gap-1.5 line-clamp-1 text-[11px] ${hasUnread ? 'font-semibold text-almost-black-green' : 'text-almost-black-green/70'}`}>
                   <File className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{attachmentLabel}</span>
                 </p>
               ) : (
-                <p className={`mt-0.5 line-clamp-1 text-xs ${hasUnread ? 'font-semibold text-almost-black-green' : 'text-almost-black-green/70'}`}>
+                <p className={`mt-0.5 line-clamp-1 text-[11px] ${hasUnread ? 'font-semibold text-almost-black-green' : 'text-almost-black-green/70'}`}>
                   {`${room.room_type === 'dm' ? '' : last.user?.full_name ? `${last.user.full_name}: ` : ''}${lastMessageText}`}
                 </p>
               )

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Messaging | VOFMUN ONE</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-tertiary-fixed": "#211a14",
+                        "tertiary-fixed-dim": "#d2c4ba",
+                        "on-error-container": "#93000a",
+                        "error-container": "#ffdad6",
+                        "surface-variant": "#e2e2e2",
+                        "surface-dim": "#dadada",
+                        "surface": "#f9f9f9",
+                        "surface-container": "#eeeeee",
+                        "on-secondary-fixed-variant": "#454747",
+                        "surface-bright": "#f9f9f9",
+                        "tertiary": "#2b231d",
+                        "on-primary-fixed": "#410003",
+                        "tertiary-fixed": "#eee0d5",
+                        "on-primary-fixed-variant": "#7f2926",
+                        "inverse-surface": "#2f3131",
+                        "secondary-fixed-dim": "#c6c6c6",
+                        "inverse-primary": "#ffb3ad",
+                        "error": "#ba1a1a",
+                        "primary": "#6E1D1B",
+                        "background": "#f9f9f9",
+                        "surface-tint": "#9e403b",
+                        "outline": "#89726f",
+                        "on-secondary-container": "#636465",
+                        "inverse-on-surface": "#f1f1f1",
+                        "surface-container-highest": "#e2e2e2",
+                        "tertiary-container": "#413931",
+                        "on-tertiary-container": "#afa298",
+                        "on-surface": "#1a1c1c",
+                        "outline-variant": "#dcc0bd",
+                        "surface-container-high": "#e8e8e8",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-primary": "#ffffff",
+                        "on-primary-container": "#f5847b",
+                        "primary-container": "#6E1D1B",
+                        "on-error": "#ffffff",
+                        "on-surface-variant": "#564240",
+                        "on-tertiary-fixed-variant": "#4e453d",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary": "#5d5f5f",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#ffdad6",
+                        "primary-fixed-dim": "#ffb3ad",
+                        "surface-container-low": "#f4f3f3",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "secondary-container": "#e2e2e2",
+                        "on-background": "#1a1c1c"
+                    },
+                    fontFamily: {
+                        "headline": ["Newsreader"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Manrope', sans-serif; }
+        .serif-headline { font-family: 'Newsreader', serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full flex justify-between items-center px-8 h-20 bg-[#FFF0E5]/80 dark:bg-slate-950/80 backdrop-blur-md z-50 shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
+<div class="flex items-center gap-8">
+<h1 class="font-['Newsreader'] font-bold text-[#6E1D1B] dark:text-[#FFF0E5] text-xl">VOFMUN ONE</h1>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-slate-500 dark:text-slate-400 font-['Manrope'] uppercase tracking-widest text-xs hover:text-[#6E1D1B] dark:hover:text-[#FFF0E5] transition-colors duration-300" href="#">Dashboard</a>
+<a class="text-slate-500 dark:text-slate-400 font-['Manrope'] uppercase tracking-widest text-xs hover:text-[#6E1D1B] dark:hover:text-[#FFF0E5] transition-colors duration-300" href="#">Live Updates</a>
+<a class="text-slate-500 dark:text-slate-400 font-['Manrope'] uppercase tracking-widest text-xs hover:text-[#6E1D1B] dark:hover:text-[#FFF0E5] transition-colors duration-300" href="#">Glossary</a>
+<a class="text-slate-500 dark:text-slate-400 font-['Manrope'] uppercase tracking-widest text-xs hover:text-[#6E1D1B] dark:hover:text-[#FFF0E5] transition-colors duration-300" href="#">Resolutions</a>
+<a class="text-[#6E1D1B] dark:text-[#FFF0E5] border-b-2 border-[#6E1D1B] font-['Manrope'] uppercase tracking-widest text-xs font-bold py-1" href="#">Messaging</a>
+</nav>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#6E1D1B]">flag</span>
+<span class="font-['Manrope'] font-bold text-[10px] uppercase tracking-widest text-slate-500">United Kingdom</span>
+</div>
+<div class="w-px h-6 bg-outline-variant/30"></div>
+<button class="bg-primary text-on-primary px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all">
+                Log Out
+            </button>
+</div>
+</header>
+<!-- Content Header -->
+<div class="mt-20 px-8 py-6 bg-surface-container-low border-b border-outline-variant/10 flex items-center justify-between">
+<h2 class="font-['Newsreader'] font-semibold text-2xl tracking-tight text-[#6E1D1B] dark:text-[#E2E2E2]">Delegate Messaging</h2>
+<div class="flex items-center gap-4">
+<button class="text-slate-500 hover:text-[#6E1D1B] transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</div>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex overflow-hidden">
+<div class="flex-1 flex overflow-hidden">
+<!-- Chat Sidebar -->
+<aside class="w-80 bg-surface-container-low flex flex-col border-r border-outline-variant/10 overflow-y-auto">
+<div class="p-6">
+<div class="relative mb-6">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="w-full bg-surface-container-lowest border-none rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary/20 placeholder:text-slate-400 font-['Manrope']" placeholder="Search conversations..." type="text"/>
+</div>
+<div class="space-y-6">
+<div>
+<h3 class="font-['Manrope'] font-bold text-[10px] uppercase tracking-[0.1em] text-slate-500 mb-4 px-2">Channels</h3>
+<div class="space-y-1">
+<button class="w-full text-left p-3 rounded-xl bg-surface-container-highest transition-all group border-l-4 border-primary">
+<div class="flex justify-between items-start mb-1">
+<span class="font-bold text-sm text-primary">DISEC Main Channel</span>
+<span class="text-[10px] text-slate-400">14:22</span>
+</div>
+<p class="text-xs text-on-surface-variant line-clamp-1 italic">Delegate of Japan: We propose a revised draft...</p>
+</button>
+<button class="w-full text-left p-3 rounded-xl hover:bg-surface-container-highest transition-all group">
+<div class="flex justify-between items-start mb-1">
+<span class="font-bold text-sm text-on-surface">Crisis Team</span>
+<span class="text-[10px] text-slate-400">09:15</span>
+</div>
+<p class="text-xs text-slate-500 line-clamp-1">Immediate action required on Article 4...</p>
+</button>
+</div>
+</div>
+<div>
+<h3 class="font-['Manrope'] font-bold text-[10px] uppercase tracking-[0.1em] text-slate-500 mb-4 px-2">Private Messages</h3>
+<div class="space-y-1">
+<button class="w-full text-left p-3 rounded-xl hover:bg-surface-container-highest transition-all flex gap-3 items-center">
+<div class="w-8 h-8 rounded-full bg-tertiary-fixed text-tertiary flex items-center justify-center text-[10px] font-bold">FR</div>
+<div class="flex-1">
+<div class="flex justify-between items-center">
+<span class="font-bold text-sm text-on-surface">Delegate of France</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<p class="text-xs text-slate-500">Checking your availability for...</p>
+</div>
+</button>
+<button class="w-full text-left p-3 rounded-xl hover:bg-surface-container-highest transition-all flex gap-3 items-center">
+<div class="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">BR</div>
+<div class="flex-1">
+<span class="font-bold text-sm text-on-surface">Delegate of Brazil</span>
+<p class="text-xs text-slate-500">Thank you for the support.</p>
+</div>
+</button>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Active Chat Window -->
+<section class="flex-1 flex flex-col bg-surface-container-lowest">
+<!-- Chat Header -->
+<div class="h-16 border-b border-outline-variant/10 px-6 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+<h3 class="font-['Newsreader'] font-bold text-lg text-primary">DISEC Main Channel</h3>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Messages Area -->
+<div class="flex-1 overflow-y-auto p-8 space-y-8">
+<!-- Date Divider -->
+<div class="flex items-center gap-4">
+<div class="flex-1 h-px bg-outline-variant/20"></div>
+<span class="font-['Manrope'] font-bold text-[10px] uppercase tracking-widest text-slate-400">October 24, 2023</span>
+<div class="flex-1 h-px bg-outline-variant/20"></div>
+</div>
+<!-- Message Item: Received -->
+<div class="flex gap-4 max-w-3xl">
+<div class="w-9 h-9 rounded-lg bg-surface-container-high flex items-center justify-center font-bold text-xs text-primary shrink-0">JP</div>
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm text-on-surface">Delegate of Japan</span>
+<span class="text-[10px] text-slate-400">14:18</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-r-xl rounded-bl-xl text-sm leading-relaxed text-on-surface-variant">
+                                Honorable delegates, we have uploaded the revised draft concerning the non-proliferation treaty. Please review the highlighted amendments in section 4.2.
+                            </div>
+</div>
+</div>
+<!-- Message Item: System/Alert -->
+<div class="flex justify-center">
+<div class="bg-tertiary-fixed/30 text-on-tertiary-fixed-variant px-4 py-1.5 rounded-full text-[11px] font-medium flex items-center gap-2 italic">
+<span class="material-symbols-outlined text-sm">info</span>
+                            Chairperson has updated the resolution status to 'Under Review'
+                        </div>
+</div>
+<!-- Message Item: Sent -->
+<div class="flex gap-4 max-w-3xl ml-auto flex-row-reverse">
+<div class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center font-bold text-xs text-on-primary shrink-0">UK</div>
+<div class="space-y-1 text-right">
+<div class="flex items-center gap-2 justify-end">
+<span class="text-[10px] text-slate-400">14:22</span>
+<span class="font-bold text-sm text-primary">You</span>
+</div>
+<div class="bg-primary text-white p-4 rounded-l-xl rounded-br-xl text-sm leading-relaxed shadow-sm">
+                                Thank you, Japan. Our delegation is reviewing the changes now. We have some concerns regarding the timeline of implementation in developing nations.
+                            </div>
+</div>
+</div>
+<!-- Attachment Message -->
+<div class="flex gap-4 max-w-3xl">
+<div class="w-9 h-9 rounded-lg bg-surface-container-high flex items-center justify-center font-bold text-xs text-primary shrink-0">GE</div>
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm text-on-surface">Delegate of Germany</span>
+<span class="text-[10px] text-slate-400">14:35</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-r-xl rounded-bl-xl text-sm leading-relaxed text-on-surface-variant">
+                                Supporting Japan's proposal. Here is the statistical analysis document we discussed during the unmoderated caucus.
+                                <div class="mt-3 bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/30 flex items-center gap-3 hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="w-10 h-10 rounded bg-red-50 flex items-center justify-center text-red-600">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="font-bold text-xs text-on-surface truncate">disec_impact_analysis_v2.pdf</p>
+<p class="text-[10px] text-slate-400">2.4 MB • PDF Document</p>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">download</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Redesigned Input Area -->
+<div class="p-6 bg-surface-container-low">
+<div class="max-w-4xl mx-auto flex items-center gap-4">
+<div class="flex-1 flex items-center bg-surface-container-lowest rounded-full border border-outline-variant/20 px-4 py-2 shadow-sm focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+<button class="flex items-center justify-center text-slate-400 hover:text-primary transition-colors p-2">
+<span class="material-symbols-outlined">add</span>
+</button>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-sm font-['Manrope'] px-2 py-1 placeholder:text-slate-400" placeholder="Type your message..." type="text"/>
+<button class="flex items-center justify-center text-slate-400 hover:text-primary transition-colors p-2">
+<span class="material-symbols-outlined">mood</span>
+</button>
+</div>
+<button class="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-md hover:opacity-90 active:scale-95 transition-all shrink-0">
+<span class="material-symbols-outlined text-xl">send</span>
+</button>
+</div>
+<div class="max-w-4xl mx-auto mt-2 flex justify-center">
+<p class="text-[10px] text-slate-400 italic">Press <b>Enter</b> to send, <b>Shift+Enter</b> for a new line.</p>
+</div>
+</div>
+</section>
+<!-- Attachments & Info Sidebar -->
+<aside class="hidden xl:flex w-72 bg-surface flex-col border-l border-outline-variant/10 overflow-y-auto">
+<div class="p-6 space-y-8">
+<div>
+<h4 class="font-['Manrope'] font-bold text-[10px] uppercase tracking-[0.1em] text-slate-500 mb-4">Channel Details</h4>
+<div class="bg-surface-container-low p-4 rounded-xl">
+<p class="text-xs text-on-surface-variant leading-relaxed mb-3">
+                                Official discussion for the Disarmament and International Security Committee (DISEC).
+                            </p>
+<div class="flex items-center gap-2 text-[10px] text-slate-400">
+<span class="material-symbols-outlined text-sm">group</span>
+                                142 Delegates Online
+                            </div>
+</div>
+</div>
+<div>
+<h4 class="font-['Manrope'] font-bold text-[10px] uppercase tracking-[0.1em] text-slate-500 mb-4">Shared Resources</h4>
+<div class="space-y-3">
+<div class="flex items-center gap-3 p-2 hover:bg-surface-container-low rounded-lg transition-colors cursor-pointer group">
+<div class="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg">description</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-[11px] font-bold truncate">Draft_Resolution_01.docx</p>
+<p class="text-[9px] text-slate-400">Shared by France</p>
+</div>
+</div>
+<div class="flex items-center gap-3 p-2 hover:bg-surface-container-low rounded-lg transition-colors cursor-pointer group">
+<div class="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg">link</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-[11px] font-bold truncate">UN Security Protocol 4A</p>
+<p class="text-[9px] text-slate-400">External Reference</p>
+</div>
+</div>
+<div class="flex items-center gap-3 p-2 hover:bg-surface-container-low rounded-lg transition-colors cursor-pointer group">
+<div class="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg">table_chart</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-[11px] font-bold truncate">Budgetary_Allocations.xlsx</p>
+<p class="text-[9px] text-slate-400">Shared by USA</p>
+</div>
+</div>
+</div>
+<button class="w-full mt-4 text-[10px] font-bold uppercase tracking-widest text-primary py-2 border border-primary/20 rounded-lg hover:bg-primary/5 transition-colors">
+                            View All Files
+                        </button>
+</div>
+<div class="pt-6 border-t border-outline-variant/10">
+<div class="bg-[#6E1D1B]/5 p-4 rounded-xl">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-[#6E1D1B] text-lg">gavel</span>
+<span class="font-bold text-xs text-[#6E1D1B]">Committee Rules</span>
+</div>
+<p class="text-[10px] text-slate-600 leading-normal italic">
+                                "All messages must adhere to parliamentary procedure. Personal attacks or non-diplomatic language will result in removal from the channel."
+                            </p>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+</body></html>
