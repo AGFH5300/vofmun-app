@@ -1378,7 +1378,7 @@ const ChatShell: React.FC = () => {
     <div className="h-full overflow-hidden bg-[#f9f9f9] [font-family:var(--font-manrope),var(--font-sans)] text-almost-black-green">
       <div className="bg-[#f4f3f3]">
         <div className="mx-auto flex h-[76px] w-full max-w-[1440px] items-center justify-between px-8">
-          <h1 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[2rem] font-semibold tracking-tight text-[#6E1D1B]">Delegate Messaging</h1>
+          <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[2rem] font-semibold tracking-tight text-[#6E1D1B]">Delegate Messaging</h3>
           <button type="button" onClick={() => setConversationTab("requests")} className="text-slate-500 transition-colors hover:text-[#6E1D1B]">
             <BellDot className="h-5 w-5" />
           </button>
