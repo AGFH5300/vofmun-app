@@ -199,9 +199,6 @@ button:not(:disabled):hover,
 [role="button"]:not([aria-disabled="true"]):hover {
   transform: translateY(-1px);
   filter: brightness(1.08);
-  box-shadow:
-    0 10px 24px -18px rgba(112, 30, 30, 0.55),
-    0 0 0 1px color-mix(in srgb, var(--deep-red) 14%, transparent 86%);
 }
 
 button:not(:disabled):active,
@@ -230,7 +227,12 @@ textarea,
 /* Typography Styles - Complete New Design */
 
 /* Headings (H1–H6) - Serif fonts with specified weights and colors */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-serif);
   line-height: 1.2;
   margin-bottom: 0.5em;
@@ -238,37 +240,46 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 {
-  font-weight: 900; /* Bold (700–900) */
+  font-weight: 900;
+  /* Bold (700–900) */
   font-size: 2.5rem;
 }
 
 h2 {
-  font-weight: 700; /* Semi-bold (600–700) */
+  font-weight: 700;
+  /* Semi-bold (600–700) */
   font-size: 2rem;
 }
 
 h3 {
-  font-weight: 600; /* Medium to Semi-bold (500–600) */
+  font-weight: 600;
+  /* Medium to Semi-bold (500–600) */
   font-size: 1.75rem;
 }
 
 h4 {
-  font-weight: 600; /* Medium to Semi-bold (500–600) */
+  font-weight: 600;
+  /* Medium to Semi-bold (500–600) */
   font-size: 1.5rem;
 }
 
 h5 {
-  font-weight: 500; /* Medium to Semi-bold (500–600) */
+  font-weight: 500;
+  /* Medium to Semi-bold (500–600) */
   font-size: 1.25rem;
 }
 
 h6 {
-  font-weight: 500; /* Medium to Semi-bold (500–600) */
+  font-weight: 500;
+  /* Medium to Semi-bold (500–600) */
   font-size: 1.125rem;
 }
 
 /* Paragraphs / Body Text - Sans-serif with specified weights and colors */
-p, li, td, th {
+p,
+li,
+td,
+th {
   font-family: var(--font-sans);
   font-weight: 400;
   line-height: 1.6;
@@ -277,40 +288,50 @@ p, li, td, th {
 div,
 span {
   font-family: var(--font-sans);
-  font-weight: 400; /* Regular (400) */
+  font-weight: 400;
+  /* Regular (400) */
   line-height: 1.6;
 }
 
 /* Text emphasis */
-.text-emphasis, strong, b {
-  font-weight: 500; /* Medium (500) for emphasis */
+.text-emphasis,
+strong,
+b {
+  font-weight: 500;
+  /* Medium (500) for emphasis */
 }
 
 /* Secondary text / muted info */
-.text-muted, .text-secondary {
-  color: var(--cool-grey); /* Cool Grey for muted text */
+.text-muted,
+.text-secondary {
+  color: var(--cool-grey);
+  /* Cool Grey for muted text */
 }
 
 .text-light {
-  color: var(--warm-light-grey); /* Warm Light Grey for secondary text */
+  color: var(--warm-light-grey);
+  /* Warm Light Grey for secondary text */
 }
 
 /* Hero Section Styles */
 .hero-section {
   background: linear-gradient(135deg, color-mix(in srgb, var(--deep-red) 92%, black 8%), color-mix(in srgb, var(--dark-burgundy) 82%, black 18%));
-  color: var(--warm-light-grey); /* Warm Light Grey text */
+  color: var(--warm-light-grey);
+  /* Warm Light Grey text */
   padding: 4rem 0;
 }
 
 .hero-section h1 {
-  color: #FFFFFF; /* White for primary headings in hero */
+  color: #FFFFFF;
+  /* White for primary headings in hero */
   font-family: var(--font-serif);
   font-weight: 900;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .hero-section .subheading {
-  color: var(--soft-ivory); /* Soft Ivory for subheadings */
+  color: var(--soft-ivory);
+  /* Soft Ivory for subheadings */
   font-family: var(--font-sans);
   font-weight: 400;
 }
@@ -319,8 +340,8 @@ span {
 .page-shell {
   min-height: 100vh;
   background: radial-gradient(circle at top left, color-mix(in srgb, var(--soft-ivory) 85%, white 15%) 0%, transparent 55%),
-              radial-gradient(circle at top right, color-mix(in srgb, var(--primary-peach) 80%, white 20%) 0%, transparent 60%),
-              linear-gradient(180deg, color-mix(in srgb, var(--off-white) 95%, white 5%), color-mix(in srgb, var(--soft-ivory) 86%, white 14%));
+    radial-gradient(circle at top right, color-mix(in srgb, var(--primary-peach) 80%, white 20%) 0%, transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--off-white) 95%, white 5%), color-mix(in srgb, var(--soft-ivory) 86%, white 14%));
 }
 
 .page-maxwidth {
@@ -458,7 +479,8 @@ span {
 
 /* Committee Cards */
 .committee-card {
-  background: #FFFFFF; /* White background */
+  background: #FFFFFF;
+  /* White background */
   border: 1px solid var(--cool-grey);
   border-radius: var(--radius);
   padding: 1.5rem;
@@ -473,13 +495,15 @@ span {
 }
 
 .committee-card h3 {
-  color: var(--dark-burgundy); /* Dark Burgundy for headings */
+  color: var(--dark-burgundy);
+  /* Dark Burgundy for headings */
   font-family: var(--font-serif);
   margin-bottom: 0.75rem;
 }
 
 .committee-card p {
-  color: var(--almost-black-green); /* Almost Black Green for body text */
+  color: var(--almost-black-green);
+  /* Almost Black Green for body text */
   font-family: var(--font-sans);
   margin-bottom: 1rem;
 }
@@ -495,12 +519,14 @@ span {
 }
 
 .committee-badge.beginner {
-  background: var(--pale-aqua); /* Pale Aqua for beginner */
+  background: var(--pale-aqua);
+  /* Pale Aqua for beginner */
   color: var(--dark-navy);
 }
 
 .committee-badge.intermediate {
-  background: var(--soft-rose); /* Soft Rose for intermediate */
+  background: var(--soft-rose);
+  /* Soft Rose for intermediate */
   color: var(--dark-burgundy);
 }
 
@@ -510,8 +536,10 @@ span {
 }
 
 /* Forms & Inputs (Registration) */
-.form-label, label {
-  color: var(--almost-black-green); /* Almost Black Green for labels */
+.form-label,
+label {
+  color: var(--almost-black-green);
+  /* Almost Black Green for labels */
   font-weight: 500;
   font-family: var(--font-sans);
   margin-bottom: 0.5rem;
@@ -543,8 +571,10 @@ select:focus {
 }
 
 /* Button Styles */
-.btn-primary, button.primary {
-  background: var(--deep-red); /* Deep Red primary buttons */
+.btn-primary,
+button.primary {
+  background: var(--deep-red);
+  /* Deep Red primary buttons */
   color: #FFFFFF;
   font-weight: 500;
   font-family: var(--font-sans);
@@ -555,13 +585,15 @@ select:focus {
   transition: all 0.2s ease;
 }
 
-.btn-primary:hover, button.primary:hover {
+.btn-primary:hover,
+button.primary:hover {
   background: color-mix(in srgb, var(--deep-red) 84%, white 16%);
   transform: translateY(-1px);
   box-shadow: 0 8px 18px rgba(100, 20, 20, 0.24);
 }
 
-.btn-secondary, button.secondary {
+.btn-secondary,
+button.secondary {
   background: var(--warm-light-grey);
   color: var(--deep-red);
   font-weight: 500;
@@ -573,7 +605,8 @@ select:focus {
   transition: all 0.2s ease;
 }
 
-.btn-secondary:hover, button.secondary:hover {
+.btn-secondary:hover,
+button.secondary:hover {
   background: color-mix(in srgb, var(--warm-light-grey) 82%, white 18%);
   border-color: var(--dark-burgundy);
   box-shadow: 0 8px 18px -16px rgba(100, 20, 20, 0.25);
@@ -581,15 +614,18 @@ select:focus {
 
 /* Section Backgrounds */
 .section-background {
-  background: var(--soft-rose); /* Soft Rose section backgrounds */
+  background: var(--soft-rose);
+  /* Soft Rose section backgrounds */
 }
 
 .section-background-alt {
-  background: var(--soft-ivory); /* Soft Ivory alternate backgrounds */
+  background: var(--soft-ivory);
+  /* Soft Ivory alternate backgrounds */
 }
 
 .section-contrast {
-  background: var(--pale-aqua); /* Pale Aqua for contrast blocks */
+  background: var(--pale-aqua);
+  /* Pale Aqua for contrast blocks */
 }
 
 /* Card wrapper styles */
@@ -630,7 +666,8 @@ select:focus {
 
 /* Footer styles */
 .footer {
-  background: var(--dark-navy); /* Dark Navy footer background */
+  background: var(--dark-navy);
+  /* Dark Navy footer background */
   color: var(--warm-light-grey);
   padding: 2rem 0;
 }
@@ -687,6 +724,7 @@ main {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -726,6 +764,7 @@ main {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -780,6 +819,7 @@ main {
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
