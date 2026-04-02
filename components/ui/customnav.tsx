@@ -12,6 +12,7 @@ import { Menu, X, LogOut, Flag } from "lucide-react";
 interface CustomNavProps {
   role?: "delegate" | "chair" | "admin";
   activeLink?: string;
+  embedded?: boolean;
 }
 
 interface NavItem {
@@ -19,7 +20,7 @@ interface NavItem {
   to: string;
 }
 
-const CustomNav: React.FC<CustomNavProps> = () => {
+const CustomNav: React.FC<CustomNavProps> = ({ embedded = false }) => {
   const { user: currentUser, logout } = useSession();
   const isMobile = useMobile();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -56,7 +57,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
   if (isMobile) {
     return (
-      <nav className="fixed left-0 right-0 top-0 z-50 bg-[#fff0e5cc] shadow-[0_8px_32px_rgba(26,28,28,0.06)] backdrop-blur-md">
+      <nav className={`${embedded ? "relative z-20 rounded-t-[26px]" : "fixed left-0 right-0 top-0 z-50"} bg-[#fff0e5cc] shadow-[0_8px_32px_rgba(26,28,28,0.06)] backdrop-blur-md`}>
         <div className="mx-auto flex h-[4.25rem] w-full max-w-[1440px] items-center justify-between px-4">
           <Link href="/home" className="[font-family:var(--font-newsreader),var(--font-serif)] text-[1.04rem] font-semibold tracking-[0.01em] text-[#6E1D1B]">
             VOFMUN ONE
@@ -111,22 +112,22 @@ const CustomNav: React.FC<CustomNavProps> = () => {
   }
 
   return (
-    <nav className="fixed left-0 right-0 top-0 z-50 bg-[#fff0e5cc] shadow-[0_8px_32px_rgba(26,28,28,0.06)] backdrop-blur-md">
-      <div className="mx-auto flex h-[4.75rem] w-full max-w-[1440px] items-center justify-between gap-4 px-8">
-        <div className="flex items-center gap-7">
-          <Link href="/home" className="[font-family:var(--font-newsreader),var(--font-serif)] text-[1.26rem] font-semibold tracking-[0.008em] text-[#6E1D1B]">
+    <nav className={`${embedded ? "relative z-20 rounded-t-[26px]" : "fixed left-0 right-0 top-0 z-50"} bg-[#fff0e5cc] shadow-[0_8px_32px_rgba(26,28,28,0.06)] backdrop-blur-md`}>
+      <div className={`mx-auto flex w-full max-w-[1440px] items-center justify-between gap-4 ${embedded ? "h-[4.5rem] px-7" : "h-[4.75rem] px-8"}`}>
+        <div className={`flex items-center ${embedded ? "gap-6" : "gap-7"}`}>
+          <Link href="/home" className="[font-family:var(--font-newsreader),var(--font-serif)] text-[1.24rem] font-semibold tracking-[0.008em] text-[#6E1D1B]">
             VOFMUN ONE
           </Link>
-          <div className="hidden items-center gap-5 md:flex">
+          <div className={`hidden items-center md:flex ${embedded ? "gap-4.5" : "gap-5"}`}>
             {primaryNavigationItems.map((item) => {
               const active = isActive(item.to);
               return (
                 <Link
                   key={item.name}
                   href={item.to}
-                  className={`relative py-1 text-[11px] uppercase tracking-[0.14em] transition-colors ${
+                  className={`relative pb-1.5 pt-1 text-[11px] uppercase tracking-[0.14em] transition-colors ${
                     active
-                      ? "border-b-2 border-[#6E1D1B] font-bold text-[#6E1D1B]"
+                      ? "font-bold text-[#6E1D1B] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:rounded-full after:bg-[#6E1D1B]"
                       : "font-medium text-slate-500 hover:text-[#6E1D1B]"
                   }`}
                   aria-current={active ? "page" : undefined}
@@ -140,7 +141,7 @@ const CustomNav: React.FC<CustomNavProps> = () => {
 
         <div className="hidden items-center gap-4 md:flex">
           {secondaryItems.length > 0 ? (
-            <div className="mr-1 flex items-center gap-3">
+            <div className="mr-1 flex items-center gap-3.5">
               {secondaryItems.map((item) => {
                 const active = isActive(item.to);
                 return (
@@ -158,16 +159,16 @@ const CustomNav: React.FC<CustomNavProps> = () => {
               })}
             </div>
           ) : null}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <Flag className="h-3.5 w-3.5 text-[#6E1D1B]" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-500">
               {currentUser?.country || "Country"}
             </span>
           </div>
-          <div className="h-5 w-px bg-[#dcc0bd]/50" />
+          <div className="h-5 w-px bg-[#dcc0bd]/65" />
           <button
             onClick={logout}
-            className="flex items-center gap-1.5 rounded-lg bg-[#6E1D1B] px-5 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white transition hover:opacity-95"
+            className="flex items-center gap-1.5 rounded-xl bg-[#6E1D1B] px-5 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white transition hover:opacity-95"
           >
             <LogOut size={13} />
             <span>Log Out</span>

@@ -539,7 +539,7 @@ const MessageBubble: React.FC<Props> = ({
             }
             setTouchStart(null);
           }}
-          className={`group relative min-w-0 max-w-[70%] px-3 py-2 shadow-[0_8px_32px_rgba(26,28,28,0.06)] ${isOwn ? "md:max-w-[68%]" : "md:max-w-[72%]"} ${
+          className={`group relative min-w-0 max-w-[74%] overflow-hidden px-3 py-2 shadow-[0_8px_32px_rgba(26,28,28,0.06)] ${isOwn ? "md:max-w-[66%]" : "md:max-w-[70%]"} ${
             isOwn
               ? isFailed
                 ? 'rounded-[10px] bg-soft-rose/30 text-deep-red'
@@ -561,7 +561,7 @@ const MessageBubble: React.FC<Props> = ({
             }`}
           >
             <p className="font-semibold text-deep-red/90">{repliedToMessage?.user?.full_name || 'Original message'}</p>
-            <p className="mt-0.5 line-clamp-2">
+            <p className="mt-0.5 line-clamp-2 break-words [overflow-wrap:anywhere]">
               {repliedToMessage?.deleted_at
                 ? 'This message was deleted.'
                 : repliedToMessage?.content?.trim() || 'Original message unavailable.'}

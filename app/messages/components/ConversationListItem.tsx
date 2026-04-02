@@ -110,13 +110,13 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             onSelect(room);
           }
         }}
-        className={`group w-full cursor-pointer px-3 py-2 text-left transition focus:outline-none focus-visible:outline-none ${
+        className={`group w-full cursor-pointer px-2.5 py-2 text-left transition focus:outline-none focus-visible:outline-none ${
           isActive
-            ? 'rounded-xl border-l-4 border-[#6E1D1B] bg-[#e2e2e2]'
-            : 'rounded-xl bg-transparent hover:bg-[#e2e2e2]'
+            ? 'rounded-xl border-l-4 border-[#6E1D1B] bg-[#e4e4e4]'
+            : 'rounded-xl bg-transparent hover:bg-[#e5e5e5]'
         }`}
       >
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-2.5">
           {room.room_type === 'dm' ? (
             <div className="relative shrink-0 pt-0.5">
               <UserAvatar user={dmPeer} size={40} />
@@ -134,7 +134,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
               <div className="min-w-0 flex-1">
                 <p className={`truncate text-[13px] leading-5 ${isActive ? 'text-[#6E1D1B]' : 'text-almost-black-green'} ${hasUnread ? 'font-bold' : 'font-semibold'}`}>{meta.name}</p>
                 {meta.shortDelegation ? (
-                  <p className="mt-0.5 truncate text-[11px] font-medium leading-4 text-almost-black-green/65">({meta.shortDelegation})</p>
+                  <p className="truncate text-[11px] font-medium leading-4 text-almost-black-green/65">({meta.shortDelegation})</p>
                 ) : null}
               </div>
               <div className="ml-2 flex shrink-0 flex-col items-end gap-2">

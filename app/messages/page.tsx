@@ -12,6 +12,7 @@ import MessageBubble from "./components/MessageBubble";
 import TypingIndicator from "./components/TypingIndicator";
 import UserAvatar from "./components/UserAvatar";
 import ConversationList from "./components/ConversationList";
+import CustomNav from "@/components/ui/customnav";
 import NewConversationModal from "./components/NewConversationModal";
 import ConversationDetailsModal from "./components/ConversationDetailsModal";
 import { useModalFocusTrap, useModalLayerLock } from "./hooks/useModalLayerLock";
@@ -1395,19 +1396,22 @@ const ChatShell: React.FC = () => {
   }
 
   return (
-    <div className="h-full overflow-hidden bg-[#f9f9f9] [font-family:var(--font-manrope),var(--font-sans)] text-almost-black-green">
-      <div className="border-b border-[#dcc0bd]/25 bg-[#f4f3f3]">
-        <div className="mx-auto flex h-[68px] w-full max-w-[1440px] items-center justify-between px-8">
-          <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[1.8rem] font-semibold tracking-tight text-[#6E1D1B]">Delegate Messaging</h3>
-          <button type="button" onClick={() => setConversationTab("requests")} className="text-slate-500 transition-colors hover:text-[#6E1D1B]">
-            <BellDot className="h-[18px] w-[18px]" />
-          </button>
-        </div>
-      </div>
-      <div className="mx-auto flex h-[calc(100%-68px)] w-full max-w-[1440px] min-h-0 flex-col px-8 pb-3 pt-3">
-        <section className="grid min-h-0 min-w-0 flex-1 grid-cols-[320px_minmax(0,1fr)_270px] overflow-hidden bg-[#f9f9f9]">
+    <div className="h-[100dvh] overflow-hidden bg-[#1f232a] [font-family:var(--font-manrope),var(--font-sans)] text-almost-black-green">
+      <div className="mx-auto flex h-full w-full max-w-[1536px] min-h-0 flex-col p-3 md:p-4">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-[#d8c8bf]/60 bg-[#f6f5f4] shadow-[0_26px_70px_rgba(6,8,14,0.46)]">
+          <CustomNav embedded />
+          <div className="border-y border-[#dcc0bd]/35 bg-[#f1f0f0]">
+            <div className="mx-auto flex h-[62px] w-full max-w-[1440px] items-center justify-between px-7">
+              <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[1.9rem] font-semibold tracking-tight text-[#6E1D1B]">Delegate Messaging</h3>
+              <button type="button" onClick={() => setConversationTab("requests")} className="rounded-lg p-1 text-slate-500 transition-colors hover:bg-[#e8e7e7] hover:text-[#6E1D1B]">
+                <BellDot className="h-[18px] w-[18px]" />
+              </button>
+            </div>
+          </div>
+          <div className="mx-auto flex h-full w-full max-w-[1440px] min-h-0 flex-col px-6 pb-4 pt-3">
+            <section className="grid min-h-0 min-w-0 flex-1 grid-cols-[320px_minmax(0,1fr)_270px] overflow-hidden rounded-[14px] border border-[#ddd3cd]/80 bg-[#f6f5f4]">
           <aside className="flex h-full min-h-0 w-80 flex-col overflow-hidden border-r border-[#dcc0bd]/25 bg-[#f4f3f3]">
-            <div className="flex items-center justify-between gap-2 px-5 pt-4">
+            <div className="flex items-center justify-between gap-2 px-4 pt-3">
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6e1d1b]">
                 Chats
                 {totalUnreadCount > 0 ? (
@@ -1458,13 +1462,13 @@ const ChatShell: React.FC = () => {
               </div>
             </div>
 
-            <div className="px-5 py-3">
+            <div className="px-4 py-2.5">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-almost-black-green/45" />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="h-9 w-full rounded-xl bg-[#ffffff] py-2 pl-10 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#6E1D1B]/20"
+                  className="h-10 w-full rounded-xl bg-[#ffffff] py-2 pl-10 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#6E1D1B]/20"
                   style={{ paddingLeft:"30px" }}
                   placeholder="Search conversations..."
                 />
@@ -1576,7 +1580,7 @@ const ChatShell: React.FC = () => {
               </div>
             )}
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+            <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3">
               <ConversationList
                 rooms={filteredRooms}
                 activeRoomId={activeRoom?.id}
@@ -1630,15 +1634,15 @@ const ChatShell: React.FC = () => {
           </div>
 
           <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#ffffff]">
-            <header className="border-b border-[#dcc0bd]/20 bg-[#ffffff] px-6 py-3.5">
+            <header className="border-b border-[#dcc0bd]/20 bg-[#ffffff] px-6 py-3">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h3 className="!mb-1 [font-family:var(--font-newsreader),var(--font-serif)] text-[1.2rem] font-bold text-deep-red">
+                  <h3 className="!mb-1 [font-family:var(--font-newsreader),var(--font-serif)] text-[1.16rem] font-bold text-deep-red">
                     {activeRoomTitle}
                   </h3>
-                  <div className="min-h-[2.5rem] space-y-1">
+                  <div className="min-h-[2.15rem] space-y-1">
                     {activeRoom?.room_type === "dm" && activePeerDelegation && (
-                      <p className="text-xs font-medium text-almost-black-green/65">
+                      <p className="text-[11px] font-medium text-almost-black-green/65">
                         {activePeerDelegation}
                       </p>
                     )}
@@ -1652,7 +1656,7 @@ const ChatShell: React.FC = () => {
                         />
                       )}
                       <p
-                        className={`text-xs ${
+                        className={`text-[11px] ${
                           roomTypingNames.length || isActivePeerOnline
                             ? "font-medium text-emerald-600"
                             : "text-almost-black-green/70"
@@ -1664,14 +1668,14 @@ const ChatShell: React.FC = () => {
                   </div>
                 </div>
                 {activeRoom ? (
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <div className="flex -space-x-2">
                       {activeRoomMembers.map((member) => (
                         <div
                           key={member.id}
                           className="rounded-full border border-white bg-white"
                         >
-                          <UserAvatar user={member.user} size={34} />
+                          <UserAvatar user={member.user} size={32} />
                         </div>
                       ))}
                     </div>
@@ -2352,6 +2356,8 @@ const ChatShell: React.FC = () => {
           onClose={() => setShowDetails(false)}
           currentUserId={currentUserId}
         />
+          </div>
+        </div>
       </div>
     </div>
   );
