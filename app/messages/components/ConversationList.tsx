@@ -47,11 +47,11 @@ const ConversationList: React.FC<Props> = ({
 
   return (
     <div className="h-full">
-      <div className="pb-4">
+      <div className="pb-3">
         {hasAnyRooms && (
-          <div className="space-y-5">
+          <div className="space-y-4">
             <div>
-              <p className="mb-2.5 px-2 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Channels</p>
+              <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Channels</p>
               <ul className="space-y-1">
                 {channelRooms.map((room) => (
                   <ConversationListItem
@@ -67,7 +67,7 @@ const ConversationList: React.FC<Props> = ({
               </ul>
             </div>
             <div>
-              <p className="mb-2.5 px-2 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Private Messages</p>
+              <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Private Messages</p>
               <ul className="space-y-1">
                 {privateRooms.map((room) => (
                   <ConversationListItem

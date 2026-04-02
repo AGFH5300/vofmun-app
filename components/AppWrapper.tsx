@@ -20,7 +20,7 @@ export default function AppWrapper({ children }: AppWrapperProps) {
   // Standalone auth pages should not show global navigation/footer
   const isStandaloneAuthRoute = pathname === "/login" || pathname === "/reset-password";
   const isMessagesRoute = pathname === "/messages" || pathname.startsWith("/messages/");
-  const showNav = !isStandaloneAuthRoute;
+  const showNav = !isStandaloneAuthRoute && !isMessagesRoute;
   
   // Get activeLink from pathname
   const getActiveLink = () => {
