@@ -10,7 +10,6 @@ import { ParticipantRoute } from "@/components/protectedroute";
 import { ChatProvider, useChat } from "./context/ChatContext";
 import MessageBubble from "./components/MessageBubble";
 import TypingIndicator from "./components/TypingIndicator";
-import UserAvatar from "./components/UserAvatar";
 import ConversationList from "./components/ConversationList";
 import CustomNav from "@/components/ui/customnav";
 import NewConversationModal from "./components/NewConversationModal";
@@ -37,9 +36,8 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { MessageAttachmentInput, MessageWithUser, RoomWithDetails, UserSearchResult } from "@/lib/chat/types";
+import { MessageAttachmentInput, MessageWithUser, RoomWithDetails } from "@/lib/chat/types";
 import supabase from "@/lib/supabase";
-import { getUserDelegationLabel } from "@/lib/chat/delegation";
 import { toast } from "sonner";
 
 const formatDateLabel = (dateString: string) => {
@@ -188,13 +186,10 @@ const ChatShell: React.FC = () => {
     bootstrapProgress,
     friendRequests,
     incomingRequests,
-    acceptFriendRequest,
-    declineFriendRequest,
     openDirectMessageRoomForUser,
     togglePin,
     currentUserId,
     resolveUserDisplay,
-    totalUnreadCount,
   } = useChat();
 
   const [composer, setComposer] = useState("");
@@ -216,7 +211,6 @@ const ChatShell: React.FC = () => {
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [respondingId, setRespondingId] = useState<string | null>(null);
   const previousRequestsRef = useRef<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -243,7 +237,6 @@ const ChatShell: React.FC = () => {
   const [activeEmojiIndex, setActiveEmojiIndex] = useState(0);
   const [isDraggingFilesOverChat, setIsDraggingFilesOverChat] = useState(false);
   const [hasInitialLoaderMinElapsed, setHasInitialLoaderMinElapsed] = useState(false);
-  const [hideSidebarRequests, setHideSidebarRequests] = useState(false);
   const [activeUnreadDividerSession, setActiveUnreadDividerSession] = useState<ActiveUnreadDividerSession | null>(null);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [isDeleteSelectionMode, setIsDeleteSelectionMode] = useState(false);
@@ -1177,7 +1170,6 @@ const ChatShell: React.FC = () => {
     allOtherMemberIds.every((memberId) => onlineUsers.has(String(memberId)));
   const presenceDeliveredHint =
     activeRoom?.room_type === "dm" ? isActivePeerOnline : areAllOtherMembersOnline;
-  const activePeerDelegation = getUserDelegationLabel(activeDmPeer?.user);
 
   const headerSubtitle = activeRoom
     ? roomTypingNames.length
@@ -1261,8 +1253,6 @@ const ChatShell: React.FC = () => {
     [currentUserId, friendRequests],
   );
 
-  const incomingPendingCount = incomingRequests.length;
-  const incomingPendingBadgeLabel = incomingPendingCount > 9 ? "9+" : String(incomingPendingCount);
   const sharedResources = useMemo(() => {
     if (!activeRoom) return [];
     return (messages[activeRoom.id] || [])
@@ -1396,73 +1386,28 @@ const ChatShell: React.FC = () => {
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-[#1f232a] [font-family:var(--font-manrope),var(--font-sans)] text-almost-black-green">
+    <div className="h-[100dvh] overflow-hidden bg-[#1a1f27] [font-family:var(--font-manrope),var(--font-sans)] text-almost-black-green">
       <div className="mx-auto flex h-full w-full max-w-[1536px] min-h-0 flex-col p-3 md:p-4">
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-[#d8c8bf]/60 bg-[#f6f5f4] shadow-[0_26px_70px_rgba(6,8,14,0.46)]">
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[30px] bg-[#f6f5f4]"
+          style={{
+            border: "none",
+            boxShadow: "0 20px 60px rgba(8, 12, 20, 0.42), 0 0 0 1px rgba(255,255,255,0.04)",
+          }}
+        >
           <CustomNav embedded />
-          <div className="border-y border-[#dcc0bd]/35 bg-[#f1f0f0]">
-            <div className="mx-auto flex h-[62px] w-full max-w-[1440px] items-center justify-between px-7">
-              <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[1.9rem] font-semibold tracking-tight text-[#6E1D1B]">Delegate Messaging</h3>
+          <div className="bg-[#f1f0f0]">
+            <div className="mx-auto flex h-[58px] w-full max-w-[1440px] items-center justify-between px-7">
+              <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[3rem] font-semibold tracking-tight text-[#6E1D1B]">Delegate Messaging</h3>
               <button type="button" onClick={() => setConversationTab("requests")} className="rounded-lg p-1 text-slate-500 transition-colors hover:bg-[#e8e7e7] hover:text-[#6E1D1B]">
                 <BellDot className="h-[18px] w-[18px]" />
               </button>
             </div>
           </div>
           <div className="mx-auto flex h-full w-full max-w-[1440px] min-h-0 flex-col px-6 pb-4 pt-3">
-            <section className="grid min-h-0 min-w-0 flex-1 grid-cols-[320px_minmax(0,1fr)_270px] overflow-hidden rounded-[14px] border border-[#ddd3cd]/80 bg-[#f6f5f4]">
-          <aside className="flex h-full min-h-0 w-80 flex-col overflow-hidden border-r border-[#dcc0bd]/25 bg-[#f4f3f3]">
-            <div className="flex items-center justify-between gap-2 px-4 pt-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6e1d1b]">
-                Chats
-                {totalUnreadCount > 0 ? (
-                  <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-deep-red px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                    {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
-                  </span>
-                ) : <span className="ml-2 inline-block h-4 w-4" aria-hidden="true" />}
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConversationTab("direct");
-                    setShowNewConversation(true);
-                  }}
-                    className="rounded-lg p-1.5 text-almost-black-green/60 hover:bg-[#e2e2e2] hover:text-deep-red"
-                  aria-label="New direct chat"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConversationTab("friends");
-                    setShowNewConversation(true);
-                  }}
-                    className="rounded-lg p-1.5 text-almost-black-green/60 hover:bg-[#e2e2e2] hover:text-deep-red"
-                  aria-label="Open friends and connections"
-                >
-                  <Users className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConversationTab("requests");
-                    setShowNewConversation(true);
-                  }}
-                    className="relative rounded-lg p-1.5 text-almost-black-green/60 hover:bg-[#e2e2e2] hover:text-deep-red"
-                  aria-label={`Open connection requests${incomingPendingCount > 0 ? `. ${incomingPendingCount} pending incoming` : ""}`}
-                >
-                  <BellDot className="h-4 w-4" />
-                  {incomingPendingCount > 0 ? (
-                    <span className="absolute -right-1.5 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#c62828] px-1 text-[10px] font-semibold leading-none text-white">
-                      {incomingPendingBadgeLabel}
-                    </span>
-                  ) : null}
-                </button>
-              </div>
-            </div>
-
-            <div className="px-4 py-2.5">
+            <section className="grid min-h-0 min-w-0 flex-1 grid-cols-[320px_minmax(0,1fr)_268px] overflow-hidden rounded-[14px] bg-[#f6f5f4]">
+          <aside className="flex h-full min-h-0 w-80 flex-col overflow-hidden bg-[#f4f3f3]">
+            <div className="px-4 py-3">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-almost-black-green/45" />
                 <input
@@ -1474,112 +1419,6 @@ const ChatShell: React.FC = () => {
                 />
               </div>
             </div>
-
-            {incomingRequests.length > 0 && !hideSidebarRequests && (
-              <div className="m-3 space-y-3 rounded-2xl bg-white/80 p-3 shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs uppercase tracking-[0.22em] text-almost-black-green/60">
-                    Connection requests
-                  </p>
-                  <div className="flex items-center gap-1.5">
-                    <span className="rounded-full bg-deep-red/10 px-2 py-1 text-[0.7rem] font-semibold text-deep-red">
-                      {incomingRequests.length}
-                    </span>
-                    <button
-                      type="button"
-                      className="inline-flex h-5 w-5 items-center justify-center rounded-full text-almost-black-green/55 hover:bg-black/5 hover:text-deep-red"
-                      aria-label="Dismiss sidebar connection requests"
-                      onClick={() => setHideSidebarRequests(true)}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {incomingRequests.map((req) => {
-                    const sender = req.sender;
-                    const displayName =
-                      sender?.full_name ||
-                      `${sender?.first_name || ""} ${sender?.last_name || ""}`.trim() ||
-                      req.sender_id;
-                    const roleLine = `${sender?.role_title || sender?.role || "Participant"}${sender?.committee ? ` • ${sender.committee}` : ""}${sender?.country ? ` • ${sender.country}` : ""}`;
-                    const avatarUser: UserSearchResult = sender
-                      ? { ...sender, email: sender.email || "" }
-                      : {
-                          id: req.sender_id,
-                          full_name: displayName,
-                          email: "",
-                        };
-
-                    const handleAccept = async () => {
-                      setRespondingId(req.id);
-                      try {
-                        await acceptFriendRequest(req.id);
-                        setShowAcceptedPrompt({
-                          userId: String(req.sender_id),
-                          name: resolveUserDisplay(req.sender_id, req.sender),
-                        });
-                      } finally {
-                        setRespondingId(null);
-                      }
-                    };
-
-                    const handleDecline = async () => {
-                      setRespondingId(req.id);
-                      try {
-                        await declineFriendRequest(req.id);
-                      } finally {
-                        setRespondingId(null);
-                      }
-                    };
-
-                    return (
-                      <div
-                        key={req.id}
-                        className="rounded-2xl bg-[#f4f3f3] p-3"
-                      >
-                        <div className="flex items-start gap-3">
-                          <UserAvatar user={avatarUser} size={40} />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-deep-red">
-                              {displayName}
-                            </p>
-                            <p className="text-xs text-almost-black-green/60">
-                              {roleLine}
-                            </p>
-                            {sender?.email && (
-                              <p className="truncate text-xs text-almost-black-green/50">
-                                {sender.email}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="mt-3 flex gap-2 text-xs font-semibold">
-                          <button
-                            type="button"
-                            onClick={handleDecline}
-                            disabled={respondingId === req.id}
-                            className="flex-1 rounded-xl bg-[#e2e2e2] px-3 py-2 text-deep-red hover:bg-[#dadada] disabled:opacity-60"
-                          >
-                            Decline
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleAccept}
-                            disabled={respondingId === req.id}
-                            className="flex-1 rounded-xl bg-[radial-gradient(circle_at_top,#500608,#6e1d1b)] px-3 py-2 text-white shadow-[0_8px_32px_rgba(26,28,28,0.06)] hover:opacity-95 disabled:opacity-60"
-                          >
-                            {respondingId === req.id ? <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" /> : null}
-                            Accept
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3">
               <ConversationList
                 rooms={filteredRooms}
@@ -1634,51 +1473,30 @@ const ChatShell: React.FC = () => {
           </div>
 
           <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#ffffff]">
-            <header className="border-b border-[#dcc0bd]/20 bg-[#ffffff] px-6 py-3">
+            <header className="bg-[#ffffff] px-6 py-3">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h3 className="!mb-1 [font-family:var(--font-newsreader),var(--font-serif)] text-[1.16rem] font-bold text-deep-red">
-                    {activeRoomTitle}
-                  </h3>
-                  <div className="min-h-[2.15rem] space-y-1">
-                    {activeRoom?.room_type === "dm" && activePeerDelegation && (
-                      <p className="text-[11px] font-medium text-almost-black-green/65">
-                        {activePeerDelegation}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-2">
-                      {activeRoom?.room_type === "dm" && (
-                        <span
-                          className={`h-2.5 w-2.5 rounded-full ${
-                            isActivePeerOnline ? "bg-emerald-500" : "bg-slate-400"
-                          }`}
-                          aria-hidden="true"
-                        />
-                      )}
-                      <p
-                        className={`text-[11px] ${
-                          roomTypingNames.length || isActivePeerOnline
-                            ? "font-medium text-emerald-600"
-                            : "text-almost-black-green/70"
-                        }`}
-                      >
-                        {activeRoom ? headerSubtitle : "Choose a conversation to start chatting."}
-                      </p>
+                  <div className="flex items-center gap-3">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                    <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[2.9rem] font-bold text-deep-red">
+                      {activeRoomTitle}
+                    </h3>
+                  </div>
+                  <div className="min-h-[1.1rem] pl-5 pt-0.5">
+                    <p className={`text-[11px] ${roomTypingNames.length || isActivePeerOnline ? "font-medium text-emerald-600" : "text-almost-black-green/70"}`}>
+                      {activeRoom ? headerSubtitle : "Choose a conversation to start chatting."}
+                    </p>
                     </div>
                   </div>
-                </div>
                 {activeRoom ? (
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex -space-x-2">
-                      {activeRoomMembers.map((member) => (
-                        <div
-                          key={member.id}
-                          className="rounded-full border border-white bg-white"
-                        >
-                          <UserAvatar user={member.user} size={32} />
-                        </div>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowDetails(true)}
+                      className="rounded-lg p-1.5 text-almost-black-green/60 hover:bg-[#f4f3f3] hover:text-deep-red"
+                    >
+                      <Search className="h-4 w-4" />
+                    </button>
                     <button
                       type="button"
                       onClick={() => setShowDetails(true)}
@@ -1900,7 +1718,7 @@ const ChatShell: React.FC = () => {
                 </button>
               )}
               {!isAnySelectionModeActive && (
-                <div className="sticky bottom-0 border-t border-[#dcc0bd]/20 bg-[#f4f3f3] px-2 py-3">
+                <div className="sticky bottom-0 bg-[#f4f3f3] px-2 py-3">
                 {activeRoom ? activeTypingDisplay : <div className="mb-2 h-5" aria-hidden="true" />}
                 <input
                   ref={fileInputRef}
@@ -2275,7 +2093,7 @@ const ChatShell: React.FC = () => {
                 )}
             </div>
           </section>
-          <aside className="hidden min-h-0 w-[270px] flex-col gap-6 overflow-y-auto border-l border-[#dcc0bd]/25 bg-[#f9f9f9] px-5 py-5 lg:flex">
+          <aside className="hidden min-h-0 w-[268px] flex-col gap-5 overflow-y-auto bg-[#f9f9f9] px-5 py-5 lg:flex">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Channel Details</p>
               <div className="mt-3 rounded-xl bg-[#f4f3f3] p-3.5 text-xs text-almost-black-green/75">

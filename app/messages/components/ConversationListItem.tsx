@@ -110,10 +110,10 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             onSelect(room);
           }
         }}
-        className={`group w-full cursor-pointer px-2.5 py-2 text-left transition focus:outline-none focus-visible:outline-none ${
+        className={`group w-full cursor-pointer px-2 py-1.5 text-left transition focus:outline-none focus-visible:outline-none ${
           isActive
-            ? 'rounded-xl border-l-4 border-[#6E1D1B] bg-[#e4e4e4]'
-            : 'rounded-xl bg-transparent hover:bg-[#e5e5e5]'
+            ? 'rounded-xl border-l-[3px] border-[#6E1D1B] bg-[#e4e4e4]'
+            : 'rounded-xl bg-transparent hover:bg-[#e9e8e8]'
         }`}
       >
         <div className="flex items-start gap-2.5">
@@ -137,7 +137,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
                   <p className="truncate text-[11px] font-medium leading-4 text-almost-black-green/65">({meta.shortDelegation})</p>
                 ) : null}
               </div>
-              <div className="ml-2 flex shrink-0 flex-col items-end gap-2">
+              <div className="ml-2 flex shrink-0 flex-col items-end gap-1.5">
                 {last?.created_at && (
                   <span className={`text-[0.7rem] ${hasUnread ? 'font-semibold text-deep-red' : 'text-almost-black-green/50'}`}>
                     {new Date(last.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -146,7 +146,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
                 {hasUnread ? (
                   <span
                     aria-label={`${unreadCount} unread message${unreadCount === 1 ? '' : 's'}`}
-                    className="inline-flex min-w-[1.4rem] items-center justify-center rounded-full background-deep-red px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white"
+                    className="inline-flex min-w-[1.2rem] items-center justify-center rounded-full background-deep-red px-1 py-0.5 text-[10px] font-bold leading-none text-white"
                   >
                     {unreadBadgeLabel}
                   </span>
