@@ -111,21 +111,23 @@ const CustomNav: React.FC<CustomNavProps> = ({ embedded = false }) => {
     );
   }
 
+  const visibleSecondaryItems = embedded ? secondaryItems.filter((item) => isActive(item.to)) : secondaryItems;
+
   return (
-    <nav className={`${embedded ? "relative z-20 rounded-t-[26px]" : "fixed left-0 right-0 top-0 z-50"} bg-[#fff0e5cc] shadow-[0_8px_32px_rgba(26,28,28,0.06)] backdrop-blur-md`}>
-      <div className={`mx-auto flex w-full max-w-[1440px] items-center justify-between gap-4 ${embedded ? "h-[4.5rem] px-7" : "h-[4.75rem] px-8"}`}>
-        <div className={`flex items-center ${embedded ? "gap-6" : "gap-7"}`}>
-          <Link href="/home" className="[font-family:var(--font-newsreader),var(--font-serif)] text-[1.24rem] font-semibold tracking-[0.008em] text-[#6E1D1B]">
+    <nav className={`${embedded ? "relative z-20 rounded-t-[28px]" : "fixed left-0 right-0 top-0 z-50"} bg-[#fff0e5cc] shadow-[0_8px_32px_rgba(26,28,28,0.06)] backdrop-blur-md`}>
+      <div className={`mx-auto flex w-full max-w-[1440px] items-center justify-between gap-4 ${embedded ? "h-[4.25rem] px-7" : "h-[4.6rem] px-8"}`}>
+        <div className={`flex items-center ${embedded ? "gap-5" : "gap-7"}`}>
+          <Link href="/home" className="[font-family:var(--font-newsreader),var(--font-serif)] text-[1.85rem] font-semibold tracking-[0.008em] text-[#6E1D1B]">
             VOFMUN ONE
           </Link>
-          <div className={`hidden items-center md:flex ${embedded ? "gap-4.5" : "gap-5"}`}>
+          <div className={`hidden items-center md:flex ${embedded ? "gap-4" : "gap-5"}`}>
             {primaryNavigationItems.map((item) => {
               const active = isActive(item.to);
               return (
                 <Link
                   key={item.name}
                   href={item.to}
-                  className={`relative pb-1.5 pt-1 text-[11px] uppercase tracking-[0.14em] transition-colors ${
+                  className={`relative pb-1.5 pt-1 text-[11px] uppercase tracking-[0.12em] transition-colors ${
                     active
                       ? "font-bold text-[#6E1D1B] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:rounded-full after:bg-[#6E1D1B]"
                       : "font-medium text-slate-500 hover:text-[#6E1D1B]"
@@ -139,10 +141,10 @@ const CustomNav: React.FC<CustomNavProps> = ({ embedded = false }) => {
           </div>
         </div>
 
-        <div className="hidden items-center gap-4 md:flex">
-          {secondaryItems.length > 0 ? (
-            <div className="mr-1 flex items-center gap-3.5">
-              {secondaryItems.map((item) => {
+        <div className="hidden items-center gap-3 md:flex">
+          {visibleSecondaryItems.length > 0 ? (
+            <div className="mr-1 flex items-center gap-3">
+              {visibleSecondaryItems.map((item) => {
                 const active = isActive(item.to);
                 return (
                   <Link
