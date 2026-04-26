@@ -1,6 +1,5 @@
 // © 2026 Ansh Gupta. All rights reserved.
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
-// @ts-nocheck
 import supabaseAdmin from '../../../../../../lib/supabaseAdmin';
 import { getSessionUserFromRequest } from '../../../../../../lib/chat/auth';
 import { fetchPeopleDetailsByIds } from '../../../../../../server/chat/people';

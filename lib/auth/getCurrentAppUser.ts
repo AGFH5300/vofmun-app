@@ -20,12 +20,7 @@ export async function getCurrentAppUser() {
   }
 
   const authUser = session.user;
-  console.debug("[getCurrentAppUserDebug] using_shared_supabase_singleton", {
-    hasAccessToken: Boolean(session.access_token),
-  });
-  const db = supabase;
-  
-  const { data: existing, error: existingError } = await (db as any)
+  const { data: existing, error: existingError } = await supabase
     .from("app_users")
     .select("*")
     .eq("id", authUser.id)
@@ -44,10 +39,10 @@ export async function getCurrentAppUser() {
     reso_perms: DEFAULT_RESO_PERMS,
   };
 
-  const { error: insertError } = await (db as any).from("app_users").insert(insertPayload);
+  const { error: insertError } = await supabase.from("app_users").insert(insertPayload);
   if (insertError) throw insertError;
 
-  const { data: created, error: createdError } = await (db as any)
+  const { data: created, error: createdError } = await supabase
     .from("app_users")
     .select("*")
     .eq("id", authUser.id)
