@@ -5,7 +5,6 @@
 import { useSession } from "../app/context/sessionContext";
 import CustomNav from "@/components/ui/customnav";
 import SiteFooter from "@/components/ui/site-footer";
-import role from "@/lib/roles";
 import { usePathname } from "next/navigation";
 
 interface AppWrapperProps {
@@ -13,37 +12,23 @@ interface AppWrapperProps {
 }
 
 export default function AppWrapper({ children }: AppWrapperProps) {
-  const { user: currentUser } = useSession();
+  useSession();
   const pathname = usePathname();
-  const userRole = role(currentUser);
   
   // Standalone auth pages should not show global navigation/footer
   const isStandaloneAuthRoute = pathname === "/login" || pathname === "/reset-password";
   const isMessagesRoute = pathname === "/messages" || pathname.startsWith("/messages/");
   const showNav = !isStandaloneAuthRoute && !isMessagesRoute;
   
-  // Get activeLink from pathname
-  const getActiveLink = () => {
-    if (pathname === "/home") return "home";
-    if (pathname === "/speechrepo") return "speechrepo";
-    if (pathname === "/glossary") return "glossary";
-    if (pathname === "/resolutions") return "resolutions";
-    if (pathname === "/live-updates") return "live-updates";
-    if (pathname === "/committee-overview") return "committee-overview";
-    if (pathname === "/chair") return "chair-tool";
-    if (pathname === "/admin") return "admin";
-    return undefined;
-  };
+
+
 
   return (
     <div className="flex min-h-screen flex-col">
       {showNav && (
-        <CustomNav
-          role={userRole as 'delegate' | 'chair' | 'admin'}
-          activeLink={getActiveLink()}
-        />
+        <CustomNav />
       )}
-      <main className={`flex-1 ${showNav ? "pt-20" : ""}`}>{children}</main>
+      <main className={`flex-1 ${showNav ? "pt-20 pb-16 md:pb-0" : ""}`}>{children}</main>
       {!isStandaloneAuthRoute && !isMessagesRoute && <SiteFooter />}
     </div>
   );
