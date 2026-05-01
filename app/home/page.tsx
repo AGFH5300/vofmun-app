@@ -51,7 +51,7 @@ const Page = () => {
   return (
     <ProtectedRoute>
       <VOFMUNPageShell>
-        <div className="page-maxwidth space-y-10 px-4 pb-10 pt-3 md:px-6 md:pb-12 md:pt-4 lg:px-8">
+        <div className="page-maxwidth space-y-10 px-4 pb-10 pt-3 md:px-6 md:pb-12 md:pt-4 lg:px-8" style={{ fontFamily: "var(--font-manrope, var(--font-sans))" }}>
           <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <VOFMUNCard className="relative overflow-hidden lg:col-span-2">

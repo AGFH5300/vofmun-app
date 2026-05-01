@@ -160,7 +160,7 @@ html {
 }
 
 body {
-  font-family: var(--font-manrope), var(--font-sans);
+  font-family: var(--font-sans);
   font-weight: 400;
   min-height: 100vh;
   overflow-y: auto;
@@ -228,75 +228,6 @@ textarea,
 ::-moz-selection {
   background: color-mix(in srgb, var(--soft-ivory) 88%, white 12%);
   color: var(--deep-red);
-}
-
-/* Typography Styles - Complete New Design */
-
-/* Headings (H1–H6) - Serif fonts with specified weights and colors */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-family: var(--font-newsreader), var(--font-serif);
-  line-height: 1.2;
-  margin-bottom: 0.5em;
-  font-feature-settings: "liga" 1, "kern" 1;
-}
-
-h1 {
-  font-weight: 900;
-  /* Bold (700–900) */
-  font-size: 2.5rem;
-}
-
-h2 {
-  font-weight: 700;
-  /* Semi-bold (600–700) */
-  font-size: 2rem;
-}
-
-h3 {
-  font-weight: 600;
-  /* Medium to Semi-bold (500–600) */
-  font-size: 1.75rem;
-}
-
-h4 {
-  font-weight: 600;
-  /* Medium to Semi-bold (500–600) */
-  font-size: 1.5rem;
-}
-
-h5 {
-  font-weight: 500;
-  /* Medium to Semi-bold (500–600) */
-  font-size: 1.25rem;
-}
-
-h6 {
-  font-weight: 500;
-  /* Medium to Semi-bold (500–600) */
-  font-size: 1.125rem;
-}
-
-/* Paragraphs / Body Text - Sans-serif with specified weights and colors */
-p,
-li,
-td,
-th {
-  font-family: var(--font-manrope), var(--font-sans);
-  font-weight: 400;
-  line-height: 1.6;
-}
-
-div,
-span {
-  font-family: var(--font-manrope), var(--font-sans);
-  font-weight: 400;
-  /* Regular (400) */
-  line-height: 1.6;
 }
 
 /* Text emphasis */
