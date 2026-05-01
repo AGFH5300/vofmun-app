@@ -75,6 +75,45 @@ export type Database = {
         Update: { id?: string; room_id?: string | null; user_id?: string | null; content?: string; message_type?: string | null; reply_to?: string | null; edited_at?: string | null; created_at?: string | null; updated_at?: string | null; meta?: Json; deleted_at?: string | null; deleted_by?: string | null };
         Relationships: [];
       };
+      message_attachments: {
+        Row: {
+          id: string;
+          message_id: string;
+          room_id: string;
+          bucket: string;
+          path: string;
+          original_name: string;
+          mime_type: string | null;
+          size_bytes: number;
+          created_by: string;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          message_id: string;
+          room_id: string;
+          bucket: string;
+          path: string;
+          original_name: string;
+          mime_type?: string | null;
+          size_bytes: number;
+          created_by: string;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          message_id?: string;
+          room_id?: string;
+          bucket?: string;
+          path?: string;
+          original_name?: string;
+          mime_type?: string | null;
+          size_bytes?: number;
+          created_by?: string;
+          created_at?: string | null;
+        };
+        Relationships: [];
+      };
       room_members: {
         Row: { id: string; room_id: string | null; user_id: string | null; role: string | null; joined_at: string | null };
         Insert: { id?: string; room_id?: string | null; user_id?: string | null; role?: string | null; joined_at?: string | null };

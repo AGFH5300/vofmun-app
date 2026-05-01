@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       .select('room_id')
       .eq('user_id', sessionUser.id);
 
-    const roomIds = (memberships || []).map((m) => m.room_id);
+    const roomIds = (memberships || []).map((m) => m.room_id).filter((roomId): roomId is string => typeof roomId === 'string');
     if (roomIds.length === 0) {
       return NextResponse.json([] as RoomWithDetails[]);
     }

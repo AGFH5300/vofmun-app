@@ -4,9 +4,10 @@ import { NextResponse } from 'next/server';
 import supabaseAdmin from '@/lib/supabaseAdmin';
 import { getSessionUserFromRequest } from '@/lib/chat/auth';
 import { fetchProfilesByIds } from '@/app/api/rooms/_lib/rooms';
-import { MessageAttachmentInput, MessageWithUser } from '@/lib/chat/types';
+import { MessageAttachment, MessageAttachmentInput, MessageWithUser } from '@/lib/chat/types';
 import { createDefaultMessageMeta } from '@/lib/chat/messageMeta';
 import { assertNoLegacyChatIdentityDev } from '@/lib/chat/auth';
+import { Json } from '@/db/supabase-database.types';
 
 const sanitizeAttachmentName = (name: string) => {
   const normalized = name
@@ -63,8 +64,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ room
       .eq('room_id', roomId)
       .order('created_at', { ascending: true });
 
-    const messageIds = (messages || []).map((message) => String(message.id));
-    let attachments: Record<string, unknown>[] = [];
+    const messageRows = (messages || []).filter((message): message is typeof message & { user_id: string; room_id: string } =>
+      Boolean(message.user_id && message.room_id)
+    );
+    const messageIds = messageRows.map((message) => String(message.id));
+    let attachments: MessageAttachment[] = [];
 
     if (messageIds.length > 0) {
       const { data: attachmentRows } = await supabaseAdmin
@@ -73,10 +77,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ room
         .eq('room_id', roomId)
         .in('message_id', messageIds)
         .order('created_at', { ascending: true });
-      attachments = (attachmentRows as Record<string, unknown>[] | null) || [];
+      attachments = (attachmentRows || []) as MessageAttachment[];
     }
 
-    const attachmentMap = attachments.reduce<Record<string, Record<string, unknown>[]>>((acc, attachment) => {
+    const attachmentMap = attachments.reduce<Record<string, MessageAttachment[]>>((acc, attachment) => {
       const key = String(attachment.message_id || '');
       if (!key) return acc;
       if (!acc[key]) acc[key] = [];
@@ -84,8 +88,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ room
       return acc;
     }, {});
 
-    const profiles = await fetchProfilesByIds((messages || []).map((msg) => msg.user_id));
-    const formatted = (messages || []).map(
+    const profiles = await fetchProfilesByIds(messageRows.map((msg) => msg.user_id));
+    const formatted = messageRows.map(
       (msg) => ({ ...msg, user: profiles[msg.user_id], attachments: attachmentMap[String(msg.id)] || [] } as MessageWithUser)
     );
 
@@ -189,7 +193,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
         user_id: sessionUser.id,
         content: trimmedContent,
         reply_to: reply_to || null,
-        meta: createDefaultMessageMeta(),
+        meta: createDefaultMessageMeta() as unknown as Json,
       })
       .select('*')
       .single();
@@ -244,14 +248,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
     }
 
     try {
-      const profiles = await fetchProfilesByIds([inserted.user_id]);
+      if (!inserted.user_id || !inserted.room_id) {
+        return NextResponse.json(inserted);
+      }
+      const insertedUserId = inserted.user_id;
+      const insertedRoomId = inserted.room_id;
+      const profiles = await fetchProfilesByIds([insertedUserId]);
       const { data: attachmentRows } = await supabaseAdmin
         .from('message_attachments')
         .select('*')
         .eq('message_id', inserted.id)
         .order('created_at', { ascending: true });
 
-      const payload: MessageWithUser = { ...inserted, user: profiles[inserted.user_id], attachments: attachmentRows || [] };
+      const payload: MessageWithUser = {
+        ...inserted,
+        room_id: insertedRoomId,
+        user_id: insertedUserId,
+        user: profiles[insertedUserId],
+        attachments: (attachmentRows || []) as MessageAttachment[],
+      };
       return NextResponse.json(payload);
     } catch (profileError) {
       console.error('[api rooms messages] profile enrichment failed after insert', {
