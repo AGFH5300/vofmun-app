@@ -1,6 +1,7 @@
 // © 2026 Ansh Gupta. All rights reserved.
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 import express, { NextFunction, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import http from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 import { randomUUID } from 'crypto';
@@ -47,28 +48,20 @@ if (!supabaseAdmin) {
 }
 
 
-const requestRateBuckets = new Map<string, number[]>();
-
 const createUserRateLimit = (windowMs: number, maxRequests: number) =>
-  (req: AuthedRequest, res: Response, nextFn: NextFunction) => {
-    const userId = String(req.userId || '').trim();
-    if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const now = Date.now();
-    const windowStart = now - windowMs;
-    const key = `${req.method}:${req.route?.path || req.path}:${userId}`;
-    const recent = (requestRateBuckets.get(key) || []).filter((timestamp) => timestamp > windowStart);
-
-    if (recent.length >= maxRequests) {
-      return res.status(429).json({ error: 'Too many requests' });
-    }
-
-    recent.push(now);
-    requestRateBuckets.set(key, recent);
-    return nextFn();
-  };
+  rateLimit({
+    windowMs,
+    max: maxRequests,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+      const authedReq = req as AuthedRequest;
+      const userId = String(authedReq.userId || '').trim();
+      const routePath = req.route?.path || req.path;
+      return `${req.method}:${routePath}:${userId || req.ip}`;
+    },
+    handler: (_req, res) => res.status(429).json({ error: 'Too many requests' }),
+  });
 
 const chatReadRateLimit = createUserRateLimit(60_000, 120);
 const chatWriteRateLimit = createUserRateLimit(60_000, 40);
