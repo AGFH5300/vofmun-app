@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useSession } from '../context/sessionContext';
 import { ProtectedRoute } from '@/components/protectedroute';
+import VOFMUNPageShell from '@/components/ui/vofmun-page-shell';
 import {
   Bell,
   MessageSquare,
@@ -94,7 +95,7 @@ const Page = () => {
 
   return (
     <ProtectedRoute>
-      <div className="page-shell">
+      <VOFMUNPageShell>
         <div className="page-maxwidth space-y-12">
           <motion.section
             initial={{ opacity: 0, y: 24 }}
@@ -292,7 +293,7 @@ const Page = () => {
             </div>
           </motion.section>
         </div>
-      </div>
+      </VOFMUNPageShell>
     </ProtectedRoute>
   );
 };

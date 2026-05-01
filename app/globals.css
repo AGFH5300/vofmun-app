@@ -115,6 +115,12 @@
   --cursor-default: url("/custom-cursor.svg") 0 0, auto;
   --cursor-pointer: url("/bibata-pointer.svg") 0 0, pointer;
 
+
+  --vofmun-primary: #6e1d1b;
+  --vofmun-nav-cream: #fff0e5;
+  --vofmun-app-bg: #f9f9f9;
+  --vofmun-text: #1a1c1c;
+  --vofmun-text-muted: #564240;
   /* Semantic color mappings */
   --background: var(--off-white);
   --foreground: var(--almost-black-green);
@@ -154,7 +160,7 @@ html {
 }
 
 body {
-  font-family: var(--font-sans);
+  font-family: var(--font-manrope), var(--font-sans);
   font-weight: 400;
   min-height: 100vh;
   overflow-y: auto;
@@ -233,7 +239,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-serif);
+  font-family: var(--font-newsreader), var(--font-serif);
   line-height: 1.2;
   margin-bottom: 0.5em;
   font-feature-settings: "liga" 1, "kern" 1;
@@ -280,14 +286,14 @@ p,
 li,
 td,
 th {
-  font-family: var(--font-sans);
+  font-family: var(--font-manrope), var(--font-sans);
   font-weight: 400;
   line-height: 1.6;
 }
 
 div,
 span {
-  font-family: var(--font-sans);
+  font-family: var(--font-manrope), var(--font-sans);
   font-weight: 400;
   /* Regular (400) */
   line-height: 1.6;
@@ -324,7 +330,7 @@ b {
 .hero-section h1 {
   color: #FFFFFF;
   /* White for primary headings in hero */
-  font-family: var(--font-serif);
+  font-family: var(--font-newsreader), var(--font-serif);
   font-weight: 900;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
 }
@@ -332,7 +338,7 @@ b {
 .hero-section .subheading {
   color: var(--soft-ivory);
   /* Soft Ivory for subheadings */
-  font-family: var(--font-sans);
+  font-family: var(--font-manrope), var(--font-sans);
   font-weight: 400;
 }
 
@@ -352,7 +358,7 @@ b {
 }
 
 .section-heading {
-  font-family: var(--font-serif);
+  font-family: var(--font-newsreader), var(--font-serif);
   font-size: clamp(1.75rem, 2.1vw + 1.5rem, 3rem);
   color: var(--deep-red);
   font-weight: 800;
@@ -361,7 +367,7 @@ b {
 
 .section-subheading {
   color: color-mix(in srgb, var(--almost-black-green) 75%, var(--deep-red) 25%);
-  font-family: var(--font-sans);
+  font-family: var(--font-manrope), var(--font-sans);
   font-size: 1.05rem;
 }
 
@@ -403,7 +409,7 @@ b {
   gap: 0.6rem;
   border-radius: 0.75rem;
   padding: 0.75rem 1.5rem;
-  font-family: var(--font-sans);
+  font-family: var(--font-manrope), var(--font-sans);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -497,14 +503,14 @@ b {
 .committee-card h3 {
   color: var(--dark-burgundy);
   /* Dark Burgundy for headings */
-  font-family: var(--font-serif);
+  font-family: var(--font-newsreader), var(--font-serif);
   margin-bottom: 0.75rem;
 }
 
 .committee-card p {
   color: var(--almost-black-green);
   /* Almost Black Green for body text */
-  font-family: var(--font-sans);
+  font-family: var(--font-manrope), var(--font-sans);
   margin-bottom: 1rem;
 }
 
@@ -514,7 +520,7 @@ b {
   border-radius: var(--radius-sm);
   font-size: 0.875rem;
   font-weight: 500;
-  font-family: var(--font-sans);
+  font-family: var(--font-manrope), var(--font-sans);
   display: inline-block;
 }
 
@@ -541,7 +547,7 @@ label {
   color: var(--almost-black-green);
   /* Almost Black Green for labels */
   font-weight: 500;
-  font-family: var(--font-sans);
+  font-family: var(--font-manrope), var(--font-sans);
   margin-bottom: 0.5rem;
   display: block;
 }
@@ -555,7 +561,7 @@ select {
   color: var(--almost-black-green);
   border-radius: var(--radius-lg);
   padding: 0.75rem;
-  font-family: var(--font-sans);
+  font-family: var(--font-manrope), var(--font-sans);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
   box-shadow: inset 0 1px 2px rgba(112, 30, 30, 0.06);
 }
@@ -577,7 +583,7 @@ button.primary {
   /* Deep Red primary buttons */
   color: #FFFFFF;
   font-weight: 500;
-  font-family: var(--font-sans);
+  font-family: var(--font-manrope), var(--font-sans);
   border: none;
   border-radius: var(--radius);
   padding: 0.75rem 1.5rem;
@@ -597,7 +603,7 @@ button.secondary {
   background: var(--warm-light-grey);
   color: var(--deep-red);
   font-weight: 500;
-  font-family: var(--font-sans);
+  font-family: var(--font-manrope), var(--font-sans);
   border: 1px solid var(--cool-grey);
   border-radius: var(--radius);
   padding: 0.75rem 1.5rem;
@@ -646,7 +652,7 @@ button.secondary:hover {
 .nav-link {
   color: var(--almost-black-green);
   font-weight: 500;
-  font-family: var(--font-sans);
+  font-family: var(--font-manrope), var(--font-sans);
   text-decoration: none;
   padding: 0.5rem 1rem;
   border-radius: var(--radius-sm);
@@ -674,7 +680,7 @@ button.secondary:hover {
 
 .footer h4 {
   color: var(--warm-light-grey);
-  font-family: var(--font-serif);
+  font-family: var(--font-newsreader), var(--font-serif);
 }
 
 .footer a {
