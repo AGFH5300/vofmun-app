@@ -405,7 +405,7 @@ const fetchLastMessage = async (roomId: string, userId?: string | null): Promise
 
 // -------------------- ROOMS --------------------
 
-app.get('/api/rooms', requireAuth, chatReadRateLimit, async (req: AuthedRequest, res: Response) => {
+app.get('/api/rooms', chatReadRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { data: memberships } = await supabaseAdmin.from('room_members').select('room_id, role').eq('user_id', req.userId!);
     const roomIds = (memberships || []).map((m: any) => m.room_id);
@@ -442,11 +442,11 @@ const handlePeopleSearch = async (req: AuthedRequest, res: Response) => {
   }
 };
 
-app.get('/api/chat/people', requireAuth, chatReadRateLimit, handlePeopleSearch);
-app.get('/api/users/search', requireAuth, chatReadRateLimit, handlePeopleSearch);
+app.get('/api/chat/people', chatReadRateLimit, requireAuth, handlePeopleSearch);
+app.get('/api/users/search', chatReadRateLimit, requireAuth, handlePeopleSearch);
 
 // Friend requests
-app.post('/api/friend-requests', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
+app.post('/api/friend-requests', chatWriteRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { targetUserId } = req.body as { targetUserId?: string };
     if (!targetUserId) return res.status(400).json({ error: 'Missing targetUserId' });
@@ -502,7 +502,7 @@ app.post('/api/friend-requests', requireAuth, chatWriteRateLimit, async (req: Au
   }
 });
 
-app.get('/api/friend-requests', requireAuth, chatReadRateLimit, async (req: AuthedRequest, res: Response) => {
+app.get('/api/friend-requests', chatReadRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { data } = await supabaseAdmin
       .from('friend_requests')
@@ -530,7 +530,7 @@ app.get('/api/friend-requests', requireAuth, chatReadRateLimit, async (req: Auth
   }
 });
 
-app.get('/api/chat/friend-requests/pending', requireAuth, chatReadRateLimit, async (req: AuthedRequest, res: Response) => {
+app.get('/api/chat/friend-requests/pending', chatReadRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { data } = await supabaseAdmin
       .from('friend_requests')
@@ -559,7 +559,7 @@ app.get('/api/chat/friend-requests/pending', requireAuth, chatReadRateLimit, asy
   }
 });
 
-app.post('/api/friend-requests/:id/respond', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
+app.post('/api/friend-requests/:id/respond', chatWriteRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { action } = req.body as { action?: 'accept' | 'reject' | 'decline' };
@@ -581,7 +581,7 @@ app.post('/api/friend-requests/:id/respond', requireAuth, chatWriteRateLimit, as
 });
 
 // Direct + group room creation
-app.post('/api/rooms/direct', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
+app.post('/api/rooms/direct', chatWriteRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { targetUserId } = req.body as { targetUserId?: string };
     const normalizedTargetUserId = String(targetUserId || '').trim();
@@ -652,7 +652,7 @@ app.post('/api/rooms/direct', requireAuth, chatWriteRateLimit, async (req: Authe
   }
 });
 
-app.post('/api/rooms/group', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
+app.post('/api/rooms/group', chatWriteRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { name, description, memberIds } = req.body as {
       name?: string;
@@ -816,7 +816,7 @@ app.post('/api/rooms/group', requireAuth, chatWriteRateLimit, async (req: Authed
 
 // -------------------- MESSAGES --------------------
 
-app.get('/api/rooms/:roomId/messages', requireAuth, chatReadRateLimit, async (req: AuthedRequest, res: Response) => {
+app.get('/api/rooms/:roomId/messages', chatReadRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
 
@@ -878,7 +878,7 @@ app.get('/api/rooms/:roomId/messages', requireAuth, chatReadRateLimit, async (re
   }
 });
 
-app.post('/api/rooms/:roomId/messages', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
+app.post('/api/rooms/:roomId/messages', chatWriteRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
     const { content, reply_to, attachments = [] } = req.body as {
@@ -985,7 +985,7 @@ app.post('/api/rooms/:roomId/messages', requireAuth, chatWriteRateLimit, async (
 });
 
 
-app.patch('/api/rooms/:roomId/messages/:messageId', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
+app.patch('/api/rooms/:roomId/messages/:messageId', chatWriteRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId, messageId } = req.params;
     const { content } = req.body as { content?: string };
@@ -1055,7 +1055,7 @@ app.patch('/api/rooms/:roomId/messages/:messageId', requireAuth, chatWriteRateLi
   }
 });
 
-app.delete('/api/rooms/:roomId/messages/:messageId', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
+app.delete('/api/rooms/:roomId/messages/:messageId', chatWriteRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId, messageId } = req.params;
 
@@ -1134,7 +1134,7 @@ app.delete('/api/rooms/:roomId/messages/:messageId', requireAuth, chatWriteRateL
 
 // -------------------- RECEIPTS (FIXED) --------------------
 // This endpoint is served by EXPRESS, not Next's app/api, because /api/* is intercepted here.
-app.post('/api/rooms/:roomId/receipts', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
+app.post('/api/rooms/:roomId/receipts', chatWriteRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
     const { messageIds, markRead } = req.body as { messageIds?: string[]; markRead?: boolean };
@@ -1288,7 +1288,7 @@ app.post('/api/rooms/:roomId/receipts', requireAuth, chatWriteRateLimit, async (
 });
 
 // Members list
-app.get('/api/rooms/:roomId/members', requireAuth, chatReadRateLimit, async (req: AuthedRequest, res: Response) => {
+app.get('/api/rooms/:roomId/members', chatReadRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
     const members = await fetchRoomMembers(roomId);
@@ -1299,7 +1299,7 @@ app.get('/api/rooms/:roomId/members', requireAuth, chatReadRateLimit, async (req
   }
 });
 
-app.post('/api/rooms/:roomId/leave', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
+app.post('/api/rooms/:roomId/leave', chatWriteRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
     await supabaseAdmin.from('room_members').delete().eq('room_id', roomId).eq('user_id', req.userId!);
@@ -1310,7 +1310,7 @@ app.post('/api/rooms/:roomId/leave', requireAuth, chatWriteRateLimit, async (req
   }
 });
 
-app.delete('/api/rooms/:roomId', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
+app.delete('/api/rooms/:roomId', chatWriteRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
     const { data: room } = await supabaseAdmin.from('chat_rooms').select('created_by').eq('id', roomId).single();
