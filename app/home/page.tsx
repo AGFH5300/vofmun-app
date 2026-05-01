@@ -4,24 +4,13 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 import { useSession } from '../context/sessionContext';
 import { ProtectedRoute } from '@/components/protectedroute';
-import {
-  MessageSquare,
-  ArrowRight,
-  BookOpen,
-  Clock3,
-  AlertTriangle,
-  Send,
-  UserRound,
-  Scale,
-  ScrollText,
-  Globe
-} from 'lucide-react';
+import { BookOpen, Scale, ScrollText, Globe, UserRound } from 'lucide-react';
 
 const Page = () => {
   const { user: currentUser } = useSession();
+
   const getUserRole = () => {
     if (!currentUser) return '';
     if (currentUser.role === 'admin') return 'Administrator';
@@ -36,21 +25,10 @@ const Page = () => {
     return currentUser.full_name || `${currentUser.first_name} ${currentUser.last_name}`.trim();
   };
 
-  const brandDarkRed = '#701e1e';
-  const bodyFont = "var(--font-manrope, 'Manrope', ui-sans-serif, system-ui, sans-serif)";
-  const serifHeadingFont = "var(--font-newsreader, 'Newsreader', 'DM Serif Display', serif)";
-  const heroHeadingStyle: React.CSSProperties = {
-    color: '#FFFFFF',
-    fontFamily: serifHeadingFont
-  };
-  const accentHeadingStyle: React.CSSProperties = {
-    color: brandDarkRed,
-    fontFamily: serifHeadingFont
-  };
+  const bodyFont = "var(--font-manrope), Manrope, ui-sans-serif, system-ui, sans-serif";
+  const headingFont = "var(--font-newsreader), Newsreader, Georgia, serif";
 
-  const documentsCount = '3 drafts';
-
-  const resourceCards = [
+  const resources = [
     {
       title: 'Delegate Handbook',
       description: 'Comprehensive guide on committee procedures, protocol, and the VOFMUN code of conduct.',
@@ -75,7 +53,7 @@ const Page = () => {
     {
       title: 'Country Briefing Library',
       description: 'Access historical voting data and economic indicators for all member nations.',
-      href: '/live-updates',
+      href: '/glossary',
       icon: Globe,
       tag: 'Global'
     }
@@ -83,164 +61,126 @@ const Page = () => {
 
   return (
     <ProtectedRoute>
-      <div className="page-shell min-h-screen bg-[#f9f9f9]" style={{ fontFamily: bodyFont }}>
-        <div className="mx-auto w-full max-w-7xl px-8 pb-10 pt-2 space-y-6 overflow-x-hidden">
-          <motion.section
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.65 }}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10"
-          >
-            <div className="lg:col-span-2 rounded-2xl p-8 min-h-[350px] flex flex-col justify-end relative overflow-hidden text-white bg-[radial-gradient(circle_at_18%_10%,rgba(255,255,255,0.12),rgba(255,255,255,0)_42%),repeating-linear-gradient(90deg,rgba(255,255,255,0.06)_0px,rgba(255,255,255,0.06)_1px,rgba(255,255,255,0)_1px,rgba(255,255,255,0)_56px),linear-gradient(140deg,#6f1d1c_0%,#4a1014_62%,#2e0b10_100%)]">
-              <div className="absolute inset-0 opacity-35 bg-[linear-gradient(120deg,rgba(0,0,0,0.08)_5%,rgba(0,0,0,0.32)_100%)]" />
+      <div
+        className="relative left-1/2 right-1/2 ml-[-50vw] mr-[-50vw] w-screen min-h-screen bg-[#f9f9f9] text-[#1a1c1c]"
+        style={{ fontFamily: bodyFont }}
+      >
+        <main className="mx-auto max-w-7xl px-8 pb-12">
+          <section className="grid grid-cols-1 gap-8 mb-12 lg:grid-cols-3">
+            <div className="lg:col-span-2 relative overflow-hidden bg-[#6E1D1B] rounded-lg p-10 flex flex-col justify-end min-h-[350px] text-white">
+              <div className="absolute inset-0 opacity-30 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.09)_0px,rgba(255,255,255,0.09)_1px,rgba(255,255,255,0)_1px,rgba(255,255,255,0)_56px)]" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_18%,rgba(255,255,255,0.14),rgba(255,255,255,0)_42%),linear-gradient(145deg,rgba(80,6,8,0.22)_0%,rgba(32,10,13,0.46)_100%)]" />
               <div className="relative z-10">
-                <span className="block text-[10px] uppercase tracking-[0.2em] text-white/80 mb-3">General Assembly Session</span>
-                <h1 className="text-[2rem] md:text-[2.8rem] italic font-bold leading-[1.06] mb-3" style={heroHeadingStyle}>
-                  Welcome back, {getDisplayName()}
+                <span className="mb-2 block text-[10px] uppercase tracking-[0.2em] text-white/80">General Assembly Session IV</span>
+                <h1 className="mb-4 text-5xl italic font-bold leading-tight" style={{ fontFamily: headingFont }}>
+                  Welcome back, {getDisplayName() || 'Hon. Delegate'}.
                 </h1>
-                <p className="text-sm md:text-[15px] text-white/80 max-w-lg leading-relaxed">
-                  {getUserRole()} access unlocked. Keep your bloc aligned with live developments, draft progress, and committee milestones from one unified dashboard.
+                <p className="max-w-lg text-[#e2e2e2]">
+                  Your country&apos;s position on the Disarmament and International Security agenda is currently under review by the rapporteur.
                 </p>
               </div>
             </div>
 
-            <div className="surface-card rounded-2xl border border-soft-ivory bg-white p-6 shadow-xl flex flex-col items-center text-center">
-              <div className="w-20 h-20 rounded-xl bg-soft-rose text-deep-red flex items-center justify-center mb-5 border-4 border-[#f3eee8]">
-                <UserRound size={30} />
+            <div className="bg-white rounded-lg p-8 shadow-[0_8px_32px_rgba(26,28,28,0.06)] flex flex-col items-center text-center">
+              <div className="w-24 h-24 rounded-lg border-4 border-[#f4f3f3] mb-6 flex items-center justify-center bg-[#e8e8e8]">
+                <UserRound className="h-10 w-10 text-[#500608]" />
               </div>
-              <h2 className="text-[1.6rem] font-semibold text-deep-red break-words leading-tight" style={accentHeadingStyle}>{getDisplayName()}</h2>
-              <p className="text-[11px] uppercase tracking-[0.14em] text-almost-black-green/60 mt-1 break-words">Representative of {getUserRole()}</p>
-              <div className="divider-soft my-5 w-full"></div>
-              <div className="grid grid-cols-2 gap-3 text-sm w-full text-left">
+              <h2 className="mb-1 text-2xl font-bold text-[#500608]" style={{ fontFamily: headingFont }}>{getDisplayName() || 'Delegate'}</h2>
+              <p className="mb-6 text-[11px] uppercase tracking-widest text-slate-500">Representative of {getUserRole() || 'Member State'}</p>
+              <div className="w-full grid grid-cols-2 gap-4 pt-6 border-t border-[#dcc0bd]/20 mb-6">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-almost-black-green/60">Committee</p>
-                  <p className="font-semibold text-almost-black-green mt-1">DISEC</p>
+                  <p className="mb-1 text-[10px] font-bold uppercase text-slate-400">Committee</p>
+                  <p className="text-sm font-semibold text-[#500608]">DISEC</p>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-almost-black-green/60">Status</p>
-                  <p className="font-semibold text-almost-black-green mt-1">Present</p>
+                  <p className="mb-1 text-[10px] font-bold uppercase text-slate-400">Status</p>
+                  <p className="text-sm font-semibold text-[#500608]">Present</p>
                 </div>
               </div>
-              <Link href="/resolutions" className="primary-button mt-6 w-full justify-center">
-                <Send size={16} />
+              <Link href="/resolutions" className="w-full rounded-lg bg-[#500608] py-3 text-xs font-semibold uppercase tracking-wider text-white hover:opacity-90">
                 Submit Resolution
               </Link>
             </div>
-          </motion.section>
+          </section>
 
-          <motion.section
-            initial={{ opacity: 0, y: 28 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.15 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10"
-          >
-            <div className="md:col-span-2 rounded-2xl border border-[#ead6cc] bg-[#FFF0E5] p-5 md:p-6">
-              <div className="flex items-center gap-2 mb-3 text-deep-red">
-                <Clock3 size={16} />
-                <p className="text-[10px] uppercase tracking-[0.22em] font-semibold">Next Session Commences In</p>
-              </div>
-              <div className="flex items-center gap-3 md:gap-4">
-                <div className="flex flex-col">
-                  <span className="text-3xl md:text-4xl font-bold text-deep-red" style={accentHeadingStyle}>02</span>
-                  <span className="text-[9px] uppercase tracking-wide text-almost-black-green/55">Days</span>
-                </div>
-                <span className="text-3xl md:text-4xl font-bold text-deep-red" style={accentHeadingStyle}>:</span>
-                <div className="flex flex-col">
-                  <span className="text-3xl md:text-4xl font-bold text-deep-red" style={accentHeadingStyle}>14</span>
-                  <span className="text-[9px] uppercase tracking-wide text-almost-black-green/55">Hours</span>
-                </div>
-                <span className="text-3xl md:text-4xl font-bold text-deep-red" style={accentHeadingStyle}>:</span>
-                <div className="flex flex-col">
-                  <span className="text-3xl md:text-4xl font-bold text-deep-red" style={accentHeadingStyle}>45</span>
-                  <span className="text-[9px] uppercase tracking-wide text-almost-black-green/55">Mins</span>
+          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            <div className="md:col-span-2 bg-[#FFF0E5] rounded-lg p-8 flex flex-col justify-between">
+              <div>
+                <h3 className="mb-4 text-[10px] font-bold uppercase tracking-widest text-[#500608]">Next Session Commences In</h3>
+                <div className="flex gap-4">
+                  <div className="flex flex-col"><span className="text-4xl font-bold text-[#500608]" style={{ fontFamily: headingFont }}>02</span><span className="text-[9px] uppercase text-slate-500">Days</span></div>
+                  <span className="text-4xl font-bold text-[#500608]" style={{ fontFamily: headingFont }}>:</span>
+                  <div className="flex flex-col"><span className="text-4xl font-bold text-[#500608]" style={{ fontFamily: headingFont }}>14</span><span className="text-[9px] uppercase text-slate-500">Hours</span></div>
+                  <span className="text-4xl font-bold text-[#500608]" style={{ fontFamily: headingFont }}>:</span>
+                  <div className="flex flex-col"><span className="text-4xl font-bold text-[#500608]" style={{ fontFamily: headingFont }}>45</span><span className="text-[9px] uppercase text-slate-500">Mins</span></div>
                 </div>
               </div>
-              <p className="text-xs md:text-sm text-almost-black-green/75 mt-4">Agenda: Cyber Warfare Sovereignty</p>
+              <div className="mt-8">
+                <span className="text-xs font-semibold italic text-slate-600" style={{ fontFamily: headingFont }}>Agenda: Cyber Warfare Sovereignty</span>
+              </div>
             </div>
-            {[
-              { title: 'Documents', value: documentsCount, hint: 'Drafts awaiting review' },
-              { title: 'Messages', value: '2 unread', hint: 'Chairs awaiting responses' }
-            ].map((item) => (
-              <div key={item.title} className="surface-card rounded-2xl p-5 border-l-4 border-deep-red/70 bg-[#f4f3f3] min-h-[132px] flex flex-col justify-center">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-deep-red/65">{item.title}</p>
-                <p className="text-xl font-semibold text-deep-red mt-1.5" style={accentHeadingStyle}>{item.value}</p>
-                <p className="text-xs text-almost-black-green/65 mt-1.5">{item.hint}</p>
-              </div>
-            ))}
-          </motion.section>
 
-          <motion.section
-            initial={{ opacity: 0, y: 32 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.25 }}
-            className="grid grid-cols-1 lg:grid-cols-12 gap-8"
-          >
-            <div className="lg:col-span-8 space-y-4">
-              <h3 className="text-xl font-semibold text-deep-red border-b border-[#dcc0bd]/40 pb-3" style={accentHeadingStyle}>Essential Delegate Resources</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {resourceCards.map((resource) => {
+            <div className="rounded-lg bg-[#f4f3f3] border-l-4 border-[#6E1D1B] p-8 flex flex-col justify-center">
+              <p className="text-3xl font-bold text-[#500608]" style={{ fontFamily: headingFont }}>3</p>
+              <p className="text-xs uppercase tracking-widest font-semibold text-slate-500">Draft Resolutions</p>
+            </div>
+            <div className="rounded-lg bg-[#f4f3f3] border-l-4 border-[#6E1D1B] p-8 flex flex-col justify-center">
+              <p className="text-3xl font-bold text-[#500608]" style={{ fontFamily: headingFont }}>2</p>
+              <p className="text-xs uppercase tracking-widest font-semibold text-slate-500">Unread Messages</p>
+            </div>
+          </section>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            <div className="lg:col-span-8 space-y-8">
+              <h3 className="pb-4 border-b border-[#dcc0bd]/20 text-2xl font-bold text-[#500608]" style={{ fontFamily: headingFont }}>Essential Delegate Resources</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {resources.map((resource) => {
                   const Icon = resource.icon;
                   return (
-                    <Link key={resource.title} href={resource.href} className="group block">
-                      <div className="bg-white rounded-xl border border-[#dcc0bd]/20 shadow-sm p-4 h-full min-h-[190px]">
-                        <div className="flex items-center justify-between mb-2.5">
-                          <Icon size={16} className="text-deep-red" />
-                          <span className="text-[9px] font-bold uppercase px-2 py-1 bg-[#eee0d5] rounded text-[#211a14]">{resource.tag}</span>
-                        </div>
-                        <h4 className="text-[15px] font-semibold text-deep-red mb-1.5 leading-tight" style={accentHeadingStyle}>{resource.title}</h4>
-                        <p className="text-xs text-almost-black-green/70 leading-relaxed">{resource.description}</p>
-                        <div className="mt-2.5 flex items-center text-deep-red/70 text-xs font-semibold">
-                          Open <ArrowRight size={14} className="ml-1" />
-                        </div>
+                    <Link key={resource.title} href={resource.href} className="group block rounded-lg border border-[#dcc0bd]/10 bg-white p-6 shadow-sm hover:bg-[#f4f3f3] transition-colors">
+                      <div className="mb-4 flex items-center justify-between">
+                        <Icon className="h-5 w-5 text-[#500608]" />
+                        <span className="rounded bg-[#eee0d5] px-2 py-1 text-[9px] font-bold uppercase text-[#211a14]">{resource.tag}</span>
                       </div>
+                      <h4 className="mb-2 text-lg font-bold text-[#500608]" style={{ fontFamily: headingFont }}>{resource.title}</h4>
+                      <p className="text-sm leading-relaxed text-slate-500">{resource.description}</p>
                     </Link>
                   );
                 })}
               </div>
             </div>
 
-            <div className="lg:col-span-4 space-y-4">
-              <div className="rounded-xl p-5 text-white overflow-hidden relative bg-[linear-gradient(160deg,#500608_0%,#6e1d1b_100%)] shadow-lg">
-                <div className="absolute right-3 top-3 opacity-15">
-                  <AlertTriangle size={54} />
-                </div>
-                <span className="inline-block px-2 py-1 bg-white text-deep-red text-[9px] font-bold uppercase mb-3 rounded">Active Crisis Alert</span>
-                <h4 className="text-lg font-semibold leading-snug mb-2.5" style={heroHeadingStyle}>Maritime Incursion in the Bering Strait</h4>
-                <p className="text-xs text-white/85 leading-relaxed mb-3.5">Emergency intelligence indicates unauthorized naval maneuvers. DISEC delegates should prepare for an extraordinary motion.</p>
-                <Link href="/live-updates" className="ghost-button border-white/30 text-white hover:bg-white/10 w-full justify-center">
-                  Read Briefing
-                </Link>
+            <div className="lg:col-span-4 space-y-8">
+              <div className="relative overflow-hidden rounded-lg bg-[#500608] p-8 text-white shadow-xl">
+                <span className="mb-4 inline-block rounded bg-white px-2 py-1 text-[9px] font-bold uppercase text-[#500608]">Active Crisis Alert</span>
+                <h3 className="mb-4 text-2xl font-bold leading-snug" style={{ fontFamily: headingFont }}>Maritime Incursion in the Bering Strait</h3>
+                <p className="mb-6 text-sm leading-relaxed text-[#e2e2e2]">Emergency intelligence indicates unauthorized naval maneuvers. DISEC delegates must prepare for an immediate extraordinary motion.</p>
+                <Link href="/live-updates" className="block w-full rounded-lg border border-white/20 bg-white/10 py-3 text-center text-[10px] font-bold uppercase tracking-widest hover:bg-white/20">Read Briefing</Link>
               </div>
-              <div className="rounded-xl p-4 bg-[#f4f3f3] border border-[#e2e2e2]">
-                <h4 className="text-base font-semibold text-deep-red mb-3 italic" style={accentHeadingStyle}>Recent Messaging</h4>
-                <div className="space-y-2.5">
-                  <div className="flex items-start gap-3">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#e2e2e2] text-deep-red">
-                      <UserRound size={14} />
-                    </span>
+
+              <div className="rounded-lg bg-[#f4f3f3] p-6">
+                <h4 className="mb-4 italic font-bold text-[#500608]" style={{ fontFamily: headingFont }}>Recent Messaging</h4>
+                <div className="space-y-4">
+                  <div className="flex gap-3">
+                    <div className="h-8 w-8 rounded-full bg-[#e2e2e2] flex items-center justify-center"><UserRound className="h-4 w-4 text-[#500608]" /></div>
                     <div>
-                      <p className="text-xs font-semibold text-almost-black-green">Delegate (France)</p>
-                      <p className="text-[11px] text-almost-black-green/65">Requesting a meeting regarding the caucus motion...</p>
+                      <p className="text-xs font-bold">Delegate (France)</p>
+                      <p className="text-[11px] text-slate-500">Requesting a meeting regarding the caucus motion...</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#e2e2e2] text-deep-red">
-                      <UserRound size={14} />
-                    </span>
+                  <div className="flex gap-3">
+                    <div className="h-8 w-8 rounded-full bg-[#e2e2e2] flex items-center justify-center"><UserRound className="h-4 w-4 text-[#500608]" /></div>
                     <div>
-                      <p className="text-xs font-semibold text-almost-black-green">Delegate (USA)</p>
-                      <p className="text-[11px] text-almost-black-green/65">Agreed. We will support the amendment in Clause 4...</p>
+                      <p className="text-xs font-bold">Delegate (USA)</p>
+                      <p className="text-[11px] text-slate-500">Agreed. We will support the amendment in Clause 4...</p>
                     </div>
                   </div>
                 </div>
-                <Link href="/messages" className="ghost-button mt-4 w-full justify-center">
-                  <MessageSquare size={16} />
-                  Go to Messaging
-                </Link>
+                <Link href="/messages" className="mt-4 block w-full rounded-lg border border-[#dcc0bd]/20 bg-white py-3 text-center text-[10px] font-bold uppercase tracking-widest text-[#500608] hover:bg-[#e8e8e8]">Go to Messaging</Link>
               </div>
             </div>
-          </motion.section>
-        </div>
+          </div>
+        </main>
       </div>
     </ProtectedRoute>
   );
