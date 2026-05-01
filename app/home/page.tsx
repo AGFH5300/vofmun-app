@@ -37,7 +37,8 @@ const Page = () => {
   };
 
   const brandDarkRed = '#701e1e';
-  const serifHeadingFont = "var(--font-dm-serif-display, 'DM Serif Display', serif)";
+  const bodyFont = "var(--font-manrope, 'Manrope', ui-sans-serif, system-ui, sans-serif)";
+  const serifHeadingFont = "var(--font-newsreader, 'Newsreader', 'DM Serif Display', serif)";
   const heroHeadingStyle: React.CSSProperties = {
     color: '#FFFFFF',
     fontFamily: serifHeadingFont
@@ -82,19 +83,19 @@ const Page = () => {
 
   return (
     <ProtectedRoute>
-      <div className="page-shell bg-[#f9f9f9]">
-        <div className="mx-auto w-full max-w-7xl px-6 md:px-8 pb-16 md:pb-8 pt-1 md:pt-2 space-y-6 md:space-y-8 overflow-x-hidden">
+      <div className="page-shell min-h-screen bg-[#f9f9f9]" style={{ fontFamily: bodyFont }}>
+        <div className="mx-auto w-full max-w-7xl px-8 pb-10 pt-2 space-y-6 overflow-x-hidden">
           <motion.section
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.65 }}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12"
+            className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10"
           >
-            <div className="lg:col-span-2 rounded-2xl p-7 md:p-8 min-h-[350px] flex flex-col justify-end relative overflow-hidden text-white bg-[radial-gradient(circle_at_18%_10%,rgba(255,255,255,0.12),rgba(255,255,255,0)_42%),repeating-linear-gradient(90deg,rgba(255,255,255,0.06)_0px,rgba(255,255,255,0.06)_1px,rgba(255,255,255,0)_1px,rgba(255,255,255,0)_56px),linear-gradient(140deg,#6f1d1c_0%,#4a1014_62%,#2e0b10_100%)]">
+            <div className="lg:col-span-2 rounded-2xl p-8 min-h-[350px] flex flex-col justify-end relative overflow-hidden text-white bg-[radial-gradient(circle_at_18%_10%,rgba(255,255,255,0.12),rgba(255,255,255,0)_42%),repeating-linear-gradient(90deg,rgba(255,255,255,0.06)_0px,rgba(255,255,255,0.06)_1px,rgba(255,255,255,0)_1px,rgba(255,255,255,0)_56px),linear-gradient(140deg,#6f1d1c_0%,#4a1014_62%,#2e0b10_100%)]">
               <div className="absolute inset-0 opacity-35 bg-[linear-gradient(120deg,rgba(0,0,0,0.08)_5%,rgba(0,0,0,0.32)_100%)]" />
               <div className="relative z-10">
                 <span className="block text-[10px] uppercase tracking-[0.2em] text-white/80 mb-3">General Assembly Session</span>
-                <h1 className="text-[2rem] md:text-[2.75rem] italic font-bold leading-[1.08] mb-3" style={heroHeadingStyle}>
+                <h1 className="text-[2rem] md:text-[2.8rem] italic font-bold leading-[1.06] mb-3" style={heroHeadingStyle}>
                   Welcome back, {getDisplayName()}
                 </h1>
                 <p className="text-sm md:text-[15px] text-white/80 max-w-lg leading-relaxed">
@@ -103,13 +104,13 @@ const Page = () => {
               </div>
             </div>
 
-            <div className="surface-card rounded-2xl border border-soft-ivory bg-white p-5 md:p-6 shadow-xl flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-xl bg-soft-rose text-deep-red flex items-center justify-center mb-4 border-4 border-[#f3eee8]">
+            <div className="surface-card rounded-2xl border border-soft-ivory bg-white p-6 shadow-xl flex flex-col items-center text-center">
+              <div className="w-20 h-20 rounded-xl bg-soft-rose text-deep-red flex items-center justify-center mb-5 border-4 border-[#f3eee8]">
                 <UserRound size={30} />
               </div>
               <h2 className="text-[1.6rem] font-semibold text-deep-red break-words leading-tight" style={accentHeadingStyle}>{getDisplayName()}</h2>
-              <p className="text-xs uppercase tracking-[0.14em] text-almost-black-green/60 mt-1 break-words">{getUserRole()}</p>
-              <div className="divider-soft my-4 w-full"></div>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-almost-black-green/60 mt-1 break-words">Representative of {getUserRole()}</p>
+              <div className="divider-soft my-5 w-full"></div>
               <div className="grid grid-cols-2 gap-3 text-sm w-full text-left">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.16em] text-almost-black-green/60">Committee</p>
@@ -120,7 +121,7 @@ const Page = () => {
                   <p className="font-semibold text-almost-black-green mt-1">Present</p>
                 </div>
               </div>
-              <Link href="/resolutions" className="primary-button mt-5 w-full justify-center">
+              <Link href="/resolutions" className="primary-button mt-6 w-full justify-center">
                 <Send size={16} />
                 Submit Resolution
               </Link>
@@ -131,7 +132,7 @@ const Page = () => {
             initial={{ opacity: 0, y: 28 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10"
           >
             <div className="md:col-span-2 rounded-2xl border border-[#ead6cc] bg-[#FFF0E5] p-5 md:p-6">
               <div className="flex items-center gap-2 mb-3 text-deep-red">
@@ -160,7 +161,7 @@ const Page = () => {
               { title: 'Documents', value: documentsCount, hint: 'Drafts awaiting review' },
               { title: 'Messages', value: '2 unread', hint: 'Chairs awaiting responses' }
             ].map((item) => (
-              <div key={item.title} className="surface-card rounded-2xl p-5 border-l-4 border-deep-red/70 bg-[#f4f3f3]">
+              <div key={item.title} className="surface-card rounded-2xl p-5 border-l-4 border-deep-red/70 bg-[#f4f3f3] min-h-[132px] flex flex-col justify-center">
                 <p className="text-[11px] uppercase tracking-[0.24em] text-deep-red/65">{item.title}</p>
                 <p className="text-xl font-semibold text-deep-red mt-1.5" style={accentHeadingStyle}>{item.value}</p>
                 <p className="text-xs text-almost-black-green/65 mt-1.5">{item.hint}</p>
@@ -172,16 +173,16 @@ const Page = () => {
             initial={{ opacity: 0, y: 32 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.25 }}
-            className="grid grid-cols-1 lg:grid-cols-12 gap-10"
+            className="grid grid-cols-1 lg:grid-cols-12 gap-8"
           >
             <div className="lg:col-span-8 space-y-4">
               <h3 className="text-xl font-semibold text-deep-red border-b border-[#dcc0bd]/40 pb-3" style={accentHeadingStyle}>Essential Delegate Resources</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {resourceCards.map((resource) => {
                   const Icon = resource.icon;
                   return (
                     <Link key={resource.title} href={resource.href} className="group block">
-                      <div className="bg-white rounded-xl border border-[#dcc0bd]/20 shadow-sm p-4 h-full">
+                      <div className="bg-white rounded-xl border border-[#dcc0bd]/20 shadow-sm p-4 h-full min-h-[190px]">
                         <div className="flex items-center justify-between mb-2.5">
                           <Icon size={16} className="text-deep-red" />
                           <span className="text-[9px] font-bold uppercase px-2 py-1 bg-[#eee0d5] rounded text-[#211a14]">{resource.tag}</span>
