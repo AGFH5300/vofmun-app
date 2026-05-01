@@ -5,7 +5,7 @@ import React, {useEffect, useState, useMemo, memo, useCallback} from 'react'
 import { ChairRoute } from '@/components/protectedroute'
 import { useSession } from '@/app/context/sessionContext'
 import { useMobile } from '@/hooks/use-mobile'
-import { Chair } from '@/db/types'
+import { Chair, SessionUser } from '@/db/types'
 import {toast} from 'sonner'
 import { shortenedDel } from '@/db/types'
 
@@ -71,9 +71,10 @@ const Page = () => {
         const fetchDelegates = async () => {
             setLoading(true);
             try {
-                if (!(currentUser as Chair)?.committee?.committeeID) return;
-                
-                const res = await fetch(`/api/delegates?committeeID=${(currentUser as Chair).committee.committeeID}`);
+                const chairUser = currentUser as (Chair & SessionUser) | null;
+                if (!chairUser?.committeeID) return;
+
+                const res = await fetch(`/api/delegates?committeeID=${chairUser.committeeID}`);
                 if (!res.ok) {
                     throw new Error('Failed to fetch delegates');
                 }

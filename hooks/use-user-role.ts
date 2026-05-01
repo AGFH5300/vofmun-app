@@ -38,11 +38,12 @@ export const useUserRole = () => {
     };
 
     const getCommitteeID = () => {
-      if (isDelegateUser && currentUser && (currentUser as DelegateUser).committee) {
-        return (currentUser as DelegateUser).committee.committeeID;
+      if (isDelegateUser && currentUser) {
+        const delegateUser = currentUser as DelegateUser;
+        return delegateUser.committee?.committeeID ?? delegateUser.committeeID ?? null;
       }
-      if (isChairUser && currentUser && (currentUser as ChairUser).committee) {
-        return (currentUser as ChairUser).committee.committeeID;
+      if (isChairUser && currentUser) {
+        return (currentUser as ChairUser).committeeID ?? null;
       }
       return null;
     };
