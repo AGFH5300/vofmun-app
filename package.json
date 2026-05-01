@@ -71,6 +71,7 @@
     "concurrently": "^9.2.1",
     "eslint": "^9",
     "newsapi": "^2.4.1",
+    "postcss": "^8.5.13",
     "sass": "^1.89.2",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
