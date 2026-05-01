@@ -260,10 +260,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
         .eq('message_id', inserted.id)
         .order('created_at', { ascending: true });
 
+      const normalizedMeta =
+        inserted.meta && typeof inserted.meta === 'object' && !Array.isArray(inserted.meta)
+          ? (inserted.meta as Record<string, unknown>)
+          : null;
+
       const payload: MessageWithUser = {
         ...inserted,
         room_id: insertedRoomId,
         user_id: insertedUserId,
+        meta: normalizedMeta,
         user: profiles[insertedUserId],
         attachments: (attachmentRows || []) as MessageAttachment[],
       };
