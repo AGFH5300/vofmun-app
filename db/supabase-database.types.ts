@@ -69,6 +69,12 @@ export type Database = {
         Update: { id?: string; user1_id?: string; user2_id?: string; created_at?: string | null };
         Relationships: [];
       };
+      message_hidden_for_users: {
+        Row: { room_id: string; message_id: string; user_id: string; hidden_at: string | null };
+        Insert: { room_id: string; message_id: string; user_id: string; hidden_at?: string | null };
+        Update: { room_id?: string; message_id?: string; user_id?: string; hidden_at?: string | null };
+        Relationships: [];
+      };
       messages: {
         Row: { id: string; room_id: string | null; user_id: string | null; content: string; message_type: string | null; reply_to: string | null; edited_at: string | null; created_at: string | null; updated_at: string | null; meta: Json; deleted_at: string | null; deleted_by: string | null };
         Insert: { id?: string; room_id?: string | null; user_id?: string | null; content: string; message_type?: string | null; reply_to?: string | null; edited_at?: string | null; created_at?: string | null; updated_at?: string | null; meta?: Json; deleted_at?: string | null; deleted_by?: string | null };
