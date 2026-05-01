@@ -40,7 +40,7 @@ export const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, 
   const map: Record<string, User> = {};
 
   (appUsers || []).forEach((row: { id: string; email: string | null; first_name: string | null; last_name: string | null; role: string | null; country: string | null; committee_id: string | null }) => {
-    const role = (row.role || 'delegate') as User['role'];
+    const role = (row.role || 'delegate') as NonNullable<User['role']>;
     map[row.id] = {
       id: row.id,
       email: row.email || '',
