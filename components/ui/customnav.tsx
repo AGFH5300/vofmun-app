@@ -59,7 +59,7 @@ const CustomNav: React.FC<CustomNavProps> = ({ embedded = false }) => {
     return (
       <nav className={`${embedded ? "relative z-20 rounded-t-[26px]" : "fixed left-0 right-0 top-0 z-50"} bg-[#fff0e5cc] shadow-[0_8px_32px_rgba(26,28,28,0.06)] backdrop-blur-md`}>
         <div className="mx-auto flex h-[4.25rem] w-full max-w-[1440px] items-center justify-between px-4">
-          <Link href="/home" className="[font-family:var(--font-newsreader),var(--font-serif)] text-[1.04rem] font-semibold tracking-[0.01em] text-[#6E1D1B]">
+          <Link href="/home" className="[font-family:var(--font-newsreader),var(--font-serif)] text-[0.98rem] font-semibold tracking-[0.008em] text-[#6E1D1B]">
             VOFMUN ONE
           </Link>
           <button
@@ -117,7 +117,7 @@ const CustomNav: React.FC<CustomNavProps> = ({ embedded = false }) => {
     <nav className={`${embedded ? "relative z-20 rounded-t-[28px]" : "fixed left-0 right-0 top-0 z-50"} bg-[#fff0e5cc] shadow-[0_8px_32px_rgba(26,28,28,0.06)] backdrop-blur-md`}>
       <div className={`mx-auto flex w-full max-w-[1440px] items-center justify-between gap-4 ${embedded ? "h-[4.25rem] px-7" : "h-[4.6rem] px-8"}`}>
         <div className={`flex items-center ${embedded ? "gap-5" : "gap-7"}`}>
-          <Link href="/home" className="[font-family:var(--font-newsreader),var(--font-serif)] text-[1.85rem] font-semibold tracking-[0.008em] text-[#6E1D1B]">
+          <Link href="/home" className="[font-family:var(--font-newsreader),var(--font-serif)] text-[1.22rem] font-semibold tracking-[0.006em] text-[#6E1D1B]">
             VOFMUN ONE
           </Link>
           <div className={`hidden items-center md:flex ${embedded ? "gap-4" : "gap-5"}`}>
