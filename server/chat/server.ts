@@ -46,6 +46,32 @@ if (!supabaseAdmin) {
   throw new Error('Supabase admin client is not configured. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
 }
 
+
+const requestRateBuckets = new Map<string, number[]>();
+
+const createUserRateLimit = (windowMs: number, maxRequests: number) =>
+  (req: AuthedRequest, res: Response, nextFn: NextFunction) => {
+    const userId = String(req.userId || '').trim();
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const now = Date.now();
+    const windowStart = now - windowMs;
+    const key = `${req.method}:${req.route?.path || req.path}:${userId}`;
+    const recent = (requestRateBuckets.get(key) || []).filter((timestamp) => timestamp > windowStart);
+
+    if (recent.length >= maxRequests) {
+      return res.status(429).json({ error: 'Too many requests' });
+    }
+
+    recent.push(now);
+    requestRateBuckets.set(key, recent);
+    return nextFn();
+  };
+
+const chatReadRateLimit = createUserRateLimit(60_000, 120);
+const chatWriteRateLimit = createUserRateLimit(60_000, 40);
 const requireAuth = async (req: AuthedRequest, res: Response, nextFn: NextFunction) => {
   const hasAuthorizationHeader = Boolean(req.headers['authorization']);
   const bearerToken = getBearerTokenFromHeaders(req.headers);
@@ -386,7 +412,7 @@ const fetchLastMessage = async (roomId: string, userId?: string | null): Promise
 
 // -------------------- ROOMS --------------------
 
-app.get('/api/rooms', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.get('/api/rooms', requireAuth, chatReadRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { data: memberships } = await supabaseAdmin.from('room_members').select('room_id, role').eq('user_id', req.userId!);
     const roomIds = (memberships || []).map((m: any) => m.room_id);
@@ -423,11 +449,11 @@ const handlePeopleSearch = async (req: AuthedRequest, res: Response) => {
   }
 };
 
-app.get('/api/chat/people', requireAuth, handlePeopleSearch);
-app.get('/api/users/search', requireAuth, handlePeopleSearch);
+app.get('/api/chat/people', requireAuth, chatReadRateLimit, handlePeopleSearch);
+app.get('/api/users/search', requireAuth, chatReadRateLimit, handlePeopleSearch);
 
 // Friend requests
-app.post('/api/friend-requests', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.post('/api/friend-requests', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { targetUserId } = req.body as { targetUserId?: string };
     if (!targetUserId) return res.status(400).json({ error: 'Missing targetUserId' });
@@ -483,7 +509,7 @@ app.post('/api/friend-requests', requireAuth, async (req: AuthedRequest, res: Re
   }
 });
 
-app.get('/api/friend-requests', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.get('/api/friend-requests', requireAuth, chatReadRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { data } = await supabaseAdmin
       .from('friend_requests')
@@ -511,7 +537,7 @@ app.get('/api/friend-requests', requireAuth, async (req: AuthedRequest, res: Res
   }
 });
 
-app.get('/api/chat/friend-requests/pending', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.get('/api/chat/friend-requests/pending', requireAuth, chatReadRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { data } = await supabaseAdmin
       .from('friend_requests')
@@ -540,7 +566,7 @@ app.get('/api/chat/friend-requests/pending', requireAuth, async (req: AuthedRequ
   }
 });
 
-app.post('/api/friend-requests/:id/respond', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.post('/api/friend-requests/:id/respond', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { action } = req.body as { action?: 'accept' | 'reject' | 'decline' };
@@ -562,7 +588,7 @@ app.post('/api/friend-requests/:id/respond', requireAuth, async (req: AuthedRequ
 });
 
 // Direct + group room creation
-app.post('/api/rooms/direct', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.post('/api/rooms/direct', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { targetUserId } = req.body as { targetUserId?: string };
     const normalizedTargetUserId = String(targetUserId || '').trim();
@@ -633,7 +659,7 @@ app.post('/api/rooms/direct', requireAuth, async (req: AuthedRequest, res: Respo
   }
 });
 
-app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.post('/api/rooms/group', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { name, description, memberIds } = req.body as {
       name?: string;
@@ -797,7 +823,7 @@ app.post('/api/rooms/group', requireAuth, async (req: AuthedRequest, res: Respon
 
 // -------------------- MESSAGES --------------------
 
-app.get('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.get('/api/rooms/:roomId/messages', requireAuth, chatReadRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
 
@@ -859,7 +885,7 @@ app.get('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, r
   }
 });
 
-app.post('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.post('/api/rooms/:roomId/messages', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
     const { content, reply_to, attachments = [] } = req.body as {
@@ -966,7 +992,7 @@ app.post('/api/rooms/:roomId/messages', requireAuth, async (req: AuthedRequest, 
 });
 
 
-app.patch('/api/rooms/:roomId/messages/:messageId', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.patch('/api/rooms/:roomId/messages/:messageId', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId, messageId } = req.params;
     const { content } = req.body as { content?: string };
@@ -1036,7 +1062,7 @@ app.patch('/api/rooms/:roomId/messages/:messageId', requireAuth, async (req: Aut
   }
 });
 
-app.delete('/api/rooms/:roomId/messages/:messageId', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.delete('/api/rooms/:roomId/messages/:messageId', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId, messageId } = req.params;
 
@@ -1115,7 +1141,7 @@ app.delete('/api/rooms/:roomId/messages/:messageId', requireAuth, async (req: Au
 
 // -------------------- RECEIPTS (FIXED) --------------------
 // This endpoint is served by EXPRESS, not Next's app/api, because /api/* is intercepted here.
-app.post('/api/rooms/:roomId/receipts', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.post('/api/rooms/:roomId/receipts', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
     const { messageIds, markRead } = req.body as { messageIds?: string[]; markRead?: boolean };
@@ -1269,7 +1295,7 @@ app.post('/api/rooms/:roomId/receipts', requireAuth, async (req: AuthedRequest, 
 });
 
 // Members list
-app.get('/api/rooms/:roomId/members', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.get('/api/rooms/:roomId/members', requireAuth, chatReadRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
     const members = await fetchRoomMembers(roomId);
@@ -1280,7 +1306,7 @@ app.get('/api/rooms/:roomId/members', requireAuth, async (req: AuthedRequest, re
   }
 });
 
-app.post('/api/rooms/:roomId/leave', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.post('/api/rooms/:roomId/leave', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
     await supabaseAdmin.from('room_members').delete().eq('room_id', roomId).eq('user_id', req.userId!);
@@ -1291,7 +1317,7 @@ app.post('/api/rooms/:roomId/leave', requireAuth, async (req: AuthedRequest, res
   }
 });
 
-app.delete('/api/rooms/:roomId', requireAuth, async (req: AuthedRequest, res: Response) => {
+app.delete('/api/rooms/:roomId', requireAuth, chatWriteRateLimit, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
     const { data: room } = await supabaseAdmin.from('chat_rooms').select('created_by').eq('id', roomId).single();
