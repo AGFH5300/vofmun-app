@@ -2,36 +2,26 @@
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useSession } from '../context/sessionContext';
 import { ProtectedRoute } from '@/components/protectedroute';
 import {
-  Bell,
   MessageSquare,
-  FileText,
   ArrowRight,
-  Sparkles,
   BookOpen,
   Clock3,
   AlertTriangle,
   Send,
-  UserRound
+  UserRound,
+  Scale,
+  ScrollText,
+  Globe
 } from 'lucide-react';
 
 const Page = () => {
   const { user: currentUser } = useSession();
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
   const getUserRole = () => {
     if (!currentUser) return '';
     if (currentUser.role === 'admin') return 'Administrator';
@@ -57,104 +47,82 @@ const Page = () => {
     fontFamily: serifHeadingFont
   };
 
-  const quickActions = [
+  const documentsCount = '3 drafts';
+
+  const resourceCards = [
     {
-      title: 'Live Updates',
-      description: 'Stay informed with real-time conference updates',
+      title: 'Delegate Handbook',
+      description: 'Comprehensive guide on committee procedures, protocol, and the VOFMUN code of conduct.',
       href: '/live-updates',
-      icon: Bell,
-      color: 'from-deep-red to-dark-burgundy'
+      icon: BookOpen,
+      tag: 'Official'
     },
     {
-      title: 'Speech Repository',
-      description: 'Manage and organize your speeches',
-      href: '/speechrepo',
-      icon: MessageSquare,
-      color: 'from-dark-burgundy to-dark-navy'
-    },
-    {
-      title: 'Resolutions',
-      description: 'Draft and submit your committee resolutions',
+      title: 'Committee Rules & Procedure',
+      description: 'The parliamentary rules governing DISEC debates, motions, and voting blocks.',
       href: '/resolutions',
-      icon: FileText,
-      color: 'from-deep-red to-dark-burgundy'
+      icon: Scale,
+      tag: 'PDF'
+    },
+    {
+      title: 'Position Paper Guidelines',
+      description: 'Standard formatting and content requirements for all delegate submissions.',
+      href: '/speechrepo',
+      icon: ScrollText,
+      tag: 'Template'
+    },
+    {
+      title: 'Country Briefing Library',
+      description: 'Access historical voting data and economic indicators for all member nations.',
+      href: '/live-updates',
+      icon: Globe,
+      tag: 'Global'
     }
   ];
 
-  const documentsCount = '3 drafts';
-
-  const timeString = currentTime.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
-
-  const dateString = currentTime.toLocaleDateString([], {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-
   return (
     <ProtectedRoute>
-      <div className="page-shell">
-        <div className="page-maxwidth space-y-8 md:space-y-10 pb-24 md:pb-8">
+      <div className="page-shell bg-[#f9f9f9]">
+        <div className="mx-auto w-full max-w-7xl px-6 md:px-8 pb-24 md:pb-10 pt-2 md:pt-4 space-y-8 md:space-y-10 overflow-x-hidden">
           <motion.section
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.65 }}
-            className="grid grid-cols-1 xl:grid-cols-3 gap-6"
+            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
           >
-            <div className="xl:col-span-2 surface-card is-emphasised overflow-hidden p-7 md:p-10 min-h-[320px] flex flex-col justify-end relative">
-              <div className="flex items-center gap-3 text-sm text-white/80 mb-4">
-                <span className="badge-pill bg-white/15 text-white/80">
-                  <Sparkles size={16} />
-                  General Assembly Session
-                </span>
-                <span className="hidden md:inline-block text-white/70">{dateString}</span>
-              </div>
-              <h1
-                className="text-3xl md:text-5xl font-serif font-bold text-white leading-tight mb-3"
-                style={heroHeadingStyle}
-              >
-                Welcome back, {getDisplayName()}
-              </h1>
-              <p className="text-base md:text-lg text-white/80 max-w-2xl leading-relaxed">
-                {getUserRole()} access unlocked. Keep your bloc aligned with live developments, draft progress, and committee milestones from one unified dashboard.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 mt-8">
-                <Link href="/live-updates" className="primary-button">
-                  <Bell size={18} />
-                  Live Updates
-                </Link>
-                <Link href="/resolutions" className="ghost-button">
-                  <FileText size={18} />
-                  Submit Resolution
-                </Link>
+            <div className="lg:col-span-2 rounded-2xl p-8 md:p-10 min-h-[340px] flex flex-col justify-end relative overflow-hidden text-white bg-[radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.14),rgba(255,255,255,0)_45%),linear-gradient(135deg,#6e1d1b_0%,#4a0f14_60%,#2f0a10_100%)]">
+              <div className="absolute inset-0 opacity-30 bg-[linear-gradient(115deg,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0)_35%,rgba(0,0,0,0.22)_100%)]" />
+              <div className="relative z-10">
+                <span className="block text-[10px] uppercase tracking-[0.2em] text-white/80 mb-3">General Assembly Session</span>
+                <h1 className="text-4xl md:text-5xl italic font-bold leading-tight mb-4" style={heroHeadingStyle}>
+                  Welcome back, {getDisplayName()}
+                </h1>
+                <p className="text-sm md:text-base text-white/80 max-w-xl leading-relaxed">
+                  {getUserRole()} access unlocked. Keep your bloc aligned with live developments, draft progress, and committee milestones from one unified dashboard.
+                </p>
               </div>
             </div>
 
-            <div className="surface-card rounded-2xl border border-soft-ivory bg-white p-6 md:p-7 shadow-xl">
-              <div className="w-16 h-16 rounded-xl bg-soft-rose text-deep-red flex items-center justify-center mb-4">
-                <UserRound size={28} />
+            <div className="surface-card rounded-2xl border border-soft-ivory bg-white p-6 md:p-7 shadow-xl flex flex-col items-center text-center">
+              <div className="w-20 h-20 rounded-xl bg-soft-rose text-deep-red flex items-center justify-center mb-5 border-4 border-[#f3eee8]">
+                <UserRound size={36} />
               </div>
-              <h2 className="text-2xl font-semibold text-deep-red" style={accentHeadingStyle}>{getDisplayName()}</h2>
-              <p className="text-xs uppercase tracking-[0.28em] text-almost-black-green/60 mt-1">{getUserRole()}</p>
-              <div className="divider-soft my-5"></div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <h2 className="text-2xl font-semibold text-deep-red break-words" style={accentHeadingStyle}>{getDisplayName()}</h2>
+              <p className="text-xs uppercase tracking-[0.14em] text-almost-black-green/60 mt-1 break-words">{getUserRole()}</p>
+              <div className="divider-soft my-5 w-full"></div>
+              <div className="grid grid-cols-2 gap-4 text-sm w-full text-left">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-almost-black-green/60">Status</p>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-almost-black-green/60">Committee</p>
+                  <p className="font-semibold text-almost-black-green mt-1">DISEC</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-almost-black-green/60">Status</p>
                   <p className="font-semibold text-almost-black-green mt-1">Present</p>
                 </div>
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-almost-black-green/60">Time</p>
-                  <p className="font-semibold text-almost-black-green mt-1">{timeString}</p>
-                </div>
               </div>
-              <Link href="/messages" className="ghost-button mt-6 w-full justify-center">
+              <Link href="/resolutions" className="primary-button mt-6 w-full justify-center">
                 <Send size={16} />
-                Open Messages
+                Submit Resolution
               </Link>
             </div>
           </motion.section>
@@ -163,23 +131,36 @@ const Page = () => {
             initial={{ opacity: 0, y: 28 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
-            className="grid grid-cols-1 lg:grid-cols-4 gap-5"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5"
           >
-            <div className="lg:col-span-2 rounded-2xl border border-[#ead6cc] bg-[#fff2e8] p-6 md:p-8">
+            <div className="md:col-span-2 rounded-2xl border border-[#ead6cc] bg-[#FFF0E5] p-6 md:p-8">
               <div className="flex items-center gap-2 mb-4 text-deep-red">
                 <Clock3 size={16} />
-                <p className="text-xs uppercase tracking-[0.24em] font-semibold">Next Session Commences In</p>
+                <p className="text-[10px] uppercase tracking-[0.22em] font-semibold">Next Session Commences In</p>
               </div>
-              <p className="text-3xl md:text-4xl text-deep-red font-semibold" style={accentHeadingStyle}>02 : 14 : 45</p>
-              <p className="text-sm text-almost-black-green/70 mt-2">Agenda: Cyber Warfare Sovereignty</p>
-              <div className="divider-soft my-4"></div>
-              <p className="text-sm text-almost-black-green/80">Stay prepared for extraordinary motions and update your caucus positions ahead of moderated debate.</p>
+              <div className="flex items-center gap-3 md:gap-4">
+                <div className="flex flex-col">
+                  <span className="text-4xl md:text-5xl font-bold text-deep-red" style={accentHeadingStyle}>02</span>
+                  <span className="text-[9px] uppercase tracking-wide text-almost-black-green/55">Days</span>
+                </div>
+                <span className="text-4xl md:text-5xl font-bold text-deep-red" style={accentHeadingStyle}>:</span>
+                <div className="flex flex-col">
+                  <span className="text-4xl md:text-5xl font-bold text-deep-red" style={accentHeadingStyle}>14</span>
+                  <span className="text-[9px] uppercase tracking-wide text-almost-black-green/55">Hours</span>
+                </div>
+                <span className="text-4xl md:text-5xl font-bold text-deep-red" style={accentHeadingStyle}>:</span>
+                <div className="flex flex-col">
+                  <span className="text-4xl md:text-5xl font-bold text-deep-red" style={accentHeadingStyle}>45</span>
+                  <span className="text-[9px] uppercase tracking-wide text-almost-black-green/55">Mins</span>
+                </div>
+              </div>
+              <p className="text-xs md:text-sm text-almost-black-green/75 mt-5">Agenda: Cyber Warfare Sovereignty</p>
             </div>
             {[
               { title: 'Documents', value: documentsCount, hint: 'Drafts awaiting review' },
               { title: 'Messages', value: '2 unread', hint: 'Chairs awaiting responses' }
             ].map((item) => (
-              <div key={item.title} className="surface-card rounded-2xl p-6 border-l-4 border-deep-red/70">
+              <div key={item.title} className="surface-card rounded-2xl p-6 border-l-4 border-deep-red/70 bg-[#f4f3f3]">
                 <p className="text-[11px] uppercase tracking-[0.24em] text-deep-red/65">{item.title}</p>
                 <p className="text-2xl font-semibold text-deep-red mt-2" style={accentHeadingStyle}>{item.value}</p>
                 <p className="text-xs text-almost-black-green/65 mt-2">{item.hint}</p>
@@ -191,76 +172,67 @@ const Page = () => {
             initial={{ opacity: 0, y: 32 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.25 }}
-            className="grid grid-cols-1 xl:grid-cols-12 gap-6"
+            className="grid grid-cols-1 lg:grid-cols-12 gap-6"
           >
-            <div className="xl:col-span-8 space-y-5">
-              <div className="flex items-center justify-between gap-4">
-                <h3 className="text-2xl font-semibold text-deep-red" style={accentHeadingStyle}>Essential Delegate Resources</h3>
-                <BookOpen size={18} className="text-deep-red/70" />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {quickActions.map((action, index) => {
-                  const Icon = action.icon;
+            <div className="lg:col-span-8 space-y-4">
+              <h3 className="text-2xl font-semibold text-deep-red border-b border-[#dcc0bd]/40 pb-4" style={accentHeadingStyle}>Essential Delegate Resources</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {resourceCards.map((resource) => {
+                  const Icon = resource.icon;
                   return (
-                    <motion.div
-                      key={action.title}
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.55, delay: 0.1 * (index + 1) }}
-                    >
-                      <Link href={action.href} className="group block h-full">
-                        <div className="surface-card h-full overflow-hidden rounded-2xl p-6 transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-xl border border-soft-ivory/70">
-                          <div className="flex items-start justify-between mb-4">
-                            <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-soft-rose text-deep-red">
-                              <Icon size={20} />
-                            </span>
-                            <ArrowRight size={18} className="text-deep-red/50 group-hover:text-deep-red transition-colors" />
-                          </div>
-                          <h4 className="text-xl font-semibold text-deep-red mb-2" style={accentHeadingStyle}>{action.title}</h4>
-                          <p className="text-sm text-almost-black-green/75 leading-relaxed">{action.description}</p>
+                    <Link key={resource.title} href={resource.href} className="group block">
+                      <div className="bg-white rounded-xl border border-[#dcc0bd]/20 shadow-sm p-5 h-full">
+                        <div className="flex items-center justify-between mb-3">
+                          <Icon size={18} className="text-deep-red" />
+                          <span className="text-[9px] font-bold uppercase px-2 py-1 bg-[#eee0d5] rounded text-[#211a14]">{resource.tag}</span>
                         </div>
-                      </Link>
-                    </motion.div>
+                        <h4 className="text-base font-semibold text-deep-red mb-2" style={accentHeadingStyle}>{resource.title}</h4>
+                        <p className="text-xs text-almost-black-green/70 leading-relaxed">{resource.description}</p>
+                        <div className="mt-3 flex items-center text-deep-red/70 text-xs font-semibold">
+                          Open <ArrowRight size={14} className="ml-1" />
+                        </div>
+                      </div>
+                    </Link>
                   );
                 })}
               </div>
             </div>
 
-            <div className="xl:col-span-4 space-y-5">
-              <div className="surface-card is-emphasised rounded-2xl p-6 text-white overflow-hidden relative">
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle size={16} />
-                  <p className="text-[11px] uppercase tracking-[0.24em] font-semibold">Active Crisis Alert</p>
+            <div className="lg:col-span-4 space-y-4">
+              <div className="rounded-xl p-6 text-white overflow-hidden relative bg-[linear-gradient(160deg,#500608_0%,#6e1d1b_100%)] shadow-lg">
+                <div className="absolute right-3 top-3 opacity-15">
+                  <AlertTriangle size={54} />
                 </div>
-                <h4 className="text-2xl font-semibold leading-snug mb-3" style={heroHeadingStyle}>Maritime Incursion in the Bering Strait</h4>
-                <p className="text-sm text-white/85 leading-relaxed mb-5">Emergency intelligence indicates unauthorized naval maneuvers. DISEC delegates should prepare for an extraordinary motion.</p>
-                <Link href="/live-updates" className="ghost-button border-white/30 text-white hover:bg-white/10">
+                <span className="inline-block px-2 py-1 bg-white text-deep-red text-[9px] font-bold uppercase mb-3 rounded">Active Crisis Alert</span>
+                <h4 className="text-xl font-semibold leading-snug mb-3" style={heroHeadingStyle}>Maritime Incursion in the Bering Strait</h4>
+                <p className="text-xs text-white/85 leading-relaxed mb-4">Emergency intelligence indicates unauthorized naval maneuvers. DISEC delegates should prepare for an extraordinary motion.</p>
+                <Link href="/live-updates" className="ghost-button border-white/30 text-white hover:bg-white/10 w-full justify-center">
                   Read Briefing
                 </Link>
               </div>
-              <div className="surface-card rounded-2xl p-6">
-                <h4 className="text-lg font-semibold text-deep-red mb-4" style={accentHeadingStyle}>Recent Messaging</h4>
-                <div className="space-y-4">
+              <div className="rounded-xl p-5 bg-[#f4f3f3] border border-[#e2e2e2]">
+                <h4 className="text-lg font-semibold text-deep-red mb-4 italic" style={accentHeadingStyle}>Recent Messaging</h4>
+                <div className="space-y-3">
                   <div className="flex items-start gap-3">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-soft-rose text-deep-red">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#e2e2e2] text-deep-red">
                       <UserRound size={14} />
                     </span>
                     <div>
                       <p className="text-xs font-semibold text-almost-black-green">Delegate (France)</p>
-                      <p className="text-xs text-almost-black-green/65">Requesting a meeting regarding the caucus motion...</p>
+                      <p className="text-[11px] text-almost-black-green/65">Requesting a meeting regarding the caucus motion...</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-soft-rose text-deep-red">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#e2e2e2] text-deep-red">
                       <UserRound size={14} />
                     </span>
                     <div>
                       <p className="text-xs font-semibold text-almost-black-green">Delegate (USA)</p>
-                      <p className="text-xs text-almost-black-green/65">Agreed. We will support the amendment in Clause 4...</p>
+                      <p className="text-[11px] text-almost-black-green/65">Agreed. We will support the amendment in Clause 4...</p>
                     </div>
                   </div>
                 </div>
-                <Link href="/messages" className="ghost-button mt-5 w-full justify-center">
+                <Link href="/messages" className="ghost-button mt-4 w-full justify-center">
                   <MessageSquare size={16} />
                   Go to Messaging
                 </Link>
