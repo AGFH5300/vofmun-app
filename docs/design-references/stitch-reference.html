@@ -1,0 +1,1758 @@
+<!-- Glossary Unified V2 -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Glossary | VOFMUN Portal</title>
+<!-- Google Fonts: Newsreader & Manrope -->
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,600;0,700;1,400;1,600&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-fixed": "#211a14",
+              "tertiary-fixed-dim": "#d2c4ba",
+              "on-error-container": "#93000a",
+              "error-container": "#ffdad6",
+              "surface-variant": "#e2e2e2",
+              "surface-dim": "#dadada",
+              "surface": "#f9f9f9",
+              "surface-container": "#eeeeee",
+              "on-secondary-fixed-variant": "#454747",
+              "surface-bright": "#f9f9f9",
+              "tertiary": "#2b231d",
+              "on-primary-fixed": "#410003",
+              "tertiary-fixed": "#eee0d5",
+              "on-primary-fixed-variant": "#7f2926",
+              "inverse-surface": "#2f3131",
+              "secondary-fixed-dim": "#c6c6c6",
+              "inverse-primary": "#ffb3ad",
+              "error": "#ba1a1a",
+              "primary": "#6e1d1b", // Updated to match Design System 1
+              "background": "#f9f9f9",
+              "surface-tint": "#9e403b",
+              "outline": "#89726f",
+              "on-secondary-container": "#636465",
+              "inverse-on-surface": "#f1f1f1",
+              "surface-container-highest": "#e2e2e2",
+              "tertiary-container": "#413931",
+              "on-tertiary-container": "#afa298",
+              "on-surface": "#1a1c1c",
+              "outline-variant": "#dcc0bd",
+              "surface-container-high": "#e8e8e8",
+              "secondary-fixed": "#e2e2e2",
+              "on-primary": "#ffffff",
+              "on-primary-container": "#f5847b",
+              "primary-container": "#6e1d1b",
+              "on-error": "#ffffff",
+              "on-surface-variant": "#564240",
+              "on-tertiary-fixed-variant": "#4e453d",
+              "surface-container-lowest": "#ffffff",
+              "secondary": "#5d5f5f",
+              "on-secondary": "#ffffff",
+              "on-tertiary": "#ffffff",
+              "primary-fixed": "#ffdad6",
+              "primary-fixed-dim": "#ffb3ad",
+              "surface-container-low": "#f4f3f3",
+              "on-secondary-fixed": "#1a1c1c",
+              "secondary-container": "#e2e2e2",
+              "on-background": "#1a1c1c"
+            },
+            fontFamily: {
+              "headline": ["Newsreader", "serif"],
+              "body": ["Manrope", "sans-serif"],
+              "label": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {
+              "DEFAULT": "0.5rem", // Updated to ROUND_EIGHT (0.5rem)
+              "lg": "0.5rem", 
+              "xl": "0.75rem", 
+              "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Manrope', sans-serif; }
+        .serif-text { font-family: 'Newsreader', serif; }
+        .active-nav-link {
+          color: #6E1D1B;
+          border-bottom-width: 2px;
+          border-bottom-color: #6E1D1B;
+          font-weight: 700;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-primary-fixed-dim">
+<!-- TopAppBar (Updated to match VOFMUN ONE navbar) -->
+<header class="fixed top-0 left-0 w-full bg-[#FFF0E5]/80 backdrop-blur-md z-50 shadow-[0_8px_32px_rgba(26,28,28,0.06)] no-border">
+<div class="max-w-[1600px] mx-auto px-8 h-20 flex justify-between items-center">
+<div class="flex items-center gap-8 shrink-0">
+<span class="font-headline font-semibold text-primary text-xl tracking-wide">VOFMUN ONE</span>
+<nav class="hidden md:flex items-center gap-5">
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Dashboard</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Live Updates</a>
+<a class="text-primary border-b-[2px] border-primary pb-1 font-label uppercase tracking-widest text-[10px] font-bold transition-colors duration-300 whitespace-nowrap" href="#">Glossary</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Resolutions</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Messaging</a>
+</nav>
+</div>
+<div class="flex items-center gap-5 shrink-0">
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Speech Repository</a>
+<div class="flex items-center gap-2 text-[#564240]/70">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="flag">flag</span>
+<span class="text-[10px] font-bold font-label uppercase tracking-widest">France</span>
+</div>
+<div class="w-px h-5 bg-outline-variant/40"></div>
+<button class="flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-on-primary font-label text-[10px] font-bold uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="logout">logout</span>
+        Log Out
+      </button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 min-h-screen">
+<div class="max-w-6xl mx-auto px-8 py-12">
+<!-- Hero Section / Header -->
+<section class="mb-16">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="max-w-2xl">
+<span class="text-primary font-label uppercase tracking-[0.2em] text-xs font-bold mb-4 block">Official Handbook</span>
+<h1 class="font-headline text-5xl md:text-6xl font-semibold italic text-primary leading-tight mb-4 tracking-tight">Delegate Glossary</h1>
+<p class="text-body text-secondary text-lg leading-relaxed font-light">Your definitive guide to the lexicon of international diplomacy. Clear terminology ensures a more productive committee session.</p>
+</div>
+<div class="hidden md:block">
+<div class="bg-surface-container-high h-24 w-24 rounded-full flex items-center justify-center border-4 border-surface">
+<span class="material-symbols-outlined text-primary text-4xl">history_edu</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Sticky Search Anchor -->
+<div class="sticky top-24 z-30 mb-12">
+<div class="bg-surface-container-low/90 backdrop-blur-xl p-4 rounded-2xl flex items-center shadow-sm">
+<span class="material-symbols-outlined text-primary-container ml-2">search</span>
+<input class="w-full bg-transparent border-none focus:ring-0 px-4 py-2 font-body text-lg placeholder:text-slate-400" placeholder="Start typing to filter 'Quorum' or 'Caucus'..." type="text"/>
+<div class="flex gap-2 mr-2">
+<kbd class="hidden sm:inline-flex items-center bg-surface-container-highest px-2 py-1 rounded text-[10px] font-bold text-slate-500">ESC</kbd>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-12">
+<!-- Main Glossary List -->
+<div class="xl:col-span-2 space-y-20">
+<!-- Key Terms Section -->
+<section>
+<div class="flex items-center gap-4 mb-10">
+<h2 class="font-headline text-3xl italic font-semibold text-primary">Key Terms</h2>
+<div class="h-[1px] flex-grow bg-outline-variant/30"></div>
+<span class="text-xs font-label uppercase text-slate-400 tracking-widest">A—Z Index</span>
+</div>
+<div class="space-y-12">
+<!-- Term 1 -->
+<article class="group">
+<div class="flex flex-col md:flex-row gap-4 md:gap-12">
+<div class="md:w-1/3">
+<h3 class="font-headline text-2xl font-bold text-on-surface group-hover:text-primary transition-colors">Moderated Caucus</h3>
+<div class="mt-2 flex flex-wrap gap-2">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-tight">Debate Phase</span>
+<span class="bg-surface-container-highest text-secondary text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-tight">Formal</span>
+</div>
+</div>
+<div class="md:w-2/3">
+<p class="text-body text-on-surface-variant leading-relaxed text-base">A mixture of both formal and informal debate. Delegates remain in their seats and are called upon by the Chair to speak for a short period of time, enabling a more direct conversation on a specific sub-topic.</p>
+</div>
+</div>
+</article>
+<!-- Term 2 -->
+<article class="group">
+<div class="flex flex-col md:flex-row gap-4 md:gap-12">
+<div class="md:w-1/3">
+<h3 class="font-headline text-2xl font-bold text-on-surface group-hover:text-primary transition-colors">Motion to Adjourn</h3>
+<div class="mt-2 flex flex-wrap gap-2">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-tight">Procedural</span>
+</div>
+</div>
+<div class="md:w-2/3">
+<p class="text-body text-on-surface-variant leading-relaxed text-base">A request to end the committee session entirely until the next conference. Usually reserved for the very final session of the weekend.</p>
+</div>
+</div>
+</article>
+<!-- Term 3 -->
+<article class="group">
+<div class="flex flex-col md:flex-row gap-4 md:gap-12">
+<div class="md:w-1/3">
+<h3 class="font-headline text-2xl font-bold text-on-surface group-hover:text-primary transition-colors">Yield to the Chair</h3>
+<div class="mt-2 flex flex-wrap gap-2">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-tight">Speaker's List</span>
+</div>
+</div>
+<div class="md:w-2/3">
+<p class="text-body text-on-surface-variant leading-relaxed text-base">When a delegate finishes their speech before their time has elapsed and gives the remaining time back to the Chair, ending their turn without questions or comments.</p>
+</div>
+</div>
+</article>
+<!-- Term 4 -->
+<article class="group">
+<div class="flex flex-col md:flex-row gap-4 md:gap-12">
+<div class="md:w-1/3">
+<h3 class="font-headline text-2xl font-bold text-on-surface group-hover:text-primary transition-colors">Dais</h3>
+<div class="mt-2 flex flex-wrap gap-2">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-tight">Administration</span>
+</div>
+</div>
+<div class="md:w-2/3">
+<p class="text-body text-on-surface-variant leading-relaxed text-base">The group of people, usually high school or college students, in charge of a MUN committee. It generally consists of a Chair, a Director, and a Rapporteur.</p>
+</div>
+</div>
+</article>
+</div>
+</section>
+<!-- Quote Block -->
+<div class="bg-surface-container-low p-10 rounded-2xl relative overflow-hidden border-l-4 border-primary">
+<span class="material-symbols-outlined absolute -top-4 -right-4 text-9xl text-primary/5 opacity-20 rotate-12">format_quote</span>
+<p class="font-headline text-2xl italic text-primary leading-relaxed mb-4 relative z-10">"The quality of debate is directly proportional to the clarity of the language used."</p>
+<p class="text-xs font-label uppercase tracking-widest text-slate-400">Hon. Secretariat, VOFMUN 2024</p>
+</div>
+</div>
+<!-- Sidebar Content (Right Side) -->
+<div class="space-y-12">
+<!-- Point Categories Section -->
+<section class="bg-surface-container-highest/40 p-8 rounded-2xl border border-outline-variant/10">
+<h2 class="font-headline text-2xl italic font-semibold text-primary mb-6">Point Categories</h2>
+<div class="space-y-8">
+<div>
+<h4 class="font-label font-bold text-xs uppercase tracking-wider text-primary mb-2 flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                                    Point of Order
+                                </h4>
+<p class="text-sm text-on-surface-variant leading-relaxed">Used when a delegate believes that there has been an error in the parliamentary procedure.</p>
+</div>
+<div>
+<h4 class="font-label font-bold text-xs uppercase tracking-wider text-primary mb-2 flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                                    Point of Information
+                                </h4>
+<p class="text-sm text-on-surface-variant leading-relaxed">A question directed to a delegate who has just finished speaking. These are only allowed if the delegate yields to points of information.</p>
+</div>
+<div>
+<h4 class="font-label font-bold text-xs uppercase tracking-wider text-primary mb-2 flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                                    Point of Personal Privilege
+                                </h4>
+<p class="text-sm text-on-surface-variant leading-relaxed">Used if a delegate experiences discomfort (e.g., room temperature, volume) that hinders their participation.</p>
+</div>
+<div>
+<h4 class="font-label font-bold text-xs uppercase tracking-wider text-primary mb-2 flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                                    Point of Inquiry
+                                </h4>
+<p class="text-sm text-on-surface-variant leading-relaxed">Used to ask the Dais a question regarding the rules of procedure or a point of clarification.</p>
+</div>
+</div>
+</section>
+<!-- Quick Resources Card -->
+<div class="bg-primary p-8 rounded-2xl text-white relative group overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-primary via-primary to-black opacity-40"></div>
+<div class="relative z-10">
+<h3 class="font-headline text-2xl mb-4 italic">Delegate Handbook</h3>
+<p class="text-sm opacity-80 mb-6 font-light leading-relaxed">Download the full PDF version of the Rules of Procedure for offline study during sessions.</p>
+<button class="w-full bg-[#FFF0E5] text-primary py-3 rounded-xl font-bold font-label uppercase tracking-widest text-xs flex items-center justify-center gap-2 group-hover:scale-[1.02] transition-transform">
+<span class="material-symbols-outlined text-lg">download</span>
+                                Get Handbook
+                            </button>
+</div>
+<div class="absolute -bottom-8 -right-8 opacity-10 group-hover:rotate-12 transition-transform duration-500">
+<span class="material-symbols-outlined text-[140px]">menu_book</span>
+</div>
+</div>
+<!-- Delegate Image Placeholder -->
+<div class="rounded-2xl overflow-hidden aspect-[4/5] shadow-xl">
+<img alt="Professional diplomatic setting" class="w-full h-full object-cover" data-alt="Close-up of a mahogany desk with a delegate nameplate and gavel in a grand assembly hall with soft overhead lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC86x7s8ODHWz7jsCOYLkTx4Jp7KsPhbnYqLgK7FyAJeBoqxeq-sp9DLwvrK22t_dIQyfVURywllhFc9cEexDtvithPfdAZhi2EQbN9KkNy4Y_LPLLpO4WLWlMlOmk5J6NCwdVirEJtVnXXM8PPIRxwoSeFJQUHh_RkyWIHt-BKy8NTVQ8jc1XOqGmFcw2N1tPCq1gFt-4ly194aZ-2T83H-IlpxGRHpay2xMHMwZrfZOQ2mm6RR4-DdY2Xl6pzERDL9ykezAre3iA"/>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Nav for Mobile -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full bg-surface-container-lowest flex justify-around items-center h-16 shadow-[0_-4px_16px_rgba(0,0,0,0.05)] z-50">
+<button class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-label font-bold uppercase tracking-tighter">Home</span>
+</button>
+<button class="flex flex-col items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">menu_book</span>
+<span class="text-[10px] font-label font-bold uppercase tracking-tighter">Glossary</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">campaign</span>
+<span class="text-[10px] font-label font-bold uppercase tracking-tighter">Live</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">logout</span>
+<span class="text-[10px] font-label font-bold uppercase tracking-tighter">Exit</span>
+</button>
+</nav>
+</body></html>
+
+<!-- Live Updates Unified V2 -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Live Updates - VOFMUN ONE</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#4e453d",
+                        "on-primary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "outline": "#89726f",
+                        "on-tertiary-container": "#afa298",
+                        "inverse-on-surface": "#f1f1f1",
+                        "on-secondary-fixed-variant": "#454747",
+                        "on-primary-fixed": "#410003",
+                        "surface-container": "#eeeeee",
+                        "secondary-fixed-dim": "#c6c6c6",
+                        "primary-container": "#6e1d1b",
+                        "surface-container-highest": "#e2e2e2",
+                        "on-primary-fixed-variant": "#7f2926",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed-dim": "#ffb3ad",
+                        "inverse-primary": "#ffb3ad",
+                        "tertiary-fixed": "#eee0d5",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-tertiary": "#ffffff",
+                        "secondary-container": "#e2e2e2",
+                        "on-tertiary-fixed": "#211a14",
+                        "inverse-surface": "#2f3131",
+                        "surface-dim": "#dadada",
+                        "surface-container-high": "#e8e8e8",
+                        "outline-variant": "#dcc0bd",
+                        "on-error-container": "#93000a",
+                        "surface-bright": "#f9f9f9",
+                        "on-secondary": "#ffffff",
+                        "tertiary": "#2b231d",
+                        "surface-tint": "#9e403b",
+                        "secondary": "#5d5f5f",
+                        "primary": "#500608",
+                        "tertiary-container": "#413931",
+                        "error-container": "#ffdad6",
+                        "surface-container-low": "#f4f3f3",
+                        "on-primary-container": "#f5847b",
+                        "on-surface": "#1a1c1c",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-background": "#1a1c1c",
+                        "on-surface-variant": "#564240",
+                        "on-secondary-container": "#636465",
+                        "tertiary-fixed-dim": "#d2c4ba",
+                        "surface-variant": "#e2e2e2",
+                        "surface": "#f9f9f9",
+                        "on-error": "#ffffff",
+                        "background": "#f9f9f9",
+                        "primary-fixed": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {},
+                    "fontFamily": {
+                        "headline": ["Newsreader"],
+                        "display": ["Newsreader"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    },
+                    "fontSize": {}
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body min-h-screen antialiased selection:bg-primary-container selection:text-on-primary">
+<!-- TopNavBar Shared Component -->
+<header class="fixed top-0 left-0 w-full bg-[#FFF0E5]/80 backdrop-blur-md z-50 shadow-[0_8px_32px_rgba(26,28,28,0.06)] no-border">
+<div class="max-w-[1600px] mx-auto px-8 h-20 flex justify-between items-center">
+<div class="flex items-center gap-8 shrink-0">
+<span class="font-headline font-semibold text-primary text-xl tracking-wide">VOFMUN ONE</span>
+<nav class="hidden md:flex items-center gap-5">
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Dashboard</a>
+<a class="text-primary border-b-[2px] border-primary pb-1 font-label uppercase tracking-widest text-[10px] font-bold transition-colors duration-300 whitespace-nowrap" href="#">Live Updates</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Glossary</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Resolutions</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Messaging</a>
+</nav>
+</div>
+<div class="flex items-center gap-5 shrink-0">
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Speech Repository</a>
+<div class="flex items-center gap-2 text-[#564240]/70">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="flag">flag</span>
+<span class="text-[10px] font-bold font-label uppercase tracking-widest">France</span>
+</div>
+<div class="w-px h-5 bg-outline-variant/40"></div>
+<button class="flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-on-primary font-label text-[10px] font-bold uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="logout">logout</span>
+        Log Out
+      </button>
+</div>
+</div>
+</header>
+<!-- Main Container -->
+<main class="max-w-7xl mx-auto px-6 py-12 space-y-16 pt-28">
+<!-- Top Section: Session Status -->
+<section class="space-y-6">
+<h1 class="font-headline text-4xl font-semibold text-primary tracking-tight">Session Status</h1>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Metric 1 -->
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_32px_rgba(26,28,28,0.06)] relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary-container/5 rounded-bl-full -z-10"></div>
+<span class="font-label text-sm uppercase tracking-widest text-on-surface-variant block mb-2">Current Session</span>
+<h2 class="font-headline text-2xl font-medium text-primary leading-tight">Moderated Caucus on Refugee Logistics</h2>
+</div>
+<!-- Metric 2 -->
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
+<span class="font-label text-sm uppercase tracking-widest text-on-surface-variant block mb-2">Starts Next</span>
+<div class="flex items-baseline space-x-2">
+<span class="font-headline text-4xl font-bold text-primary">00:45:12</span>
+<span class="font-body text-sm text-on-surface-variant">until Unmoderated Caucus</span>
+</div>
+</div>
+<!-- Metric 3 -->
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
+<span class="font-label text-sm uppercase tracking-widest text-on-surface-variant block mb-2">Conference End</span>
+<div class="flex items-baseline space-x-2">
+<span class="font-headline text-4xl font-bold text-primary">14:20:00</span>
+<span class="font-body text-sm text-on-surface-variant">until Final Dispersal</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Main Content Area: Two Columns -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+<!-- Left Column: Schedule (4 cols) -->
+<section class="lg:col-span-4 space-y-8">
+<div class="flex items-center justify-between border-b border-outline-variant/30 pb-4">
+<h2 class="font-headline text-2xl font-semibold text-on-surface">Daily Schedule</h2>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-label text-xs uppercase px-3 py-1 rounded-md tracking-wider">Day 2</span>
+</div>
+<div class="relative border-l-2 border-surface-container-highest ml-3 space-y-10 py-2">
+<!-- Past Item -->
+<div class="relative pl-8">
+<div class="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full bg-surface-container-highest border-2 border-surface"></div>
+<span class="font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant block mb-1">09:00 - 10:30 (Past)</span>
+<h3 class="font-headline text-lg font-medium text-on-surface/60">Opening Plenary</h3>
+</div>
+<!-- Current Item -->
+<div class="relative pl-8 bg-surface-container-low -ml-3 p-4 rounded-r-xl border-l-2 border-primary">
+<div class="absolute -left-[11px] top-5 w-5 h-5 rounded-full bg-primary border-4 border-surface shadow-sm"></div>
+<span class="font-label text-xs font-bold uppercase tracking-widest text-primary block mb-1">10:45 - 12:15 (Current)</span>
+<h3 class="font-headline text-xl font-semibold text-primary">Committee Session II</h3>
+<p class="font-body text-sm text-on-surface-variant mt-2">Moderated Caucus on Refugee Logistics currently ongoing.</p>
+</div>
+<!-- Upcoming Item -->
+<div class="relative pl-8">
+<div class="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full bg-surface-container-highest border-2 border-surface"></div>
+<span class="font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant block mb-1">12:30 - 14:00</span>
+<h3 class="font-headline text-lg font-medium text-on-surface">Luncheon</h3>
+</div>
+<!-- Upcoming Item -->
+<div class="relative pl-8">
+<div class="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full bg-surface-container-highest border-2 border-surface"></div>
+<span class="font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant block mb-1">14:15 - 16:30</span>
+<h3 class="font-headline text-lg font-medium text-on-surface">Crisis Simulation Alpha</h3>
+</div>
+</div>
+</section>
+<!-- Right Column: Swapped Content Layout (8 cols) -->
+<div class="lg:col-span-8 grid grid-cols-1 lg:grid-cols-8 gap-8 items-start">
+<!-- Left Dominant Area: Announcements (5 cols) -->
+<section class="lg:col-span-5 bg-surface-container-lowest rounded-2xl shadow-[0_8px_32px_rgba(26,28,28,0.06)] p-6">
+<h3 class="font-headline text-xl font-medium text-primary mb-4 flex items-center gap-2 border-b border-outline-variant/20 pb-4">
+<span class="material-symbols-outlined text-primary" data-icon="campaign">campaign</span>
+                        Announcements
+                    </h3>
+<div class="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+<div class="bg-surface-container-low p-4 rounded-lg">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-xs uppercase tracking-widest text-error font-bold">URGENT UPDATE</span>
+<span class="font-label text-xs text-on-surface-variant">11:02 AM</span>
+</div>
+<p class="font-body text-sm text-on-surface leading-relaxed">Satellite imagery confirms movement of unauthorized vessels in Sector 4. Delegations are advised to review Annex B.</p>
+</div>
+<div class="bg-surface p-4 rounded-lg border border-outline-variant/20">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-xs uppercase tracking-widest text-primary font-bold">CHAIR DIRECTIVE</span>
+<span class="font-label text-xs text-on-surface-variant">10:55 AM</span>
+</div>
+<p class="font-body text-sm text-on-surface leading-relaxed">Debate time for current speakers list has been extended by 10 minutes to accommodate emergency motions.</p>
+</div>
+<div class="bg-surface p-4 rounded-lg border border-outline-variant/20 opacity-70">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold">SYSTEM NOTICE</span>
+<span class="font-label text-xs text-on-surface-variant">10:30 AM</span>
+</div>
+<p class="font-body text-sm text-on-surface leading-relaxed">Session II officially commenced. Roll call data synchronized.</p>
+</div>
+</div>
+</section>
+<!-- Right Secondary Area: Crisis Briefing (3 cols) -->
+<section class="lg:col-span-3 bg-surface-container-lowest rounded-2xl shadow-[0_8px_32px_rgba(26,28,28,0.06)] overflow-hidden flex flex-col">
+<!-- Viewer Header -->
+<div class="bg-surface-container-low px-4 py-3 flex flex-col gap-2 border-b border-outline-variant/20">
+<h2 class="font-headline text-lg font-semibold text-primary flex items-center gap-2 leading-tight">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="cast">cast</span>
+                        Crisis Briefing
+                    </h2>
+<div class="flex items-center space-x-2">
+<span class="bg-error/10 text-error font-label text-[10px] uppercase px-2 py-0.5 rounded-md tracking-wider font-bold animate-pulse flex items-center gap-1 w-fit">
+<span class="w-1.5 h-1.5 rounded-full bg-error inline-block"></span>
+                            CHAIR CONTROLLED
+                        </span>
+</div>
+</div>
+<!-- Main Viewer Area -->
+<div class="relative bg-surface-container-highest w-full aspect-square">
+<img alt="World Map with Crisis Hotspots" class="w-full h-full object-cover opacity-90" data-alt="A stylized, high-resolution digital world map displaying simulated geopolitical crisis hotspots. The map is rendered in a modern, authoritative aesthetic using deep burgundy, crisp cream, and dark slate colors to align with a diplomatic portal design. Glowing red nodes indicate active conflict zones against a sophisticated, minimalist geographic background. Soft, diffused lighting enhances the premium, official presentation style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBI5jt-vQ-UMR1CuDLhJOSHQHQ5EBbK5DRGafc34_Y0MG67LCiPk3o3thOVWgo4SVSHI_OjI0_z4-c2JgDyjDQdTEu4oRXp3Z3B8v5vgmcaSLjR_3GFR5LyLsPItSv9cEeRHcpWI3TP_F3bHXcc2xzlyAPkCMPkgLpmh0Ix-IwGSmhtO-LVNj9x9jfGCWd2UlUPBNOgy_sIHoC06A2CkslMd0_Yhh_msTLQyRBESKl_hN-fRx7xfILgeA0Vcls6DMoiHIdjBQB5jdc"/>
+<!-- Overlay Controls (Visual Only) -->
+<div class="absolute bottom-3 right-3 flex space-x-1.5">
+<button class="w-8 h-8 rounded-full bg-surface/80 backdrop-blur-sm flex items-center justify-center text-on-surface shadow-sm hover:bg-surface transition-colors cursor-not-allowed opacity-50" title="Chair Controlled">
+<span class="material-symbols-outlined text-sm" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-surface/80 backdrop-blur-sm flex items-center justify-center text-on-surface shadow-sm hover:bg-surface transition-colors cursor-not-allowed opacity-50" title="Chair Controlled">
+<span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+</body></html>
+
+<!-- Home Dashboard Unified V2 -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VOFMUN ONE | Home</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,600;0,700;1,400;1,600&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-fixed": "#211a14",
+              "tertiary-fixed-dim": "#d2c4ba",
+              "on-error-container": "#93000a",
+              "error-container": "#ffdad6",
+              "surface-variant": "#e2e2e2",
+              "surface-dim": "#dadada",
+              "surface": "#f9f9f9",
+              "surface-container": "#eeeeee",
+              "on-secondary-fixed-variant": "#454747",
+              "surface-bright": "#f9f9f9",
+              "tertiary": "#2b231d",
+              "on-primary-fixed": "#410003",
+              "tertiary-fixed": "#eee0d5",
+              "on-primary-fixed-variant": "#7f2926",
+              "inverse-surface": "#2f3131",
+              "secondary-fixed-dim": "#c6c6c6",
+              "inverse-primary": "#ffb3ad",
+              "error": "#ba1a1a",
+              "primary": "#500608",
+              "background": "#f9f9f9",
+              "surface-tint": "#9e403b",
+              "outline": "#89726f",
+              "on-secondary-container": "#636465",
+              "inverse-on-surface": "#f1f1f1",
+              "surface-container-highest": "#e2e2e2",
+              "tertiary-container": "#413931",
+              "on-tertiary-container": "#afa298",
+              "on-surface": "#1a1c1c",
+              "outline-variant": "#dcc0bd",
+              "surface-container-high": "#e8e8e8",
+              "secondary-fixed": "#e2e2e2",
+              "on-primary": "#ffffff",
+              "on-primary-container": "#f5847b",
+              "primary-container": "#6e1d1b",
+              "on-error": "#ffffff",
+              "on-surface-variant": "#564240",
+              "on-tertiary-fixed-variant": "#4e453d",
+              "surface-container-lowest": "#ffffff",
+              "secondary": "#5d5f5f",
+              "on-secondary": "#ffffff",
+              "on-tertiary": "#ffffff",
+              "primary-fixed": "#ffdad6",
+              "primary-fixed-dim": "#ffb3ad",
+              "surface-container-low": "#f4f3f3",
+              "on-secondary-fixed": "#1a1c1c",
+              "secondary-container": "#e2e2e2",
+              "on-background": "#1a1c1c"
+            },
+            fontFamily: {
+              "headline": ["Newsreader"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "8px", "lg": "12px", "xl": "16px", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Manrope', sans-serif; }
+        .font-newsreader { font-family: 'Newsreader', serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- TopAppBar (Shared Component Applied) -->
+<header class="fixed top-0 left-0 w-full bg-[#FFF0E5]/80 backdrop-blur-md z-50 shadow-[0_8px_32px_rgba(26,28,28,0.06)] no-border">
+<div class="max-w-[1600px] mx-auto px-8 h-20 flex justify-between items-center"><div class="flex items-center gap-8 shrink-0">
+<span class="font-headline font-semibold text-primary text-xl tracking-wide">VOFMUN ONE</span>
+<nav class="hidden md:flex items-center gap-5">
+<a class="text-primary border-b-[2px] border-primary pb-1 font-label uppercase tracking-widest text-[10px] font-bold transition-colors duration-300 whitespace-nowrap" href="#">Dashboard</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Live Updates</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Glossary</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Resolutions</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Messaging</a>
+</nav>
+</div>
+<div class="flex items-center gap-5 shrink-0">
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Speech Repository</a>
+<div class="flex items-center gap-2 text-[#564240]/70">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="flag">flag</span>
+<span class="text-[10px] font-bold font-label uppercase tracking-widest">France</span>
+</div>
+<div class="w-px h-5 bg-outline-variant/40"></div>
+<button class="flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-on-primary font-label text-[10px] font-bold uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="logout">logout</span>
+        Log Out
+      </button>
+</div></div>
+</header>
+<!-- Main Content Canvas (No Sidebar Layout) -->
+<main class="pt-28 pb-12 px-8 max-w-7xl mx-auto min-h-screen">
+<!-- Welcome Hero & Delegate Profile -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+<div class="lg:col-span-2 relative overflow-hidden bg-primary-container rounded-lg p-10 flex flex-col justify-end min-h-[350px] text-white">
+<div class="absolute inset-0 opacity-20 mix-blend-overlay">
+<img alt="atmospheric shot of an empty mahogany assembly hall with soft sunlight streaming through tall classical windows" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkCdKiadFDo0gsBWorQjKMocmpLBJxDMPd6cnIUoU5M7f-1SmlsR_s8jj1cuLU54jK3LqeeadAoKRR7cj7AmnSLZQGMxqypb0XxU85VLsPO2zHxWksP8KYd9X_iFbHybmvGYIVek097Gh7z8oA64gphNpRo-LD_rZK_EjqwUuvdnbReyTiMW3w8LIuPfdsVYRbKsvAykKmurvnTi-cKSt-dZPllHCSHm5ibw1Pwcf9v_FgTSDWOJ2ntgeMnaouSG11HbdhVsq4smo"/>
+</div>
+<div class="relative z-10">
+<span class="font-['Manrope'] uppercase tracking-[0.2em] text-[10px] opacity-80 mb-2 block">General Assembly Session IV</span>
+<h2 class="font-newsreader italic font-bold text-5xl mb-4 leading-tight">Welcome back, Hon. Delegate Sterling.</h2>
+<p class="font-['Manrope'] text-surface-variant max-w-lg">Your country's position on the Disarmament and International Security agenda is currently under review by the rapporteur.</p>
+</div>
+</div>
+<!-- Delegate Card -->
+<div class="bg-surface-container-lowest rounded-lg p-8 shadow-[0_8px_32px_rgba(26,28,28,0.06)] flex flex-col items-center text-center">
+<div class="w-24 h-24 rounded-lg overflow-hidden border-4 border-surface-container-low mb-6 flex items-center justify-center bg-surface-container-high">
+<span class="material-symbols-outlined text-5xl text-primary" style="font-variation-settings: 'FILL' 1;">flag</span>
+</div>
+<h3 class="font-newsreader font-bold text-2xl text-primary mb-1">James Sterling</h3>
+<p class="font-['Manrope'] uppercase tracking-widest text-[11px] text-slate-500 mb-6">Representative of the United Kingdom</p>
+<div class="w-full grid grid-cols-2 gap-4 pt-6 border-t border-outline-variant/20 mb-6">
+<div>
+<p class="text-[10px] uppercase text-slate-400 font-bold mb-1">Committee</p>
+<p class="text-sm font-semibold text-primary">DISEC</p>
+</div>
+<div>
+<p class="text-[10px] uppercase text-slate-400 font-bold mb-1">Status</p>
+<p class="text-sm font-semibold text-primary">Present</p>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary py-3 rounded-lg font-['Manrope'] font-semibold uppercase tracking-wider text-xs shadow-lg hover:opacity-90 transition-all">
+                Submit Resolution
+            </button>
+</div>
+</section>
+<!-- Stats & Countdown Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+<!-- Countdown -->
+<div class="md:col-span-2 bg-[#FFF0E5] rounded-lg p-8 flex flex-col justify-between">
+<div>
+<h4 class="font-['Manrope'] uppercase tracking-widest text-[10px] text-primary font-bold mb-4">Next Session Commences In</h4>
+<div class="flex gap-4">
+<div class="flex flex-col">
+<span class="font-newsreader text-4xl font-bold text-primary">02</span>
+<span class="text-[9px] uppercase tracking-tighter text-slate-500">Days</span>
+</div>
+<span class="font-newsreader text-4xl font-bold text-primary">:</span>
+<div class="flex flex-col">
+<span class="font-newsreader text-4xl font-bold text-primary">14</span>
+<span class="text-[9px] uppercase tracking-tighter text-slate-500">Hours</span>
+</div>
+<span class="font-newsreader text-4xl font-bold text-primary">:</span>
+<div class="flex flex-col">
+<span class="font-newsreader text-4xl font-bold text-primary">45</span>
+<span class="text-[9px] uppercase tracking-tighter text-slate-500">Mins</span>
+</div>
+</div>
+</div>
+<div class="mt-8 flex items-center justify-between">
+<span class="text-xs font-semibold text-slate-600 italic font-newsreader">Agenda: Cyber Warfare Sovereignty</span>
+<button class="text-primary hover:underline text-xs font-bold uppercase tracking-wider">Join Prep Room</button>
+</div>
+</div>
+<!-- Stats -->
+<div class="bg-surface-container-low rounded-lg p-8 flex flex-col justify-center border-l-4 border-primary">
+<span class="material-symbols-outlined text-primary mb-2">description</span>
+<p class="text-3xl font-newsreader font-bold text-primary">12</p>
+<p class="text-xs uppercase tracking-widest text-slate-500 font-semibold">Active Resolutions</p>
+</div>
+<div class="bg-surface-container-low rounded-lg p-8 flex flex-col justify-center border-l-4 border-primary">
+<span class="material-symbols-outlined text-primary mb-2">group</span>
+<p class="text-3xl font-newsreader font-bold text-primary">84</p>
+<p class="text-xs uppercase tracking-widest text-slate-500 font-semibold">Delegates Online</p>
+</div>
+</section>
+<!-- Resources & Crisis -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+<!-- Resources Column -->
+<div class="lg:col-span-8 space-y-8">
+<h3 class="font-newsreader font-bold text-2xl text-primary border-b border-outline-variant/20 pb-4">Essential Delegate Resources</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Resource Cards -->
+<a class="group block p-6 bg-surface-container-lowest rounded-lg hover:bg-surface-container-low transition-all shadow-sm border border-outline-variant/10" href="#">
+<div class="flex items-center justify-between mb-4">
+<span class="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">menu_book</span>
+<span class="text-[9px] font-bold uppercase px-2 py-1 bg-tertiary-fixed rounded text-on-tertiary-fixed">Official</span>
+</div>
+<h4 class="font-newsreader font-bold text-lg text-primary mb-2">Delegate Handbook 2024</h4>
+<p class="text-sm text-slate-500 leading-relaxed">Comprehensive guide on committee procedures, protocol, and the VOFMUN code of conduct.</p>
+</a>
+<a class="group block p-6 bg-surface-container-lowest rounded-lg hover:bg-surface-container-low transition-all shadow-sm border border-outline-variant/10" href="#">
+<div class="flex items-center justify-between mb-4">
+<span class="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">gavel</span>
+<span class="text-[9px] font-bold uppercase px-2 py-1 bg-tertiary-fixed rounded text-on-tertiary-fixed">PDF</span>
+</div>
+<h4 class="font-newsreader font-bold text-lg text-primary mb-2">Committee Rules &amp; Procedure</h4>
+<p class="text-sm text-slate-500 leading-relaxed">The parliamentary rules governing DISEC debates, motions, and voting blocks.</p>
+</a>
+<a class="group block p-6 bg-surface-container-lowest rounded-lg hover:bg-surface-container-low transition-all shadow-sm border border-outline-variant/10" href="#">
+<div class="flex items-center justify-between mb-4">
+<span class="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">article</span>
+<span class="text-[9px] font-bold uppercase px-2 py-1 bg-tertiary-fixed rounded text-on-tertiary-fixed">Template</span>
+</div>
+<h4 class="font-newsreader font-bold text-lg text-primary mb-2">Position Paper Guidelines</h4>
+<p class="text-sm text-slate-500 leading-relaxed">Standard formatting and content requirements for all delegate submissions.</p>
+</a>
+<a class="group block p-6 bg-surface-container-lowest rounded-lg hover:bg-surface-container-low transition-all shadow-sm border border-outline-variant/10" href="#">
+<div class="flex items-center justify-between mb-4">
+<span class="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">travel_explore</span>
+<span class="text-[9px] font-bold uppercase px-2 py-1 bg-tertiary-fixed rounded text-on-tertiary-fixed">Global</span>
+</div>
+<h4 class="font-newsreader font-bold text-lg text-primary mb-2">Country Briefing Library</h4>
+<p class="text-sm text-slate-500 leading-relaxed">Access historical voting data and economic indicators for all member nations.</p>
+</a>
+</div>
+</div>
+<!-- Crisis Column -->
+<div class="lg:col-span-4">
+<div class="space-y-8">
+<div class="bg-primary p-8 rounded-lg text-white shadow-xl relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-9xl">warning</span>
+</div>
+<span class="inline-block px-2 py-1 bg-white text-primary text-[9px] font-bold uppercase mb-4 rounded">Active Crisis Alert</span>
+<h3 class="font-newsreader font-bold text-2xl mb-4 leading-snug">Maritime Incursion in the Bering Strait</h3>
+<p class="text-surface-variant text-sm mb-6 leading-relaxed">Emergency intelligence indicates unauthorized naval maneuvers. DISEC delegates must prepare for an immediate extraordinary motion.</p>
+<button class="w-full py-3 bg-white/10 border border-white/20 hover:bg-white/20 transition-all rounded-lg font-bold uppercase text-[10px] tracking-widest">Read Briefing</button>
+</div>
+<div class="bg-surface-container-low p-6 rounded-lg">
+<h4 class="font-newsreader font-bold text-primary mb-4 italic">Recent Messaging</h4>
+<div class="space-y-4">
+<div class="flex gap-3">
+<div class="w-8 h-8 bg-surface-container-highest rounded-full flex-shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm">person</span>
+</div>
+<div>
+<p class="text-xs font-bold">Delegate (France)</p>
+<p class="text-[11px] text-slate-500">Requesting a meeting regarding the caucus motion...</p>
+</div>
+</div>
+<div class="flex gap-3">
+<div class="w-8 h-8 bg-surface-container-highest rounded-full flex-shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm">person</span>
+</div>
+<div>
+<p class="text-xs font-bold">Delegate (USA)</p>
+<p class="text-[11px] text-slate-500">Agreed. We will support the amendment in Clause 4...</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Mobile BottomNavBar -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-white border-t border-outline-variant/20 flex justify-around py-4 z-50">
+<a class="flex flex-col items-center text-primary" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="text-[10px] font-bold">Home</span>
+</a>
+<a class="flex flex-col items-center text-slate-400" href="#">
+<span class="material-symbols-outlined">campaign</span>
+<span class="text-[10px] font-bold">Updates</span>
+</a>
+<a class="flex flex-col items-center text-slate-400" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="text-[10px] font-bold">Docs</span>
+</a>
+<a class="flex flex-col items-center text-slate-400" href="#">
+<span class="material-symbols-outlined">forum</span>
+<span class="text-[10px] font-bold">Chat</span>
+</a>
+</nav>
+</body></html>
+
+<!-- Resolutions Unified V2.1 -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Resolutions Portal | VOFMUN</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,600;0,700;1,400;1,600&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-fixed": "#211a14",
+              "tertiary-fixed-dim": "#d2c4ba",
+              "on-error-container": "#93000a",
+              "error-container": "#ffdad6",
+              "surface-variant": "#e2e2e2",
+              "surface-dim": "#dadada",
+              "surface": "#f9f9f9",
+              "surface-container": "#eeeeee",
+              "on-secondary-fixed-variant": "#454747",
+              "surface-bright": "#f9f9f9",
+              "tertiary": "#2b231d",
+              "on-primary-fixed": "#410003",
+              "tertiary-fixed": "#eee0d5",
+              "on-primary-fixed-variant": "#7f2926",
+              "inverse-surface": "#2f3131",
+              "secondary-fixed-dim": "#c6c6c6",
+              "inverse-primary": "#ffb3ad",
+              "error": "#ba1a1a",
+              "primary": "#6e1d1b",
+              "background": "#f9f9f9",
+              "surface-tint": "#9e403b",
+              "outline": "#89726f",
+              "on-secondary-container": "#636465",
+              "inverse-on-surface": "#f1f1f1",
+              "surface-container-highest": "#e2e2e2",
+              "tertiary-container": "#413931",
+              "on-tertiary-container": "#afa298",
+              "on-surface": "#1a1c1c",
+              "outline-variant": "#dcc0bd",
+              "surface-container-high": "#e8e8e8",
+              "secondary-fixed": "#e2e2e2",
+              "on-primary": "#ffffff",
+              "on-primary-container": "#f5847b",
+              "primary-container": "#6e1d1b",
+              "on-error": "#ffffff",
+              "on-surface-variant": "#564240",
+              "on-tertiary-fixed-variant": "#4e453d",
+              "surface-container-lowest": "#ffffff",
+              "secondary": "#5d5f5f",
+              "on-secondary": "#ffffff",
+              "on-tertiary": "#ffffff",
+              "primary-fixed": "#ffdad6",
+              "primary-fixed-dim": "#ffb3ad",
+              "surface-container-low": "#f4f3f3",
+              "on-secondary-fixed": "#1a1c1c",
+              "secondary-container": "#e2e2e2",
+              "on-background": "#1a1c1c"
+            },
+            fontFamily: {
+              "headline": ["Newsreader"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "0.5rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body class="font-body text-on-surface">
+<!-- TopAppBar Component -->
+<header class="fixed top-0 left-0 w-full bg-[#FFF0E5]/80 backdrop-blur-md z-50 shadow-[0_8px_32px_rgba(26,28,28,0.06)] no-border">
+<div class="max-w-[1600px] mx-auto px-8 h-20 flex justify-between items-center">
+<div class="flex items-center gap-8 shrink-0">
+<span class="font-headline font-semibold text-primary text-xl tracking-wide">VOFMUN ONE</span>
+<nav class="hidden md:flex items-center gap-5">
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Dashboard</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Live Updates</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Glossary</a>
+<a class="text-primary border-b-[2px] border-primary pb-1 font-label uppercase tracking-widest text-[10px] font-bold transition-colors duration-300 whitespace-nowrap" href="#">Resolutions</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Messaging</a>
+</nav>
+</div>
+<div class="flex items-center gap-5 shrink-0">
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Speech Repository</a>
+<div class="flex items-center gap-2 text-[#564240]/70">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="flag">flag</span>
+<span class="text-[10px] font-bold font-label uppercase tracking-widest">France</span>
+</div>
+<div class="w-px h-5 bg-outline-variant/40"></div>
+<button class="flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-on-primary font-label text-[10px] font-bold uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="logout">logout</span>
+        Log Out
+      </button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-28 px-8 pb-12 min-h-screen">
+<div class="max-w-6xl mx-auto">
+<!-- Hero Header -->
+<div class="mb-10">
+<h2 class="font-headline font-bold text-4xl text-primary tracking-tight italic">Resolution Submissions</h2>
+<p class="font-body text-secondary max-w-2xl leading-relaxed mt-2">
+                    Official portal for the Disarmament and International Security Committee. Ensure all linked Google Docs have "Editor" permissions for the chairing staff.
+                </p>
+</div>
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-10">
+<!-- Submission Form Section (4 cols) -->
+<section class="xl:col-span-4 space-y-6">
+<div class="bg-surface-container-lowest p-8 rounded-lg shadow-[0_8px_32px_rgba(26,28,28,0.06)] border border-outline-variant/10">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary-container" data-icon="add_circle">add_circle</span>
+<h3 class="font-headline font-semibold text-xl text-primary-container">Submit New Resolution</h3>
+</div>
+<form class="space-y-6">
+<div>
+<label class="block font-label font-semibold text-[10px] tracking-widest text-secondary uppercase mb-2 ml-1">Resolution Title</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary-container/20 text-on-surface placeholder:text-slate-400 transition-all" placeholder="e.g., Regional Security in SE Asia" type="text"/>
+</div>
+<div>
+<label class="block font-label font-semibold text-[10px] tracking-widest text-secondary uppercase mb-2 ml-1">Google Docs URL</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-lg pl-4 pr-10 py-3 focus:ring-2 focus:ring-primary-container/20 text-on-surface placeholder:text-slate-400 transition-all" placeholder="https://docs.google.com/..." type="url"/>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" data-icon="link">link</span>
+</div>
+</div>
+<div class="pt-2">
+<button class="w-full bg-primary-container text-on-primary py-4 rounded-lg font-bold tracking-wide hover:opacity-90 active:scale-[0.98] transition-all shadow-md" type="submit">
+                                    Link Document
+                                </button>
+</div>
+<p class="text-[11px] text-slate-400 italic text-center px-4">
+                                By submitting, you affirm that this resolution complies with the VOFMUN Charter guidelines.
+                            </p>
+</form>
+</div>
+<!-- Informational Card -->
+<div class="bg-primary-container p-8 rounded-lg text-on-primary relative overflow-hidden">
+<div class="relative z-10">
+<h4 class="font-headline font-bold text-lg mb-2">Protocol Note</h4>
+<p class="text-sm font-body opacity-80 leading-relaxed mb-4">
+                                Once a resolution is "Accepted", it will be moved to the voting block. Check your notifications for feedback if edits are requested.
+                            </p>
+<a class="text-xs uppercase tracking-widest font-bold border-b border-on-primary/30 pb-0.5 hover:border-on-primary transition-all inline-block" href="#">View Guidelines</a>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-10">
+<span class="material-symbols-outlined text-[120px]" data-icon="gavel">gavel</span>
+</div>
+</div>
+</section>
+<!-- Status & History Section (8 cols) -->
+<section class="xl:col-span-8 space-y-8">
+<div class="bg-surface-container-low/40 rounded-lg p-8 border border-white/40">
+<div class="flex justify-between items-center mb-8">
+<h3 class="font-headline font-semibold text-2xl text-on-surface">Your Submissions</h3>
+<div class="flex gap-2">
+<span class="px-3 py-1 bg-surface-container-highest rounded-full text-[10px] font-bold text-secondary uppercase tracking-tighter">Total: 03</span>
+</div>
+</div>
+<!-- Submission List -->
+<div class="space-y-4">
+<!-- Card 1: Pending -->
+<div class="bg-surface-container-lowest p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow group">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex-1 space-y-1">
+<div class="flex items-center gap-3">
+<span class="text-[10px] font-label font-bold tracking-widest text-slate-400 uppercase">Res-2024-042</span>
+<span class="px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed text-[9px] font-bold rounded uppercase">DISEC</span>
+</div>
+<h4 class="font-headline font-bold text-xl text-primary-container group-hover:underline cursor-pointer">Nuclear Non-Proliferation in the Middle East</h4>
+<div class="flex items-center gap-4 text-xs text-slate-500 font-medium">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="calendar_today">calendar_today</span> Oct 12, 2024</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="person">person</span> Lead Delegate</span>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-6 border-t md:border-t-0 pt-4 md:pt-0">
+<div class="flex flex-col items-end">
+<span class="text-[9px] font-label font-bold text-slate-400 uppercase tracking-widest mb-1">Status</span>
+<div class="flex items-center gap-2 text-amber-600">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+</span>
+<span class="text-xs font-bold uppercase tracking-wider">Pending Review</span>
+</div>
+</div>
+<button class="p-2 bg-surface-container-low rounded-lg text-slate-600 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="open_in_new">open_in_new</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 2: Needs Edits -->
+<div class="bg-surface-container-lowest p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow group">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex-1 space-y-1">
+<div class="flex items-center gap-3">
+<span class="text-[10px] font-label font-bold tracking-widest text-slate-400 uppercase">Res-2024-039</span>
+</div>
+<h4 class="font-headline font-bold text-xl text-primary-container group-hover:underline cursor-pointer">Cybersecurity Protocols for Inter-State Communication</h4>
+<div class="flex items-center gap-4 text-xs text-slate-500 font-medium">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="calendar_today">calendar_today</span> Oct 10, 2024</span>
+<span class="flex items-center gap-1 text-error"><span class="material-symbols-outlined text-[14px]" data-icon="chat_bubble">chat_bubble</span> 2 Comments from Chair</span>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-6 border-t md:border-t-0 pt-4 md:pt-0">
+<div class="flex flex-col items-end">
+<span class="text-[9px] font-label font-bold text-slate-400 uppercase tracking-widest mb-1">Status</span>
+<div class="flex items-center gap-2 text-error">
+<span class="material-symbols-outlined text-sm" data-icon="edit_note">edit_note</span>
+<span class="text-xs font-bold uppercase tracking-wider">Needs Edits</span>
+</div>
+</div>
+<button class="p-2 bg-surface-container-low rounded-lg text-slate-600 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="open_in_new">open_in_new</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 3: Accepted -->
+<div class="bg-surface-container-lowest p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow group">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex-1 space-y-1">
+<div class="flex items-center gap-3">
+<span class="text-[10px] font-label font-bold tracking-widest text-slate-400 uppercase">Res-2024-012</span>
+</div>
+<h4 class="font-headline font-bold text-xl text-primary-container group-hover:underline cursor-pointer">Standardization of Humanitarian Corridor Access</h4>
+<div class="flex items-center gap-4 text-xs text-slate-500 font-medium">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="calendar_today">calendar_today</span> Oct 05, 2024</span>
+<span class="flex items-center gap-1 text-emerald-600"><span class="material-symbols-outlined text-[14px]" data-icon="verified">verified</span> Verified by Secretariat</span>
+</div>
+</div>
+<div class="flex items-center justify-between md:justify-end gap-6 border-t md:border-t-0 pt-4 md:pt-0">
+<div class="flex flex-col items-end">
+<span class="text-[9px] font-label font-bold text-slate-400 uppercase tracking-widest mb-1">Status</span>
+<div class="flex items-center gap-2 text-emerald-600">
+<span class="material-symbols-outlined text-sm" data-icon="check_circle">check_circle</span>
+<span class="text-xs font-bold uppercase tracking-wider">Accepted</span>
+</div>
+</div>
+<button class="p-2 bg-surface-container-low rounded-lg text-slate-600 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="open_in_new">open_in_new</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Pagination -->
+<div class="mt-10 flex justify-center">
+<button class="text-xs font-label font-bold text-secondary uppercase tracking-[0.2em] border-b border-transparent hover:border-secondary transition-all pb-1">
+                                Load Previous Sessions
+                            </button>
+</div>
+</div>
+<!-- Asymmetric Featured Block -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="bg-[#FFF0E5] p-8 rounded-lg flex items-start gap-4">
+<div class="bg-primary/10 p-3 rounded-lg text-primary">
+<span class="material-symbols-outlined" data-icon="policy">policy</span>
+</div>
+<div>
+<h5 class="font-headline font-bold text-lg text-primary">Pre-Session Checklist</h5>
+<ul class="mt-2 space-y-2 text-sm text-slate-700">
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-primary" data-icon="check">check</span> Double-spaced text</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-primary" data-icon="check">check</span> Operative clauses underlined</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-primary" data-icon="check">check</span> Signatory list attached</li>
+</ul>
+</div>
+</div>
+<div class="bg-surface-container-highest p-8 rounded-lg flex items-center justify-center">
+<div class="text-center">
+<p class="font-label text-[10px] uppercase tracking-widest text-slate-500 mb-2">Live Status</p>
+<p class="font-headline font-bold text-2xl text-primary leading-tight">Floor is currently <span class="italic">Open</span></p>
+<p class="text-[11px] text-slate-500 mt-1 italic">Submit resolutions for Session 4 now.</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- FAB -->
+<button class="fixed bottom-8 right-8 w-16 h-16 bg-[#6E1D1B] text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-105 transition-transform active:scale-95 group z-50">
+<span class="material-symbols-outlined text-2xl" data-icon="chat">chat</span>
+<span class="absolute right-20 bg-primary text-white text-[10px] px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap font-bold uppercase tracking-widest shadow-xl pointer-events-none">Help Desk</span>
+</button>
+</body></html>
+
+<!-- Speech Repository Unified V2 -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,600;0,700;1,400;1,600&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tertiary-fixed": "#eee0d5",
+                        "background": "#f9f9f9",
+                        "error": "#ba1a1a",
+                        "on-primary-container": "#f5847b",
+                        "inverse-on-surface": "#f1f1f1",
+                        "on-error-container": "#93000a",
+                        "surface": "#f9f9f9",
+                        "tertiary": "#2b231d",
+                        "on-surface-variant": "#564240",
+                        "primary": "#500608",
+                        "error-container": "#ffdad6",
+                        "surface-dim": "#dadada",
+                        "secondary-container": "#e2e2e2",
+                        "outline": "#89726f",
+                        "on-tertiary-fixed": "#211a14",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#2f3131",
+                        "on-background": "#1a1c1c",
+                        "on-primary": "#ffffff",
+                        "primary-fixed-dim": "#ffb3ad",
+                        "on-secondary-container": "#636465",
+                        "primary-container": "#6e1d1b",
+                        "outline-variant": "#dcc0bd",
+                        "surface-bright": "#f9f9f9",
+                        "primary-fixed": "#ffdad6",
+                        "surface-container-low": "#f4f3f3",
+                        "surface-container": "#eeeeee",
+                        "on-primary-fixed-variant": "#7f2926",
+                        "surface-container-highest": "#e2e2e2",
+                        "on-secondary": "#ffffff",
+                        "on-surface": "#1a1c1c",
+                        "tertiary-container": "#413931",
+                        "surface-tint": "#9e403b",
+                        "on-tertiary-fixed-variant": "#4e453d",
+                        "on-tertiary-container": "#afa298",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed-dim": "#d2c4ba",
+                        "surface-variant": "#e2e2e2",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "secondary": "#5d5f5f",
+                        "on-primary-fixed": "#410003",
+                        "inverse-primary": "#ffb3ad",
+                        "surface-container-high": "#e8e8e8",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-secondary-fixed-variant": "#454747",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed-dim": "#c6c6c6"
+                    },
+                    fontFamily: {
+                        "headline": ["Newsreader"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .paper-texture {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased">
+<!-- TopAppBar Navigation Shell -->
+<header class="fixed top-0 left-0 w-full bg-[#FFF0E5]/80 backdrop-blur-md z-50 shadow-[0_8px_32px_rgba(26,28,28,0.06)] no-border">
+<div class="max-w-[1600px] mx-auto px-8 h-20 flex justify-between items-center">
+<div class="flex items-center gap-8 shrink-0">
+<span class="font-headline font-semibold text-primary text-xl tracking-wide">VOFMUN ONE</span>
+<nav class="hidden md:flex items-center gap-5">
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Dashboard</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Live Updates</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Glossary</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Resolutions</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Messaging</a>
+</nav>
+</div>
+<div class="flex items-center gap-5 shrink-0">
+<a class="text-primary border-b-[2px] border-primary pb-1 font-label uppercase tracking-widest text-[10px] font-bold transition-colors duration-300 whitespace-nowrap" href="#">Speech Repository</a>
+<div class="flex items-center gap-2 text-[#564240]/70">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="flag">flag</span>
+<span class="text-[10px] font-bold font-label uppercase tracking-widest">France</span>
+</div>
+<div class="w-px h-5 bg-outline-variant/40"></div>
+<button class="flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-on-primary font-label text-[10px] font-bold uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="logout">logout</span>
+        Log Out
+      </button>
+</div>
+</div>
+</header>
+<main class="pt-28 pb-12 px-8 max-w-[1600px] mx-auto min-h-screen">
+<div class="grid grid-cols-12 gap-8">
+<!-- Sidebar: Saved Speeches -->
+<aside class="col-span-12 lg:col-span-3 space-y-6">
+<div class="p-6 bg-surface-container-low rounded-xl border border-outline-variant/10 shadow-sm">
+<div class="flex items-center justify-between mb-8">
+<h2 class="font-headline text-xl font-semibold text-primary">Saved Speeches</h2>
+<span class="material-symbols-outlined text-primary-container" data-icon="folder_open">folder_open</span>
+</div>
+<div class="space-y-4">
+<!-- Speech Item 1 -->
+<div class="p-4 bg-surface-container-lowest rounded-lg group cursor-pointer hover:shadow-md transition-all">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] uppercase tracking-tighter text-on-surface-variant/60">Mar 24, 2024</span>
+<span class="material-symbols-outlined text-xs text-on-surface-variant/40 group-hover:text-primary transition-colors" data-icon="more_vert">more_vert</span>
+</div>
+<h3 class="font-headline font-semibold text-on-surface text-lg leading-tight mb-2">Opening Statement: Climate Mitigation</h3>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed font-label text-[9px] uppercase tracking-widest rounded">Draft</span>
+<span class="px-2 py-0.5 bg-secondary-container text-on-secondary-container font-label text-[9px] uppercase tracking-widest rounded">UNEP</span>
+</div>
+</div>
+<!-- Speech Item 2 -->
+<div class="p-4 bg-surface-container-lowest rounded-lg group cursor-pointer hover:shadow-md transition-all">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] uppercase tracking-tighter text-on-surface-variant/60">Mar 21, 2024</span>
+<span class="material-symbols-outlined text-xs text-on-surface-variant/40 group-hover:text-primary transition-colors" data-icon="more_vert">more_vert</span>
+</div>
+<h3 class="font-headline font-semibold text-on-surface text-lg leading-tight mb-2">Refuting Resolution 14-B: Trade Equality</h3>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 bg-primary-fixed text-on-primary-fixed-variant font-label text-[9px] uppercase tracking-widest rounded">Final</span>
+<span class="px-2 py-0.5 bg-secondary-container text-on-secondary-container font-label text-[9px] uppercase tracking-widest rounded">WTO</span>
+</div>
+</div>
+<!-- Speech Item 3 -->
+<div class="p-4 bg-surface-container-lowest rounded-lg group cursor-pointer hover:shadow-md transition-all">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label text-[10px] uppercase tracking-tighter text-on-surface-variant/60">Mar 18, 2024</span>
+<span class="material-symbols-outlined text-xs text-on-surface-variant/40 group-hover:text-primary transition-colors" data-icon="more_vert">more_vert</span>
+</div>
+<h3 class="font-headline font-semibold text-on-surface text-lg leading-tight mb-2">Right of Reply: Sovereign Borders</h3>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed font-label text-[9px] uppercase tracking-widest rounded">Draft</span>
+<span class="px-2 py-0.5 bg-secondary-container text-on-secondary-container font-label text-[9px] uppercase tracking-widest rounded">GA</span>
+</div>
+</div>
+</div>
+<button class="w-full mt-8 py-3 flex items-center justify-center gap-2 font-label text-xs font-bold uppercase tracking-widest text-primary hover:bg-surface-container-highest transition-colors rounded-xl">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+                        New Document
+                    </button>
+</div>
+<div class="relative rounded-xl overflow-hidden h-48 group">
+<img alt="UN General Assembly hall" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="dramatic interior of the United Nations General Assembly hall with golden accents and rows of green seating under soft overhead lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAkOjEXBO6jTnHX_d-369OEoUyln96qun3Vv5XOLyDF0KiRtURKPAsQVMtpIZ01FFwjVTsj9KBsLQkCaYzTMwyQ7Yxp2650ztq-6BOOXPIpjT9ikAFD8whZH06wFL7turin12HWmlcNC5a2H5Pz2bfRaYZE7UhiRS7gHN_R1CP-0n37mS9jNCPyhhHg_VzQU8E2UasrU9UQEoggM1sqR9kIdrQqZmPXimOHsPdi2qSJNGspJi3Ur4sUwEKiXZEJl3bLZ9ZXDXiahdk"/>
+<div class="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent flex flex-col justify-end p-6">
+<p class="text-[#FFF0E5] font-headline italic text-lg leading-tight">"Diplomacy is the art of letting someone else have your way."</p>
+<p class="text-[#FFF0E5]/60 font-label text-[10px] uppercase tracking-widest mt-2">— Sir David Ormsby-Gore</p>
+</div>
+</div>
+</aside>
+<!-- Main Editor Area -->
+<div class="col-span-12 lg:col-span-9">
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_8px_32px_rgba(26,28,28,0.06)] border border-outline-variant/10 overflow-hidden flex flex-col min-h-[800px]">
+<!-- Editor Toolbar (TipTap style) -->
+<div class="px-6 py-4 bg-surface-container-low flex flex-wrap items-center justify-between gap-4 border-b border-outline-variant/15">
+<div class="flex items-center gap-1">
+<button class="p-2 hover:bg-surface-container-highest rounded-lg text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-xl" data-icon="format_bold">format_bold</span></button>
+<button class="p-2 hover:bg-surface-container-highest rounded-lg text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-xl" data-icon="format_italic">format_italic</span></button>
+<button class="p-2 hover:bg-surface-container-highest rounded-lg text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-xl" data-icon="format_underlined">format_underlined</span></button>
+<div class="w-px h-6 bg-outline-variant/30 mx-2"></div>
+<button class="p-2 hover:bg-surface-container-highest rounded-lg text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-xl" data-icon="format_align_left">format_align_left</span></button>
+<button class="p-2 hover:bg-surface-container-highest rounded-lg text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-xl" data-icon="format_align_center">format_align_center</span></button>
+<button class="p-2 hover:bg-surface-container-highest rounded-lg text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-xl" data-icon="format_list_bulleted">format_list_bulleted</span></button>
+<button class="p-2 hover:bg-surface-container-highest rounded-lg text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-xl" data-icon="format_list_numbered">format_list_numbered</span></button>
+<div class="w-px h-6 bg-outline-variant/30 mx-2"></div>
+<button class="p-2 hover:bg-surface-container-highest rounded-lg text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-xl" data-icon="format_quote">format_quote</span></button>
+<button class="p-2 hover:bg-surface-container-highest rounded-lg text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-xl" data-icon="link">link</span></button>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-xs font-label text-on-surface-variant/50 mr-4">Auto-saved at 14:22</span>
+<button class="flex items-center gap-2 px-6 py-2.5 bg-primary-container text-on-primary font-label text-xs font-bold uppercase tracking-widest rounded-xl hover:opacity-90 transition-all shadow-lg shadow-primary-container/20">
+<span class="material-symbols-outlined text-sm" data-icon="save">save</span>
+                                Save Speech
+                            </button>
+</div>
+</div>
+<!-- Editor Content Canvas -->
+<div class="flex-1 p-12 paper-texture relative">
+<div class="max-w-3xl mx-auto space-y-8">
+<!-- Document Header -->
+<div class="border-b border-primary/10 pb-8 space-y-4">
+<input class="w-full bg-transparent border-none p-0 font-headline font-bold text-4xl text-primary placeholder:text-primary/20 focus:ring-0 focus:outline-none leading-tight" placeholder="Enter speech title..." type="text" value="Strategic Response to Maritime Territorial Disputes"/>
+<div class="flex flex-wrap gap-4 items-center">
+<div class="flex items-center gap-2">
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Delegation:</span>
+<span class="font-label text-[11px] font-bold text-on-surface">United Kingdom</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Committee:</span>
+<span class="font-label text-[11px] font-bold text-on-surface">Security Council</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Duration:</span>
+<span class="font-label text-[11px] font-bold text-on-surface">~4 Minutes</span>
+</div>
+</div>
+</div>
+<!-- Rich Text Body -->
+<div class="font-headline text-xl leading-relaxed text-on-surface/90 space-y-6 min-h-[500px] outline-none">
+<p class="">Honorable Chair, Distinguished Delegates,</p>
+<p class="">The United Kingdom stands before this assembly today to address a matter of urgent concern regarding international maritime law and the sovereignty of nations. We must look beyond the immediate tactical gains of territorial posturing and focus on the enduring stability provided by the UN Convention on the Law of the Sea (UNCLOS).</p>
+<p class="">It is our firm belief that diplomacy is not merely the absence of conflict, but the active pursuit of consensus through established legal frameworks. The recent developments in the South China Sea represent a departure from these norms that we cannot overlook.</p>
+<p class="italic text-on-surface-variant/80 border-l-4 border-primary/20 pl-6 my-8">
+                                    "Let us remember that international law is not a menu from which nations can pick and choose based on convenience."
+                                </p>
+<p class="">We propose a three-pillar framework for immediate de-escalation:</p>
+<ul class="list-disc pl-6 space-y-3">
+<li class="">Re-affirmation of the 2016 Arbitral Tribunal rulings.</li>
+<li class="">Establishment of a joint-monitored corridor for non-military merchant vessels.</li>
+<li class="">A moratorium on artificial island construction within disputed EEZs.</li>
+</ul>
+<p class="">I yield the remainder of my time to the chair.</p>
+</div>
+</div>
+<!-- Editor Floaties -->
+<div class="absolute bottom-8 right-8 flex flex-col gap-3">
+<button class="w-12 h-12 rounded-full bg-surface-container-highest text-primary flex items-center justify-center shadow-lg hover:bg-primary-fixed transition-colors">
+<span class="material-symbols-outlined" data-icon="print">print</span>
+</button>
+<button class="w-12 h-12 rounded-full bg-surface-container-highest text-primary flex items-center justify-center shadow-lg hover:bg-primary-fixed transition-colors">
+<span class="material-symbols-outlined" data-icon="share">share</span>
+</button>
+</div>
+</div>
+<!-- Footer Stats -->
+<div class="px-8 py-3 bg-surface-container-low flex justify-between items-center text-[10px] font-label uppercase tracking-widest text-on-surface-variant/40">
+<div class="flex gap-6">
+<span class="">Words: 284</span>
+<span class="">Characters: 1,842</span>
+<span class="">Reading Time: 3:15</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-green-500"></div>
+<span class="">Cloud Synchronized</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Contextual Information Section -->
+</body></html>
+
+<!-- Messaging Unified V2 -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Messaging | VOFMUN ONE</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,600;0,700;1,400;1,600&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-tertiary-fixed": "#211a14",
+                        "tertiary-fixed-dim": "#d2c4ba",
+                        "on-error-container": "#93000a",
+                        "error-container": "#ffdad6",
+                        "surface-variant": "#e2e2e2",
+                        "surface-dim": "#dadada",
+                        "surface": "#f9f9f9",
+                        "surface-container": "#eeeeee",
+                        "on-secondary-fixed-variant": "#454747",
+                        "surface-bright": "#f9f9f9",
+                        "tertiary": "#2b231d",
+                        "on-primary-fixed": "#410003",
+                        "tertiary-fixed": "#eee0d5",
+                        "on-primary-fixed-variant": "#7f2926",
+                        "inverse-surface": "#2f3131",
+                        "secondary-fixed-dim": "#c6c6c6",
+                        "inverse-primary": "#ffb3ad",
+                        "error": "#ba1a1a",
+                        "primary": "#6E1D1B",
+                        "background": "#f9f9f9",
+                        "surface-tint": "#9e403b",
+                        "outline": "#89726f",
+                        "on-secondary-container": "#636465",
+                        "inverse-on-surface": "#f1f1f1",
+                        "surface-container-highest": "#e2e2e2",
+                        "tertiary-container": "#413931",
+                        "on-tertiary-container": "#afa298",
+                        "on-surface": "#1a1c1c",
+                        "outline-variant": "#dcc0bd",
+                        "surface-container-high": "#e8e8e8",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-primary": "#ffffff",
+                        "on-primary-container": "#f5847b",
+                        "primary-container": "#6E1D1B",
+                        "on-error": "#ffffff",
+                        "on-surface-variant": "#564240",
+                        "on-tertiary-fixed-variant": "#4e453d",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary": "#5d5f5f",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#ffdad6",
+                        "primary-fixed-dim": "#ffb3ad",
+                        "surface-container-low": "#f4f3f3",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "secondary-container": "#e2e2e2",
+                        "on-background": "#1a1c1c"
+                    },
+                    fontFamily: {
+                        "headline": ["Newsreader"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Manrope', sans-serif; }
+        .serif-headline { font-family: 'Newsreader', serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full bg-[#FFF0E5]/80 backdrop-blur-md z-50 shadow-[0_8px_32px_rgba(26,28,28,0.06)] no-border">
+<div class="max-w-[1600px] mx-auto px-8 h-20 flex justify-between items-center">
+<div class="flex items-center gap-8 shrink-0">
+<span class="font-headline font-semibold text-primary text-xl tracking-wide">VOFMUN ONE</span>
+<nav class="hidden md:flex items-center gap-5">
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Dashboard</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Live Updates</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Glossary</a>
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Resolutions</a>
+<a class="text-primary border-b-[2px] border-primary pb-1 font-label uppercase tracking-widest text-[10px] font-bold transition-colors duration-300 whitespace-nowrap" href="#">Messaging</a>
+</nav>
+</div>
+<div class="flex items-center gap-5 shrink-0">
+<a class="text-[#564240]/70 font-label uppercase tracking-widest text-[10px] font-bold hover:text-primary transition-colors duration-300 whitespace-nowrap" href="#">Speech Repository</a>
+<div class="flex items-center gap-2 text-[#564240]/70">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="flag">flag</span>
+<span class="text-[10px] font-bold font-label uppercase tracking-widest">France</span>
+</div>
+<div class="w-px h-5 bg-outline-variant/40"></div>
+<button class="flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-on-primary font-label text-[10px] font-bold uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="logout">logout</span>
+        Log Out
+      </button>
+</div>
+</div>
+</header>
+<!-- Content Header -->
+<div class="mt-20 px-8 py-6 bg-surface-container-low border-b border-outline-variant/10 flex items-center justify-between">
+<h2 class="font-['Newsreader'] font-semibold text-2xl tracking-tight text-[#6E1D1B] dark:text-[#E2E2E2]">Delegate Messaging</h2>
+<div class="flex items-center gap-4">
+<button class="text-slate-500 hover:text-[#6E1D1B] transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</div>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex overflow-hidden">
+<div class="flex-1 flex overflow-hidden">
+<!-- Chat Sidebar -->
+<aside class="w-80 bg-surface-container-low flex flex-col border-r border-outline-variant/10 overflow-y-auto">
+<div class="p-6">
+<div class="relative mb-6">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="w-full bg-surface-container-lowest border-none rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary/20 placeholder:text-slate-400 font-['Manrope']" placeholder="Search conversations..." type="text"/>
+</div>
+<div class="space-y-6">
+<div>
+<h3 class="font-['Manrope'] font-bold text-[10px] uppercase tracking-[0.1em] text-slate-500 mb-4 px-2">Channels</h3>
+<div class="space-y-1">
+<button class="w-full text-left p-3 rounded-xl bg-surface-container-highest transition-all group border-l-4 border-primary">
+<div class="flex justify-between items-start mb-1">
+<span class="font-bold text-sm text-primary">DISEC Main Channel</span>
+<span class="text-[10px] text-slate-400">14:22</span>
+</div>
+<p class="text-xs text-on-surface-variant line-clamp-1 italic">Delegate of Japan: We propose a revised draft...</p>
+</button>
+<button class="w-full text-left p-3 rounded-xl hover:bg-surface-container-highest transition-all group">
+<div class="flex justify-between items-start mb-1">
+<span class="font-bold text-sm text-on-surface">Crisis Team</span>
+<span class="text-[10px] text-slate-400">09:15</span>
+</div>
+<p class="text-xs text-slate-500 line-clamp-1">Immediate action required on Article 4...</p>
+</button>
+</div>
+</div>
+<div>
+<h3 class="font-['Manrope'] font-bold text-[10px] uppercase tracking-[0.1em] text-slate-500 mb-4 px-2">Private Messages</h3>
+<div class="space-y-1">
+<button class="w-full text-left p-3 rounded-xl hover:bg-surface-container-highest transition-all flex gap-3 items-center">
+<div class="w-8 h-8 rounded-full bg-tertiary-fixed text-tertiary flex items-center justify-center text-[10px] font-bold">FR</div>
+<div class="flex-1">
+<div class="flex justify-between items-center">
+<span class="font-bold text-sm text-on-surface">Delegate of France</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<p class="text-xs text-slate-500">Checking your availability for...</p>
+</div>
+</button>
+<button class="w-full text-left p-3 rounded-xl hover:bg-surface-container-highest transition-all flex gap-3 items-center">
+<div class="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">BR</div>
+<div class="flex-1">
+<span class="font-bold text-sm text-on-surface">Delegate of Brazil</span>
+<p class="text-xs text-slate-500">Thank you for the support.</p>
+</div>
+</button>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Active Chat Window -->
+<section class="flex-1 flex flex-col bg-surface-container-lowest">
+<!-- Chat Header -->
+<div class="h-16 border-b border-outline-variant/10 px-6 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+<h3 class="font-['Newsreader'] font-bold text-lg text-primary">DISEC Main Channel</h3>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Messages Area -->
+<div class="flex-1 overflow-y-auto p-8 space-y-8">
+<!-- Date Divider -->
+<div class="flex items-center gap-4">
+<div class="flex-1 h-px bg-outline-variant/20"></div>
+<span class="font-['Manrope'] font-bold text-[10px] uppercase tracking-widest text-slate-400">October 24, 2023</span>
+<div class="flex-1 h-px bg-outline-variant/20"></div>
+</div>
+<!-- Message Item: Received -->
+<div class="flex gap-4 max-w-3xl">
+<div class="w-9 h-9 rounded-lg bg-surface-container-high flex items-center justify-center font-bold text-xs text-primary shrink-0">JP</div>
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm text-on-surface">Delegate of Japan</span>
+<span class="text-[10px] text-slate-400">14:18</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-r-xl rounded-bl-xl text-sm leading-relaxed text-on-surface-variant">
+                                Honorable delegates, we have uploaded the revised draft concerning the non-proliferation treaty. Please review the highlighted amendments in section 4.2.
+                            </div>
+</div>
+</div>
+<!-- Message Item: System/Alert -->
+<div class="flex justify-center">
+<div class="bg-tertiary-fixed/30 text-on-tertiary-fixed-variant px-4 py-1.5 rounded-full text-[11px] font-medium flex items-center gap-2 italic">
+<span class="material-symbols-outlined text-sm">info</span>
+                            Chairperson has updated the resolution status to 'Under Review'
+                        </div>
+</div>
+<!-- Message Item: Sent -->
+<div class="flex gap-4 max-w-3xl ml-auto flex-row-reverse">
+<div class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center font-bold text-xs text-on-primary shrink-0">UK</div>
+<div class="space-y-1 text-right">
+<div class="flex items-center gap-2 justify-end">
+<span class="text-[10px] text-slate-400">14:22</span>
+<span class="font-bold text-sm text-primary">You</span>
+</div>
+<div class="bg-primary text-white p-4 rounded-l-xl rounded-br-xl text-sm leading-relaxed shadow-sm">
+                                Thank you, Japan. Our delegation is reviewing the changes now. We have some concerns regarding the timeline of implementation in developing nations.
+                            </div>
+</div>
+</div>
+<!-- Attachment Message -->
+<div class="flex gap-4 max-w-3xl">
+<div class="w-9 h-9 rounded-lg bg-surface-container-high flex items-center justify-center font-bold text-xs text-primary shrink-0">GE</div>
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm text-on-surface">Delegate of Germany</span>
+<span class="text-[10px] text-slate-400">14:35</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-r-xl rounded-bl-xl text-sm leading-relaxed text-on-surface-variant">
+                                Supporting Japan's proposal. Here is the statistical analysis document we discussed during the unmoderated caucus.
+                                <div class="mt-3 bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/30 flex items-center gap-3 hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="w-10 h-10 rounded bg-red-50 flex items-center justify-center text-red-600">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="font-bold text-xs text-on-surface truncate">disec_impact_analysis_v2.pdf</p>
+<p class="text-[10px] text-slate-400">2.4 MB • PDF Document</p>
+</div>
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors">download</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Redesigned Input Area -->
+<div class="p-6 bg-surface-container-low">
+<div class="max-w-4xl mx-auto flex items-center gap-4">
+<div class="flex-1 flex items-center bg-surface-container-lowest rounded-full border border-outline-variant/20 px-4 py-2 shadow-sm focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+<button class="flex items-center justify-center text-slate-400 hover:text-primary transition-colors p-2">
+<span class="material-symbols-outlined">add</span>
+</button>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-sm font-['Manrope'] px-2 py-1 placeholder:text-slate-400" placeholder="Type your message..." type="text"/>
+<button class="flex items-center justify-center text-slate-400 hover:text-primary transition-colors p-2">
+<span class="material-symbols-outlined">mood</span>
+</button>
+</div>
+<button class="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-md hover:opacity-90 active:scale-95 transition-all shrink-0">
+<span class="material-symbols-outlined text-xl">send</span>
+</button>
+</div>
+<div class="max-w-4xl mx-auto mt-2 flex justify-center">
+<p class="text-[10px] text-slate-400 italic">Press <b>Enter</b> to send, <b>Shift+Enter</b> for a new line.</p>
+</div>
+</div>
+</section>
+<!-- Attachments & Info Sidebar -->
+<aside class="hidden xl:flex w-72 bg-surface flex-col border-l border-outline-variant/10 overflow-y-auto">
+<div class="p-6 space-y-8">
+<div>
+<h4 class="font-['Manrope'] font-bold text-[10px] uppercase tracking-[0.1em] text-slate-500 mb-4">Channel Details</h4>
+<div class="bg-surface-container-low p-4 rounded-xl">
+<p class="text-xs text-on-surface-variant leading-relaxed mb-3">
+                                Official discussion for the Disarmament and International Security Committee (DISEC).
+                            </p>
+<div class="flex items-center gap-2 text-[10px] text-slate-400">
+<span class="material-symbols-outlined text-sm">group</span>
+                                142 Delegates Online
+                            </div>
+</div>
+</div>
+<div>
+<h4 class="font-['Manrope'] font-bold text-[10px] uppercase tracking-[0.1em] text-slate-500 mb-4">Shared Resources</h4>
+<div class="space-y-3">
+<div class="flex items-center gap-3 p-2 hover:bg-surface-container-low rounded-lg transition-colors cursor-pointer group">
+<div class="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg">description</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-[11px] font-bold truncate">Draft_Resolution_01.docx</p>
+<p class="text-[9px] text-slate-400">Shared by France</p>
+</div>
+</div>
+<div class="flex items-center gap-3 p-2 hover:bg-surface-container-low rounded-lg transition-colors cursor-pointer group">
+<div class="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg">link</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-[11px] font-bold truncate">UN Security Protocol 4A</p>
+<p class="text-[9px] text-slate-400">External Reference</p>
+</div>
+</div>
+<div class="flex items-center gap-3 p-2 hover:bg-surface-container-low rounded-lg transition-colors cursor-pointer group">
+<div class="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg">table_chart</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-[11px] font-bold truncate">Budgetary_Allocations.xlsx</p>
+<p class="text-[9px] text-slate-400">Shared by USA</p>
+</div>
+</div>
+</div>
+<button class="w-full mt-4 text-[10px] font-bold uppercase tracking-widest text-primary py-2 border border-primary/20 rounded-lg hover:bg-primary/5 transition-colors">
+                            View All Files
+                        </button>
+</div>
+<div class="pt-6 border-t border-outline-variant/10">
+<div class="bg-[#6E1D1B]/5 p-4 rounded-xl">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-[#6E1D1B] text-lg">gavel</span>
+<span class="font-bold text-xs text-[#6E1D1B]">Committee Rules</span>
+</div>
+<p class="text-[10px] text-slate-600 leading-normal italic">
+                                "All messages must adhere to parliamentary procedure. Personal attacks or non-diplomatic language will result in removal from the channel."
+                            </p>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+</body></html>
