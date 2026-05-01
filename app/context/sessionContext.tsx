@@ -24,7 +24,7 @@ interface SessionContextProps {
   isSessionHydrated: boolean;
   isAuthenticated: boolean;
   authReady: boolean;
-  login: (user: UserType) => void;
+  login: (user: NonNullable<UserType>) => void;
   logout: () => Promise<void>;
 }
 
@@ -258,7 +258,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [isResetPasswordRoute, pathname, resolveAppUser]);
 
-  const login = (nextUser: UserType) => {
+  const login = (nextUser: NonNullable<UserType>) => {
     console.debug(`${SESSION_DEBUG_PREFIX} login`, { id: nextUser.id, role: nextUser.role });
     setUser(nextUser);
     Cookies.set("user", JSON.stringify(nextUser));
