@@ -89,6 +89,7 @@ const matchesQuery = (person: ChatPerson, normalizedQuery: string) => {
 };
 
 const mapCommitteeCodes = async (committeeIds: (string | null | undefined)[]) => {
+  if (!supabaseAdmin) return new Map<string, string | null>();
   const ids = Array.from(new Set(committeeIds.filter(Boolean) as string[]));
   const committeeMap = new Map<string, string | null>();
 

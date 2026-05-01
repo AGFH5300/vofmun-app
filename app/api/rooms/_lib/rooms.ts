@@ -21,7 +21,9 @@ export const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, 
     .select('id, email, first_name, last_name, role, country, committee_id')
     .in('id', uniqueIds);
 
-  const appUserCommitteeIds = Array.from(new Set((appUsers || []).map((row) => row.committee_id).filter(Boolean)));
+  const appUserCommitteeIds = Array.from(
+    new Set((appUsers || []).map((row: { committee_id: string | null }) => row.committee_id).filter(Boolean))
+  );
   const appUserCommitteeMap = new Map<string, string | null>();
 
   if (appUserCommitteeIds.length > 0) {
@@ -37,13 +39,14 @@ export const fetchProfilesByIds = async (ids: string[]): Promise<Record<string, 
 
   const map: Record<string, User> = {};
 
-  (appUsers || []).forEach((row) => {
+  (appUsers || []).forEach((row: { id: string; email: string | null; first_name: string | null; last_name: string | null; role: string | null; country: string | null; committee_id: string | null }) => {
+    const role = (row.role || 'delegate') as User['role'];
     map[row.id] = {
       id: row.id,
       email: row.email || '',
       full_name: `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Unknown',
-      role: row.role,
-      role_title: row.role.charAt(0).toUpperCase() + row.role.slice(1),
+      role,
+      role_title: role.charAt(0).toUpperCase() + role.slice(1),
       committee: row.committee_id ? appUserCommitteeMap.get(row.committee_id) || null : null,
       country: row.country || null,
     };
@@ -60,8 +63,9 @@ export const fetchRoomMembers = async (roomId: string): Promise<RoomMember[]> =>
     .select('id, room_id, user_id, role, joined_at')
     .eq('room_id', roomId);
   const members = data || [];
-  const profiles = await fetchProfilesByIds(members.map((m) => m.user_id).filter(Boolean));
-  return members.map((member) => ({ ...member, user: profiles[member.user_id] }));
+  const memberRows = members.filter((m): m is typeof m & { user_id: string; room_id: string; role: 'admin' | 'member' } => Boolean(m.user_id && m.room_id && m.role));
+  const profiles = await fetchProfilesByIds(memberRows.map((m) => m.user_id));
+  return memberRows.map((member) => ({ ...member, user: profiles[member.user_id] }));
 };
 
 export const fetchLastMessage = async (roomId: string): Promise<MessageWithUser | null> => {
@@ -76,6 +80,7 @@ export const fetchLastMessage = async (roomId: string): Promise<MessageWithUser 
   if (!data || data.length === 0) return null;
 
   const msg = data[0];
+  if (!msg.user_id || !msg.room_id) return null;
   const profiles = await fetchProfilesByIds([msg.user_id]);
   return { ...msg, user: profiles[msg.user_id] } as MessageWithUser;
 };
