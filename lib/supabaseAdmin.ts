@@ -1,6 +1,7 @@
 // © 2026 Ansh Gupta. All rights reserved.
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/db/supabase-database.types';
 
 const supabaseUrl =
   process.env.SUPABASE_URL ||
@@ -13,10 +14,10 @@ const supabaseServiceKey =
   process.env.SUPABASE_SERVICE_ROLE ||
   process.env.SUPABASE_SERVICE;
 
-let supabaseAdmin: ReturnType<typeof createClient> | null = null;
+let supabaseAdmin: ReturnType<typeof createClient<Database>> | null = null;
 
 if (supabaseUrl && supabaseServiceKey) {
-  supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+  supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
     auth: { persistSession: false },
   });
 } else {

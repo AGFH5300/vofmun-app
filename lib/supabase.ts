@@ -1,6 +1,7 @@
 // © 2026 Ansh Gupta. All rights reserved.
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/db/supabase-database.types';
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -19,7 +20,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 const isBrowser = typeof window !== 'undefined';
 const createSupabaseClient = () =>
-  createClient(supabaseUrl, supabaseKey, {
+  createClient<Database>(supabaseUrl, supabaseKey, {
     auth: {
       persistSession: isBrowser,
       autoRefreshToken: isBrowser,
