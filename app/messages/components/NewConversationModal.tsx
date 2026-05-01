@@ -6,7 +6,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { BadgeCheck, Clock3, Inbox, Loader2, MessageCirclePlus, Plus, Search, UserPlus, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { FriendRequest, UserSearchResult } from '@/lib/chat/types';
+import { FriendRequest, User, UserSearchResult } from '@/lib/chat/types';
 import { getUserDelegationLabel } from '@/lib/chat/delegation';
 import UserAvatar from './UserAvatar';
 import { useChat } from '../context/ChatContext';
@@ -174,6 +174,13 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     const delegationLabel = getUserDelegationLabel(requestUser);
     return delegationLabel || requestUser.email || null;
   };
+
+  const getContactAvatarUser = (contact: { userId: string; name: string; user?: FriendRequest['sender'] | null }): User => ({
+    id: contact.userId,
+    email: contact.user?.email ?? '',
+    full_name: contact.name,
+    ...contact.user,
+  });
 
   const handleStartChat = async (user: { id: string; full_name?: string; name?: string }) => {
     setError(null);
@@ -411,7 +418,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   connectedContacts.map((contact) => (
                     <div key={contact.userId} className="flex items-center justify-between gap-3 rounded-2xl border border-soft-ivory bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(17,27,33,0.06)]">
                       <div className="flex min-w-0 items-center gap-3">
-                        <UserAvatar user={{ id: contact.userId, full_name: contact.name, ...(contact.user || {}) }} size={36} />
+                        <UserAvatar user={getContactAvatarUser(contact)} size={36} />
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-deep-red">{contact.name}</p>
                           {getUserDelegationLabel(contact.user) ? (
