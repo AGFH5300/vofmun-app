@@ -6,9 +6,8 @@ import React, { useEffect, useMemo } from 'react';
 import { Update } from '@/db/types';
 import { ProtectedRoute } from '@/components/protectedroute';
 import { motion } from 'framer-motion';
-import { Bell, Clock, Clock3, AlertTriangle, Calendar } from 'lucide-react';
+import { Calendar, Clock, Megaphone } from 'lucide-react';
 import supabase from '@/lib/supabase';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type ScheduleItemType = 'registration' | 'committee' | 'break' | 'ceremony' | 'departure' | 'featured';
 
@@ -23,16 +22,6 @@ type ConferenceDay = {
     label: string;
     dateISO: string;
     events: ScheduleItem[];
-};
-
-type ScheduleRow = {
-    time: string;
-    event: string;
-};
-
-type ScheduleDay = {
-    title: string;
-    rows: ScheduleRow[];
 };
 
 const conferenceSchedule: ConferenceDay[] = [
@@ -106,96 +95,14 @@ const formatDuration = (milliseconds: number) => {
     return `${minutes}m`;
 };
 
-const getEventStyle = (event: string) => {
-    const normalizedEvent = event.toLowerCase();
-
-    if (normalizedEvent.includes('night')) {
-        return {
-            label: 'Featured',
-            ringColor: 'ring-fuchsia-300/70',
-            bgColor: 'bg-fuchsia-50',
-            badgeColor: 'bg-fuchsia-100 text-fuchsia-700',
-        };
-    }
-
-    if (normalizedEvent.includes('ceremony')) {
-        return {
-            label: 'Ceremony',
-            ringColor: 'ring-amber-300/70',
-            bgColor: 'bg-amber-50',
-            badgeColor: 'bg-amber-100 text-amber-700',
-        };
-    }
-
-    if (normalizedEvent.includes('break') || normalizedEvent.includes('lunch')) {
-        return {
-            label: 'Break',
-            ringColor: 'ring-lime-300/70',
-            bgColor: 'bg-lime-50',
-            badgeColor: 'bg-lime-100 text-lime-700',
-        };
-    }
-
-    if (normalizedEvent.includes('committee') || normalizedEvent.includes('workshop')) {
-        return {
-            label: 'Committee',
-            ringColor: 'ring-blue-300/70',
-            bgColor: 'bg-blue-50',
-            badgeColor: 'bg-blue-100 text-blue-700',
-        };
-    }
-
-    if (normalizedEvent.includes('registration') || normalizedEvent.includes('chair')) {
-        return {
-            label: 'Registration',
-            ringColor: 'ring-violet-300/70',
-            bgColor: 'bg-violet-50',
-            badgeColor: 'bg-violet-100 text-violet-700',
-        };
-    }
-
-    return {
-        label: 'Departure',
-        ringColor: 'ring-slate-300/70',
-        bgColor: 'bg-slate-50',
-        badgeColor: 'bg-slate-100 text-slate-700',
-    };
-};
-
 const Page = () => {
-    const brandDarkRed = '#701e1e';
-    const serifHeadingFont = "var(--font-dm-serif-display, 'DM Serif Display', serif)";
-    const heroHeadingStyle: React.CSSProperties = {
-        color: '#FFFFFF',
-        fontFamily: serifHeadingFont,
-    };
-    const accentHeadingStyle: React.CSSProperties = {
-        color: brandDarkRed,
-        fontFamily: serifHeadingFont,
-    };
     const [isLoading, setIsLoading] = React.useState<boolean>(true);
     const [updates, setUpdates] = React.useState<Update[]>([]);
     const [now, setNow] = React.useState<Date>(new Date());
-    const timeString = now.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-    });
 
-    const dateString = now.toLocaleDateString([], {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    });
-
-    const scheduleByDay: ScheduleDay[] = conferenceSchedule.map((day) => ({
-        title: day.label,
-        rows: day.events.map((event) => ({
-            time: `${formatClock(event.start)} - ${formatClock(event.end)}`,
-            event: event.title,
-        })),
-    }));
+    const headingStyle: React.CSSProperties = {
+        fontFamily: "'Newsreader', serif",
+    };
 
     useEffect(() => {
         const timer = window.setInterval(() => setNow(new Date()), 1000);
@@ -253,213 +160,152 @@ const Page = () => {
         const currentEvent = allEvents.find((event) => now >= event.startDate && now < event.endDate) ?? null;
         const nextEvent = allEvents.find((event) => event.startDate > now) ?? null;
         const lastEvent = allEvents[allEvents.length - 1] ?? null;
+        const scheduleForToday = conferenceSchedule.find((day) => day.dateISO === now.toISOString().slice(0, 10)) ?? null;
 
-        return { allEvents, currentEvent, nextEvent, lastEvent };
+        return { allEvents, currentEvent, nextEvent, lastEvent, scheduleForToday };
     }, [now]);
 
     return (
         <ProtectedRoute>
-            <div className="page-shell">
-                <div className="page-maxwidth space-y-12">
-                    <motion.section
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.7 }}
-                        className="surface-card is-emphasised overflow-hidden"
-                    >
-                        <div className="relative px-8 py-12 md:px-12">
-                            <div className="flex flex-col items-center text-center gap-6">
-                                <span className="badge-pill bg-white/15 text-white/80">
-                                    <Bell size={18} /> Real-time feed + schedule linked
-                                </span>
-                                <h1 className="text-4xl md:text-5xl font-serif font-bold text-white leading-tight" style={heroHeadingStyle}>
-                                    Live Crisis Updates
-                                </h1>
-                                <p className="text-base md:text-lg text-white/85 max-w-3xl leading-relaxed">
-                                    Every update is now tied to the conference timeline so delegates can instantly see what is happening now, what starts next (including lunch), and how long remains until the conference ends.
-                                </p>
+            <main className="min-h-screen bg-[#f9f9f9] text-[#1a1c1c]" style={{ fontFamily: "'Manrope', sans-serif" }}>
+                <div className="mx-auto w-full max-w-7xl space-y-12 px-6 py-10 lg:px-8">
+                    <section className="space-y-6">
+                        <h1 className="text-4xl font-semibold text-[#500608]" style={headingStyle}>
+                            Session Status
+                        </h1>
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                            <div className="rounded-xl bg-white p-6 shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
+                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#564240]">Current Session</p>
+                                <h2 className="mt-2 text-2xl font-medium text-[#500608]" style={headingStyle}>
+                                    {timeline.currentEvent ? timeline.currentEvent.title : 'No active session right now'}
+                                </h2>
                             </div>
-                            <div className="absolute inset-x-0 -bottom-32 h-64 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                            <div className="rounded-xl bg-white p-6 shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
+                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#564240]">Starts Next</p>
+                                <p className="mt-2 text-3xl font-semibold text-[#500608]" style={headingStyle}>
+                                    {timeline.nextEvent ? formatDuration(timeline.nextEvent.startDate.getTime() - now.getTime()) : 'Schedule pending'}
+                                </p>
+                                <p className="mt-1 text-sm text-[#564240]">{timeline.nextEvent ? `Until ${timeline.nextEvent.title}` : 'No upcoming schedule item.'}</p>
+                            </div>
+                            <div className="rounded-xl bg-white p-6 shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
+                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#564240]">Conference End</p>
+                                <p className="mt-2 text-3xl font-semibold text-[#500608]" style={headingStyle}>
+                                    {timeline.lastEvent ? formatDuration(timeline.lastEvent.endDate.getTime() - now.getTime()) : 'Unavailable'}
+                                </p>
+                                <p className="mt-1 text-sm text-[#564240]">Until final dispersal.</p>
+                            </div>
                         </div>
-                    </motion.section>
+                    </section>
 
-                    <motion.section
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.45, delay: 0.05 }}
-                        className="surface-card p-6 md:p-8"
-                    >
-                            <div className="flex items-center justify-between gap-4 flex-wrap">
-                                <div>
-                                    <h2 className="text-2xl md:text-3xl font-serif font-bold text-deep-red mb-1" style={accentHeadingStyle}>
-                                        Conference Timeline Overview
-                                    </h2>
-                                    <p className="text-sm text-almost-black-green/70">Auto-updates in real time.</p>
+                    <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-12">
+                        <section className="space-y-6 lg:col-span-4">
+                            <div className="flex items-center justify-between border-b border-[#dcc0bd]/50 pb-4">
+                                <h2 className="text-2xl font-semibold" style={headingStyle}>
+                                    Daily Schedule
+                                </h2>
+                                <span className="rounded-md bg-[#eee0d5] px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#211a14]">
+                                    {timeline.scheduleForToday ? timeline.scheduleForToday.label : 'No day active'}
+                                </span>
+                            </div>
+                            {timeline.scheduleForToday ? (
+                                <div className="relative ml-3 space-y-6 border-l-2 border-[#e2e2e2] py-1">
+                                    {timeline.scheduleForToday.events.map((event) => {
+                                        const startDate = toDateTime(timeline.scheduleForToday!.dateISO, event.start);
+                                        const endDate = toDateTime(timeline.scheduleForToday!.dateISO, event.end);
+                                        const isPast = now >= endDate;
+                                        const isCurrent = now >= startDate && now < endDate;
+
+                                        return (
+                                            <article
+                                                key={`${event.title}-${event.start}`}
+                                                className={`relative rounded-r-xl pl-8 ${isCurrent ? '-ml-3 border-l-2 border-[#500608] bg-white p-4 shadow-sm' : ''}`}
+                                            >
+                                                <div
+                                                    className={`absolute -left-[9px] top-2.5 h-4 w-4 rounded-full border-2 border-[#f9f9f9] ${
+                                                        isCurrent ? 'bg-[#500608]' : isPast ? 'bg-[#c6c6c6]' : 'bg-white'
+                                                    }`}
+                                                />
+                                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#564240]">
+                                                    {formatClock(event.start)} - {formatClock(event.end)} {isCurrent ? '(Current)' : isPast ? '(Past)' : '(Upcoming)'}
+                                                </p>
+                                                <h3 className={`mt-1 text-lg ${isPast && !isCurrent ? 'text-[#1a1c1c]/60' : 'text-[#1a1c1c]'}`} style={headingStyle}>
+                                                    {event.title}
+                                                </h3>
+                                            </article>
+                                        );
+                                    })}
                                 </div>
-                                <span className="badge-pill bg-deep-red/10 text-deep-red">
-                                    <Clock size={16} /> {dateString} · {timeString}
-                                </span>
-                            </div>
+                            ) : (
+                                <div className="rounded-xl bg-white p-5 text-sm text-[#564240] shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
+                                    No schedule published yet.
+                                </div>
+                            )}
+                        </section>
 
-                        <div className="mt-6 grid gap-4 md:grid-cols-3">
-                            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-                                <p className="text-xs uppercase tracking-[0.16em] text-blue-700/80">Happening now</p>
-                                <p className="mt-2 font-semibold text-lg text-blue-900">{timeline.currentEvent ? timeline.currentEvent.title : 'No active session right now'}</p>
-                                <p className="text-sm text-blue-800 mt-1">
-                                    {timeline.currentEvent
-                                        ? `${timeline.currentEvent.dayLabel} · ${formatClock(timeline.currentEvent.start)} - ${formatClock(timeline.currentEvent.end)}`
-                                        : 'Waiting for the next scheduled item.'}
-                                </p>
-                            </div>
-                            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                                <p className="text-xs uppercase tracking-[0.16em] text-amber-700/80">Starts next</p>
-                                <p className="mt-2 font-semibold text-lg text-amber-900">{timeline.nextEvent ? timeline.nextEvent.title : 'Schedule complete'}</p>
-                                <p className="text-sm text-amber-800 mt-1">
-                                    {timeline.nextEvent
-                                        ? `${timeline.nextEvent.dayLabel} in ${formatDuration(timeline.nextEvent.startDate.getTime() - now.getTime())}`
-                                        : 'No upcoming sessions.'}
-                                </p>
-                            </div>
-                            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
-                                <p className="text-xs uppercase tracking-[0.16em] text-rose-700/80">Until conference end</p>
-                                <p className="mt-2 font-semibold text-lg text-rose-900">
-                                    {timeline.lastEvent ? formatDuration(timeline.lastEvent.endDate.getTime() - now.getTime()) : 'N/A'}
-                                </p>
-                                <p className="text-sm text-rose-800 mt-1">Until final dispersal closes.</p>
-                            </div>
-                        </div>
-
-                        <section id="schedule" className="relative mt-6 overflow-hidden py-6">
-                            <div className="pointer-events-none absolute -right-8 top-10 h-28 w-28 rounded-full bg-[#B22222]/10 blur-2xl" />
-                            <div className="pointer-events-none absolute -left-10 bottom-16 h-32 w-32 rounded-full bg-amber-400/20 blur-3xl" />
-
-                            <Card className="diplomatic-shadow border-[#B22222]/10 bg-white/85 backdrop-blur-sm">
-                                <CardHeader className="space-y-4 text-center">
-                                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#B22222]/10">
-                                        <Calendar className="h-7 w-7 text-[#B22222]" />
+                        <section className="space-y-8 lg:col-span-8">
+                            <article className="rounded-2xl bg-white p-6 shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
+                                <div className="mb-6 flex items-center gap-3">
+                                    <div className="rounded-lg bg-[#6e1d1b]/10 p-2 text-[#500608]">
+                                        <Megaphone className="h-5 w-5" />
                                     </div>
-                                    <CardTitle className="text-3xl font-bold text-primary sm:text-4xl">Conference Schedule</CardTitle>
-                                </CardHeader>
+                                    <h2 className="text-3xl font-semibold text-[#500608]" style={headingStyle}>
+                                        Announcements
+                                    </h2>
+                                </div>
 
-                                <CardContent className="space-y-6 px-3 pb-8 sm:px-6">
-                                    <div className="grid gap-4 lg:grid-cols-3">
-                                        {scheduleByDay.map((day) => (
-                                            <div key={day.title} className="overflow-hidden rounded-2xl border border-[#B22222]/20 bg-white/80 shadow-sm">
-                                                <div className="bg-gradient-to-r from-[#B22222] to-[#8f1818] px-4 py-3">
-                                                    <h3 className="text-center text-lg font-bold tracking-wide text-white">{day.title}</h3>
+                                {isLoading ? (
+                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3 text-[#564240]">
+                                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#500608] border-t-transparent" />
+                                        Loading live updates...
+                                    </motion.div>
+                                ) : updates.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {updates.map((update) => (
+                                            <div key={update.updateID} className="rounded-xl border border-[#e2e2e2] bg-[#ffffff] p-4">
+                                                <div className="mb-2 flex items-center justify-between gap-2">
+                                                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#7f2926]">System Update</p>
+                                                    <p className="text-xs text-[#564240]">{new Date(update.time).toLocaleString()}</p>
                                                 </div>
-
-                                                <div className="space-y-2 p-3">
-                                                    {day.rows.map((row) => {
-                                                        const eventStyle = getEventStyle(row.event);
-
-                                                        return (
-                                                            <article
-                                                                key={`${day.title}-${row.time}-${row.event}`}
-                                                                className={`rounded-lg border border-slate-200/80 p-2.5 ring-1 ${eventStyle.ringColor} ${eventStyle.bgColor}`}
-                                                            >
-                                                                <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                                                                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${eventStyle.badgeColor}`}>
-                                                                        {eventStyle.label}
-                                                                    </span>
-                                                                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#8f1818]">
-                                                                        <Clock3 className="h-3.5 w-3.5" />
-                                                                        {row.time}
-                                                                    </span>
-                                                                </div>
-
-                                                                <p className="text-sm font-medium text-slate-700">{row.event}</p>
-                                                            </article>
-                                                        );
-                                                    })}
-                                                </div>
+                                                <h3 className="text-xl font-medium text-[#500608]" style={headingStyle}>
+                                                    {update.title}
+                                                </h3>
+                                                <p className="mt-2 text-sm leading-relaxed text-[#1a1c1c]">{update.content}</p>
+                                                {update.href ? (
+                                                    <div className="mt-3 overflow-hidden rounded-lg border border-[#e2e2e2]">
+                                                        <img src={update.href} alt={`Update ${update.updateID} attachment`} className="max-h-72 w-full object-cover" />
+                                                    </div>
+                                                ) : null}
                                             </div>
                                         ))}
                                     </div>
-                                </CardContent>
-                            </Card>
-                        </section>
-                    </motion.section>
-
-                    <section>
-                        {isLoading ? (
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="surface-card flex flex-col items-center justify-center py-16">
-                                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-deep-red to-dark-burgundy mb-6">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-t-transparent" />
-                                </div>
-                                <p className="text-lg text-almost-black-green/75">Fetching the latest intelligence...</p>
-                            </motion.div>
-                        ) : (
-                            <div className="space-y-8">
-                                {updates.length > 0 ? (
-                                    updates.map((update, index) => (
-                                        <motion.article
-                                            key={update.updateID}
-                                            initial={{ opacity: 0, y: 18 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ duration: 0.55, delay: index * 0.1 }}
-                                            className="surface-card overflow-hidden"
-                                        >
-                                            <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-                                                <div className="p-7 md:p-9">
-                                                    <div className="flex items-center gap-3 mb-4">
-                                                        <span className="inline-flex items-center gap-2 rounded-full bg-soft-rose/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-deep-red">
-                                                            <AlertTriangle size={16} /> Crisis Alert
-                                                        </span>
-                                                        <span className="text-sm text-almost-black-green/60 flex items-center gap-2">
-                                                            <Clock size={16} />
-                                                            {new Date(update.time).toLocaleString()}
-                                                        </span>
-                                                    </div>
-                                                    <h2 className="text-2xl md:text-3xl font-serif font-semibold text-deep-red mb-4" style={accentHeadingStyle}>
-                                                        {update.title}
-                                                    </h2>
-                                                    <p className="text-almost-black-green/80 leading-relaxed text-base md:text-lg">{update.content}</p>
-
-                                                    <div className="mt-6 rounded-xl border border-rich-gold/30 bg-soft-ivory/80 p-4">
-                                                        <div className="flex items-start gap-3">
-                                                            <AlertTriangle className="h-5 w-5 text-rich-gold mt-0.5" />
-                                                            <p className="text-sm text-almost-black-green/80">
-                                                                <strong className="text-deep-red">Immediate Action Required:</strong> Respond within the next session. Coordinate with your bloc to craft directives and notify the dais once complete.
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="relative">
-                                                    {update.href ? (
-                                                        <div className="h-full min-h-[240px]">
-                                                            <img src={update.href} alt={`Update ${update.updateID} illustration`} className="h-full w-full object-cover" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="h-full min-h-[240px] bg-gradient-to-br from-soft-ivory via-primary-peach to-soft-rose flex items-center justify-center">
-                                                            <div className="text-center p-6 text-almost-black-green/70">
-                                                                <AlertTriangle size={40} className="mx-auto mb-4 text-deep-red/60" />
-                                                                <p className="text-sm uppercase tracking-[0.3em]">Awaiting imagery</p>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </motion.article>
-                                    ))
                                 ) : (
-                                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="surface-card text-center py-16 px-6">
-                                        <div className="w-20 h-20 bg-soft-ivory rounded-full flex items-center justify-center mx-auto mb-6 border border-soft-rose">
-                                            <Bell size={32} className="text-deep-red" />
-                                        </div>
-                                        <h3 className="text-2xl font-serif font-semibold text-deep-red mb-3" style={accentHeadingStyle}>
-                                            All Clear for Now
-                                        </h3>
-                                        <p className="text-almost-black-green/75 max-w-2xl mx-auto leading-relaxed">
-                                            The conference is currently stable. Check back frequently-urgent alerts will appear here with actionable guidance the moment situations escalate.
-                                        </p>
-                                    </motion.div>
+                                    <div className="rounded-xl border border-dashed border-[#dcc0bd] bg-[#f4f3f3] p-6 text-sm text-[#564240]">
+                                        No announcements published yet.
+                                    </div>
                                 )}
-                            </div>
-                        )}
-                    </section>
+                            </article>
+
+                            <article className="rounded-2xl bg-white p-6 shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
+                                <div className="mb-4 flex items-center gap-3">
+                                    <div className="rounded-lg bg-[#eee0d5] p-2 text-[#500608]">
+                                        <Calendar className="h-5 w-5" />
+                                    </div>
+                                    <h2 className="text-2xl font-semibold text-[#500608]" style={headingStyle}>
+                                        Chair Briefing
+                                    </h2>
+                                </div>
+                                <p className="text-sm leading-relaxed text-[#564240]">
+                                    No chair briefing is currently published.
+                                </p>
+                                <p className="mt-3 inline-flex items-center gap-2 text-xs text-[#564240]">
+                                    <Clock className="h-4 w-4" />
+                                    Last checked in realtime from the Updates feed.
+                                </p>
+                            </article>
+                        </section>
+                    </div>
                 </div>
-            </div>
+            </main>
         </ProtectedRoute>
     );
 };
