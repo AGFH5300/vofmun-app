@@ -166,20 +166,24 @@ const Page = () => {
             <main className="min-h-screen bg-[#f9f9f9] text-[#1a1c1c]" style={{ fontFamily: "'Manrope', sans-serif" }}>
                 <div className="mx-auto w-full max-w-[1600px] space-y-10 px-6 py-8 pt-20 lg:px-8 lg:pt-24">
                     <section className="space-y-4">
-                        <h1 className="text-4xl font-semibold tracking-tight text-[#500608]" style={headingStyle}>Session Status</h1>
+                        <h1
+                          className="text-4xl !font-semibold tracking-tight text-[#500608]"
+                          style={headingStyle}>
+                          Session Status
+                        </h1>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
-                                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.16em] text-[#564240]">Current Session</span>
-                                <h2 className="text-[30px] leading-tight text-[#500608]" style={headingStyle}>{timeline.currentEvent ? timeline.currentEvent.title : 'Schedule Published'}</h2>
-                            </div>
+                                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-[#564240]">Current Session</span>
+                                <h4 className="text-[30px] leading-tight text-[#500608] !font-medium" style={headingStyle}>{timeline.currentEvent ? timeline.currentEvent.title : 'None'}</h4>
+                          </div>
                             <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
-                                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.16em] text-[#564240]">Starts Next</span>
+                                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-[#564240]">Starts Next</span>
                                 <span className="text-[30px] leading-tight text-[#500608]" style={headingStyle}>
                                     {timeline.isConferenceWindow && timeline.nextEvent ? formatDuration(timeline.nextEvent.startDate.getTime() - now.getTime()) : 'Jun 12, 13:30'}
                                 </span>
                             </div>
                             <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
-                                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.16em] text-[#564240]">Conference End</span>
+                                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-[#564240]">Conference End</span>
                                 <span className="text-[30px] leading-tight text-[#500608]" style={headingStyle}>Jun 14, 16:15</span>
                             </div>
                         </div>
