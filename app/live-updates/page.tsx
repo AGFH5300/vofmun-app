@@ -90,7 +90,6 @@ const Page = () => {
     const [isLoading, setIsLoading] = React.useState<boolean>(true);
     const [updates, setUpdates] = React.useState<Update[]>([]);
     const [now, setNow] = React.useState<Date>(new Date());
-    const [selectedDay, setSelectedDay] = React.useState<number>(0);
 
     const headingStyle: React.CSSProperties = { fontFamily: "'Newsreader', serif" };
 
@@ -132,81 +131,102 @@ const Page = () => {
 
     const timeline = useMemo(() => {
         const allEvents = conferenceSchedule
-            .flatMap((day) => day.events.map((event) => ({ ...event, startDate: toDateTime(day.dateISO, event.start), endDate: toDateTime(day.dateISO, event.end) })))
+            .flatMap((day, dayIndex) =>
+                day.events.map((event) => ({
+                    ...event,
+                    dayIndex,
+                    startDate: toDateTime(day.dateISO, event.start),
+                    endDate: toDateTime(day.dateISO, event.end),
+                })),
+            )
             .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
-        const isConferenceWindow = now >= toDateTime('2026-06-12', '00:00') && now <= toDateTime('2026-06-14', '23:59');
+
+        const conferenceStart = toDateTime('2026-06-12', '00:00');
+        const conferenceEnd = toDateTime('2026-06-14', '23:59');
+        const isConferenceWindow = now >= conferenceStart && now <= conferenceEnd;
         const currentEvent = isConferenceWindow ? allEvents.find((event) => now >= event.startDate && now < event.endDate) ?? null : null;
         const nextEvent = allEvents.find((event) => event.startDate > now) ?? null;
-        return { isConferenceWindow, currentEvent, nextEvent };
+
+        const activeDayIndex = isConferenceWindow
+            ? conferenceSchedule.findIndex((day) => now >= toDateTime(day.dateISO, '00:00') && now <= toDateTime(day.dateISO, '23:59'))
+            : 0;
+
+        return {
+            isConferenceWindow,
+            currentEvent,
+            nextEvent,
+            activeDayIndex: activeDayIndex === -1 ? 0 : activeDayIndex,
+        };
     }, [now]);
 
-    const activeDay = conferenceSchedule[selectedDay];
+    const activeDay = conferenceSchedule[timeline.activeDayIndex];
 
     return (
         <ProtectedRoute>
             <main className="min-h-screen bg-[#f9f9f9] text-[#1a1c1c]" style={{ fontFamily: "'Manrope', sans-serif" }}>
-                <div className="mx-auto max-w-7xl space-y-16 px-6 py-12 pt-24 lg:pt-28">
-                    <section className="space-y-6">
+                <div className="mx-auto w-full max-w-[1600px] space-y-10 px-6 py-8 pt-20 lg:px-8 lg:pt-24">
+                    <section className="space-y-4">
                         <h1 className="text-4xl font-semibold tracking-tight text-[#500608]" style={headingStyle}>Session Status</h1>
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                            <div className="relative overflow-hidden rounded-xl bg-white p-8 shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
-                                <span className="mb-2 block text-sm uppercase tracking-widest text-[#564240]">Current Session</span>
-                                <h2 className="text-2xl font-medium leading-tight text-[#500608]" style={headingStyle}>{timeline.currentEvent ? timeline.currentEvent.title : 'Schedule Published'}</h2>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
+                                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.16em] text-[#564240]">Current Session</span>
+                                <h2 className="text-[30px] leading-tight text-[#500608]" style={headingStyle}>{timeline.currentEvent ? timeline.currentEvent.title : 'Schedule Published'}</h2>
                             </div>
-                            <div className="rounded-xl bg-white p-8 shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
-                                <span className="mb-2 block text-sm uppercase tracking-widest text-[#564240]">Starts Next</span>
-                                <div className="flex items-baseline space-x-2">
-                                    <span className="text-4xl font-bold text-[#500608]" style={headingStyle}>{timeline.isConferenceWindow && timeline.nextEvent ? formatDuration(timeline.nextEvent.startDate.getTime() - now.getTime()) : 'Jun 12, 13:30'}</span>
-                                </div>
+                            <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
+                                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.16em] text-[#564240]">Starts Next</span>
+                                <span className="text-[30px] leading-tight text-[#500608]" style={headingStyle}>
+                                    {timeline.isConferenceWindow && timeline.nextEvent ? formatDuration(timeline.nextEvent.startDate.getTime() - now.getTime()) : 'Jun 12, 13:30'}
+                                </span>
                             </div>
-                            <div className="rounded-xl bg-white p-8 shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
-                                <span className="mb-2 block text-sm uppercase tracking-widest text-[#564240]">Conference End</span>
-                                <div className="flex items-baseline space-x-2">
-                                    <span className="text-4xl font-bold text-[#500608]" style={headingStyle}>Jun 14, 16:15</span>
-                                </div>
+                            <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
+                                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.16em] text-[#564240]">Conference End</span>
+                                <span className="text-[30px] leading-tight text-[#500608]" style={headingStyle}>Jun 14, 16:15</span>
                             </div>
                         </div>
                     </section>
 
-                    <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-12">
-                        <section className="space-y-8 lg:col-span-4">
-                            <div className="flex items-center justify-between border-b border-[#dcc0bd]/30 pb-4">
+                    <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12">
+                        <section className="space-y-5 lg:col-span-4">
+                            <div className="flex items-center justify-between border-b border-[#dcc0bd]/30 pb-3">
                                 <h2 className="text-2xl font-semibold text-[#1a1c1c]" style={headingStyle}>Daily Schedule</h2>
-                                <span className="rounded-md bg-[#eee0d5] px-3 py-1 text-xs uppercase tracking-wider text-[#211a14]">{activeDay.shortLabel}</span>
+                                <span className="rounded-md bg-[#eee0d5] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#211a14]">{activeDay.shortLabel}</span>
                             </div>
-                            <div className="flex gap-2">
-                                {conferenceSchedule.map((day, index) => (
-                                    <button key={day.shortLabel} type="button" onClick={() => setSelectedDay(index)} className={`rounded-md px-3 py-1 text-xs uppercase tracking-wider ${selectedDay === index ? 'bg-[#500608] text-white' : 'bg-[#f4f3f3] text-[#564240]'}`}>
-                                        {day.shortLabel}
-                                    </button>
-                                ))}
-                            </div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-[#564240]">{activeDay.label}</p>
-                            <div className="relative ml-3 space-y-10 border-l-2 border-[#e2e2e2] py-2">
-                                {activeDay.events.map((event) => (
-                                    <div key={`${event.start}-${event.title}`} className="relative pl-8">
-                                        <div className="absolute -left-[9px] top-1.5 h-4 w-4 rounded-full border-2 border-[#f9f9f9] bg-[#e2e2e2]" />
-                                        <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-[#564240]">{event.start} - {event.end} · {event.label}</span>
-                                        <h3 className="text-lg font-medium text-[#1a1c1c]" style={headingStyle}>{event.title}</h3>
-                                    </div>
-                                ))}
+                            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#564240]">{activeDay.label}</p>
+                            <div className="relative ml-2 border-l-2 border-[#e2e2e2] py-1">
+                                {activeDay.events.map((event) => {
+                                    const eventStart = toDateTime(activeDay.dateISO, event.start);
+                                    const eventEnd = toDateTime(activeDay.dateISO, event.end);
+                                    const isCurrent = timeline.isConferenceWindow && now >= eventStart && now < eventEnd;
+                                    const isPast = timeline.isConferenceWindow && now >= eventEnd;
+
+                                    return (
+                                        <div key={`${event.start}-${event.title}`} className={`relative mb-6 pl-7 ${isCurrent ? '-ml-2 rounded-r-lg border-l-2 border-[#500608] bg-[#f4f3f3] py-3 pr-3' : ''}`}>
+                                            <div className={`absolute -left-[9px] top-1.5 h-4 w-4 rounded-full border-2 border-[#f9f9f9] ${isCurrent ? 'bg-[#500608]' : 'bg-[#e2e2e2]'}`} />
+                                            <span className={`mb-1 block text-[11px] font-bold uppercase tracking-[0.14em] ${isCurrent ? 'text-[#500608]' : 'text-[#564240]'}`}>
+                                                {event.start} - {event.end}{isCurrent ? ' (CURRENT)' : isPast ? ' (PAST)' : ''}
+                                            </span>
+                                            <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#564240]">{event.label}</p>
+                                            <h3 className={`text-lg leading-snug ${isCurrent ? 'text-[#500608]' : isPast ? 'text-[#1a1c1c]/60' : 'text-[#1a1c1c]'}`} style={headingStyle}>{event.title}</h3>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </section>
 
-                        <div className="grid grid-cols-1 items-start gap-8 lg:col-span-8 lg:grid-cols-8">
-                            <section className="rounded-2xl bg-white p-6 shadow-[0_8px_32px_rgba(26,28,28,0.06)] lg:col-span-5">
-                                <h3 className="mb-4 flex items-center gap-2 border-b border-[#dcc0bd]/20 pb-4 text-xl font-medium text-[#500608]" style={headingStyle}>
+                        <section className="space-y-5 lg:col-span-8">
+                            <div className="rounded-2xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
+                                <h3 className="mb-3 flex items-center gap-2 border-b border-[#dcc0bd]/20 pb-3 text-2xl font-medium text-[#500608]" style={headingStyle}>
                                     <Megaphone className="h-5 w-5" /> Announcements
                                 </h3>
                                 {isLoading ? (
                                     <div className="text-sm text-[#564240]">Loading live updates...</div>
                                 ) : updates.length > 0 ? (
-                                    <div className="max-h-[500px] space-y-3 overflow-y-auto pr-2">
+                                    <div className="max-h-[560px] min-h-[320px] space-y-3 overflow-y-auto pr-1">
                                         {updates.map((update) => (
-                                            <div key={update.updateID} className="rounded-lg border border-[#dcc0bd]/30 bg-[#f9f9f9] p-4">
+                                            <div key={update.updateID} className="rounded-lg border border-[#dcc0bd]/30 bg-[#f4f3f3] p-3">
                                                 <div className="mb-1 flex items-start justify-between gap-2">
-                                                    <span className="text-xs font-bold uppercase tracking-widest text-[#7f2926]">Update</span>
-                                                    <span className="text-xs text-[#564240]">{new Date(update.time).toLocaleString()}</span>
+                                                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7f2926]">Update</span>
+                                                    <span className="text-[11px] text-[#564240]">{new Date(update.time).toLocaleString()}</span>
                                                 </div>
                                                 <p className="text-sm font-semibold text-[#500608]">{update.title}</p>
                                                 <p className="mt-1 text-sm leading-relaxed text-[#1a1c1c]">{update.content}</p>
@@ -215,22 +235,24 @@ const Page = () => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="rounded-lg bg-[#f4f3f3] p-4 text-sm text-[#564240]">No announcements published yet.</div>
+                                    <div className="min-h-[160px] rounded-lg border border-[#dcc0bd]/25 bg-[#f4f3f3] p-4 text-sm text-[#564240]">No announcements published yet.</div>
                                 )}
-                            </section>
+                            </div>
 
-                            <section className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_32px_rgba(26,28,28,0.06)] lg:col-span-3">
+                            <section className="overflow-hidden rounded-2xl border border-[#dcc0bd]/25 bg-white shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
                                 <div className="border-b border-[#dcc0bd]/20 bg-[#f4f3f3] px-4 py-3">
                                     <h2 className="flex items-center gap-2 text-lg font-semibold text-[#500608]" style={headingStyle}>
-                                        <Calendar className="h-4 w-4" /> Chair Briefing
+                                        <Calendar className="h-4 w-4" /> Crisis Briefing
                                     </h2>
-                                    <span className="mt-2 inline-flex rounded-md bg-[#ffdad6] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#93000a]">Not Published</span>
+                                    <span className="mt-2 inline-flex rounded-md bg-[#ffdad6] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#93000a]">Not Published</span>
                                 </div>
                                 <div className="p-4">
-                                    <div className="rounded-lg bg-[#f4f3f3] p-4 text-sm text-[#564240]">No chair briefing is currently published.</div>
+                                    <div className="flex aspect-[16/9] items-center justify-center rounded-lg border border-[#dcc0bd]/30 bg-[#e8e8e8] px-4 text-center text-sm text-[#564240]">
+                                        No crisis briefing media is currently published.
+                                    </div>
                                 </div>
                             </section>
-                        </div>
+                        </section>
                     </div>
                 </div>
             </main>
