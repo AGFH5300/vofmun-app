@@ -75,15 +75,21 @@ const conferenceSchedule: ConferenceDay[] = [
     },
 ];
 
-const toDateTime = (dateISO: string, time: string) => new Date(`${dateISO}T${time}:00`);
+const UAE_OFFSET = '+04:00';
+const CONFERENCE_START_ISO = `2026-06-12T13:30:00${UAE_OFFSET}`;
+const CONFERENCE_END_ISO = `2026-06-14T16:15:00${UAE_OFFSET}`;
+
+const toDateTime = (dateISO: string, time: string) => new Date(`${dateISO}T${time}:00${UAE_OFFSET}`);
 
 const formatDuration = (milliseconds: number) => {
     const clamped = Math.max(0, milliseconds);
     const totalSeconds = Math.floor(clamped / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    const hhmmss = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    return days > 0 ? `${days}d ${hhmmss}` : hhmmss;
 };
 
 const Page = () => {
@@ -141,11 +147,12 @@ const Page = () => {
             )
             .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
 
-        const conferenceStart = toDateTime('2026-06-12', '00:00');
-        const conferenceEnd = toDateTime('2026-06-14', '23:59');
+        const conferenceStart = new Date(CONFERENCE_START_ISO);
+        const conferenceEnd = new Date(CONFERENCE_END_ISO);
         const isConferenceWindow = now >= conferenceStart && now <= conferenceEnd;
         const currentEvent = isConferenceWindow ? allEvents.find((event) => now >= event.startDate && now < event.endDate) ?? null : null;
         const nextEvent = allEvents.find((event) => event.startDate > now) ?? null;
+        const isConferenceCompleted = now > conferenceEnd;
 
         const activeDayIndex = isConferenceWindow
             ? conferenceSchedule.findIndex((day) => now >= toDateTime(day.dateISO, '00:00') && now <= toDateTime(day.dateISO, '23:59'))
@@ -155,6 +162,8 @@ const Page = () => {
             isConferenceWindow,
             currentEvent,
             nextEvent,
+            isConferenceCompleted,
+            conferenceEnd,
             activeDayIndex: activeDayIndex === -1 ? 0 : activeDayIndex,
         };
     }, [now]);
@@ -174,17 +183,25 @@ const Page = () => {
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
                                 <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-[#564240]">Current Session</span>
-                                <h4 className="text-[30px] leading-tight text-[#500608] !font-medium" style={headingStyle}>{timeline.currentEvent ? timeline.currentEvent.title : 'None'}</h4>
+                                <h4 className="text-[30px] leading-tight text-[#500608] !font-medium" style={headingStyle}>
+                                    {timeline.currentEvent ? timeline.currentEvent.title : timeline.isConferenceCompleted ? 'Conference completed' : 'Conference not started'}
+                                </h4>
                           </div>
                             <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
                                 <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-[#564240]">Starts Next</span>
                                 <span className="text-[30px] leading-tight text-[#500608]" style={headingStyle}>
-                                    {timeline.isConferenceWindow && timeline.nextEvent ? formatDuration(timeline.nextEvent.startDate.getTime() - now.getTime()) : 'Jun 12, 13:30'}
+                                    {timeline.nextEvent ? formatDuration(timeline.nextEvent.startDate.getTime() - now.getTime()) : 'Conference completed'}
                                 </span>
+                                <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[#564240]">
+                                    {timeline.nextEvent ? `Until ${timeline.nextEvent.title}` : 'No upcoming sessions'}
+                                </p>
                             </div>
                             <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
                                 <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-[#564240]">Conference End</span>
-                                <span className="text-[30px] leading-tight text-[#500608]" style={headingStyle}>Jun 14, 16:15</span>
+                                <span className="text-[30px] leading-tight text-[#500608]" style={headingStyle}>
+                                    {timeline.isConferenceCompleted ? 'Conference completed' : formatDuration(timeline.conferenceEnd.getTime() - now.getTime())}
+                                </span>
+                                <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[#564240]">Until final dispersal</p>
                             </div>
                         </div>
                     </section>
