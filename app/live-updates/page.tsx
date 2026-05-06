@@ -173,7 +173,7 @@ const Page = () => {
     return (
         <ProtectedRoute>
             <main className="min-h-screen bg-[#f9f9f9] text-[#1a1c1c]" style={{ fontFamily: "'Manrope', sans-serif" }}>
-                <div className="mx-auto w-full max-w-[1600px] space-y-10 px-6 py-8 pt-20 lg:px-8 lg:pt-24">
+                <div className="mx-auto w-full max-w-[1600px] space-y-10 px-6 py-8 lg:px-8">
                     <section className="space-y-4">
                         <h1
                           className="text-4xl !font-semibold tracking-tight text-[#500608]"
@@ -209,7 +209,7 @@ const Page = () => {
                     <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12">
                         <section className="space-y-5 lg:col-span-4">
                             <div className="flex items-center justify-between border-b border-[#dcc0bd]/30 pb-3">
-                                <h2 className="text-2xl font-semibold text-[#1a1c1c]" style={headingStyle}>Daily Schedule</h2>
+                                <h3 className="text-2xl font-semibold text-[#1a1c1c]" style={headingStyle}>Daily Schedule</h3>
                                 <span className="rounded-md bg-[#eee0d5] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#211a14]">{activeDay.shortLabel}</span>
                             </div>
                             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#564240]">{activeDay.label}</p>
@@ -226,8 +226,7 @@ const Page = () => {
                                             <span className={`mb-1 block text-[11px] font-bold uppercase tracking-[0.14em] ${isCurrent ? 'text-[#500608]' : 'text-[#564240]'}`}>
                                                 {event.start} - {event.end}{isCurrent ? ' (CURRENT)' : isPast ? ' (PAST)' : ''}
                                             </span>
-                                            <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#564240]">{event.label}</p>
-                                            <h3 className={`text-lg leading-snug ${isCurrent ? 'text-[#500608]' : isPast ? 'text-[#1a1c1c]/60' : 'text-[#1a1c1c]'}`} style={headingStyle}>{event.title}</h3>
+                                            <h5 className={`text-lg leading-snug ${isCurrent ? 'text-[#500608]' : isPast ? 'text-[#1a1c1c]/60' : 'text-[#1a1c1c]'}`} style={headingStyle}>{event.title}</h5>
                                         </div>
                                     );
                                 })}
@@ -236,9 +235,9 @@ const Page = () => {
 
                         <section className="space-y-5 lg:col-span-8">
                             <div className="rounded-2xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
-                                <h3 className="mb-3 flex items-center gap-2 border-b border-[#dcc0bd]/20 pb-3 text-2xl font-medium text-[#500608]" style={headingStyle}>
+                                <h4 className="mb-3 flex items-center gap-2 border-b border-[#dcc0bd]/20 pb-3 text-2xl font-medium text-[#500608]" style={headingStyle}>
                                     <Megaphone className="h-5 w-5" /> Announcements
-                                </h3>
+                                </h4>
                                 {isLoading ? (
                                     <div className="text-sm text-[#564240]">Loading live updates...</div>
                                 ) : updates.length > 0 ? (
@@ -261,11 +260,18 @@ const Page = () => {
                             </div>
 
                             <section className="overflow-hidden rounded-2xl border border-[#dcc0bd]/25 bg-white shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
-                                <div className="border-b border-[#dcc0bd]/20 bg-[#f4f3f3] px-4 py-3">
-                                    <h2 className="flex items-center gap-2 text-lg font-semibold text-[#500608]" style={headingStyle}>
-                                        <Calendar className="h-4 w-4" /> Crisis Briefing
-                                    </h2>
-                                    <span className="mt-2 inline-flex rounded-md bg-[#ffdad6] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#93000a]">Not Published</span>
+                                <div className="border-b border-[#dcc0bd]/20 bg-[#ffffff] px-4 py-3">
+                                  <h4
+                                    className="!mb-0 flex items-center gap-2 text-2xl font-medium text-[#500608]"
+                                    style={{ ...headingStyle, marginBottom: 0 }}
+                                  >
+                                    <Calendar className="h-5 w-5 shrink-0 relative top-[-1px]" />
+                                    Crisis Briefing
+                                  </h4>
+
+                                  <span className="mt-2 inline-flex rounded-md bg-[#ffdad6] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#93000a]">
+                                    Not Published
+                                  </span>
                                 </div>
                                 <div className="p-4">
                                     <div className="flex aspect-[16/9] items-center justify-center rounded-lg border border-[#dcc0bd]/30 bg-[#e8e8e8] px-4 text-center text-sm text-[#564240]">
