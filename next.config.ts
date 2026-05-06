@@ -8,7 +8,8 @@ const nextConfig: NextConfig = {
     'localhost',
     '*.replit.dev',
     '*.sisko.replit.dev',
-    'https://16613c55-4621-4024-8bd5-4736100818c7-00-26hnf8y6ovl1a.pike.replit.dev/',
+    '*.pike.replit.dev',
+    '16613c55-4621-4024-8bd5-4736100818c7-00-26hnf8y6ovl1a.pike.replit.dev',
     ...(explicitDevOrigin ? [explicitDevOrigin] : []),
   ],
   images: {
