@@ -1,8 +1,9 @@
 // © 2026 Ansh Gupta. All rights reserved.
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 "use client";
+
 import React from "react";
-import {ProtectedRoute} from "@/components/protectedroute";
+import { ProtectedRoute } from "@/components/protectedroute";
 
 type GlossaryItem = {
   term: string;
@@ -296,6 +297,17 @@ const glossarySections: GlossarySection[] = [
 const Page = () => {
   const [searchQuery, setSearchQuery] = React.useState("");
 
+  React.useEffect(() => {
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSearchQuery("");
+      }
+    };
+
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, []);
+
   const filteredSections = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
@@ -327,92 +339,185 @@ const Page = () => {
       .filter((section): section is GlossarySection => section !== null);
   }, [searchQuery]);
 
-  const totalResults = React.useMemo(
-    () => filteredSections.reduce((count, section) => count + section.items.length, 0),
-    [filteredSections]
-  );
+  const allVisibleItems = React.useMemo(() => filteredSections.flatMap((section) => section.items), [filteredSections]);
+
+  const totalResults = allVisibleItems.length;
 
   return (
     <ProtectedRoute>
-      <div className="page-shell">
-        <div className="page-maxwidth max-w-5xl space-y-10">
-          <header className="surface-card is-emphasised overflow-hidden text-center px-8 py-10">
-            <span className="badge-pill bg-white/15 text-white/80 inline-flex justify-center mx-auto mb-4">
-              Expanded Delegate Reference
-            </span>
-            <h1 className="text-4xl md:text-5xl font-serif font-semibold text-white mb-3">Comprehensive Delegate Glossary</h1>
-            <p className="text-white/80 max-w-3xl mx-auto">
-              A detailed, practical glossary covering core committee language, debate structures, motions, drafting terms, and voting mechanics. Use this as your in-session reference to speak accurately, move strategically, and negotiate with confidence.
-            </p>
-          </header>
+      <div
+        className="w-full"
+        style={{
+          backgroundColor: "#f9f9f9",
+          color: "#1a1c1c",
+          fontFamily: "var(--font-manrope), Manrope, ui-sans-serif, system-ui",
+        }}
+      >
+        <main className="mx-auto max-w-6xl px-8 py-12 space-y-12">
+          <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="max-w-2xl">
+              <span className="mb-4 block text-xs font-bold uppercase tracking-[0.2em] text-[#6e1d1b]">Official Handbook</span>
+              <h1
+                className="mb-4 text-5xl font-semibold italic leading-tight tracking-tight text-[#6e1d1b] md:text-6xl"
+                style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}
+              >
+                Delegate Glossary
+              </h1>
+              <p className="text-lg leading-relaxed text-[#5d5f5f]">
+                Your definitive guide to the lexicon of international diplomacy. Clear terminology ensures a more
+                productive committee session.
+              </p>
+            </div>
+            <div className="hidden md:flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-4 border-white bg-[#eeeeee]">
+              <span className="text-4xl text-[#6e1d1b]">◌</span>
+            </div>
+          </section>
 
-          <section className="surface-card p-6 md:p-7 space-y-4 border border-soft-rose/70">
-            <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-5">
-              <div className="flex-1">
-                <label htmlFor="glossary-search" className="text-sm font-semibold text-deep-red block mb-2">
-                  Search the glossary
-                </label>
+          <div className="sticky top-24 z-30">
+            <section className="rounded-2xl border border-[#dcc0bd]/60 bg-white/90 p-4 shadow-sm backdrop-blur-xl">
+              <div className="flex items-center gap-3">
+                <span className="text-[#6e1d1b]">⌕</span>
                 <input
                   id="glossary-search"
                   type="search"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Try: moderated caucus, quorum, amendment, roll-call..."
-                  className="w-full rounded-xl border border-cool-grey bg-white px-4 py-3 text-sm text-almost-black-green placeholder:text-almost-black-green/45 focus:outline-none focus:ring-2 focus:ring-deep-red/40 focus:border-deep-red/40"
+                  placeholder="Start typing to filter ‘Quorum’ or ‘Caucus’..."
+                  className="w-full border-none bg-transparent px-1 py-2 text-base text-[#1a1c1c] placeholder:text-[#5d5f5f]/70 focus:outline-none"
                 />
+                <kbd className="hidden rounded bg-[#e2e2e2] px-2 py-1 text-[10px] font-bold text-[#5d5f5f] sm:inline-flex">ESC</kbd>
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="rounded-md border border-[#dcc0bd] px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[#6e1d1b]"
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
-              <div className="shrink-0 rounded-xl bg-soft-ivory px-4 py-3 border border-soft-rose/80">
-                <p className="text-xs uppercase tracking-wide text-deep-red/80 font-semibold">Results</p>
-                <p className="text-lg font-semibold text-deep-red">{totalResults} terms</p>
-              </div>
-            </div>
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="text-sm text-deep-red/80 hover:text-deep-red font-medium underline underline-offset-2"
-              >
-                Clear search
-              </button>
-            )}
-          </section>
+            </section>
+          </div>
 
-          <section className="space-y-6">
-            {filteredSections.length === 0 && (
-              <article className="surface-card p-6 md:p-8 border border-soft-rose/70 text-center">
-                <h2 className="text-2xl font-semibold text-deep-red mb-2">No glossary terms found</h2>
-                <p className="text-almost-black-green/75">
-                  Try a broader keyword or clear the search to browse all glossary entries.
-                </p>
-              </article>
-            )}
-            {filteredSections.map((section) => (
-              <article key={section.title} className="surface-card p-6 md:p-8">
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
-                  <h2 className="text-2xl font-semibold text-deep-red">{section.title}</h2>
-                  <span className="badge-pill bg-soft-ivory text-deep-red/80">Detailed Reference</span>
+          <div className="grid grid-cols-1 gap-12 xl:grid-cols-3">
+            <div className="space-y-10 xl:col-span-2">
+              <section>
+                <div className="mb-8 flex items-center gap-4">
+                  <h2
+                    className="text-3xl font-semibold italic text-[#6e1d1b]"
+                    style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}
+                  >
+                    Key Terms
+                  </h2>
+                  <div className="h-px flex-grow bg-[#dcc0bd]/70" />
+                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5d5f5f]/70">A—Z Index</span>
                 </div>
-                <p className="text-almost-black-green/75 mb-5">{section.description}</p>
-                <ul className="space-y-3">
-                  {section.items.map((item) => (
-                    <li key={item.term} className="rounded-xl px-4 py-4 space-y-3 border border-cool-grey/80 bg-gradient-to-br from-white to-primary-peach/25 shadow-sm">
-                      <p className="font-semibold text-almost-black-green text-lg">{item.term}</p>
-                      <p className="text-sm text-almost-black-green/80 rounded-lg border border-soft-rose/70 bg-soft-rose/35 px-3 py-2">
-                        <span className="font-semibold text-deep-red">Definition:</span> {item.definition}
-                      </p>
-                      <p className="text-sm text-almost-black-green/80 rounded-lg border border-pale-aqua/90 bg-pale-aqua/45 px-3 py-2">
-                        <span className="font-semibold text-[#1d4e89]">In practice:</span> {item.usage}
-                      </p>
-                      <p className="text-sm text-almost-black-green/80 rounded-lg border border-rich-gold/45 bg-[#fff7e7] px-3 py-2">
-                        <span className="font-semibold text-[#8a6500]">Delegate tip:</span> {item.tip}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </section>
-        </div>
+
+                {totalResults === 0 ? (
+                  <article className="rounded-2xl border border-[#dcc0bd] bg-white p-6 text-center">
+                    <h3 className="mb-2 text-xl font-semibold text-[#6e1d1b]">No glossary terms found</h3>
+                    <p className="text-[#5d5f5f]">Try a broader keyword or clear the search to browse all glossary entries.</p>
+                  </article>
+                ) : (
+                  <div className="space-y-8">
+                    {filteredSections.map((section) => (
+                      <section key={section.title} className="space-y-5">
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="text-lg font-semibold text-[#6e1d1b]">{section.title}</h3>
+                          <span className="rounded-full bg-[#eee0d5] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[#4e453d]">
+                            {section.items.length} terms
+                          </span>
+                        </div>
+                        <p className="text-sm leading-relaxed text-[#5d5f5f]">{section.description}</p>
+
+                        <div className="space-y-6">
+                          {section.items.map((item) => (
+                            <article key={item.term} className="border-t border-[#dcc0bd]/75 pt-6">
+                              <div className="flex flex-col gap-4 md:flex-row md:gap-10">
+                                <div className="md:w-1/3">
+                                  <h4
+                                    className="text-2xl font-bold leading-tight text-[#1a1c1c]"
+                                    style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}
+                                  >
+                                    {item.term}
+                                  </h4>
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    <span className="rounded bg-[#eee0d5] px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight text-[#211a14]">
+                                      Definition
+                                    </span>
+                                    <span className="rounded bg-[#e2e2e2] px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight text-[#454747]">
+                                      In Practice
+                                    </span>
+                                    <span className="rounded bg-[#ffdad6] px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight text-[#7f2926]">
+                                      Delegate Tip
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="space-y-3 md:w-2/3">
+                                  <p className="text-sm leading-relaxed text-[#564240]"><span className="font-semibold text-[#1a1c1c]">Definition:</span> {item.definition}</p>
+                                  <p className="text-sm leading-relaxed text-[#564240]"><span className="font-semibold text-[#1a1c1c]">In practice:</span> {item.usage}</p>
+                                  <p className="text-sm leading-relaxed text-[#564240]"><span className="font-semibold text-[#1a1c1c]">Delegate tip:</span> {item.tip}</p>
+                                </div>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <aside className="relative overflow-hidden rounded-2xl border-l-4 border-[#6e1d1b] bg-[#f4f3f3] p-8">
+                <p
+                  className="mb-3 text-2xl italic leading-relaxed text-[#6e1d1b]"
+                  style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}
+                >
+                  Glossary Tip: precise terms make your interventions faster, clearer, and more persuasive under
+                  procedural pressure.
+                </p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5d5f5f]/80">Debate Note</p>
+              </aside>
+            </div>
+
+            <aside className="space-y-8">
+              <section className="rounded-2xl border border-[#dcc0bd]/50 bg-[#eeeeee]/50 p-8">
+                <h2
+                  className="mb-6 text-2xl font-semibold italic text-[#6e1d1b]"
+                  style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}
+                >
+                  Point Categories
+                </h2>
+                <div className="space-y-6 text-sm leading-relaxed text-[#564240]">
+                  <div>
+                    <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#6e1d1b]"><span className="h-1.5 w-1.5 rounded-full bg-[#6e1d1b]" />Point of Order</h3>
+                    <p>Raised when a delegate believes parliamentary procedure is being applied incorrectly.</p>
+                  </div>
+                  <div>
+                    <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#6e1d1b]"><span className="h-1.5 w-1.5 rounded-full bg-[#6e1d1b]" />Point of Information</h3>
+                    <p>A direct question to a speaker, typically after they yield to questions.</p>
+                  </div>
+                  <div>
+                    <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#6e1d1b]"><span className="h-1.5 w-1.5 rounded-full bg-[#6e1d1b]" />Point of Personal Privilege</h3>
+                    <p>Used when discomfort or audibility issues prevent effective participation.</p>
+                  </div>
+                  <div>
+                    <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#6e1d1b]"><span className="h-1.5 w-1.5 rounded-full bg-[#6e1d1b]" />Point of Inquiry</h3>
+                    <p>Use this to ask the Chair procedural clarifications before making a motion.</p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-dashed border-[#dcc0bd] bg-white p-6">
+                <h3 className="mb-2 text-sm font-bold uppercase tracking-[0.15em] text-[#6e1d1b]">Handbook Resource</h3>
+                <p className="text-sm leading-relaxed text-[#5d5f5f]">
+                  No direct handbook file is linked on this page yet. Use the glossary terms above as the active
+                  committee reference.
+                </p>
+              </section>
+            </aside>
+          </div>
+        </main>
       </div>
     </ProtectedRoute>
   );
