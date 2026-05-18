@@ -11,7 +11,7 @@ import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
-import { AlertTriangle, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Printer, Trash2 } from "lucide-react";
 
 type SpeechRow = Omit<Speech, "tags">;
 
@@ -22,17 +22,9 @@ const UNSAVED_CHANGES_MESSAGE =
   "You have unsaved changes. Do you want to leave without saving?";
 
 const parseSpeechContent = (raw?: string | object | null) => {
-  if (!raw) {
-    return undefined;
-  }
-
-  if (typeof raw === "object") {
-    return raw;
-  }
-
-  if (typeof raw !== "string") {
-    return undefined;
-  }
+  if (!raw) return undefined;
+  if (typeof raw === "object") return raw;
+  if (typeof raw !== "string") return undefined;
 
   try {
     return JSON.parse(raw);
@@ -49,6 +41,14 @@ const parseSpeechContent = (raw?: string | object | null) => {
   }
 };
 
+const extractText = (node: unknown): string => {
+  if (!node || typeof node !== "object") return "";
+  const n = node as { text?: string; content?: unknown[] };
+  const own = typeof n.text === "string" ? n.text : "";
+  const child = Array.isArray(n.content) ? n.content.map(extractText).join(" ") : "";
+  return `${own} ${child}`.trim();
+};
+
 const Page = () => {
   const { user: currentUser } = useSession();
   const userRole = role(currentUser);
@@ -56,6 +56,7 @@ const Page = () => {
   const [fetchedSpeeches, setFetchedSpeeches] = useState<Speech[]>([]);
   const [selectedSpeech, setSelectedSpeech] = useState<Speech | null>(null);
   const [title, setTitle] = useState<string>("");
+  const [editorText, setEditorText] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -71,11 +72,15 @@ const Page = () => {
     [selectedSpeech]
   );
 
-  const getEditorSnapshot = React.useCallback(() => {
-    if (!editorRef.current) {
-      return initialStateRef.current.content;
-    }
+  const wordCount = React.useMemo(() => {
+    const trimmed = editorText.trim();
+    return trimmed ? trimmed.split(/\s+/).length : 0;
+  }, [editorText]);
+  const characterCount = editorText.length;
+  const readingMinutes = Math.max(1, Math.ceil(wordCount / 130));
 
+  const getEditorSnapshot = React.useCallback(() => {
+    if (!editorRef.current) return initialStateRef.current.content;
     try {
       return JSON.stringify(editorRef.current.getJSON());
     } catch {
@@ -97,13 +102,12 @@ const Page = () => {
 
     const handleUpdate = () => {
       evaluateUnsavedChanges();
+      setEditorText(editor.getText());
     };
 
     editor.on("update", handleUpdate);
-
-    return () => {
-      editor.off("update", handleUpdate);
-    };
+    setEditorText(editor.getText());
+    return () => editor.off("update", handleUpdate);
   }, [evaluateUnsavedChanges]);
 
   useEffect(() => {
@@ -111,30 +115,17 @@ const Page = () => {
   }, [title, evaluateUnsavedChanges]);
 
   const confirmDiscardChanges = React.useCallback(() => {
-    if (!hasUnsavedChanges) {
-      return true;
-    }
-
+    if (!hasUnsavedChanges) return true;
     return window.confirm(UNSAVED_CHANGES_MESSAGE);
   }, [hasUnsavedChanges]);
 
   const handleStartNewSpeech = React.useCallback(() => {
-    if (isBusy) {
-      return;
-    }
-
-    if (!confirmDiscardChanges()) {
-      return;
-    }
-
+    if (isBusy || !confirmDiscardChanges()) return;
     setSelectedSpeech(null);
     setTitle("");
-    initialStateRef.current = {
-      title: "",
-      content: serializeDocument(EMPTY_DOCUMENT),
-    };
+    setEditorText("");
+    initialStateRef.current = { title: "", content: serializeDocument(EMPTY_DOCUMENT) };
     setHasUnsavedChanges(false);
-
     if (editorRef.current) {
       editorRef.current.commands.setContent(EMPTY_DOCUMENT);
       editorRef.current.commands.focus("end");
@@ -142,37 +133,21 @@ const Page = () => {
   }, [confirmDiscardChanges, isBusy]);
 
   useEffect(() => {
-    if (!hasUnsavedChanges) {
-      return;
-    }
-
+    if (!hasUnsavedChanges) return;
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = UNSAVED_CHANGES_MESSAGE;
       return UNSAVED_CHANGES_MESSAGE;
     };
-
     window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
   const handleSelectSpeech = React.useCallback(
     (speech: Speech) => {
-      if (isBusy) {
-        return;
-      }
-
-      if (selectedSpeech?.speechID === speech.speechID) {
-        return;
-      }
-
-      if (!confirmDiscardChanges()) {
-        return;
-      }
-
+      if (isBusy) return;
+      if (selectedSpeech?.speechID === speech.speechID) return;
+      if (!confirmDiscardChanges()) return;
       setSelectedSpeech(speech);
     },
     [confirmDiscardChanges, isBusy, selectedSpeech]
@@ -182,58 +157,33 @@ const Page = () => {
     const baselineTitle = selectedSpeech?.title ?? "";
     const parsedContent = parseSpeechContent(selectedSpeech?.content ?? null);
     const baselineContent = serializeDocument(parsedContent ?? null);
-
-    initialStateRef.current = {
-      title: baselineTitle,
-      content: baselineContent,
-    };
-
+    initialStateRef.current = { title: baselineTitle, content: baselineContent };
     setTitle(baselineTitle);
 
     if (editorRef.current) {
-      if (parsedContent) {
-        editorRef.current.commands.setContent(parsedContent);
-      } else {
-        editorRef.current.commands.clearContent(true);
-      }
+      if (parsedContent) editorRef.current.commands.setContent(parsedContent);
+      else editorRef.current.commands.clearContent(true);
+      setEditorText(editorRef.current.getText());
+    } else {
+      setEditorText(extractText(parsedContent));
     }
-
     setHasUnsavedChanges(false);
   }, [selectedSpeech]);
 
   useEffect(() => {
     const fetchSpeeches = async () => {
       if (!currentUser) return;
-
       try {
         let speechIds: { speechID: string; delegateID?: string }[] = [];
-
         if (isDelegateUser) {
           const delegateUser = currentUser as Delegate;
-          const { data, error } = await supabase
-            .from<{ speechID: string }>("Delegate-Speech")
-            .select("speechID")
-            .eq("delegateID", delegateUser.delegateID);
-
-          if (error) {
-            throw error;
-          }
-
-          speechIds = (data ?? []).map((row) => ({
-            speechID: row.speechID,
-            delegateID: delegateUser.delegateID,
-          }));
+          const { data, error } = await supabase.from<{ speechID: string }>("Delegate-Speech").select("speechID").eq("delegateID", delegateUser.delegateID);
+          if (error) throw error;
+          speechIds = (data ?? []).map((row) => ({ speechID: row.speechID, delegateID: delegateUser.delegateID }));
         } else if (isChairUser) {
           const chairUser = currentUser as Chair;
-          const { data, error } = await supabase
-            .from<{ speechID: string }>("Chair-Speech")
-            .select("speechID")
-            .eq("chairID", chairUser.chairID);
-
-          if (error) {
-            throw error;
-          }
-
+          const { data, error } = await supabase.from<{ speechID: string }>("Chair-Speech").select("speechID").eq("chairID", chairUser.chairID);
+          if (error) throw error;
           speechIds = (data ?? []).map((row) => ({ speechID: row.speechID }));
         }
 
@@ -242,192 +192,71 @@ const Page = () => {
           return;
         }
 
-        const speechIdList = speechIds.map((row) => row.speechID);
-
-        const { data: speechRows, error: speechesError } = await supabase
-          .from<SpeechRow>("Speech")
-          .select("*")
-          .in("speechID", speechIdList);
-
-        if (speechesError) {
-          throw speechesError;
-        }
+        const { data: speechRows, error: speechesError } = await supabase.from<SpeechRow>("Speech").select("*").in("speechID", speechIds.map((row) => row.speechID));
+        if (speechesError) throw speechesError;
 
         const normalizedSpeeches: Speech[] = (speechRows ?? []).map((speech) => {
           const matchingDelegateId = speechIds.find((row) => row.speechID === speech.speechID)?.delegateID ?? speech.delegateID ?? "";
-          return {
-            ...speech,
-            delegateID: matchingDelegateId,
-            tags: [],
-          };
+          return { ...speech, delegateID: matchingDelegateId, tags: [] };
         });
 
         setFetchedSpeeches(normalizedSpeeches);
-
-        if (selectedSpeech) {
-          const updatedSelectedSpeech = normalizedSpeeches.find(
-            (speech) => speech.speechID === selectedSpeech.speechID
-          );
-          if (updatedSelectedSpeech) {
-            setTitle(updatedSelectedSpeech.title || "");
-          }
-        }
       } catch (error) {
         console.error("Failed to fetch speeches:", error);
         toast.error("Failed to fetch speeches");
       }
     };
-
     fetchSpeeches();
-  }, [currentUser, isDelegateUser, isChairUser, selectedSpeech]);
+  }, [currentUser, isDelegateUser, isChairUser]);
 
   useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.setEditable(!isBusy);
-    }
+    if (editorRef.current) editorRef.current.setEditable(!isBusy);
   }, [isBusy]);
 
-  const postSpeech = async () => {
-    if (isBusy) {
-      return;
-    }
-
-    if (!currentUser) {
-      toast.error("No user logged in");
-      return;
-    }
-
-    if (!editorRef.current) {
-      toast.error("Editor not initialized");
-      return;
-    }
-
-    const editorText = editorRef.current.getText();
-    if (editorText.length === 0) {
-      toast.error("Speech content cannot be empty");
-      return;
-    }
-
-    if (!title.trim()) {
-      toast.error("Please enter a speech title");
-      return;
-    }
+  const postSpeech = async () => { /* unchanged logic */
+    if (isBusy) return;
+    if (!currentUser) return toast.error("No user logged in");
+    if (!editorRef.current) return toast.error("Editor not initialized");
+    if (editorRef.current.getText().length === 0) return toast.error("Speech content cannot be empty");
+    if (!title.trim()) return toast.error("Please enter a speech title");
 
     const content = editorRef.current.getJSON();
     const serializedContent = JSON.stringify(content);
     const timestamp = new Date().toISOString();
-
     setIsSaving(true);
 
     try {
       if (selectedSpeech) {
-        const { error: updateError } = await supabase
-          .from("Speech")
-          .update({
-            title,
-            content: serializedContent,
-            date: timestamp,
-          })
-          .eq("speechID", selectedSpeech.speechID);
-
-        if (updateError) {
-          throw updateError;
-        }
-
-        const updatedSpeech: Speech = {
-          ...selectedSpeech,
-          title,
-          content: serializedContent,
-          date: timestamp,
-        };
-
-        setFetchedSpeeches((prev) =>
-          prev.map((speech) =>
-            speech.speechID === updatedSpeech.speechID ? updatedSpeech : speech
-          )
-        );
+        const { error: updateError } = await supabase.from("Speech").update({ title, content: serializedContent, date: timestamp }).eq("speechID", selectedSpeech.speechID);
+        if (updateError) throw updateError;
+        const updatedSpeech: Speech = { ...selectedSpeech, title, content: serializedContent, date: timestamp };
+        setFetchedSpeeches((prev) => prev.map((speech) => (speech.speechID === updatedSpeech.speechID ? updatedSpeech : speech)));
         setSelectedSpeech(updatedSpeech);
         toast.success("Speech updated successfully!");
       } else {
-        const { data: existingSpeeches, error: speechIdError } = await supabase
-          .from<{ speechID: string }>("Speech")
-          .select("speechID");
+        const { data: existingSpeeches, error: speechIdError } = await supabase.from<{ speechID: string }>("Speech").select("speechID");
+        if (speechIdError) throw speechIdError;
+        const numericSpeechIds = (existingSpeeches ?? []).map((row) => Number.parseInt(row.speechID, 10)).filter((id) => Number.isFinite(id));
+        const nextSpeechId = (numericSpeechIds.length > 0 ? Math.max(...numericSpeechIds) + 1 : 1).toString().padStart(4, "0");
 
-        if (speechIdError) {
-          throw speechIdError;
-        }
-
-        const numericSpeechIds = (existingSpeeches ?? [])
-          .map((row) => Number.parseInt(row.speechID, 10))
-          .filter((id) => Number.isFinite(id));
-
-        const nextSpeechNumber =
-          numericSpeechIds.length > 0 ? Math.max(...numericSpeechIds) + 1 : 1;
-
-        const nextSpeechId = nextSpeechNumber.toString().padStart(4, "0");
-
-        const insertPayload = {
-          speechID: nextSpeechId,
-          content: serializedContent,
-          title,
-          date: timestamp,
-        };
-
-        const { error: insertError } = await supabase
-          .from("Speech")
-          .insert(insertPayload);
-
-        if (insertError) {
-          throw insertError;
-        }
+        const { error: insertError } = await supabase.from("Speech").insert({ speechID: nextSpeechId, content: serializedContent, title, date: timestamp });
+        if (insertError) throw insertError;
 
         if (isDelegateUser) {
-          const delegateUser = currentUser as Delegate;
-          const { error: linkError } = await supabase
-            .from("Delegate-Speech")
-            .insert({
-              speechID: nextSpeechId,
-              delegateID: delegateUser.delegateID,
-            });
-
-          if (linkError) {
-            throw linkError;
-          }
+          const { error: linkError } = await supabase.from("Delegate-Speech").insert({ speechID: nextSpeechId, delegateID: (currentUser as Delegate).delegateID });
+          if (linkError) throw linkError;
         } else if (isChairUser) {
-          const chairUser = currentUser as Chair;
-          const { error: linkError } = await supabase
-            .from("Chair-Speech")
-            .insert({
-              speechID: nextSpeechId,
-              chairID: chairUser.chairID,
-            });
-
-          if (linkError) {
-            throw linkError;
-          }
+          const { error: linkError } = await supabase.from("Chair-Speech").insert({ speechID: nextSpeechId, chairID: (currentUser as Chair).chairID });
+          if (linkError) throw linkError;
         }
 
-        const createdSpeech: Speech = {
-          speechID: nextSpeechId,
-          title,
-          content: serializedContent,
-          date: timestamp,
-          delegateID: isDelegateUser
-            ? (currentUser as Delegate).delegateID
-            : "",
-          tags: [],
-        };
-
+        const createdSpeech: Speech = { speechID: nextSpeechId, title, content: serializedContent, date: timestamp, delegateID: isDelegateUser ? (currentUser as Delegate).delegateID : "", tags: [] };
         setFetchedSpeeches((prev) => [...prev, createdSpeech]);
         setSelectedSpeech(createdSpeech);
         toast.success("Speech posted successfully!");
       }
 
-      const snapshot = getEditorSnapshot();
-      initialStateRef.current = {
-        title,
-        content: snapshot,
-      };
+      initialStateRef.current = { title, content: getEditorSnapshot() };
       setHasUnsavedChanges(false);
     } catch (error) {
       console.error("Failed to save speech:", error);
@@ -437,82 +266,29 @@ const Page = () => {
     }
   };
 
-  const handleDeleteSpeech = async () => {
-    if (!selectedSpeech || isBusy) {
-      return;
-    }
-
-    if (!currentUser) {
-      toast.error("No user logged in");
-      return;
-    }
-
-    if (!isDelegateUser && !isChairUser) {
-      toast.error("You do not have permission to delete speeches.");
-      return;
-    }
-
-    if (
-      isDelegateUser &&
-      selectedSpeech.delegateID &&
-      selectedSpeech.delegateID !== (currentUser as Delegate).delegateID
-    ) {
-      toast.error("You can only delete your own speeches.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this speech? This action cannot be undone."
-    );
-
-    if (!confirmed) {
-      return;
-    }
+  const handleDeleteSpeech = async () => { /* unchanged logic */
+    if (!selectedSpeech || isBusy) return;
+    if (!currentUser) return toast.error("No user logged in");
+    if (!isDelegateUser && !isChairUser) return toast.error("You do not have permission to delete speeches.");
+    if (isDelegateUser && selectedSpeech.delegateID && selectedSpeech.delegateID !== (currentUser as Delegate).delegateID) return toast.error("You can only delete your own speeches.");
+    if (!window.confirm("Are you sure you want to delete this speech? This action cannot be undone.")) return;
 
     setIsDeleting(true);
-
     try {
-      await supabase
-        .from("Speech")
-        .delete()
-        .eq("speechID", selectedSpeech.speechID);
+      await supabase.from("Speech").delete().eq("speechID", selectedSpeech.speechID);
+      if (isDelegateUser) await supabase.from("Delegate-Speech").delete().eq("speechID", selectedSpeech.speechID).eq("delegateID", (currentUser as Delegate).delegateID);
+      else if (isChairUser) await supabase.from("Chair-Speech").delete().eq("speechID", selectedSpeech.speechID).eq("chairID", (currentUser as Chair).chairID);
 
-      if (isDelegateUser) {
-        const delegateUser = currentUser as Delegate;
-        await supabase
-          .from("Delegate-Speech")
-          .delete()
-          .eq("speechID", selectedSpeech.speechID)
-          .eq("delegateID", delegateUser.delegateID);
-      } else if (isChairUser) {
-        const chairUser = currentUser as Chair;
-        await supabase
-          .from("Chair-Speech")
-          .delete()
-          .eq("speechID", selectedSpeech.speechID)
-          .eq("chairID", chairUser.chairID);
-      }
-
-      const updatedSpeeches = fetchedSpeeches.filter(
-        (speech) => speech.speechID !== selectedSpeech.speechID
-      );
-
+      const updatedSpeeches = fetchedSpeeches.filter((speech) => speech.speechID !== selectedSpeech.speechID);
       setFetchedSpeeches(updatedSpeeches);
-
-      if (updatedSpeeches.length > 0) {
-        setSelectedSpeech(updatedSpeeches[0]);
-      } else {
+      if (updatedSpeeches.length > 0) setSelectedSpeech(updatedSpeeches[0]);
+      else {
         setSelectedSpeech(null);
         setTitle("");
-        initialStateRef.current = {
-          title: "",
-          content: serializeDocument(),
-        };
-        if (editorRef.current) {
-          editorRef.current.commands.clearContent(true);
-        }
+        setEditorText("");
+        initialStateRef.current = { title: "", content: serializeDocument() };
+        if (editorRef.current) editorRef.current.commands.clearContent(true);
       }
-
       setHasUnsavedChanges(false);
       toast.success("Speech deleted successfully.");
     } catch (error) {
@@ -523,154 +299,79 @@ const Page = () => {
     }
   };
 
-  if (!isDelegateUser && !isChairUser) {
-    return (
-      <div className="page-shell">
-        <div className="page-maxwidth flex items-center justify-center">
-          <div className="surface-card p-10 text-center max-w-md">
-            <h2 className="text-2xl font-semibold text-deep-red mb-3">Restricted Access</h2>
-            <p className="text-almost-black-green/75">Only delegates and chairs can view the speech repository. Please sign in with the appropriate credentials.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!isDelegateUser && !isChairUser) return <div className="min-h-[50vh] flex items-center justify-center text-sm text-[#564240]">Only delegates and chairs can view this page.</div>;
 
   return (
     <ParticipantRoute>
-      <div className="page-shell">
-        <main className="page-maxwidth space-y-10">
-          <header className="surface-card is-emphasised overflow-hidden px-8 py-10 text-center">
-            <span className="badge-pill bg-white/15 text-white/85 inline-flex justify-center mx-auto mb-4">
-              Prepared Speeches
-            </span>
-            <h1 className="text-4xl md:text-5xl font-serif font-semibold text-white">Speech Repository</h1>
-            <p className="text-white/80 max-w-3xl mx-auto mt-3">
-              Draft, rehearse, and refine your remarks. Save iterations or review submissions from your committee to stay ahead in debate.
-            </p>
-          </header>
-
-          <section className="flex flex-col lg:flex-row gap-6">
-            <aside className="lg:w-1/3 space-y-4">
-              <div className="surface-card p-6 max-h-[520px] overflow-y-auto">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="text-xl font-semibold text-deep-red">All Speeches</h2>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleStartNewSpeech}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-deep-red/20 bg-white px-3 py-1.5 text-xs font-medium text-deep-red transition-colors hover:border-deep-red/40 hover:bg-deep-red/5 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={isBusy}
-                    >
-                      <Plus size={14} />
-                      New Speech
-                    </button>
-                    <span className="badge-pill bg-soft-ivory text-deep-red/80">{fetchedSpeeches.length} saved</span>
-                  </div>
+      <div className="min-h-screen bg-[#f9f9f9] text-[#1a1c1c] px-8 pb-12 pt-6" style={{ fontFamily: "var(--font-manrope), Manrope, ui-sans-serif, system-ui" }}>
+        <main className="max-w-[1600px] mx-auto">
+          <div className="grid grid-cols-12 gap-8">
+            <aside className="col-span-12 lg:col-span-3 space-y-6">
+              <div className="p-6 rounded-xl border border-[#dcc0bd]/40 bg-[#f4f3f3] shadow-sm">
+                <div className="mb-6 flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-[#500608]" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>Saved Speeches</h2>
+                  <span className="text-xs uppercase tracking-[0.2em] text-[#564240]">{fetchedSpeeches.length}</span>
                 </div>
-                {fetchedSpeeches.length === 0 ? (
-                  <div className="text-almost-black-green/60 text-center py-6 italic">
-                    No speeches yet. Start drafting your first statement.
-                  </div>
-                ) : (
-                  <ul className="space-y-3">
-                    {fetchedSpeeches.map((speech, idx) => {
-                      if (!speech) return null;
-                      const isActive = selectedSpeech?.speechID === speech.speechID;
+                <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                  {fetchedSpeeches.length === 0 ? (
+                    <p className="text-sm text-[#564240]">No saved speeches yet.</p>
+                  ) : (
+                    fetchedSpeeches.map((speech) => {
+                      const active = selectedSpeech?.speechID === speech.speechID;
                       return (
-                        <li key={speech.speechID}>
-                          <button
-                            className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all ${isActive ? 'border-deep-red bg-soft-ivory shadow-lg' : 'border-soft-ivory bg-warm-light-grey hover:border-deep-red/60'}`}
-                            onClick={() => handleSelectSpeech(speech)}
-                          >
-                            <span
-                              className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold shadow-sm ${
-                                isActive
-                                  ? 'bg-[#701e1e] text-white'
-                                  : 'bg-[#f6d4c6] text-[#701e1e]'
-                              }`}
-                            >
-                              {idx + 1}
-                            </span>
-                            <div className="flex-1">
-                              <p className="font-semibold text-almost-black-green">
-                                {speech.title ? speech.title : `Speech #${idx + 1}`}
-                              </p>
-                              <p className="text-xs text-almost-black-green/60">Tap to load in editor</p>
-                            </div>
-                            <ArrowRight size={16} className={`transition-colors ${isActive ? 'text-deep-red' : 'text-deep-red/50'}`} />
-                          </button>
-                        </li>
+                        <button key={speech.speechID} onClick={() => handleSelectSpeech(speech)} disabled={isBusy} className={`w-full rounded-lg border p-4 text-left transition ${active ? "bg-white border-[#6E1D1B]/45 shadow" : "bg-white/80 border-[#dcc0bd]/60 hover:border-[#6E1D1B]/30"}`}>
+                          <p className="text-[10px] uppercase tracking-widest text-[#564240]/70">{speech.date ? new Date(speech.date).toLocaleDateString() : "No date"}</p>
+                          <p className="mt-1 text-base font-semibold text-[#1a1c1c]" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>{speech.title || `Speech ${speech.speechID}`}</p>
+                        </button>
                       );
-                    })}
-                  </ul>
-                )}
+                    })
+                  )}
+                </div>
+                <button type="button" onClick={handleStartNewSpeech} disabled={isBusy} className="mt-6 w-full rounded-xl border border-[#6E1D1B]/25 py-2.5 text-xs font-bold uppercase tracking-widest text-[#6E1D1B] hover:bg-white disabled:opacity-60 inline-flex items-center justify-center gap-2">
+                  <Plus size={14} /> New Document
+                </button>
+              </div>
+
+              <div className="rounded-xl overflow-hidden border border-[#dcc0bd]/50 bg-gradient-to-br from-[#6E1D1B] to-[#500608] p-5">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-[#FFF0E5]/75">Writing tip</p>
+                <p className="mt-3 text-[#FFF0E5] text-base leading-relaxed" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>
+                  Prioritize one clear diplomatic ask per paragraph to keep your intervention persuasive and easy to follow.
+                </p>
               </div>
             </aside>
 
-            <div className="flex-1">
-              <div className="surface-card p-4 md:p-6 h-full flex flex-col">
-                <div className="mb-4">
-                  <label className="text-xs uppercase tracking-[0.3em] text-deep-red/70 block mb-2">Speech Title</label>
-                  <textarea
-                    placeholder="Give your speech a compelling title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    disabled={isBusy}
-                    className="w-full rounded-xl border-2 border-soft-ivory bg-warm-light-grey px-4 py-3 text-almost-black-green shadow-inner transition focus:border-deep-red/70 focus:ring-2 focus:ring-deep-red/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 resize-none"
-                    rows={1}
-                  />
-                </div>
-                {hasUnsavedChanges && (
-                  <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-                    <AlertTriangle size={16} className="shrink-0" />
-                    <span>Unsaved changes detected. Don&apos;t forget to post your latest edits.</span>
-                  </div>
-                )}
-                <div
-                  className={`flex-1 overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isBusy ? "pointer-events-none opacity-60" : ""}`}
-                >
-                  <SimpleEditor
-                    ref={editorRef}
-                    content={parsedSpeechContent}
-                    className="h-full toolbar-fixed"
-                    placeholder="Delegates, delegates, delegates..."
-                  />
-                </div>
-                <div className="mt-4 flex flex-col gap-3 border-t border-soft-ivory pt-4 sm:flex-row sm:items-center sm:justify-between">
-                  {selectedSpeech && (
-                    <button
-                      onClick={handleDeleteSpeech}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-deep-red/30 bg-deep-red/10 text-deep-red transition-colors hover:border-deep-red/60 hover:bg-deep-red/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-deep-red/40 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={isBusy}
-                      aria-label={isDeleting ? "Deleting speech" : "Delete speech"}
-                    >
-                      {isDeleting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 size={16} />
-                      )}
-                    </button>
-                  )}
-                  <button
-                    onClick={postSpeech}
-                    className="primary-button inline-flex items-center gap-2"
-                    disabled={isBusy}
-                    aria-busy={isSaving}
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>{selectedSpeech ? "Update Speech" : "Save Speech"}</>
-                    )}
+            <section className="col-span-12 lg:col-span-9">
+              <div className="min-h-[760px] rounded-xl border border-[#dcc0bd]/40 bg-white shadow-[0_8px_32px_rgba(26,28,28,0.06)] overflow-hidden flex flex-col">
+                <div className="px-6 py-4 bg-[#f4f3f3] border-b border-[#dcc0bd]/40 flex items-center justify-between gap-4">
+                  <div className="text-xs uppercase tracking-widest text-[#564240]">{hasUnsavedChanges ? "Unsaved changes" : "Saved state synced"}</div>
+                  <button onClick={postSpeech} className="px-5 py-2.5 rounded-xl bg-[#6E1D1B] text-white text-xs font-bold uppercase tracking-widest disabled:opacity-60 inline-flex items-center gap-2" disabled={isBusy}>
+                    {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Speech"}
                   </button>
                 </div>
+
+                <div className="flex-1 p-8 md:p-12 bg-[#fff]">
+                  <div className="max-w-3xl mx-auto space-y-8 min-h-[520px]">
+                    <div className="border-b border-[#6E1D1B]/10 pb-6">
+                      <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={isBusy} placeholder="Enter speech title..." className="w-full bg-transparent outline-none text-4xl font-bold text-[#500608] placeholder:text-[#500608]/30" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }} />
+                    </div>
+                    <div className={`rounded-xl border border-[#dcc0bd]/60 bg-white ${isBusy ? "opacity-60 pointer-events-none" : ""}`}>
+                      <SimpleEditor ref={editorRef} content={parsedSpeechContent} className="toolbar-fixed" placeholder="Draft your intervention..." />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-8 py-3 bg-[#f4f3f3] border-t border-[#dcc0bd]/40 flex flex-wrap items-center justify-between gap-3 text-[10px] uppercase tracking-widest text-[#564240]">
+                  <div className="flex gap-5">
+                    <span>Words: {wordCount}</span><span>Characters: {characterCount}</span><span>Reading Time: ~{readingMinutes} min</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedSpeech && <button onClick={handleDeleteSpeech} disabled={isBusy} className="rounded-full border border-[#6E1D1B]/35 p-2 text-[#6E1D1B] disabled:opacity-60">{isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={14} />}</button>}
+                    <button onClick={() => window.print()} className="rounded-full border border-[#dcc0bd] p-2 text-[#6E1D1B]"><Printer size={14} /></button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
         </main>
       </div>
     </ParticipantRoute>
