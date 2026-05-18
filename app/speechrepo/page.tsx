@@ -3,7 +3,7 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { Chair, Delegate, Speech } from "@/db/types";
+import { Chair, Speech } from "@/db/types";
 import { useSession } from "../context/sessionContext";
 import { Editor } from "@tiptap/react";
 import { SimpleEditor } from "../../components/tiptap-templates/simple/simple-editor";
@@ -66,11 +66,13 @@ const Page = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [delegateProfileError, setDelegateProfileError] = useState<string | null>(null);
-  const [resolvedDelegateId, setResolvedDelegateId] = useState<string | null>(null);
+  const [delegateProfile, setDelegateProfile] = useState<{ delegateID: string; committeeID?: string | null; country?: string | null; name?: string } | null>(null);
+  const [isResolvingDelegateProfile, setIsResolvingDelegateProfile] = useState(false);
   const isDelegateUser = userRole === "delegate" && currentUser !== null;
   const isChairUser = userRole === "chair" && currentUser !== null;
   const initialStateRef = React.useRef({ title: "", content: serializeDocument(EMPTY_DOCUMENT) });
   const isBusy = isSaving || isDeleting;
+  const isDelegateReady = !isDelegateUser || (!!delegateProfile?.delegateID && !isResolvingDelegateProfile && !delegateProfileError);
   const parsedSpeechContent = React.useMemo(() => parseSpeechContent(selectedSpeech?.content ?? null), [selectedSpeech]);
 
   const wordCount = React.useMemo(() => {
@@ -166,64 +168,85 @@ const Page = () => {
     setHasUnsavedChanges(false);
   }, [selectedSpeech]);
 
-  const resolveDelegateId = React.useCallback(async (): Promise<string | null> => {
+  const resolveDelegateProfile = React.useCallback(async (): Promise<{ delegateID: string; committeeID?: string | null; country?: string | null; name?: string } | null> => {
     if (!currentUser || !isDelegateUser) return null;
 
-    const sessionDelegateId = (currentUser as Delegate).delegateID;
-    if (sessionDelegateId) {
-      const { data, error } = await supabase.from("Delegate").select("delegateID").eq("delegateID", sessionDelegateId).maybeSingle();
-      if (!error && data?.delegateID) return data.delegateID;
-      if (error) console.error("Failed delegate lookup by session delegateID:", error);
+    const { data: appUser, error: appUserError } = await supabase
+      .from("app_users")
+      .select("id, role, committee_id, country, first_name, last_name")
+      .eq("id", currentUser.id)
+      .eq("role", "delegate")
+      .maybeSingle();
+
+    if (appUserError) {
+      console.error("Failed to resolve delegate app_user", appUserError);
+      return null;
     }
 
-    const { data: byAuthId, error: byAuthIdError } = await supabase.from("Delegate").select("delegateID").eq("id", currentUser.id).maybeSingle();
-    if (!byAuthIdError && byAuthId?.delegateID) return byAuthId.delegateID;
-    if (byAuthIdError) console.error("Failed delegate lookup by auth user id:", byAuthIdError);
+    if (!appUser?.id) return null;
 
-    const { data: byEmail, error: byEmailError } = await supabase.from("Delegate").select("delegateID").eq("email", currentUser.email).maybeSingle();
-    if (!byEmailError && byEmail?.delegateID) return byEmail.delegateID;
-    if (byEmailError) console.error("Failed delegate lookup by email:", byEmailError);
+    const { data: delegateRow, error: delegateError } = await supabase
+      .from("Delegate")
+      .select("delegateID, committeeID, country, firstname, lastname")
+      .eq("delegateID", appUser.id)
+      .maybeSingle();
 
-    return null;
+    if (delegateError) {
+      console.error("Failed to verify delegate profile", delegateError);
+      return null;
+    }
+
+    if (!delegateRow?.delegateID) return null;
+
+    return {
+      delegateID: delegateRow.delegateID,
+      committeeID: delegateRow.committeeID,
+      country: delegateRow.country,
+      name: [delegateRow.firstname, delegateRow.lastname].filter(Boolean).join(" ").trim() || undefined,
+    };
   }, [currentUser, isDelegateUser]);
 
   useEffect(() => {
     const hydrateResolvedDelegate = async () => {
       if (!currentUser || !isDelegateUser) {
-        setResolvedDelegateId(null);
+        setDelegateProfile(null);
         setDelegateProfileError(null);
+        setIsResolvingDelegateProfile(false);
         return;
       }
 
-      const delegateId = await resolveDelegateId();
-      if (process.env.NODE_ENV !== "production") console.debug("[speechrepo] resolvedDelegateId", delegateId);
-      if (!delegateId) {
-        setResolvedDelegateId(null);
+      setIsResolvingDelegateProfile(true);
+      const profile = await resolveDelegateProfile();
+      if (!profile?.delegateID) {
+        setDelegateProfile(null);
         setDelegateProfileError("Could not find your delegate profile. Please contact support.");
+        setIsResolvingDelegateProfile(false);
         return;
       }
 
-      setResolvedDelegateId(delegateId);
+      setDelegateProfile(profile);
       setDelegateProfileError(null);
+      if (process.env.NODE_ENV !== "production") console.debug("[speechrepo] verifiedDelegateId", profile.delegateID);
+      setIsResolvingDelegateProfile(false);
     };
 
     void hydrateResolvedDelegate();
-  }, [currentUser, isDelegateUser, resolveDelegateId]);
+  }, [currentUser, isDelegateUser, resolveDelegateProfile]);
 
   useEffect(() => {
     const fetchSpeeches = async () => {
       if (!currentUser) return;
-      if (isDelegateUser && !resolvedDelegateId) {
+      if (isDelegateUser && !delegateProfile?.delegateID) {
         setFetchedSpeeches([]);
         return;
       }
 
       try {
         let speechIds: { speechID: string; delegateID?: string }[] = [];
-        if (isDelegateUser && resolvedDelegateId) {
-          const { data, error } = await supabase.from<{ speechID: string }>("Delegate-Speech").select("speechID").eq("delegateID", resolvedDelegateId);
+        if (isDelegateUser && delegateProfile?.delegateID) {
+          const { data, error } = await supabase.from<{ speechID: string }>("Delegate-Speech").select("speechID").eq("delegateID", delegateProfile.delegateID);
           if (error) throw error;
-          speechIds = (data ?? []).map((row) => ({ speechID: row.speechID, delegateID: resolvedDelegateId }));
+          speechIds = (data ?? []).map((row) => ({ speechID: row.speechID, delegateID: delegateProfile.delegateID }));
         } else if (isChairUser) {
           const chairUser = currentUser as Chair;
           const { data, error } = await supabase.from<{ speechID: string }>("Chair-Speech").select("speechID").eq("chairID", chairUser.chairID);
@@ -252,7 +275,7 @@ const Page = () => {
       }
     };
     void fetchSpeeches();
-  }, [currentUser, isDelegateUser, isChairUser, resolvedDelegateId]);
+  }, [currentUser, delegateProfile?.delegateID, isDelegateUser, isChairUser]);
 
   useEffect(() => {
     if (editorRef.current) editorRef.current.setEditable(!isBusy);
@@ -264,13 +287,9 @@ const Page = () => {
     if (!editorRef.current) return toast.error("Editor not initialized");
     if (editorRef.current.getText().trim().length === 0) return toast.error("Speech content cannot be empty");
     if (!title.trim()) return toast.error("Please enter a speech title");
-    if (isDelegateUser && !resolvedDelegateId) {
-      const delegateId = await resolveDelegateId();
-      if (!delegateId) {
-        setDelegateProfileError("Could not find your delegate profile. Please contact support.");
-        return toast.error("Could not find your delegate profile. Please contact support.");
-      }
-      setResolvedDelegateId(delegateId);
+    if (isDelegateUser && !delegateProfile?.delegateID) {
+      setDelegateProfileError("Could not find your delegate profile. Please contact support.");
+      return toast.error("Could not find your delegate profile. Please contact support.");
     }
 
     const content = editorRef.current.getJSON();
@@ -281,7 +300,11 @@ const Page = () => {
     try {
       if (selectedSpeech) {
         let updateQuery = supabase.from("Speech").update({ title: title.trim(), content: serializedContent, date: timestamp }).eq("speechID", selectedSpeech.speechID);
-        if (isDelegateUser && resolvedDelegateId) updateQuery = updateQuery.eq("delegateID", resolvedDelegateId);
+        if (isDelegateUser && delegateProfile?.delegateID) {
+          const { data: ownershipRow, error: ownershipError } = await supabase.from("Delegate-Speech").select("speechID").eq("speechID", selectedSpeech.speechID).eq("delegateID", delegateProfile.delegateID).maybeSingle();
+          if (ownershipError || !ownershipRow) throw ownershipError ?? new Error("Speech ownership verification failed");
+          updateQuery = updateQuery.eq("delegateID", delegateProfile.delegateID);
+        }
         const { error: updateError } = await updateQuery;
         if (updateError) throw updateError;
         const updatedSpeech: Speech = { ...selectedSpeech, title: title.trim(), content: serializedContent, date: timestamp };
@@ -297,15 +320,16 @@ const Page = () => {
         const { error: insertError } = await supabase.from("Speech").insert({ speechID: nextSpeechId, content: serializedContent, title: title.trim(), date: timestamp });
         if (insertError) throw insertError;
 
-        if (isDelegateUser && resolvedDelegateId) {
-          const { error: linkError } = await supabase.from("Delegate-Speech").insert({ speechID: nextSpeechId, delegateID: resolvedDelegateId });
+        if (isDelegateUser && delegateProfile?.delegateID) {
+          if (process.env.NODE_ENV !== "production") console.debug("[speechrepo] saveDelegateId", delegateProfile.delegateID);
+          const { error: linkError } = await supabase.from("Delegate-Speech").insert({ speechID: nextSpeechId, delegateID: delegateProfile.delegateID });
           if (linkError) throw linkError;
         } else if (isChairUser) {
           const { error: linkError } = await supabase.from("Chair-Speech").insert({ speechID: nextSpeechId, chairID: (currentUser as Chair).chairID });
           if (linkError) throw linkError;
         }
 
-        const createdSpeech: Speech = { speechID: nextSpeechId, title: title.trim(), content: serializedContent, date: timestamp, delegateID: resolvedDelegateId ?? "", tags: [] };
+        const createdSpeech: Speech = { speechID: nextSpeechId, title: title.trim(), content: serializedContent, date: timestamp, delegateID: delegateProfile?.delegateID ?? "", tags: [] };
         setFetchedSpeeches((prev) => [createdSpeech, ...prev]);
         setSelectedSpeech(createdSpeech);
         toast.success("Speech posted successfully!");
@@ -314,7 +338,8 @@ const Page = () => {
       initialStateRef.current = { title: title.trim(), content: getEditorSnapshot() };
       setHasUnsavedChanges(false);
     } catch (error) {
-      console.error("Failed to save speech:", JSON.stringify(error, null, 2), error);
+      const err = error as { code?: string; message?: string; details?: string; hint?: string };
+      console.error("Failed to save speech", { code: err?.code, message: err?.message, details: err?.details, hint: err?.hint });
       toast.error("Failed to save speech");
     } finally {
       setIsSaving(false);
@@ -325,13 +350,13 @@ const Page = () => {
     if (!selectedSpeech || isBusy) return;
     if (!currentUser) return toast.error("No user logged in");
     if (!isDelegateUser && !isChairUser) return toast.error("You do not have permission to delete speeches.");
-    if (isDelegateUser && selectedSpeech.delegateID && selectedSpeech.delegateID !== resolvedDelegateId) return toast.error("You can only delete your own speeches.");
+    if (isDelegateUser && selectedSpeech.delegateID && selectedSpeech.delegateID !== delegateProfile?.delegateID) return toast.error("You can only delete your own speeches.");
     if (!window.confirm("Are you sure you want to delete this speech? This action cannot be undone.")) return;
 
     setIsDeleting(true);
     try {
       await supabase.from("Speech").delete().eq("speechID", selectedSpeech.speechID);
-      if (isDelegateUser && resolvedDelegateId) await supabase.from("Delegate-Speech").delete().eq("speechID", selectedSpeech.speechID).eq("delegateID", resolvedDelegateId);
+      if (isDelegateUser && delegateProfile?.delegateID) await supabase.from("Delegate-Speech").delete().eq("speechID", selectedSpeech.speechID).eq("delegateID", delegateProfile.delegateID);
       else if (isChairUser) await supabase.from("Chair-Speech").delete().eq("speechID", selectedSpeech.speechID).eq("chairID", (currentUser as Chair).chairID);
 
       const updatedSpeeches = fetchedSpeeches.filter((speech) => speech.speechID !== selectedSpeech.speechID);
@@ -378,7 +403,7 @@ const Page = () => {
                     fetchedSpeeches.map((speech) => {
                       const active = selectedSpeech?.speechID === speech.speechID;
                       return (
-                        <button key={speech.speechID} onClick={() => handleSelectSpeech(speech)} disabled={isBusy} className={`w-full p-4 rounded-lg border text-left transition ${active ? "bg-white border-[#6E1D1B]/40 shadow-sm" : "bg-white/85 border-[#dcc0bd]/60 hover:border-[#6E1D1B]/25"}`}>
+                        <button key={speech.speechID} onClick={() => handleSelectSpeech(speech)} disabled={isBusy || !isDelegateReady} className={`w-full p-4 rounded-lg border text-left transition ${active ? "bg-white border-[#6E1D1B]/40 shadow-sm" : "bg-white/85 border-[#dcc0bd]/60 hover:border-[#6E1D1B]/25"}`}>
                           <p className="text-[10px] uppercase tracking-tight text-[#564240]/70">{formatSpeechDate(speech.date)}</p>
                           <h3 className="mt-1 text-lg leading-tight font-semibold text-[#1a1c1c]" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>{speech.title || `Speech ${speech.speechID}`}</h3>
                         </button>
@@ -387,7 +412,7 @@ const Page = () => {
                   )}
                 </div>
 
-                <button type="button" onClick={handleStartNewSpeech} disabled={isBusy} className="w-full mt-6 py-3 flex items-center justify-center gap-2 rounded-xl text-xs font-bold uppercase tracking-widest text-[#500608] hover:bg-white transition-colors disabled:opacity-60">
+                <button type="button" onClick={handleStartNewSpeech} disabled={isBusy || !isDelegateReady} className="w-full mt-6 py-3 flex items-center justify-center gap-2 rounded-xl text-xs font-bold uppercase tracking-widest text-[#500608] hover:bg-white transition-colors disabled:opacity-60">
                   <Plus size={14} /> New Document
                 </button>
               </div>
