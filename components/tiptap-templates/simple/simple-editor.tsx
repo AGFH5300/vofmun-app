@@ -13,13 +13,15 @@ import { TextAlign } from "@tiptap/extension-text-align"
 import { Typography } from "@tiptap/extension-typography"
 import { Highlight } from "@tiptap/extension-highlight"
 import Placeholder from "@tiptap/extension-placeholder"
-// Removed unused imports: Subscript and Superscript
+import { Subscript } from "@tiptap/extension-subscript"
+import { Superscript } from "@tiptap/extension-superscript"
 import { Underline } from "@tiptap/extension-underline"
 
 // --- Custom Extensions ---
 import { Link } from "@/components/tiptap-extension/link-extension"
 import { Selection } from "@/components/tiptap-extension/selection-extension"
 import { TrailingNode } from "@/components/tiptap-extension/trailing-node-extension"
+import { Spacing } from "@/components/tiptap-extension/spacing-extension"
 
 // --- UI Primitives ---
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -52,6 +54,14 @@ import {
 import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { TextAlignButton } from "@/components/tiptap-ui/text-align-button"
 import { UndoRedoButton } from "@/components/tiptap-ui/undo-redo-button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/tiptap-ui-primitive/dropdown-menu"
+import { ChevronDownIcon } from "@/components/tiptap-icons/chevron-down-icon"
 
 // --- Icons ---
 import { ArrowLeftIcon } from "@/components/tiptap-icons/arrow-left-icon"
@@ -68,6 +78,76 @@ import { useCursorVisibility } from "@/hooks/use-cursor-visibility"
 
 // --- Styles ---
 import "@/components/tiptap-templates/simple/simple-editor.scss"
+
+
+
+const ClearFormattingButton = () => {
+  const { editor } = React.useContext(EditorContext)
+  if (!editor || !editor.isEditable) return null
+
+  return (
+    <Button
+      type="button"
+      data-style="ghost"
+      tabIndex={-1}
+      tooltip="Clear formatting"
+      onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+    >
+      <span className="tiptap-button-text">Clear</span>
+    </Button>
+  )
+}
+
+const SpacingDropdown = () => {
+  const { editor } = React.useContext(EditorContext)
+  const lineHeights = ["1", "1.15", "1.5", "2"]
+  const spacingValues = ["0px", "6px", "12px", "18px"]
+
+  if (!editor || !editor.isEditable) return null
+
+  const currentLineHeight = (editor.getAttributes("paragraph").lineHeight || editor.getAttributes("heading").lineHeight || "1").toString()
+  const currentBefore = (editor.getAttributes("paragraph").spacingBefore || editor.getAttributes("heading").spacingBefore || "0px").toString()
+  const currentAfter = (editor.getAttributes("paragraph").spacingAfter || editor.getAttributes("heading").spacingAfter || "0px").toString()
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" data-style="ghost" tabIndex={-1} tooltip="Spacing">
+          <span className="tiptap-button-text">Spacing</span>
+          <ChevronDownIcon className="tiptap-button-dropdown-small" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="min-w-[200px] rounded-2xl border border-soft-ivory/80 bg-white/95 p-1 shadow-xl backdrop-blur-sm">
+        <DropdownMenuGroup className="space-y-1">
+          <div className="px-3 py-1 text-xs text-gray-500">Line height</div>
+          {lineHeights.map((value) => (
+            <DropdownMenuItem key={`lh-${value}`} asChild>
+              <Button type="button" data-style="ghost" className="w-full justify-start gap-3 px-3 py-2 text-sm" data-active-state={currentLineHeight === value ? "on" : "off"} onClick={() => editor.chain().focus().setSpacing({ lineHeight: value }).run()}>
+                {value}
+              </Button>
+            </DropdownMenuItem>
+          ))}
+          <div className="px-3 py-1 text-xs text-gray-500">Space before</div>
+          {spacingValues.map((value) => (
+            <DropdownMenuItem key={`sb-${value}`} asChild>
+              <Button type="button" data-style="ghost" className="w-full justify-start gap-3 px-3 py-2 text-sm" data-active-state={currentBefore === value ? "on" : "off"} onClick={() => editor.chain().focus().setSpacing({ spacingBefore: value }).run()}>
+                {value}
+              </Button>
+            </DropdownMenuItem>
+          ))}
+          <div className="px-3 py-1 text-xs text-gray-500">Space after</div>
+          {spacingValues.map((value) => (
+            <DropdownMenuItem key={`sa-${value}`} asChild>
+              <Button type="button" data-style="ghost" className="w-full justify-start gap-3 px-3 py-2 text-sm" data-active-state={currentAfter === value ? "on" : "off"} onClick={() => editor.chain().focus().setSpacing({ spacingAfter: value }).run()}>
+                {value}
+              </Button>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 const MainToolbarContent = ({
   onHighlighterClick,
@@ -140,6 +220,18 @@ const MainToolbarContent = ({
       <ToolbarSeparator />
 
       <ToolbarGroup>
+        <SpacingDropdown />
+      </ToolbarGroup>
+
+      <ToolbarSeparator />
+
+      <ToolbarGroup>
+        <ClearFormattingButton />
+      </ToolbarGroup>
+
+      <ToolbarSeparator />
+
+      <ToolbarGroup>
         <TextAlignButton align="left" />
         <TextAlignButton align="center" />
         <TextAlignButton align="right" />
@@ -196,6 +288,9 @@ export const SimpleEditor = React.forwardRef(function SimpleEditor({ content, cl
         StarterKit,
         TextAlign.configure({ types: ["heading", "paragraph"] }),
         Underline,
+        Subscript,
+        Superscript,
+        Spacing,
         TaskList,
         TaskItem.configure({ nested: true }),
         Highlight.configure({ multicolor: true }),
