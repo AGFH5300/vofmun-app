@@ -206,6 +206,8 @@ interface DropdownMenuContentProps
   orientation?: "vertical" | "horizontal"
   side?: "top" | "right" | "bottom" | "left"
   align?: "start" | "center" | "end"
+  initialFocus?: number
+  returnFocus?: boolean
   portal?: boolean
   portalProps?: Omit<React.ComponentProps<typeof FloatingPortal>, "children">
 }
@@ -221,6 +223,8 @@ export const DropdownMenuContent = React.forwardRef<
       orientation = "vertical",
       side = "bottom",
       align = "start",
+      initialFocus = 0,
+      returnFocus = true,
       portal = true,
       portalProps = {},
       ...props
@@ -240,8 +244,8 @@ export const DropdownMenuContent = React.forwardRef<
       <FloatingFocusManager
         context={context.context}
         modal={false}
-        initialFocus={0}
-        returnFocus={true}
+        initialFocus={initialFocus}
+        returnFocus={returnFocus}
       >
         <div
           ref={ref}
