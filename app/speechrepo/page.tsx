@@ -425,7 +425,7 @@ const Page = () => {
                     fetchedSpeeches.map((speech) => {
                       const active = selectedSpeech?.speechID === speech.speechID;
                       return (
-                        <button key={speech.speechID} onClick={() => handleSelectSpeech(speech)} disabled={isBusy || !isDelegateReady} className={`w-full p-4 rounded-lg border text-left transition ${active ? "bg-white border-[#6E1D1B]/40 shadow-sm" : "bg-white/85 border-[#dcc0bd]/60 hover:border-[#6E1D1B]/25"}`}>
+                        <button key={speech.speechID} onClick={() => handleSelectSpeech(speech)} disabled={isBusy || !isDelegateReady} className={`w-full p-4 rounded-lg border text-left transition transform-none hover:transform-none active:transform-none hover:translate-y-0 hover:scale-100 active:scale-100 ${active ? "bg-white border-[#6E1D1B]/40 shadow-sm" : "bg-white/85 border-[#dcc0bd]/60 hover:border-[#6E1D1B]/25"}`}>
                           <p className="text-[10px] uppercase tracking-tight text-[#564240]/70">{formatSpeechDate(speech.date)}</p>
                           <h3 className="mt-1 text-lg leading-tight font-semibold text-[#1a1c1c]" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>{speech.title || `Speech ${speech.speechID}`}</h3>
                         </button>
@@ -434,7 +434,7 @@ const Page = () => {
                   )}
                 </div>
 
-                <button type="button" onClick={handleStartNewSpeech} disabled={isBusy || !isDelegateReady} className="w-full mt-6 py-3 flex items-center justify-center gap-2 rounded-xl text-xs font-bold uppercase tracking-widest text-[#500608] hover:bg-white transition-colors disabled:opacity-60">
+                <button type="button" onClick={handleStartNewSpeech} disabled={isBusy || !isDelegateReady} className="w-full mt-6 py-3 flex items-center justify-center gap-2 rounded-xl text-xs font-bold uppercase tracking-widest text-[#500608] hover:bg-white transition-colors transform-none hover:transform-none active:transform-none hover:translate-y-0 hover:scale-100 active:scale-100 disabled:opacity-60">
                   <Plus size={14} /> New Document
                 </button>
               </div>
@@ -449,7 +449,7 @@ const Page = () => {
               <div className="bg-[#fffdf9] rounded-2xl shadow-[0_12px_36px_rgba(80,6,8,0.08)] border border-[#dcc0bd]/40 overflow-hidden flex flex-col min-h-[760px]">
                 <div className="px-5 md:px-8 py-4 bg-[#f8f2ed] border-b border-[#dcc0bd]/40 flex items-center justify-between gap-4">
                   <div className="text-xs uppercase tracking-widest text-[#564240]">{selectedSpeech ? `Editing ${selectedSpeech.speechID}` : "New speech"} · {hasUnsavedChanges ? "Unsaved changes" : "Saved"}</div>
-                  <button onClick={postSpeech} className="px-6 py-2.5 rounded-xl bg-[#6e1d1b] text-white text-xs font-bold uppercase tracking-widest disabled:opacity-60 inline-flex items-center gap-2" disabled={isBusy}>
+                  <button onClick={postSpeech} className="px-6 py-2.5 rounded-xl bg-[#6e1d1b] text-white text-xs font-bold uppercase tracking-widest transform-none hover:transform-none active:transform-none hover:translate-y-0 hover:scale-100 active:scale-100 disabled:opacity-60 inline-flex items-center gap-2" disabled={isBusy}>
                     {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Speech"}
                   </button>
                 </div>
@@ -478,8 +478,8 @@ const Page = () => {
                     <span>Words: {wordCount}</span><span>Characters: {characterCount}</span><span>Reading Time: ~{readingMinutes} min</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {selectedSpeech && <button onClick={handleDeleteSpeech} disabled={isBusy} className="rounded-full border border-[#6E1D1B]/35 p-2 text-[#6E1D1B] disabled:opacity-60">{isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={14} />}</button>}
-                    <button onClick={() => window.print()} className="rounded-full border border-[#dcc0bd] p-2 text-[#6E1D1B]"><Printer size={14} /></button>
+                    {selectedSpeech && <button onClick={handleDeleteSpeech} disabled={isBusy} className="rounded-full border border-[#6E1D1B]/35 p-2 text-[#6E1D1B] transform-none hover:transform-none active:transform-none hover:translate-y-0 hover:scale-100 active:scale-100 disabled:opacity-60">{isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={14} />}</button>}
+                    <button onClick={() => window.print()} className="rounded-full border border-[#dcc0bd] p-2 text-[#6E1D1B] transform-none hover:transform-none active:transform-none hover:translate-y-0 hover:scale-100 active:scale-100"><Printer size={14} /></button>
                   </div>
                 </div>
               </div>
