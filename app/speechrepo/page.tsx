@@ -166,41 +166,49 @@ const Page = () => {
     setHasUnsavedChanges(false);
   }, [selectedSpeech]);
 
+  const resolveDelegateId = React.useCallback(async (): Promise<string | null> => {
+    if (!currentUser || !isDelegateUser) return null;
+
+    const sessionDelegateId = (currentUser as Delegate).delegateID;
+    if (sessionDelegateId) {
+      const { data, error } = await supabase.from("Delegate").select("delegateID").eq("delegateID", sessionDelegateId).maybeSingle();
+      if (!error && data?.delegateID) return data.delegateID;
+      if (error) console.error("Failed delegate lookup by session delegateID:", error);
+    }
+
+    const { data: byAuthId, error: byAuthIdError } = await supabase.from("Delegate").select("delegateID").eq("id", currentUser.id).maybeSingle();
+    if (!byAuthIdError && byAuthId?.delegateID) return byAuthId.delegateID;
+    if (byAuthIdError) console.error("Failed delegate lookup by auth user id:", byAuthIdError);
+
+    const { data: byEmail, error: byEmailError } = await supabase.from("Delegate").select("delegateID").eq("email", currentUser.email).maybeSingle();
+    if (!byEmailError && byEmail?.delegateID) return byEmail.delegateID;
+    if (byEmailError) console.error("Failed delegate lookup by email:", byEmailError);
+
+    return null;
+  }, [currentUser, isDelegateUser]);
+
   useEffect(() => {
-    const resolveDelegate = async () => {
+    const hydrateResolvedDelegate = async () => {
       if (!currentUser || !isDelegateUser) {
         setResolvedDelegateId(null);
         setDelegateProfileError(null);
         return;
       }
 
-      const sessionDelegateId = (currentUser as Delegate).delegateID;
-      if (sessionDelegateId) {
-        setResolvedDelegateId(sessionDelegateId);
-        setDelegateProfileError(null);
-        return;
-      }
-
-      const { data, error } = await supabase.from("Delegate").select("delegateID").eq("email", currentUser.email).maybeSingle();
-      if (error) {
-        console.error("Failed to resolve delegate profile:", error);
+      const delegateId = await resolveDelegateId();
+      if (process.env.NODE_ENV !== "production") console.debug("[speechrepo] resolvedDelegateId", delegateId);
+      if (!delegateId) {
         setResolvedDelegateId(null);
         setDelegateProfileError("Could not find your delegate profile. Please contact support.");
         return;
       }
 
-      if (!data?.delegateID) {
-        setResolvedDelegateId(null);
-        setDelegateProfileError("Could not find your delegate profile. Please contact support.");
-        return;
-      }
-
-      setResolvedDelegateId(data.delegateID);
+      setResolvedDelegateId(delegateId);
       setDelegateProfileError(null);
     };
 
-    void resolveDelegate();
-  }, [currentUser, isDelegateUser]);
+    void hydrateResolvedDelegate();
+  }, [currentUser, isDelegateUser, resolveDelegateId]);
 
   useEffect(() => {
     const fetchSpeeches = async () => {
@@ -257,8 +265,12 @@ const Page = () => {
     if (editorRef.current.getText().trim().length === 0) return toast.error("Speech content cannot be empty");
     if (!title.trim()) return toast.error("Please enter a speech title");
     if (isDelegateUser && !resolvedDelegateId) {
-      setDelegateProfileError("Could not find your delegate profile. Please contact support.");
-      return toast.error("Could not find your delegate profile. Please contact support.");
+      const delegateId = await resolveDelegateId();
+      if (!delegateId) {
+        setDelegateProfileError("Could not find your delegate profile. Please contact support.");
+        return toast.error("Could not find your delegate profile. Please contact support.");
+      }
+      setResolvedDelegateId(delegateId);
     }
 
     const content = editorRef.current.getJSON();
@@ -268,7 +280,9 @@ const Page = () => {
 
     try {
       if (selectedSpeech) {
-        const { error: updateError } = await supabase.from("Speech").update({ title: title.trim(), content: serializedContent, date: timestamp }).eq("speechID", selectedSpeech.speechID);
+        let updateQuery = supabase.from("Speech").update({ title: title.trim(), content: serializedContent, date: timestamp }).eq("speechID", selectedSpeech.speechID);
+        if (isDelegateUser && resolvedDelegateId) updateQuery = updateQuery.eq("delegateID", resolvedDelegateId);
+        const { error: updateError } = await updateQuery;
         if (updateError) throw updateError;
         const updatedSpeech: Speech = { ...selectedSpeech, title: title.trim(), content: serializedContent, date: timestamp };
         setFetchedSpeeches((prev) => prev.map((speech) => speech.speechID === updatedSpeech.speechID ? updatedSpeech : speech));
@@ -300,7 +314,7 @@ const Page = () => {
       initialStateRef.current = { title: title.trim(), content: getEditorSnapshot() };
       setHasUnsavedChanges(false);
     } catch (error) {
-      console.error("Failed to save speech:", error);
+      console.error("Failed to save speech:", JSON.stringify(error, null, 2), error);
       toast.error("Failed to save speech");
     } finally {
       setIsSaving(false);
