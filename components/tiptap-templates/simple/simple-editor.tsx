@@ -112,7 +112,13 @@ const SpacingDropdown = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" data-style="ghost" tabIndex={-1} tooltip="Spacing">
+        <Button
+          type="button"
+          data-style="ghost"
+          tabIndex={-1}
+          tooltip="Spacing"
+          onMouseDown={(event) => event.preventDefault()}
+        >
           <span className="tiptap-button-text">Spacing</span>
           <ChevronDownIcon className="tiptap-button-dropdown-small" />
         </Button>
@@ -121,26 +127,35 @@ const SpacingDropdown = () => {
         <DropdownMenuGroup className="space-y-1">
           <div className="px-3 py-1 text-xs text-gray-500">Line height</div>
           {lineHeights.map((value) => (
-            <DropdownMenuItem key={`lh-${value}`} asChild>
-              <Button type="button" data-style="ghost" className="w-full justify-start gap-3 px-3 py-2 text-sm" data-active-state={currentLineHeight === value ? "on" : "off"} onClick={() => editor.chain().focus().setSpacing({ lineHeight: value }).run()}>
-                {value}
-              </Button>
+            <DropdownMenuItem
+              key={`lh-${value}`}
+              className="w-full cursor-pointer rounded-xl px-3 py-2 text-sm"
+              data-active-state={currentLineHeight === value ? "on" : "off"}
+              onSelect={() => editor.chain().focus().setSpacing({ lineHeight: value }).run()}
+            >
+              {value}
             </DropdownMenuItem>
           ))}
           <div className="px-3 py-1 text-xs text-gray-500">Space before</div>
           {spacingValues.map((value) => (
-            <DropdownMenuItem key={`sb-${value}`} asChild>
-              <Button type="button" data-style="ghost" className="w-full justify-start gap-3 px-3 py-2 text-sm" data-active-state={currentBefore === value ? "on" : "off"} onClick={() => editor.chain().focus().setSpacing({ spacingBefore: value }).run()}>
-                {value}
-              </Button>
+            <DropdownMenuItem
+              key={`sb-${value}`}
+              className="w-full cursor-pointer rounded-xl px-3 py-2 text-sm"
+              data-active-state={currentBefore === value ? "on" : "off"}
+              onSelect={() => editor.chain().focus().setSpacing({ spacingBefore: value }).run()}
+            >
+              {value}
             </DropdownMenuItem>
           ))}
           <div className="px-3 py-1 text-xs text-gray-500">Space after</div>
           {spacingValues.map((value) => (
-            <DropdownMenuItem key={`sa-${value}`} asChild>
-              <Button type="button" data-style="ghost" className="w-full justify-start gap-3 px-3 py-2 text-sm" data-active-state={currentAfter === value ? "on" : "off"} onClick={() => editor.chain().focus().setSpacing({ spacingAfter: value }).run()}>
-                {value}
-              </Button>
+            <DropdownMenuItem
+              key={`sa-${value}`}
+              className="w-full cursor-pointer rounded-xl px-3 py-2 text-sm"
+              data-active-state={currentAfter === value ? "on" : "off"}
+              onSelect={() => editor.chain().focus().setSpacing({ spacingAfter: value }).run()}
+            >
+              {value}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>
