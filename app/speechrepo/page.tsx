@@ -265,14 +265,18 @@ const Page = () => {
 
       try {
         let speechIds: { speechID: string; delegateID?: string }[] = [];
+        const logDbError = (operation: string, error: { code?: string; message?: string; details?: string; hint?: string } | null) => {
+          if (!error) return;
+          console.error(`[speechrepo] ${operation}`, { code: error.code, message: error.message, details: error.details, hint: error.hint });
+        };
         if (isDelegateUser && delegateProfile?.delegateID) {
           const { data, error } = await supabase.from<{ speechID: string }>("Delegate-Speech").select("speechID").eq("delegateID", delegateProfile.delegateID);
-          if (error) throw error;
+          if (error) { logDbError("fetch delegate links", error as { code?: string; message?: string; details?: string; hint?: string }); throw error; }
           speechIds = (data ?? []).map((row) => ({ speechID: row.speechID, delegateID: delegateProfile.delegateID }));
         } else if (isChairUser) {
           const chairUser = currentUser as Chair;
           const { data, error } = await supabase.from<{ speechID: string }>("Chair-Speech").select("speechID").eq("chairID", chairUser.chairID);
-          if (error) throw error;
+          if (error) { logDbError("fetch chair links", error as { code?: string; message?: string; details?: string; hint?: string }); throw error; }
           speechIds = (data ?? []).map((row) => ({ speechID: row.speechID }));
         }
 
@@ -282,7 +286,10 @@ const Page = () => {
         }
 
         const { data: speechRows, error: speechesError } = await supabase.from<SpeechRow>("Speech").select("*").in("speechID", speechIds.map((row) => row.speechID));
-        if (speechesError) throw speechesError;
+        if (speechesError) {
+          logDbError("fetch speech rows", speechesError as { code?: string; message?: string; details?: string; hint?: string });
+          throw speechesError;
+        }
 
         const normalizedSpeeches: Speech[] = (speechRows ?? []).map((speech) => ({
           ...speech,
@@ -321,34 +328,63 @@ const Page = () => {
 
     try {
       if (selectedSpeech) {
-        let updateQuery = supabase.from("Speech").update({ title: title.trim(), content: serializedContent, date: timestamp }).eq("speechID", selectedSpeech.speechID);
         if (isDelegateUser && delegateProfile?.delegateID) {
-          const { data: ownershipRow, error: ownershipError } = await supabase.from("Delegate-Speech").select("speechID").eq("speechID", selectedSpeech.speechID).eq("delegateID", delegateProfile.delegateID).maybeSingle();
-          if (ownershipError || !ownershipRow) throw ownershipError ?? new Error("Speech ownership verification failed");
-          updateQuery = updateQuery.eq("delegateID", delegateProfile.delegateID);
+          const { data: ownershipRow, error: ownershipError } = await supabase
+            .from("Delegate-Speech")
+            .select("speechID")
+            .eq("delegateID", delegateProfile.delegateID)
+            .eq("speechID", selectedSpeech.speechID)
+            .maybeSingle();
+          if (ownershipError) {
+            console.error("[speechrepo] verify link", { code: ownershipError.code, message: ownershipError.message, details: ownershipError.details, hint: ownershipError.hint });
+            throw ownershipError;
+          }
+          if (!ownershipRow) {
+            toast.error("You cannot edit this speech because it is not linked to your delegate profile.");
+            return;
+          }
         }
-        const { error: updateError } = await updateQuery;
-        if (updateError) throw updateError;
+
+        const { error: updateError } = await supabase
+          .from("Speech")
+          .update({ title: title.trim(), content: serializedContent, date: timestamp })
+          .eq("speechID", selectedSpeech.speechID);
+        if (updateError) {
+          console.error("[speechrepo] update Speech", { code: updateError.code, message: updateError.message, details: updateError.details, hint: updateError.hint });
+          throw updateError;
+        }
         const updatedSpeech: Speech = { ...selectedSpeech, title: title.trim(), content: serializedContent, date: timestamp };
         setFetchedSpeeches((prev) => prev.map((speech) => speech.speechID === updatedSpeech.speechID ? updatedSpeech : speech));
         setSelectedSpeech(updatedSpeech);
         toast.success("Speech updated successfully!");
       } else {
         const { data: existingSpeeches, error: speechIdError } = await supabase.from<{ speechID: string }>("Speech").select("speechID");
-        if (speechIdError) throw speechIdError;
+        if (speechIdError) {
+          console.error("[speechrepo] fetch Speech IDs", { code: speechIdError.code, message: speechIdError.message, details: speechIdError.details, hint: speechIdError.hint });
+          throw speechIdError;
+        }
         const numericSpeechIds = (existingSpeeches ?? []).map((row) => Number.parseInt(row.speechID, 10)).filter((id) => Number.isFinite(id));
         const nextSpeechId = (numericSpeechIds.length > 0 ? Math.max(...numericSpeechIds) + 1 : 1).toString().padStart(4, "0");
 
         const { error: insertError } = await supabase.from("Speech").insert({ speechID: nextSpeechId, content: serializedContent, title: title.trim(), date: timestamp });
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error("[speechrepo] insert Speech", { code: insertError.code, message: insertError.message, details: insertError.details, hint: insertError.hint });
+          throw insertError;
+        }
 
         if (isDelegateUser && delegateProfile?.delegateID) {
           if (process.env.NODE_ENV !== "production") console.debug("[speechrepo] saveDelegateId", delegateProfile.delegateID);
           const { error: linkError } = await supabase.from("Delegate-Speech").insert({ speechID: nextSpeechId, delegateID: delegateProfile.delegateID });
-          if (linkError) throw linkError;
+          if (linkError) {
+            console.error("[speechrepo] insert Delegate-Speech link", { code: linkError.code, message: linkError.message, details: linkError.details, hint: linkError.hint });
+            throw linkError;
+          }
         } else if (isChairUser) {
           const { error: linkError } = await supabase.from("Chair-Speech").insert({ speechID: nextSpeechId, chairID: (currentUser as Chair).chairID });
-          if (linkError) throw linkError;
+          if (linkError) {
+            console.error("[speechrepo] insert Chair-Speech link", { code: linkError.code, message: linkError.message, details: linkError.details, hint: linkError.hint });
+            throw linkError;
+          }
         }
 
         const createdSpeech: Speech = { speechID: nextSpeechId, title: title.trim(), content: serializedContent, date: timestamp, delegateID: delegateProfile?.delegateID ?? "", tags: [] };
