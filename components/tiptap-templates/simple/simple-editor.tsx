@@ -23,7 +23,6 @@ import { TrailingNode } from "@/components/tiptap-extension/trailing-node-extens
 
 // --- UI Primitives ---
 import { Button } from "@/components/tiptap-ui-primitive/button"
-import { Spacer } from "@/components/tiptap-ui-primitive/spacer"
 import {
   Toolbar,
   ToolbarGroup,
@@ -81,8 +80,6 @@ const MainToolbarContent = ({
 }) => {
   return (
     <>
-      <Spacer />
-
       <ToolbarGroup>
         <UndoRedoButton action="undo" />
         <UndoRedoButton action="redo" />
@@ -92,7 +89,17 @@ const MainToolbarContent = ({
 
       <ToolbarGroup>
         <HeadingDropdownMenu levels={[1, 2, 3, 4]} />
+      </ToolbarGroup>
+
+      <ToolbarSeparator />
+
+      <ToolbarGroup>
         <ListDropdownMenu types={["bulletList", "orderedList", "taskList"]} />
+      </ToolbarGroup>
+
+      <ToolbarSeparator />
+
+      <ToolbarGroup>
         <BlockQuoteButton />
         <CodeBlockButton />
       </ToolbarGroup>
@@ -102,9 +109,19 @@ const MainToolbarContent = ({
       <ToolbarGroup>
         <MarkButton type="bold" />
         <MarkButton type="italic" />
-        <MarkButton type="strike" />
-        <MarkButton type="code" />
         <MarkButton type="underline" />
+        <MarkButton type="strike" />
+      </ToolbarGroup>
+
+      <ToolbarSeparator />
+
+      <ToolbarGroup>
+        <MarkButton type="code" />
+      </ToolbarGroup>
+
+      <ToolbarSeparator />
+
+      <ToolbarGroup>
         {!isMobile ? (
           <ColorHighlightPopover />
         ) : (
@@ -128,8 +145,6 @@ const MainToolbarContent = ({
         <TextAlignButton align="right" />
         <TextAlignButton align="justify" />
       </ToolbarGroup>
-
-      <Spacer />
     </>
   )
 }
@@ -239,23 +254,12 @@ export const SimpleEditor = React.forwardRef(function SimpleEditor({ content, cl
 
     return (
       <EditorContext.Provider value={{ editor }}>
-        <div className={`editor-container ${className || ''}`} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <div className="content-wrapper" style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
-            <div style={{ 
-              position: 'sticky',
-              top: 0,
-              zIndex: 1000,
-              width: '100%'
-            }}>
+        <div className={`editor-container ${className || ''}`}>
+          <div className="content-wrapper">
               <Toolbar
                 ref={toolbarRef}
-                className="tiptap-toolbar"
-                style={{
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 20,
-                  background: 'var(--tt-toolbar-bg-color)'
-                }}
+                className="tiptap-toolbar speech-editor-toolbar"
+                variant="fixed"
               >
                 {mobileView === "main" ? (
                   <MainToolbarContent
@@ -270,7 +274,6 @@ export const SimpleEditor = React.forwardRef(function SimpleEditor({ content, cl
                   />
                 )}
               </Toolbar>
-            </div>
 
             <EditorContent
               editor={editor}
