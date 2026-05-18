@@ -188,7 +188,6 @@ summary *,
 button:not(:disabled),
 [role="button"]:not([aria-disabled="true"]) {
   transition:
-    transform 180ms ease,
     box-shadow 180ms ease,
     filter 180ms ease,
     background-color 180ms ease,
@@ -197,13 +196,11 @@ button:not(:disabled),
 
 button:not(:disabled):hover,
 [role="button"]:not([aria-disabled="true"]):hover {
-  transform: translateY(-1px);
   filter: brightness(1.08);
 }
 
 button:not(:disabled):active,
 [role="button"]:not([aria-disabled="true"]):active {
-  transform: translateY(0);
   filter: brightness(1.02);
 }
 
@@ -410,11 +407,10 @@ b {
   background: linear-gradient(135deg, color-mix(in srgb, var(--deep-red) 95%, black 5%), color-mix(in srgb, var(--dark-burgundy) 80%, black 20%));
   color: var(--pure-white);
   box-shadow: 0 14px 30px -18px rgba(112, 30, 30, 0.5);
-  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+  transition: box-shadow 180ms ease, filter 180ms ease;
 }
 
 .primary-button:hover {
-  transform: translateY(-2px);
   box-shadow:
     0 20px 38px -16px rgba(112, 30, 30, 0.58),
     0 0 0 1px color-mix(in srgb, var(--soft-rose) 28%, transparent 72%);
@@ -434,11 +430,10 @@ b {
   border: 1px solid color-mix(in srgb, var(--deep-red) 48%, white 52%);
   background: color-mix(in srgb, var(--soft-ivory) 85%, white 15%);
   color: color-mix(in srgb, var(--deep-red) 75%, black 25%);
-  transition: transform 150ms ease, box-shadow 150ms ease, border 150ms ease;
+  transition: box-shadow 150ms ease, border 150ms ease;
 }
 
 .ghost-button:hover {
-  transform: translateY(-1px);
   background: color-mix(in srgb, var(--soft-rose) 62%, white 38%);
   border-color: color-mix(in srgb, var(--dark-burgundy) 68%, white 32%);
   box-shadow:
@@ -459,11 +454,10 @@ b {
   background: linear-gradient(135deg, color-mix(in srgb, var(--destructive) 94%, black 6%), color-mix(in srgb, var(--dark-burgundy) 85%, black 15%));
   color: var(--pure-white);
   box-shadow: 0 16px 34px -20px rgba(112, 30, 30, 0.55);
-  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  transition: box-shadow 160ms ease, filter 160ms ease;
 }
 
 .danger-button:hover {
-  transform: translateY(-2px);
   box-shadow:
     0 20px 38px -18px rgba(112, 30, 30, 0.62),
     0 0 0 1px color-mix(in srgb, var(--soft-rose) 20%, transparent 80%);
@@ -588,7 +582,6 @@ button.primary {
 .btn-primary:hover,
 button.primary:hover {
   background: color-mix(in srgb, var(--deep-red) 84%, white 16%);
-  transform: translateY(-1px);
   box-shadow: 0 8px 18px rgba(100, 20, 20, 0.24);
 }
 
@@ -639,7 +632,6 @@ button.secondary:hover {
 
 .card-wrapper:hover {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  transform: translateY(-1px);
 }
 
 /* Navigation styles */
@@ -749,7 +741,6 @@ main {
 }
 
 .hover-lift:hover {
-  transform: translateY(-4px);
   box-shadow: 0 20px 25px -5px rgba(100, 20, 20, 0.1), 0 10px 10px -5px rgba(100, 20, 20, 0.04);
 }
 

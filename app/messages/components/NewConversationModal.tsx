@@ -514,7 +514,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                                       <BadgeCheck className="h-3.5 w-3.5" /> Added
                                     </span>
                                   ) : (
-                                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-soft-ivory bg-white text-deep-red transition group-hover:scale-105 group-hover:border-deep-red/40 group-hover:bg-soft-rose/35">
+                                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-soft-ivory bg-white text-deep-red transition group-hover:border-deep-red/40 group-hover:bg-soft-rose/35">
                                       <Plus className="h-3.5 w-3.5" />
                                     </span>
                                   )}
