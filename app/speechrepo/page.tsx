@@ -66,6 +66,7 @@ const Page = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [delegateProfileError, setDelegateProfileError] = useState<string | null>(null);
+  const [delegateProfileWarning, setDelegateProfileWarning] = useState<string | null>(null);
   const [delegateProfile, setDelegateProfile] = useState<{ delegateID: string; committeeID?: string | null; country?: string | null; name?: string } | null>(null);
   const [isResolvingDelegateProfile, setIsResolvingDelegateProfile] = useState(false);
   const isDelegateUser = userRole === "delegate" && currentUser !== null;
@@ -171,39 +172,58 @@ const Page = () => {
   const resolveDelegateProfile = React.useCallback(async (): Promise<{ delegateID: string; committeeID?: string | null; country?: string | null; name?: string } | null> => {
     if (!currentUser || !isDelegateUser) return null;
 
-    const { data: appUser, error: appUserError } = await supabase
-      .from("app_users")
-      .select("id, role, committee_id, country, first_name, last_name")
-      .eq("id", currentUser.id)
-      .eq("role", "delegate")
-      .maybeSingle();
-
-    if (appUserError) {
-      console.error("Failed to resolve delegate app_user", appUserError);
-      return null;
-    }
-
-    if (!appUser?.id) return null;
-
-    const { data: delegateRow, error: delegateError } = await supabase
-      .from("Delegate")
-      .select("delegateID, committeeID, country, firstname, lastname")
-      .eq("delegateID", appUser.id)
-      .maybeSingle();
-
-    if (delegateError) {
-      console.error("Failed to verify delegate profile", delegateError);
-      return null;
-    }
-
-    if (!delegateRow?.delegateID) return null;
-
-    return {
-      delegateID: delegateRow.delegateID,
-      committeeID: delegateRow.committeeID,
-      country: delegateRow.country,
-      name: [delegateRow.firstname, delegateRow.lastname].filter(Boolean).join(" ").trim() || undefined,
+    const relevantUserFields = {
+      id: currentUser.id,
+      role: currentUser.role,
+      delegateID: currentUser.delegateID ?? null,
+      committee_id: currentUser.committee_id ?? null,
+      country: currentUser.country ?? null,
     };
+
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[speechrepo] delegateResolution:start", relevantUserFields);
+    }
+
+    const logDbError = (label: string, error: { code?: string; message?: string; details?: string; hint?: string } | null) => {
+      if (!error) return;
+      console.error(`[speechrepo] ${label}`, { code: error.code, message: error.message, details: error.details, hint: error.hint });
+    };
+
+    const selectColumns = "delegateID, committeeID, country, firstname, lastname";
+
+    const verifyDelegateRow = async (queryLabel: string, query: Promise<{ data: unknown; error: { code?: string; message?: string; details?: string; hint?: string } | null }>) => {
+      const { data, error } = await query;
+      if (error) {
+        logDbError(`${queryLabel}:error`, error as { code?: string; message?: string; details?: string; hint?: string });
+        return null;
+      }
+      if (!data) return null;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row?.delegateID) return null;
+      if (process.env.NODE_ENV !== "production") console.debug(`[speechrepo] delegateResolution:matched:${queryLabel}`, { delegateID: row.delegateID });
+      return {
+        delegateID: row.delegateID,
+        committeeID: row.committeeID,
+        country: row.country,
+        name: [row.firstname, row.lastname].filter(Boolean).join(" ").trim() || undefined,
+      };
+    };
+
+    if (currentUser.delegateID) {
+      const byDelegateId = await verifyDelegateRow("delegateID", supabase.from("Delegate").select(selectColumns).eq("delegateID", currentUser.delegateID).maybeSingle());
+      if (byDelegateId) return byDelegateId;
+    }
+
+    if (currentUser.country && currentUser.committee_id) {
+      const byCountryCommittee = await verifyDelegateRow(
+        "country+committeeID",
+        supabase.from("Delegate").select(selectColumns).eq("country", currentUser.country).eq("committeeID", currentUser.committee_id).limit(1)
+      );
+      if (byCountryCommittee) return byCountryCommittee;
+    }
+
+    if (process.env.NODE_ENV !== "production") console.debug("[speechrepo] delegateResolution:unresolved");
+    return null;
   }, [currentUser, isDelegateUser]);
 
   useEffect(() => {
@@ -211,6 +231,7 @@ const Page = () => {
       if (!currentUser || !isDelegateUser) {
         setDelegateProfile(null);
         setDelegateProfileError(null);
+        setDelegateProfileWarning(null);
         setIsResolvingDelegateProfile(false);
         return;
       }
@@ -219,13 +240,14 @@ const Page = () => {
       const profile = await resolveDelegateProfile();
       if (!profile?.delegateID) {
         setDelegateProfile(null);
-        setDelegateProfileError("Could not find your delegate profile. Please contact support.");
+        setDelegateProfileWarning("Speech saving is unavailable because your delegate profile is not linked.");
         setIsResolvingDelegateProfile(false);
         return;
       }
 
       setDelegateProfile(profile);
       setDelegateProfileError(null);
+      setDelegateProfileWarning(null);
       if (process.env.NODE_ENV !== "production") console.debug("[speechrepo] verifiedDelegateId", profile.delegateID);
       setIsResolvingDelegateProfile(false);
     };
@@ -451,6 +473,7 @@ const Page = () => {
                 </div>
 
                 <div className="px-5 md:px-8 py-3 bg-[#f8f2ed] border-t border-[#dcc0bd]/40 flex flex-wrap items-center justify-between gap-3 text-[10px] uppercase tracking-widest text-[#564240]">
+                  {isDelegateUser && !delegateProfile?.delegateID && delegateProfileWarning && <div className="w-full text-[11px] normal-case tracking-normal text-[#93000a]">{delegateProfileWarning}</div>}
                   <div className="flex gap-5">
                     <span>Words: {wordCount}</span><span>Characters: {characterCount}</span><span>Reading Time: ~{readingMinutes} min</span>
                   </div>
