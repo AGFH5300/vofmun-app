@@ -300,7 +300,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             </div>
           </div>
 
-          <div className="flex-1 space-y-8 overflow-y-auto bg-white p-8">
+          <div className="flex-1 overflow-y-auto bg-white p-8">
             {tab === 'direct' ? (
               <div className="space-y-6">
                     <div className="group relative mb-8">
@@ -551,13 +551,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
               </div>
             ) : (
               <div className="space-y-6">
-                <section className="space-y-3">
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Incoming Requests</h3>
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#c62828] px-2 text-xs font-semibold text-white">
-                      {incomingRequestsList.length}
-                    </span>
-                  </div>
+                <section className="space-y-6">
+                  <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Incoming Requests</h3>
 
                   {incomingRequestsList.length === 0 ? (
                     <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">No incoming requests right now.</p>
@@ -575,37 +570,33 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                             .join('') || '?';
 
                         return (
-                          <div key={req.id} className="rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e8e8e8]">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex items-center gap-3">
-                                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-soft-ivory bg-white text-xs font-semibold text-deep-red">
-                                  {initials}
-                                </span>
-                                <div className="min-w-0 space-y-0.5">
-                                  <p className="truncate text-sm font-semibold text-deep-red">{displayName}</p>
-                                  {metadata ? <p className="truncate text-xs text-almost-black-green/60">{metadata}</p> : null}
-                                </div>
-                              </div>
-
-                              <div className="flex shrink-0 items-center gap-2">
+                          <div key={req.id} className="group flex items-center rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e8e8e8]">
+                            <div className="mr-4 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e2e2e2] text-sm font-semibold text-[#6E1D1B]">
+                              {initials}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="truncate text-base font-semibold text-[#1a1c1c]">{displayName}</h4>
+                              {metadata ? <p className="mt-0.5 truncate text-sm text-[#564240]">{metadata}</p> : null}
+                            </div>
+                            <div className="ml-2 flex shrink-0 items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                                 <button
                                   type="button"
                                   onClick={() => handleAcceptRequest(req)}
                                   disabled={respondingTo === req.id}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-[#701e1e] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#8b2424] disabled:cursor-wait disabled:opacity-70"
+                                  className="rounded-full p-1 text-[#500608] hover:bg-[#500608]/10 disabled:cursor-wait disabled:opacity-70"
+                                  aria-label={`Accept request from ${displayName}`}
                                 >
-                                  {respondingTo === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                                  Accept
+                                  {respondingTo === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeCheck className="h-4 w-4" />}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleDeclineRequest(req.id)}
                                   disabled={respondingTo === req.id}
-                                  className="rounded-lg border border-soft-ivory bg-white px-3 py-1.5 text-xs font-semibold text-almost-black-green/70 hover:border-deep-red/30 hover:text-deep-red disabled:cursor-wait disabled:opacity-70"
+                                  className="rounded-full p-1 text-[#ba1a1a] hover:bg-[#ba1a1a]/10 disabled:cursor-wait disabled:opacity-70"
+                                  aria-label={`Decline request from ${displayName}`}
                                 >
-                                  Decline
+                                  <X className="h-4 w-4" />
                                 </button>
-                              </div>
                             </div>
                           </div>
                         );
@@ -614,26 +605,38 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   )}
                 </section>
 
-                <section className="space-y-3">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Sent Requests</h3>
-                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-soft-ivory bg-white px-1.5 text-[11px] font-semibold text-almost-black-green/70">
-                      {sentRequestsList.length}
-                    </span>
-                  </div>
+                <section className="space-y-6">
+                  <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Sent Requests</h3>
 
                   {sentRequestsList.length === 0 ? (
                     <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">No pending sent requests.</p>
                   ) : (
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      {sentRequestsList.map((req) => (
-                        <div key={req.id} className="flex items-center justify-between rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e8e8e8]">
-                          <p className="truncate text-sm font-semibold text-deep-red">{getRequestDisplayName(req.receiver_id, req.receiver)}</p>
-                          <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-almost-black-green/60">
+                      {sentRequestsList.map((req) => {
+                        const displayName = getRequestDisplayName(req.receiver_id, req.receiver);
+                        const metadata = getRequestMetaLine(req.receiver);
+                        const initials =
+                          displayName
+                            .split(' ')
+                            .filter(Boolean)
+                            .slice(0, 2)
+                            .map((part) => part[0]?.toUpperCase())
+                            .join('') || '?';
+                        return (
+                        <div key={req.id} className="flex items-center rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e8e8e8]">
+                          <div className="mr-4 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#eee0d5] text-sm font-semibold text-[#2b231d]">
+                            {initials}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="truncate text-base font-semibold text-[#1a1c1c]">{displayName}</h4>
+                            {metadata ? <p className="mt-0.5 truncate text-sm text-[#564240]">{metadata}</p> : null}
+                          </div>
+                          <span className="rounded bg-[#e2e2e2] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#564240]">
                             Pending
                           </span>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </section>
@@ -641,7 +644,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             )}
           </div>
 
-          {error && <p className="mt-3 text-sm text-deep-red/80">{error}</p>}
+          {error && <p className="mt-3 px-8 pb-6 text-sm text-deep-red/80">{error}</p>}
         </Dialog.Panel>
       </div>
     </Dialog>
