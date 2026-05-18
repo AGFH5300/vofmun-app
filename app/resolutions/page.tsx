@@ -5,17 +5,13 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Reso, Delegate, Chair, shortenedDel } from "@/db/types";
 import { useSession } from "../context/sessionContext";
-import { Editor } from "@tiptap/react";
-import { SimpleEditor } from "../../components/tiptap-templates/simple/simple-editor";
 import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
-import { AlertTriangle, Expand, ExternalLink, Loader2, Minimize2, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
 
 const EMPTY_DOCUMENT = { type: "doc", content: [{ type: "paragraph" }] };
-const serializeDocument = (content?: object | null) =>
-  JSON.stringify(content ?? EMPTY_DOCUMENT);
 const UNSAVED_CHANGES_MESSAGE =
   "You have unsaved changes. Do you want to leave without saving?";
 const EXTERNAL_DOC_LABEL = "External document link:";
@@ -49,30 +45,7 @@ const readExternalDocLink = (content?: object | null) => {
   return href;
 };
 
-const stripExternalDocBlock = (content?: object | null) => {
-  const doc = (content ?? EMPTY_DOCUMENT) as { content?: TiptapContentNode[] };
-  if (!Array.isArray(doc.content) || doc.content.length === 0) {
-    return EMPTY_DOCUMENT;
-  }
-
-  const firstNode = doc.content[0];
-  const labelText = firstNode?.content?.[0]?.text;
-  const linkNode = firstNode?.content?.[1];
-  const href = linkNode?.marks?.find((mark) => mark.type === "link")?.attrs?.href;
-
-  if (labelText !== `${EXTERNAL_DOC_LABEL} ` || !href) {
-    return doc;
-  }
-
-  const remainingContent = doc.content.slice(1);
-  return {
-    type: "doc",
-    content: remainingContent.length > 0 ? remainingContent : [{ type: "paragraph" }],
-  };
-};
-
-const addExternalDocBlock = (content: object, docLink: string) => {
-  const cleanedContent = stripExternalDocBlock(content) as { content?: TiptapContentNode[] };
+const addExternalDocBlock = (docLink: string) => {
   return {
     type: "doc",
     content: [
@@ -87,7 +60,7 @@ const addExternalDocBlock = (content: object, docLink: string) => {
           },
         ],
       },
-      ...(cleanedContent.content ?? []),
+      ...EMPTY_DOCUMENT.content,
     ],
   };
 };
@@ -112,7 +85,6 @@ const parseResoContent = (raw?: string | object | null) => {
 const Page = () => {
   const { user: currentUser, login } = useSession();
   const userRole = role(currentUser);
-  const editorRef = React.useRef<Editor | null>(null);
   const [fetchedResos, setFetchedResos] = useState<Reso[]>([]);
   const [selectedReso, setSelectedReso] = useState<Reso | null>(null);
   const [delegates, setDelegates] = useState<shortenedDel[]>([]);
@@ -121,15 +93,11 @@ const Page = () => {
   const [docLink, setDocLink] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isFullscreenEditor, setIsFullscreenEditor] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const isDelegateUser = userRole === "delegate" && currentUser !== null;
 
-  const initialStateRef = React.useRef({ title: "", docLink: "", content: serializeDocument() });
+  const initialStateRef = React.useRef({ title: "", docLink: "" });
   const isBusy = isSaving || isDeleting;
-  const isExternalDocMode = docLink.trim().length > 0;
-  const parsedResoContent = React.useMemo(() => parseResoContent(selectedReso?.content ?? null), [selectedReso]);
-  const cleanedResoContent = React.useMemo(() => stripExternalDocBlock(parsedResoContent), [parsedResoContent]);
   const delegateAlreadyHasReso = React.useMemo(() => {
     if (!isDelegateUser || !currentUser || !('delegateID' in currentUser)) return false;
     return fetchedResos.some((reso) => reso.delegateID === currentUser.delegateID);
@@ -164,40 +132,21 @@ const Page = () => {
     loadCommittees();
   }, []);
 
-  const getEditorSnapshot = useCallback(() => {
-    if (!editorRef.current) return initialStateRef.current.content;
-    try { return JSON.stringify(editorRef.current.getJSON()); } catch { return initialStateRef.current.content; }
-  }, []);
   const evaluateUnsavedChanges = useCallback(() => {
-    const snapshot = getEditorSnapshot();
-    const dirty = snapshot !== initialStateRef.current.content || title !== initialStateRef.current.title || docLink.trim() !== initialStateRef.current.docLink;
+    const dirty = title !== initialStateRef.current.title || docLink.trim() !== initialStateRef.current.docLink;
     setHasUnsavedChanges(dirty);
-  }, [docLink, getEditorSnapshot, title]);
+  }, [docLink, title]);
 
-  useEffect(() => { const editor = editorRef.current; if (!editor) return; const h = () => evaluateUnsavedChanges(); editor.on("update", h); return () => editor.off("update", h); }, [evaluateUnsavedChanges]);
   useEffect(() => { evaluateUnsavedChanges(); }, [title, evaluateUnsavedChanges]);
 
   useEffect(() => {
     const baselineTitle = selectedReso?.title ?? "";
     const parsedContent = parseResoContent(selectedReso?.content ?? null);
-    let frame: number | null = null;
-    const applyBaseline = () => {
-      if (!editorRef.current) { frame = window.requestAnimationFrame(applyBaseline); return; }
-      if (parsedContent) {
-        editorRef.current.commands.setContent(stripExternalDocBlock(parsedContent), false);
-        setDocLink(readExternalDocLink(parsedContent));
-      } else {
-        editorRef.current.commands.clearContent(false);
-        setDocLink("");
-      }
-      initialStateRef.current = { title: baselineTitle, docLink: readExternalDocLink(parsedContent), content: getEditorSnapshot() };
-      frame = null;
-    };
     setTitle(baselineTitle);
-    if (editorRef.current) applyBaseline(); else { initialStateRef.current = { title: baselineTitle, docLink: readExternalDocLink(parsedContent), content: serializeDocument(stripExternalDocBlock(parsedContent ?? null)) }; frame = window.requestAnimationFrame(applyBaseline); }
+    setDocLink(readExternalDocLink(parsedContent));
+    initialStateRef.current = { title: baselineTitle, docLink: readExternalDocLink(parsedContent) };
     setHasUnsavedChanges(false);
-    return () => { if (frame !== null) window.cancelAnimationFrame(frame); };
-  }, [getEditorSnapshot, selectedReso]);
+  }, [selectedReso]);
 
   const logBackIn = useCallback(async () => { /* unchanged logic */
     if (!currentUser) { toast.error("No user logged in"); return null; }
@@ -220,14 +169,11 @@ const Page = () => {
 
   useEffect(() => { const fetchResos = async () => { if (!currentUser) return; if ((userRole === "delegate" || userRole === "chair") && committees.length === 0) return; try { let query = supabase.from<Reso>("Resos").select("*"); if (userRole === "delegate") { const du = currentUser as Delegate; if (!du.resoPerms["view:allreso"]) query = query.eq("delegateID", du.delegateID); else { const committeeUuid = committeeIdFor(du.committee.committeeID); if (!isValidUuid(committeeUuid)) { toast.error("Invalid committee reference for delegate"); return; } query = query.eq("committeeID", committeeUuid); } } else if (userRole === "chair") { const cu = currentUser as Chair; const committeeUuid = committeeIdFor(cu.committee.committeeID); if (!isValidUuid(committeeUuid)) { toast.error("Invalid committee reference for chair"); return; } query = query.eq("committeeID", committeeUuid); } const { data, error } = await query; if (error) throw error; const fetched = data ?? []; setFetchedResos(fetched); if (selectedReso) { const updated = fetched.find((r: Reso) => r.resoID === selectedReso.resoID); if (updated) setTitle(updated.title || ""); } } catch (error) { console.error("Failed to fetch resolutions:", error); toast.error("Failed to fetch resolutions"); } }; fetchResos(); }, [committees.length, committeeIdFor, currentUser, isValidUuid, selectedReso, userRole]);
 
-  useEffect(() => { if (editorRef.current) editorRef.current.setEditable(!isBusy && !isExternalDocMode); }, [isBusy, isExternalDocMode]);
-  useEffect(() => { if (!isFullscreenEditor) return; const h = (event: KeyboardEvent) => event.key === "Escape" && setIsFullscreenEditor(false); window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [isFullscreenEditor]);
-
   const confirmDiscardChanges = useCallback(() => !hasUnsavedChanges || window.confirm(UNSAVED_CHANGES_MESSAGE), [hasUnsavedChanges]);
   useEffect(() => { if (!hasUnsavedChanges) return; const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = UNSAVED_CHANGES_MESSAGE; return UNSAVED_CHANGES_MESSAGE; }; window.addEventListener("beforeunload", h); return () => window.removeEventListener("beforeunload", h); }, [hasUnsavedChanges]);
 
   const handleSelectReso = useCallback((reso: Reso) => { if (isBusy || selectedReso?.resoID === reso.resoID || !confirmDiscardChanges()) return; setSelectedReso(reso); }, [confirmDiscardChanges, isBusy, selectedReso]);
-  const handleCreateNewReso = useCallback(() => { if (isBusy) return; if (isDelegateUser && delegateAlreadyHasReso) { toast.error("You can only post one resolution as a delegate."); return; } if (!confirmDiscardChanges()) return; setSelectedReso(null); setDocLink(""); editorRef.current?.commands.clearContent(false); }, [confirmDiscardChanges, delegateAlreadyHasReso, isBusy, isDelegateUser]);
+  const handleCreateNewReso = useCallback(() => { if (isBusy) return; if (isDelegateUser && delegateAlreadyHasReso) { toast.error("You can only post one resolution as a delegate."); return; } if (!confirmDiscardChanges()) return; setSelectedReso(null); setTitle(""); setDocLink(""); }, [confirmDiscardChanges, delegateAlreadyHasReso, isBusy, isDelegateUser]);
 
   const postReso = async () => { /* unchanged save logic */
     if (isBusy) return;
@@ -237,10 +183,7 @@ const Page = () => {
     const updatedUserIsDelegate = updatedUserRole === "delegate" && updatedUser !== null;
     const trimmedDocLink = docLink.trim();
     if (trimmedDocLink && !isNonEmptyHttpUrl(trimmedDocLink)) return toast.error("Please enter a valid document URL (http or https).");
-    if (!trimmedDocLink && !editorRef.current) return toast.error("Editor not initialized");
-    const hasLocalDraftText = editorRef.current ? editorRef.current.getText().trim().length > 0 : false;
-    if (!hasLocalDraftText && !trimmedDocLink) return toast.error("Add text or provide an external document link.");
-    if (hasLocalDraftText && trimmedDocLink) return toast.error("Choose either a local draft or an external document link, not both.");
+    if (!trimmedDocLink) return toast.error("Please enter a Google Docs URL.");
     if (!updatedUserIsDelegate && !selectedReso) return toast.error("Only delegates can post resolutions.");
     if (updatedUserIsDelegate) {
       const delegateUser = updatedUser as Delegate;
@@ -249,8 +192,7 @@ const Page = () => {
     }
     if (!title.trim()) return toast.error("Please enter a resolution title");
 
-    const editorContent = editorRef.current?.getJSON() ?? EMPTY_DOCUMENT;
-    const content = trimmedDocLink ? addExternalDocBlock(editorContent, trimmedDocLink) : stripExternalDocBlock(editorContent);
+    const content = addExternalDocBlock(trimmedDocLink);
     let delegateID = "0000"; let committeeID = "";
     if (updatedUserIsDelegate) {
       const delegateUser = updatedUser as Delegate;
@@ -281,11 +223,11 @@ const Page = () => {
         const createdReso: Reso = (insertedReso as Reso) ?? { ...newResoPayload };
         setFetchedResos((prev) => [...prev, createdReso]); setSelectedReso(createdReso); toast.success("Resolution posted successfully!");
       }
-      initialStateRef.current = { title, docLink: trimmedDocLink, content: getEditorSnapshot() }; setHasUnsavedChanges(false);
+      initialStateRef.current = { title, docLink: trimmedDocLink }; setHasUnsavedChanges(false);
     } catch (error) { console.error("Failed to save resolution:", error); toast.error("Failed to post resolution"); } finally { setIsSaving(false); }
   };
 
-  const handleDeleteReso = useCallback(async () => { if (!selectedReso || isBusy) return; const updatedUser = await logBackIn(); if (!updatedUser) return; const updatedRole = role(updatedUser); if (updatedRole === "delegate") { const d = updatedUser as Delegate; const owns = selectedReso.delegateID === d.delegateID; const hasPerm = Array.isArray(d.resoPerms?.["update:reso"]) ? d.resoPerms["update:reso"].includes(selectedReso.resoID) : false; if (!owns && !hasPerm) return toast.error("You can only delete resolutions you are allowed to update."); } else if (updatedRole !== "chair") return toast.error("You do not have permission to delete this resolution."); if (!window.confirm("Are you sure you want to delete this resolution? This action cannot be undone.")) return; setIsDeleting(true); try { const { error } = await supabase.from("Resos").delete().eq("resoID", selectedReso.resoID); if (error) throw error; const updated = fetchedResos.filter((r) => r.resoID !== selectedReso.resoID); setFetchedResos(updated); if (updated.length > 0) setSelectedReso(updated[0]); else { setSelectedReso(null); setTitle(""); setDocLink(""); initialStateRef.current = { title: "", docLink: "", content: serializeDocument() }; editorRef.current?.commands.clearContent(true); } setHasUnsavedChanges(false); toast.success("Resolution deleted successfully."); } catch (error) { console.error("Failed to delete resolution:", error); toast.error("Failed to delete resolution"); } finally { setIsDeleting(false); } }, [fetchedResos, isBusy, logBackIn, selectedReso]);
+  const handleDeleteReso = useCallback(async () => { if (!selectedReso || isBusy) return; const updatedUser = await logBackIn(); if (!updatedUser) return; const updatedRole = role(updatedUser); if (updatedRole === "delegate") { const d = updatedUser as Delegate; const owns = selectedReso.delegateID === d.delegateID; const hasPerm = Array.isArray(d.resoPerms?.["update:reso"]) ? d.resoPerms["update:reso"].includes(selectedReso.resoID) : false; if (!owns && !hasPerm) return toast.error("You can only delete resolutions you are allowed to update."); } else if (updatedRole !== "chair") return toast.error("You do not have permission to delete this resolution."); if (!window.confirm("Are you sure you want to delete this resolution? This action cannot be undone.")) return; setIsDeleting(true); try { const { error } = await supabase.from("Resos").delete().eq("resoID", selectedReso.resoID); if (error) throw error; const updated = fetchedResos.filter((r) => r.resoID !== selectedReso.resoID); setFetchedResos(updated); if (updated.length > 0) setSelectedReso(updated[0]); else { setSelectedReso(null); setTitle(""); setDocLink(""); initialStateRef.current = { title: "", docLink: "" }; } setHasUnsavedChanges(false); toast.success("Resolution deleted successfully."); } catch (error) { console.error("Failed to delete resolution:", error); toast.error("Failed to delete resolution"); } finally { setIsDeleting(false); } }, [fetchedResos, isBusy, logBackIn, selectedReso]);
 
   if (userRole !== "delegate" && userRole !== "chair") return <div className="p-8 text-center">Restricted access.</div>;
 
@@ -304,7 +246,7 @@ const Page = () => {
         <div className="max-w-6xl mx-auto space-y-10">
           <header>
             <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-[#6E1D1B]/80">Official Portal</p>
-            <h1 className="text-4xl md:text-[2.8rem] font-semibold italic text-[#6E1D1B] mt-2" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>Resolution Submissions</h1>
+            <h1 className="text-4xl md:text-[2.8rem] font-semibold text-[#6E1D1B] mt-2" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>Resolution Submissions</h1>
             <p className="max-w-3xl text-[#5d5f5f] mt-3">This is the official portal for submitting and tracking resolutions for {getCommitteeDisplayName()}. Once submitted, resolutions appear here for live review updates.</p>
           </header>
 
@@ -339,7 +281,7 @@ const Page = () => {
                   <span className="px-3 py-1 rounded-full bg-[#e8e8e8] text-[10px] uppercase tracking-wider font-bold text-[#5d5f5f]">Total: {fetchedResos.length}</span>
                 </div>
 
-                {fetchedResos.length === 0 ? <p className="text-sm text-[#5d5f5f] italic py-6">No submissions yet. Use the form to submit your first resolution.</p> : <div className="space-y-4">{fetchedResos.map((reso) => {
+                {fetchedResos.length === 0 ? <p className="text-sm text-[#5d5f5f] py-6">No submissions yet. Use the form to submit your first resolution.</p> : <div className="space-y-4">{fetchedResos.map((reso) => {
                   const createdAt = (reso as Reso & { created_at?: string; submitted_at?: string }).submitted_at || (reso as Reso & { created_at?: string; submitted_at?: string }).created_at;
                   const status = (reso as Reso & { status?: string }).status || "Unknown";
                   const chairComment = (reso as Reso & { comment?: string }).comment;
@@ -379,18 +321,6 @@ const Page = () => {
                   </div>
                 </div>
               </section>
-
-              {!isExternalDocMode && (
-                <section className="bg-white rounded-lg border border-[#e2e2e2] p-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs uppercase tracking-[0.2em] text-[#5d5f5f] font-semibold">Local Editor</p>
-                    <button type="button" onClick={() => setIsFullscreenEditor((p) => !p)} className="text-xs inline-flex items-center gap-1 text-[#6E1D1B]">{isFullscreenEditor ? <Minimize2 size={14} /> : <Expand size={14} />}{isFullscreenEditor ? "Exit Fullscreen" : "Fullscreen"}</button>
-                  </div>
-                  <div className={`overflow-hidden rounded-lg border border-[#e2e2e2] bg-white ${isBusy ? "pointer-events-none opacity-60" : ""}`}>
-                    <SimpleEditor ref={editorRef} content={cleanedResoContent} className="h-full toolbar-fixed" />
-                  </div>
-                </section>
-              )}
             </div>
           </section>
         </div>
