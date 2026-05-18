@@ -123,7 +123,11 @@ const SpacingDropdown = () => {
           <ChevronDownIcon className="tiptap-button-dropdown-small" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="min-w-[200px] rounded-2xl border border-soft-ivory/80 bg-white/95 p-1 shadow-xl backdrop-blur-sm">
+      <DropdownMenuContent
+        initialFocus={-1}
+        returnFocus={false}
+        className="min-w-[200px] rounded-2xl border border-soft-ivory/80 bg-white/95 p-1 shadow-xl backdrop-blur-sm"
+      >
         <DropdownMenuGroup className="space-y-1">
           <div className="px-3 py-1 text-xs text-gray-500">Line height</div>
           {lineHeights.map((value) => (
