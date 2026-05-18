@@ -51,7 +51,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
   const trimmedQuery = query.trim();
   const canSearch = trimmedQuery.length >= 2;
-  const sharedSearchInputClassName = 'w-full rounded-2xl border border-soft-ivory bg-warm-light-grey px-10 py-3 text-sm';
+  const sharedSearchInputClassName = 'w-full rounded-xl border border-[#dfdfdf] bg-[#f8f8f8] px-10 py-3 text-sm text-[#1f2a2f] placeholder:text-[#697378] focus:outline-none focus:ring-1 focus:ring-[#6E1D1B]/20';
 
   useModalLayerLock(open);
 
@@ -270,12 +270,13 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
   return (
     <Dialog open={open} onClose={onClose} className="relative z-50">
-      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-start justify-center overflow-y-auto px-4 py-10">
-        <Dialog.Panel className="w-full max-w-4xl rounded-3xl bg-white p-6 shadow-xl">
+      <div className="fixed inset-0 bg-[rgba(26,28,28,0.4)] backdrop-blur-[3px]" aria-hidden="true" />
+      <div className="fixed inset-0 flex items-center justify-center px-4 py-6">
+        <Dialog.Panel className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-[0_16px_48px_rgba(26,28,28,0.12)]">
+          <div className="border-b border-[#ece8e7] px-8 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <Dialog.Title className="text-base font-semibold">New conversation</Dialog.Title>
+              <Dialog.Title className="text-xl font-semibold text-[#6E1D1B]">Initiate Communication</Dialog.Title>
             </div>
             <button
               type="button"
@@ -285,39 +286,36 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
               <X className="h-5 w-5" />
             </button>
           </div>
+          </div>
 
-          <div className="space-y-4">
+          <div className="flex-1 space-y-4 overflow-y-auto p-8">
             <div className="flex justify-center">
-              <div className="inline-flex rounded-xl border border-soft-ivory bg-warm-light-grey/40 p-1.5 shadow-[0_4px_10px_rgba(17,27,33,0.04)]">
+              <div className="inline-flex rounded-xl border border-[#ece8e7] bg-[#f6f4f3] p-1.5">
                 <button
                   type="button"
                   onClick={() => setTab('direct')}
-                  className={`rounded-2xl px-4 py-2 text-sm font-semibold hover:bg-gray-100 ${tab === 'direct' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-                  style={{color: "var(--deep-red)"}}
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'direct' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70 hover:bg-white/80'}`}
                 >
                   Direct
                 </button>
                 <button
                   type="button"
                   onClick={() => setTab('group')}
-                  className={`rounded-2xl px-4 py-2 text-sm font-semibold hover:bg-gray-100 ${tab === 'group' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-                  style={{color: "var(--deep-red)"}} 
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'group' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70 hover:bg-white/80'}`}
                 >
                   Group
                 </button>
                 <button
                   type="button"
                   onClick={() => setTab('friends')}
-                  className={`rounded-2xl px-4 py-2 text-sm font-semibold hover:bg-gray-100 ${tab === 'friends' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-                  style={{color: "var(--deep-red)"}}
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'friends' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70 hover:bg-white/80'}`}
                 >
                   Friends
                 </button>
                 <button
                   type="button"
                   onClick={() => setTab('requests')}
-                  className={`rounded-2xl px-4 py-2 text-sm font-semibold hover:bg-gray-100 ${tab === 'requests' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70'}`}
-                  style={{color: "var(--deep-red)"}}
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'requests' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70 hover:bg-white/80'}`}
                 >
                   Requests
                 </button>

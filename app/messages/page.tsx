@@ -1399,7 +1399,21 @@ const ChatShell: React.FC = () => {
         <div className="flex h-full w-full min-h-0 flex-col pb-4 pt-3">
           <section className="grid min-h-0 min-w-0 flex-1 grid-cols-1 overflow-hidden rounded-2xl border border-[#dcc0bd]/20 bg-[#f6f5f4] xl:grid-cols-[320px_minmax(0,1fr)_288px]">
           <aside className="flex h-full min-h-0 w-80 flex-col overflow-hidden bg-[#f4f3f3]">
-            <div className="px-4 py-3">
+            <div className="space-y-3 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-almost-black-green/65">Conversations</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConversationTab("direct");
+                    setShowNewConversation(true);
+                  }}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#6E1D1B] text-white hover:bg-[#5e1716]"
+                  aria-label="Start a new conversation"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-almost-black-green/45" />
                 <input
@@ -1511,6 +1525,16 @@ const ChatShell: React.FC = () => {
                     {incomingRequests.length} incoming • {outgoingRequests.length} sent
                   </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConversationTab("requests");
+                    setShowNewConversation(true);
+                  }}
+                  className="mt-2 inline-flex items-center rounded-lg bg-[#6E1D1B] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#5e1716]"
+                >
+                  Open Requests
+                </button>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   {incomingRequests.slice(0, 2).map((req) => {
                     const senderName = resolveUserDisplay(req.sender_id, req.sender);
