@@ -4,6 +4,7 @@
 
 import React from "react";
 import { ProtectedRoute } from "@/components/protectedroute";
+import { Search } from "lucide-react";
 
 type GlossaryItem = {
   term: string;
@@ -296,6 +297,7 @@ const glossarySections: GlossarySection[] = [
 
 const Page = () => {
   const [searchQuery, setSearchQuery] = React.useState("");
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     const onEscape = (event: KeyboardEvent) => {
@@ -381,22 +383,28 @@ const Page = () => {
 
           <div className="sticky top-24 z-30">
             <section className="rounded-2xl border border-[#dcc0bd]/60 bg-white/90 p-4 shadow-sm backdrop-blur-xl">
-              <div className="flex items-center gap-3">
-                <span className="text-[#6e1d1b]">⌕</span>
+              <div
+                className="flex cursor-text items-center gap-3 rounded-xl border border-[#d7dbdb] bg-white px-3 py-2 transition-colors focus-within:border-[#b9bfc0]"
+                onClick={() => searchInputRef.current?.focus()}
+              >
+                <Search className="h-4 w-4 shrink-0 text-[#5d5f5f]" aria-hidden="true" />
                 <input
+                  ref={searchInputRef}
                   id="glossary-search"
                   type="search"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Start typing to filter ‘Quorum’ or ‘Caucus’..."
-                  className="w-full border-none bg-transparent px-1 py-2 text-base text-[#1a1c1c] placeholder:text-[#5d5f5f]/70 focus:outline-none"
+                  className="w-full border-none bg-transparent px-0 py-1 text-[15px] text-[#1a1c1c] placeholder:text-[#5d5f5f]/65 focus:outline-none"
                 />
-                <kbd className="hidden rounded bg-[#e2e2e2] px-2 py-1 text-[10px] font-bold text-[#5d5f5f] sm:inline-flex">ESC</kbd>
+                <kbd className="hidden shrink-0 rounded-md border border-[#d2d7d7] bg-[#f2f4f4] px-2 py-1 text-[10px] font-semibold tracking-wide text-[#5d5f5f] sm:inline-flex">
+                  ESC
+                </kbd>
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery("")}
-                    className="rounded-md border border-[#dcc0bd] px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[#6e1d1b]"
+                    className="shrink-0 rounded-md border border-[#dcc0bd] px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[#6e1d1b]"
                   >
                     Clear
                   </button>
