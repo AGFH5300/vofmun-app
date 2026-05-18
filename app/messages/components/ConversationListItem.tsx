@@ -112,8 +112,8 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
         }}
         className={`group w-full cursor-pointer px-2 py-1.5 text-left transition focus:outline-none focus-visible:outline-none ${
           isActive
-            ? 'rounded-xl border-l-[3px] border-[#6E1D1B] bg-[#e4e4e4]'
-            : 'rounded-xl bg-transparent hover:bg-[#e9e8e8]'
+            ? 'rounded-xl border-l-[3px] border-[#6E1D1B] bg-[#e8e8e8]'
+            : 'rounded-xl bg-transparent hover:bg-[#ecebeb]'
         }`}
       >
         <div className="flex items-start gap-2.5">
@@ -132,14 +132,14 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className={`truncate text-[13px] leading-5 ${isActive ? 'text-[#6E1D1B]' : 'text-almost-black-green'} ${hasUnread ? 'font-bold' : 'font-semibold'}`}>{meta.name}</p>
+                <p className={`truncate text-[13px] leading-5 ${isActive ? 'text-[#6E1D1B]' : 'text-[#1a1c1c]'} ${hasUnread ? 'font-bold' : 'font-semibold'}`}>{meta.name}</p>
                 {meta.shortDelegation ? (
-                  <p className="truncate text-[11px] font-medium leading-4 text-almost-black-green/65">({meta.shortDelegation})</p>
+                  <p className="truncate text-[11px] font-medium leading-4 text-[#1a1c1c]/65">({meta.shortDelegation})</p>
                 ) : null}
               </div>
               <div className="ml-2 flex shrink-0 flex-col items-end gap-1.5">
                 {last?.created_at && (
-                  <span className={`text-[0.7rem] ${hasUnread ? 'font-semibold text-deep-red' : 'text-almost-black-green/50'}`}>
+                  <span className={`text-[0.7rem] ${hasUnread ? 'font-semibold text-deep-red' : 'text-[#1a1c1c]/50'}`}>
                     {new Date(last.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
@@ -155,17 +155,17 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
             </div>
             {last ? (
               shouldShowAttachmentPreview ? (
-                <p className={`mt-0.5 inline-flex max-w-full items-center gap-1.5 line-clamp-1 text-[11px] ${hasUnread ? 'font-semibold text-almost-black-green' : 'text-almost-black-green/70'}`}>
+                <p className={`mt-0.5 inline-flex max-w-full items-center gap-1.5 line-clamp-1 text-[11px] ${hasUnread ? 'font-semibold text-[#1a1c1c]' : 'text-[#1a1c1c]/70'}`}>
                   <File className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{attachmentLabel}</span>
                 </p>
               ) : (
-                <p className={`mt-0.5 line-clamp-1 text-[11px] ${hasUnread ? 'font-semibold text-almost-black-green' : 'text-almost-black-green/70'}`}>
+                <p className={`mt-0.5 line-clamp-1 text-[11px] ${hasUnread ? 'font-semibold text-[#1a1c1c]' : 'text-[#1a1c1c]/70'}`}>
                   {`${room.room_type === 'dm' ? '' : last.user?.full_name ? `${last.user.full_name}: ` : ''}${lastMessageText}`}
                 </p>
               )
             ) : (
-              <p className="mt-1 line-clamp-1 text-xs text-almost-black-green/70">No messages yet</p>
+              <p className="mt-1 line-clamp-1 text-xs text-[#1a1c1c]/70">No messages yet</p>
             )}
           </div>
         </div>
@@ -182,7 +182,7 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
               onTogglePin(room.id);
               setContextMenuPosition(null);
             }}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-almost-black-green hover:bg-warm-light-grey"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[#1a1c1c] hover:bg-warm-light-grey"
           >
             {room.isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
             <span>{room.isPinned ? 'Unpin chat' : 'Pin chat'}</span>

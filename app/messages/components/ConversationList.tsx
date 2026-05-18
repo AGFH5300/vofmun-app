@@ -49,9 +49,9 @@ const ConversationList: React.FC<Props> = ({
     <div className="h-full">
       <div className="pb-3">
         {hasAnyRooms && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Channels</p>
+              <p className="mb-3 px-2 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Channels</p>
               <ul className="space-y-1">
                 {channelRooms.map((room) => (
                   <ConversationListItem
@@ -67,7 +67,7 @@ const ConversationList: React.FC<Props> = ({
               </ul>
             </div>
             <div>
-              <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Private Messages</p>
+              <p className="mb-3 px-2 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Private Messages</p>
               <ul className="space-y-1">
                 {privateRooms.map((room) => (
                   <ConversationListItem
@@ -85,23 +85,23 @@ const ConversationList: React.FC<Props> = ({
           </div>
         )}
         {!hasAnyRooms && (
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 rounded-2xl bg-[#ffffff] px-6 py-10 text-center shadow-[0_8px_32px_rgba(26,28,28,0.06)]">
+          <div className="mt-4 flex flex-col items-center justify-center gap-2.5 rounded-xl border border-[#dcc0bd]/20 bg-[#ffffff] px-4 py-6 text-center">
             <MessageCircle className="text-deep-red/50" size={42} />
             <div>
-              <p className="text-base font-semibold text-deep-red">You don’t have any conversations yet</p>
+              <p className="text-sm font-semibold text-[#6E1D1B]">You don’t have any conversations yet</p>
             </div>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={onNewChat}
-                className="rounded-xl !bg-deep-red px-4 py-2 text-sm font-semibold text-almost-black-green/70 shadow-sm hover:!bg-dark-burgundy"
+                className="rounded-lg bg-[#6E1D1B] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#500608]"
               >
                 Start a conversation
               </button>
               <button
                 type="button"
                 onClick={onNewGroup}
-                className="rounded-xl !bg-deep-red px-4 py-2 text-sm font-semibold text-almost-black-green/70 shadow-sm hover:!bg-dark-burgundy"
+                className="rounded-lg bg-[#6E1D1B] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#500608]"
               >
                 Start a group
               </button>
