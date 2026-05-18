@@ -1389,14 +1389,14 @@ const ChatShell: React.FC = () => {
       <div className="flex h-full w-full min-h-0 flex-col px-4 py-3 md:px-6">
         <div className="border-b border-[#e8e4e3] bg-[#f9f9f9]">
           <div className="flex h-[58px] w-full items-center justify-between px-2 md:px-0">
-              <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[2rem] font-semibold tracking-tight text-[#6E1D1B]">Delegate Messaging</h3>
+              <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-2xl font-semibold tracking-tight text-[#6E1D1B]">Delegate Messaging</h3>
               <button type="button" onClick={() => setConversationTab("requests")} className="rounded-lg p-1 text-slate-500 transition-colors hover:bg-[#e8e7e7] hover:text-[#6E1D1B]">
                 <BellDot className="h-[18px] w-[18px]" />
               </button>
             </div>
           </div>
         <div className="flex h-full w-full min-h-0 flex-col pb-4 pt-3">
-          <section className="grid min-h-0 min-w-0 flex-1 grid-cols-1 overflow-hidden rounded-[16px] border border-[#e8e4e3] bg-[#f6f5f4] lg:grid-cols-[320px_minmax(0,1fr)_268px]">
+          <section className="grid min-h-0 min-w-0 flex-1 grid-cols-1 overflow-hidden rounded-2xl border border-[#dcc0bd]/20 bg-[#f6f5f4] xl:grid-cols-[320px_minmax(0,1fr)_288px]">
           <aside className="flex h-full min-h-0 w-80 flex-col overflow-hidden bg-[#f4f3f3]">
             <div className="px-4 py-3">
               <div className="relative">
@@ -1469,7 +1469,7 @@ const ChatShell: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-3">
                     <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" aria-hidden="true" />
-                    <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[1.65rem] font-semibold text-deep-red md:text-[1.9rem]">
+                    <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-lg font-bold text-[#6E1D1B]">
                       {activeRoomTitle}
                     </h3>
                   </div>
@@ -1555,10 +1555,10 @@ const ChatShell: React.FC = () => {
               }}
             >
               {activeRoom && isDraggingFilesOverChat && (
-                <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-[#0b141acc] backdrop-blur-[1.5px]">
-                  <div className="rounded-2xl border border-white/35 bg-white/12 px-6 py-4 text-center text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+                <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-[#6E1D1B]/15 backdrop-blur-[1.5px]">
+                  <div className="rounded-2xl border border-[#dcc0bd]/40 bg-white/90 px-6 py-4 text-center text-[#564240] shadow-[0_10px_24px_rgba(26,28,28,0.12)]">
                     <p className="text-lg font-semibold">Drop files to attach</p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-white/80">
+                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[#564240]/70">
                       Files will be added to your next message
                     </p>
                   </div>
@@ -1566,7 +1566,7 @@ const ChatShell: React.FC = () => {
               )}
               <div
                 ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto px-7 py-5"
+                className="flex-1 overflow-y-auto px-6 py-5"
               >
                 {activeRoom ? (
                   visibleActiveMessages.length > 0 ? (
@@ -1577,7 +1577,7 @@ const ChatShell: React.FC = () => {
                             key={`date-${item.label}`}
                             className="my-4 flex justify-center"
                           >
-                            <span className="rounded-full border border-soft-ivory bg-white px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-almost-black-green/60 shadow-sm">
+                            <span className="rounded-full border border-[#dcc0bd]/30 bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-almost-black-green/60 shadow-sm">
                               {item.label}
                             </span>
                           </div>
@@ -1587,7 +1587,7 @@ const ChatShell: React.FC = () => {
                         return (
                           <div key={`unread-${item.id}`} className="my-3 flex items-center gap-3">
                             <div className="h-px flex-1 bg-[#d9d9d9]" />
-                            <span className="shrink-0 rounded-full border border-[#f0c9c9] bg-[#fff4f4] px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-deep-red/85 shadow-sm">
+                            <span className="shrink-0 rounded-full border border-[#f0c9c9] bg-[#fff4f4] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-deep-red/85 shadow-sm">
                               {item.label}
                             </span>
                             <div className="h-px flex-1 bg-[#d9d9d9]" />
@@ -1709,7 +1709,7 @@ const ChatShell: React.FC = () => {
                 </button>
               )}
               {!isAnySelectionModeActive && (
-                <div className="sticky bottom-0 border-t border-[#ebe7e6] bg-[#f4f3f3] px-2 py-3">
+                <div className="sticky bottom-0 border-t border-[#dcc0bd]/20 bg-[#f4f3f3] px-4 py-3">
                 {activeRoom ? activeTypingDisplay : <div className="mb-2 h-5" aria-hidden="true" />}
                 <input
                   ref={fileInputRef}
@@ -1803,7 +1803,7 @@ const ChatShell: React.FC = () => {
                         </button>
                       </div>
                     ) : null}
-                  <div className="relative flex items-end gap-3">
+                  <div className="mx-auto w-full max-w-4xl relative flex items-end gap-3">
                     {emojiSuggestions.length > 0 && (
                       <div className="absolute -top-20 left-4 z-30 max-w-[calc(100%-2rem)] rounded-2xl border border-[#d7d7d7] bg-white p-1.5 shadow-[0_14px_30px_rgba(17,27,33,0.2)]">
                         <div className="flex items-center gap-1 overflow-x-auto">
@@ -1937,8 +1937,8 @@ const ChatShell: React.FC = () => {
                   </p>
                   </div>
                 ) : (
-                  <div className="space-y-1">
-                    <div className="relative flex items-end gap-3">
+                  <div className="mx-auto w-full max-w-4xl space-y-1">
+                    <div className="mx-auto w-full max-w-4xl relative flex items-end gap-3">
                     <div className="relative flex flex-1 items-end rounded-full bg-[#ffffff] pl-1 pr-2 ring-1 ring-[#dcc0bd]/30 transition">
                       <button
                         type="button"
@@ -2084,7 +2084,7 @@ const ChatShell: React.FC = () => {
                 )}
             </div>
           </section>
-          <aside className="hidden min-h-0 w-[268px] flex-col gap-5 overflow-y-auto border-l border-[#ebe7e6] bg-[#f9f9f9] px-5 py-5 lg:flex">
+          <aside className="hidden min-h-0 w-72 flex-col gap-5 overflow-y-auto border-l border-[#ebe7e6] bg-[#f9f9f9] px-5 py-5 lg:flex">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Channel Details</p>
               <div className="mt-3 rounded-xl bg-[#f4f3f3] p-3.5 text-xs text-almost-black-green/75">
