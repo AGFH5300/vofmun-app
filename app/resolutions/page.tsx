@@ -11,7 +11,7 @@ import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
 import role from "@/lib/roles";
 import supabase from "@/lib/supabase";
-import { AlertTriangle, ArrowRight, Expand, Loader2, Minimize2, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Expand, ExternalLink, Loader2, Minimize2, Plus, Trash2 } from "lucide-react";
 
 const EMPTY_DOCUMENT = { type: "doc", content: [{ type: "paragraph" }] };
 const serializeDocument = (content?: object | null) =>
@@ -93,17 +93,9 @@ const addExternalDocBlock = (content: object, docLink: string) => {
 };
 
 const parseResoContent = (raw?: string | object | null) => {
-  if (!raw) {
-    return undefined;
-  }
-
-  if (typeof raw === "object") {
-    return raw;
-  }
-
-  if (typeof raw !== "string") {
-    return undefined;
-  }
+  if (!raw) return undefined;
+  if (typeof raw === "object") return raw;
+  if (typeof raw !== "string") return undefined;
 
   try {
     return JSON.parse(raw);
@@ -113,13 +105,9 @@ const parseResoContent = (raw?: string | object | null) => {
       content: paragraph ? [{ type: "text", text: paragraph }] : [],
     }));
 
-    return {
-      type: "doc",
-      content: paragraphs.length > 0 ? paragraphs : [{ type: "paragraph" }],
-    };
+    return { type: "doc", content: paragraphs.length > 0 ? paragraphs : [{ type: "paragraph" }] };
   }
 };
-// this page assumes that delegates can only post 1 reso, might be changed later
 
 const Page = () => {
   const { user: currentUser, login } = useSession();
@@ -128,9 +116,7 @@ const Page = () => {
   const [fetchedResos, setFetchedResos] = useState<Reso[]>([]);
   const [selectedReso, setSelectedReso] = useState<Reso | null>(null);
   const [delegates, setDelegates] = useState<shortenedDel[]>([]);
-  const [committees, setCommittees] = useState<
-    { committeeID: string; committeeCode: string }[]
-  >([]);
+  const [committees, setCommittees] = useState<{ committeeID: string; committeeCode: string }[]>([]);
   const [title, setTitle] = useState<string>("");
   const [docLink, setDocLink] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
@@ -138,114 +124,65 @@ const Page = () => {
   const [isFullscreenEditor, setIsFullscreenEditor] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const isDelegateUser = userRole === "delegate" && currentUser !== null;
-  const initialStateRef = React.useRef({
-    title: "",
-    docLink: "",
-    content: serializeDocument(),
-  });
+
+  const initialStateRef = React.useRef({ title: "", docLink: "", content: serializeDocument() });
   const isBusy = isSaving || isDeleting;
   const isExternalDocMode = docLink.trim().length > 0;
-  const parsedResoContent = React.useMemo(
-    () => parseResoContent(selectedReso?.content ?? null),
-    [selectedReso]
-  );
-  const cleanedResoContent = React.useMemo(
-    () => stripExternalDocBlock(parsedResoContent),
-    [parsedResoContent]
-  );
+  const parsedResoContent = React.useMemo(() => parseResoContent(selectedReso?.content ?? null), [selectedReso]);
+  const cleanedResoContent = React.useMemo(() => stripExternalDocBlock(parsedResoContent), [parsedResoContent]);
   const delegateAlreadyHasReso = React.useMemo(() => {
-    if (!isDelegateUser || !currentUser || !("delegateID" in currentUser)) {
-      return false;
-    }
-
+    if (!isDelegateUser || !currentUser || !('delegateID' in currentUser)) return false;
     return fetchedResos.some((reso) => reso.delegateID === currentUser.delegateID);
   }, [currentUser, fetchedResos, isDelegateUser]);
 
-  const isValidUuid = useCallback((value: string) => {
-    return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
-      value
-    );
-  }, []);
+  const isValidUuid = useCallback((value: string) => /^[0-9a-fA-F-]{36}$/.test(value), []);
+  const committeeIdFor = useCallback((value: string) => committees.find((c) => c.committeeID === value || c.committeeCode === value)?.committeeID ?? value, [committees]);
 
-  const committeeIdFor = useCallback(
-    (value: string) => {
-      const match = committees.find(
-        (committee) =>
-          committee.committeeID === value || committee.committeeCode === value
-      );
-      return match?.committeeID ?? value;
-    },
-    [committees]
-  );
+  const getCommitteeDisplayName = useCallback(() => {
+    if (!currentUser) return "your assigned committee";
+    if (userRole === "delegate") {
+      const delegateUser = currentUser as Delegate;
+      const code = delegateUser.committee?.committeeCode;
+      return code && !isValidUuid(code) ? code : "your assigned committee";
+    }
+    if (userRole === "chair") {
+      const chairUser = currentUser as Chair;
+      const code = chairUser.committee?.committeeCode;
+      return code && !isValidUuid(code) ? code : "your assigned committee";
+    }
+    return "your assigned committee";
+  }, [currentUser, isValidUuid, userRole]);
 
   useEffect(() => {
     const loadCommittees = async () => {
-      const { data, error } = await supabase
-        .from("Committee")
-        .select("committeeID, committeeCode")
-        .order("committeeCode", { ascending: true });
-
+      const { data, error } = await supabase.from("Committee").select("committeeID, committeeCode").order("committeeCode", { ascending: true });
       if (error) {
         console.error("Failed to load committees", error);
         toast.error("Unable to load committees");
-      } else {
-        setCommittees(data ?? []);
-      }
+      } else setCommittees(data ?? []);
     };
-
     loadCommittees();
   }, []);
+
   const getEditorSnapshot = useCallback(() => {
-    if (!editorRef.current) {
-      return initialStateRef.current.content;
-    }
-
-    try {
-      return JSON.stringify(editorRef.current.getJSON());
-    } catch {
-      return initialStateRef.current.content;
-    }
+    if (!editorRef.current) return initialStateRef.current.content;
+    try { return JSON.stringify(editorRef.current.getJSON()); } catch { return initialStateRef.current.content; }
   }, []);
-
   const evaluateUnsavedChanges = useCallback(() => {
     const snapshot = getEditorSnapshot();
-    const dirty =
-      snapshot !== initialStateRef.current.content ||
-      title !== initialStateRef.current.title ||
-      docLink.trim() !== initialStateRef.current.docLink;
+    const dirty = snapshot !== initialStateRef.current.content || title !== initialStateRef.current.title || docLink.trim() !== initialStateRef.current.docLink;
     setHasUnsavedChanges(dirty);
   }, [docLink, getEditorSnapshot, title]);
 
-  useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-
-    const handleUpdate = () => {
-      evaluateUnsavedChanges();
-    };
-
-    editor.on("update", handleUpdate);
-
-    return () => {
-      editor.off("update", handleUpdate);
-    };
-  }, [evaluateUnsavedChanges]);
-
-  useEffect(() => {
-    evaluateUnsavedChanges();
-  }, [title, evaluateUnsavedChanges]);
+  useEffect(() => { const editor = editorRef.current; if (!editor) return; const h = () => evaluateUnsavedChanges(); editor.on("update", h); return () => editor.off("update", h); }, [evaluateUnsavedChanges]);
+  useEffect(() => { evaluateUnsavedChanges(); }, [title, evaluateUnsavedChanges]);
 
   useEffect(() => {
     const baselineTitle = selectedReso?.title ?? "";
     const parsedContent = parseResoContent(selectedReso?.content ?? null);
     let frame: number | null = null;
-
     const applyBaseline = () => {
-      if (!editorRef.current) {
-        frame = window.requestAnimationFrame(applyBaseline);
-        return;
-      }
-
+      if (!editorRef.current) { frame = window.requestAnimationFrame(applyBaseline); return; }
       if (parsedContent) {
         editorRef.current.commands.setContent(stripExternalDocBlock(parsedContent), false);
         setDocLink(readExternalDocLink(parsedContent));
@@ -253,859 +190,211 @@ const Page = () => {
         editorRef.current.commands.clearContent(false);
         setDocLink("");
       }
-
-      const snapshot = getEditorSnapshot();
-      initialStateRef.current = {
-        title: baselineTitle,
-        docLink: readExternalDocLink(parsedContent),
-        content: snapshot,
-      };
+      initialStateRef.current = { title: baselineTitle, docLink: readExternalDocLink(parsedContent), content: getEditorSnapshot() };
       frame = null;
     };
-
     setTitle(baselineTitle);
-
-    if (editorRef.current) {
-      applyBaseline();
-    } else {
-      initialStateRef.current = {
-        title: baselineTitle,
-        docLink: readExternalDocLink(parsedContent),
-        content: serializeDocument(stripExternalDocBlock(parsedContent ?? null)),
-      };
-      frame = window.requestAnimationFrame(applyBaseline);
-    }
-
+    if (editorRef.current) applyBaseline(); else { initialStateRef.current = { title: baselineTitle, docLink: readExternalDocLink(parsedContent), content: serializeDocument(stripExternalDocBlock(parsedContent ?? null)) }; frame = window.requestAnimationFrame(applyBaseline); }
     setHasUnsavedChanges(false);
-
-    return () => {
-      if (frame !== null) {
-        window.cancelAnimationFrame(frame);
-      }
-    };
+    return () => { if (frame !== null) window.cancelAnimationFrame(frame); };
   }, [getEditorSnapshot, selectedReso]);
 
-  const logBackIn = useCallback(async () => {
-    if (!currentUser) {
-      toast.error("No user logged in");
-      return null;
-    }
-
+  const logBackIn = useCallback(async () => { /* unchanged logic */
+    if (!currentUser) { toast.error("No user logged in"); return null; }
     if (userRole === "delegate") {
       const delegateUser = currentUser as Delegate;
       let latestPerms = delegateUser.resoPerms;
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: appUserPerms, error: appUserPermsError } = await (supabase as any)
-        .from("app_users")
-        .select("reso_perms")
-        .eq("id", delegateUser.delegateID)
-        .maybeSingle();
-
-      if (!appUserPermsError && appUserPerms?.reso_perms) {
-        latestPerms = appUserPerms.reso_perms;
-      } else if (appUserPermsError) {
-        console.error("Failed to fetch delegate permissions from app_users:", appUserPermsError);
-        toast.error("Failed to fetch delegate permissions");
-        return null;
-      }
-
-      const enrichedUser: Delegate = {
-        ...delegateUser,
-        resoPerms: latestPerms || {
-          "view:ownreso": false,
-          "view:allreso": false,
-          "update:ownreso": false,
-          "update:reso": [],
-        },
-      };
-      if (JSON.stringify(delegateUser.resoPerms) !== JSON.stringify(enrichedUser.resoPerms)) {
-        login(enrichedUser);
-      }
+      const { data: appUserPerms, error: appUserPermsError } = await (supabase as any).from("app_users").select("reso_perms").eq("id", delegateUser.delegateID).maybeSingle();
+      if (!appUserPermsError && appUserPerms?.reso_perms) latestPerms = appUserPerms.reso_perms;
+      else if (appUserPermsError) { console.error("Failed to fetch delegate permissions from app_users:", appUserPermsError); toast.error("Failed to fetch delegate permissions"); return null; }
+      const enrichedUser: Delegate = { ...delegateUser, resoPerms: latestPerms || { "view:ownreso": false, "view:allreso": false, "update:ownreso": false, "update:reso": [] } };
+      if (JSON.stringify(delegateUser.resoPerms) !== JSON.stringify(enrichedUser.resoPerms)) login(enrichedUser);
       return enrichedUser;
     }
     return currentUser;
   }, [currentUser, userRole, login]);
 
-  useEffect(() => {
-    const fetchDels = async () => {
-      if (!currentUser || userRole !== "chair") return;
+  useEffect(() => { const fetchDels = async () => { if (!currentUser || userRole !== "chair") return; try { const chairUser = currentUser as Chair; const { data, error } = await supabase.from("app_users").select("id, first_name, last_name, reso_perms").eq("committee_id", chairUser.committee.committeeID).eq("role", "delegate"); if (error) throw error; setDelegates((data || []).map((d) => ({ delegateID: d.id, firstname: d.first_name || "", lastname: d.last_name || "", resoPerms: d.reso_perms || { "view:ownreso": false, "view:allreso": false, "update:ownreso": false, "update:reso": [] } }))); } catch (error) { console.error("Failed to fetch delegates:", error); toast.error("Failed to fetch delegates"); } }; fetchDels(); }, [currentUser, userRole]);
+  useEffect(() => { logBackIn(); }, [logBackIn]);
 
-      try {
-        const chairUser = currentUser as Chair;
-        const { data, error } = await supabase
-          .from("app_users")
-          .select("id, first_name, last_name, reso_perms")
-          .eq("committee_id", chairUser.committee.committeeID)
-          .eq("role", "delegate");
+  useEffect(() => { const fetchResos = async () => { if (!currentUser) return; if ((userRole === "delegate" || userRole === "chair") && committees.length === 0) return; try { let query = supabase.from<Reso>("Resos").select("*"); if (userRole === "delegate") { const du = currentUser as Delegate; if (!du.resoPerms["view:allreso"]) query = query.eq("delegateID", du.delegateID); else { const committeeUuid = committeeIdFor(du.committee.committeeID); if (!isValidUuid(committeeUuid)) { toast.error("Invalid committee reference for delegate"); return; } query = query.eq("committeeID", committeeUuid); } } else if (userRole === "chair") { const cu = currentUser as Chair; const committeeUuid = committeeIdFor(cu.committee.committeeID); if (!isValidUuid(committeeUuid)) { toast.error("Invalid committee reference for chair"); return; } query = query.eq("committeeID", committeeUuid); } const { data, error } = await query; if (error) throw error; const fetched = data ?? []; setFetchedResos(fetched); if (selectedReso) { const updated = fetched.find((r: Reso) => r.resoID === selectedReso.resoID); if (updated) setTitle(updated.title || ""); } } catch (error) { console.error("Failed to fetch resolutions:", error); toast.error("Failed to fetch resolutions"); } }; fetchResos(); }, [committees.length, committeeIdFor, currentUser, isValidUuid, selectedReso, userRole]);
 
-        if (error) {
-          throw error;
-        }
+  useEffect(() => { if (editorRef.current) editorRef.current.setEditable(!isBusy && !isExternalDocMode); }, [isBusy, isExternalDocMode]);
+  useEffect(() => { if (!isFullscreenEditor) return; const h = (event: KeyboardEvent) => event.key === "Escape" && setIsFullscreenEditor(false); window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [isFullscreenEditor]);
 
-        const mappedDelegates = (data || []).map((delegate) => ({
-          delegateID: delegate.id,
-          firstname: delegate.first_name || "",
-          lastname: delegate.last_name || "",
-          resoPerms: delegate.reso_perms || {
-            "view:ownreso": false,
-            "view:allreso": false,
-            "update:ownreso": false,
-            "update:reso": [],
-          },
-        }));
+  const confirmDiscardChanges = useCallback(() => !hasUnsavedChanges || window.confirm(UNSAVED_CHANGES_MESSAGE), [hasUnsavedChanges]);
+  useEffect(() => { if (!hasUnsavedChanges) return; const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = UNSAVED_CHANGES_MESSAGE; return UNSAVED_CHANGES_MESSAGE; }; window.addEventListener("beforeunload", h); return () => window.removeEventListener("beforeunload", h); }, [hasUnsavedChanges]);
 
-        setDelegates(mappedDelegates);
-      } catch (error) {
-        console.error("Failed to fetch delegates:", error);
-        toast.error("Failed to fetch delegates");
-      }
-    };
+  const handleSelectReso = useCallback((reso: Reso) => { if (isBusy || selectedReso?.resoID === reso.resoID || !confirmDiscardChanges()) return; setSelectedReso(reso); }, [confirmDiscardChanges, isBusy, selectedReso]);
+  const handleCreateNewReso = useCallback(() => { if (isBusy) return; if (isDelegateUser && delegateAlreadyHasReso) { toast.error("You can only post one resolution as a delegate."); return; } if (!confirmDiscardChanges()) return; setSelectedReso(null); setDocLink(""); editorRef.current?.commands.clearContent(false); }, [confirmDiscardChanges, delegateAlreadyHasReso, isBusy, isDelegateUser]);
 
-    fetchDels();
-  }, [currentUser, userRole]);
-
-  useEffect( () => {
-    logBackIn();
-  }, [logBackIn]) // added logBackIn to dependencies
-
-  // Only depend on currentUser for fetching resolutions
-  useEffect(() => {
-    const fetchResos = async () => {
-      if (!currentUser) return;
-      if (
-        (userRole === "delegate" || userRole === "chair") &&
-        committees.length === 0
-      ) {
-        return;
-      }
-
-      try {
-        let query = supabase.from<Reso>("Resos").select("*");
-
-        if (userRole === "delegate") {
-          const delegateUser = currentUser as Delegate;
-          if (!delegateUser.resoPerms["view:allreso"]) {
-            query = query.eq("delegateID", delegateUser.delegateID);
-          } else {
-            const committeeUuid = committeeIdFor(
-              delegateUser.committee.committeeID
-            );
-            if (!isValidUuid(committeeUuid)) {
-              toast.error("Invalid committee reference for delegate");
-              return;
-            }
-            query = query.eq("committeeID", committeeUuid);
-          }
-        } else if (userRole === "chair") {
-          const chairUser = currentUser as Chair;
-          const committeeUuid = committeeIdFor(chairUser.committee.committeeID);
-          if (!isValidUuid(committeeUuid)) {
-            toast.error("Invalid committee reference for chair");
-            return;
-          }
-          query = query.eq("committeeID", committeeUuid);
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
-          throw error;
-        }
-
-        const fetched = data ?? [];
-        setFetchedResos(fetched);
-
-        if (selectedReso) {
-          const updatedSelectedReso = fetched.find((reso: Reso) => reso.resoID === selectedReso.resoID);
-          if (updatedSelectedReso) {
-            setTitle(updatedSelectedReso.title || "");
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch resolutions:", error);
-        toast.error("Failed to fetch resolutions");
-      }
-    };
-
-    fetchResos();
-  }, [
-    committees.length,
-    committeeIdFor,
-    currentUser,
-    isValidUuid,
-    selectedReso,
-    userRole,
-  ]);
-
-  useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.setEditable(!isBusy && !isExternalDocMode);
-    }
-  }, [isBusy, isExternalDocMode]);
-
-  useEffect(() => {
-    if (!isFullscreenEditor) {
-      return;
-    }
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsFullscreenEditor(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleEscape);
-
-    return () => {
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [isFullscreenEditor]);
-
-  const confirmDiscardChanges = useCallback(() => {
-    if (!hasUnsavedChanges) {
-      return true;
-    }
-
-    return window.confirm(UNSAVED_CHANGES_MESSAGE);
-  }, [hasUnsavedChanges]);
-
-  useEffect(() => {
-    if (!hasUnsavedChanges) {
-      return;
-    }
-
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = UNSAVED_CHANGES_MESSAGE;
-      return UNSAVED_CHANGES_MESSAGE;
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [hasUnsavedChanges]);
-
-  const handleSelectReso = useCallback(
-    (reso: Reso) => {
-      if (isBusy) {
-        return;
-      }
-
-      if (selectedReso?.resoID === reso.resoID) {
-        return;
-      }
-
-      if (!confirmDiscardChanges()) {
-        return;
-      }
-
-      setSelectedReso(reso);
-    },
-    [confirmDiscardChanges, isBusy, selectedReso]
-  );
-
-  const handleCreateNewReso = useCallback(() => {
-    if (isBusy) {
-      return;
-    }
-
-    if (isDelegateUser && delegateAlreadyHasReso) {
-      toast.error("You can only post one resolution as a delegate.");
-      return;
-    }
-
-    if (!confirmDiscardChanges()) {
-      return;
-    }
-
-    setSelectedReso(null);
-    setDocLink("");
-    if (editorRef.current) {
-      editorRef.current.commands.clearContent(false);
-    }
-  }, [confirmDiscardChanges, delegateAlreadyHasReso, isBusy, isDelegateUser]);
-
-  const postReso = async () => {
-    if (isBusy) {
-      return;
-    }
-
-    if (isDelegateUser && !selectedReso && delegateAlreadyHasReso) {
-      toast.error("You can only post one resolution as a delegate.");
-      return;
-    }
-
-    const updatedUser = await logBackIn();
-    if (!updatedUser) return;
-
+  const postReso = async () => { /* unchanged save logic */
+    if (isBusy) return;
+    if (isDelegateUser && !selectedReso && delegateAlreadyHasReso) return toast.error("You can only post one resolution as a delegate.");
+    const updatedUser = await logBackIn(); if (!updatedUser) return;
     const updatedUserRole = role(updatedUser);
-    const updatedUserIsDelegate =
-      updatedUserRole === "delegate" && updatedUser !== null;
-
+    const updatedUserIsDelegate = updatedUserRole === "delegate" && updatedUser !== null;
     const trimmedDocLink = docLink.trim();
-    if (trimmedDocLink && !isNonEmptyHttpUrl(trimmedDocLink)) {
-      toast.error("Please enter a valid document URL (http or https).");
-      return;
-    }
-
-    if (!trimmedDocLink && !editorRef.current) {
-      toast.error("Editor not initialized");
-      return;
-    }
-
-    const hasLocalDraftText = editorRef.current
-      ? editorRef.current.getText().trim().length > 0
-      : false;
-
-    if (!hasLocalDraftText && !trimmedDocLink) {
-      toast.error("Add text or provide an external document link.");
-      return;
-    }
-
-    if (hasLocalDraftText && trimmedDocLink) {
-      toast.error("Choose either a local draft or an external document link, not both.");
-      return;
-    }
-
-    if (!updatedUserIsDelegate && !selectedReso) {
-      toast.error("Only delegates can post resolutions.");
-      return;
-    }
-
+    if (trimmedDocLink && !isNonEmptyHttpUrl(trimmedDocLink)) return toast.error("Please enter a valid document URL (http or https).");
+    if (!trimmedDocLink && !editorRef.current) return toast.error("Editor not initialized");
+    const hasLocalDraftText = editorRef.current ? editorRef.current.getText().trim().length > 0 : false;
+    if (!hasLocalDraftText && !trimmedDocLink) return toast.error("Add text or provide an external document link.");
+    if (hasLocalDraftText && trimmedDocLink) return toast.error("Choose either a local draft or an external document link, not both.");
+    if (!updatedUserIsDelegate && !selectedReso) return toast.error("Only delegates can post resolutions.");
     if (updatedUserIsDelegate) {
       const delegateUser = updatedUser as Delegate;
-      if (!delegateUser.resoPerms["update:ownreso"] && selectedReso?.delegateID === delegateUser.delegateID) {
-        toast.error("You do not have permission to post resolutions.");
-        return;
-      }
-      if (
-        selectedReso &&
-        (selectedReso.delegateID !== delegateUser.delegateID &&
-          !(delegateUser.resoPerms["update:reso"]?.includes(selectedReso.resoID)))
-      ) {
-        toast.error("You can only update your own resolutions.");
-        return;
-      }
+      if (!delegateUser.resoPerms["update:ownreso"] && selectedReso?.delegateID === delegateUser.delegateID) return toast.error("You do not have permission to post resolutions.");
+      if (selectedReso && (selectedReso.delegateID !== delegateUser.delegateID && !(delegateUser.resoPerms["update:reso"]?.includes(selectedReso.resoID)))) return toast.error("You can only update your own resolutions.");
     }
-
-    if (!title.trim()) {
-      toast.error("Please enter a resolution title");
-      return;
-    }
+    if (!title.trim()) return toast.error("Please enter a resolution title");
 
     const editorContent = editorRef.current?.getJSON() ?? EMPTY_DOCUMENT;
-    const content = trimmedDocLink
-      ? addExternalDocBlock(editorContent, trimmedDocLink)
-      : stripExternalDocBlock(editorContent);
-
-    let delegateID = "0000";
-    let committeeID = "";
-
+    const content = trimmedDocLink ? addExternalDocBlock(editorContent, trimmedDocLink) : stripExternalDocBlock(editorContent);
+    let delegateID = "0000"; let committeeID = "";
     if (updatedUserIsDelegate) {
       const delegateUser = updatedUser as Delegate;
-      delegateID = delegateUser.delegateID;
-      committeeID = committeeIdFor(delegateUser.committee.committeeID);
-      if (!isValidUuid(committeeID)) {
-        toast.error("Unable to resolve your committee. Please contact admin.");
-        return;
-      }
-
-      const ownResos = fetchedResos.filter(
-        (reso) => reso.delegateID === delegateUser.delegateID
-      );
-      if (ownResos.length >= 1 && !selectedReso) {
-        toast.error("You can only post one resolution as a delegate.");
-        return;
-      }
+      delegateID = delegateUser.delegateID; committeeID = committeeIdFor(delegateUser.committee.committeeID);
+      if (!isValidUuid(committeeID)) return toast.error("Unable to resolve your committee. Please contact admin.");
+      if (fetchedResos.filter((r) => r.delegateID === delegateUser.delegateID).length >= 1 && !selectedReso) return toast.error("You can only post one resolution as a delegate.");
     } else if (updatedUserRole === "chair" && selectedReso) {
-      const chairUser = updatedUser as Chair;
-      committeeID = committeeIdFor(chairUser.committee.committeeID);
-      if (!isValidUuid(committeeID)) {
-        toast.error("Unable to resolve your committee. Please contact admin.");
-        return;
-      }
+      const chairUser = updatedUser as Chair; committeeID = committeeIdFor(chairUser.committee.committeeID);
+      if (!isValidUuid(committeeID)) return toast.error("Unable to resolve your committee. Please contact admin.");
       delegateID = selectedReso.delegateID;
     }
 
     setIsSaving(true);
-
     try {
       if (selectedReso) {
-        const { error: updateError } = await supabase
-          .from("Resos")
-          .update({ content, title })
-          .eq("resoID", selectedReso.resoID);
-
-        if (updateError) {
-          throw updateError;
-        }
-
-        const updatedReso: Reso = {
-          ...selectedReso,
-          content,
-          title,
-        };
-
-        setFetchedResos((prev) =>
-          prev.map((reso) =>
-            reso.resoID === updatedReso.resoID ? updatedReso : reso
-          )
-        );
-        setSelectedReso(updatedReso);
-        toast.success("Resolution updated successfully!");
+        const { error: updateError } = await supabase.from("Resos").update({ content, title }).eq("resoID", selectedReso.resoID);
+        if (updateError) throw updateError;
+        const updatedReso: Reso = { ...selectedReso, content, title };
+        setFetchedResos((prev) => prev.map((r) => r.resoID === updatedReso.resoID ? updatedReso : r)); setSelectedReso(updatedReso); toast.success("Resolution updated successfully!");
       } else {
-        const { data: existingResos, error: resoError } = await supabase
-          .from<{ resoID: string }>("Resos")
-          .select("resoID");
-
-        if (resoError) {
-          throw resoError;
-        }
-
-        const sortedResos = existingResos ? [...existingResos] : [];
-        sortedResos.sort((a, b) => a.resoID.localeCompare(b.resoID));
-        const highestResoID =
-          sortedResos.length > 0
-            ? (parseInt(sortedResos[sortedResos.length - 1].resoID, 10) + 1)
-                .toString()
-                .padStart(4, "0")
-            : "0001";
-
-        const newResoPayload: Reso = {
-          resoID: highestResoID,
-          delegateID,
-          committeeID,
-          content,
-          title,
-          isNew: false,
-        };
-
-        const { data: insertedReso, error: insertError } = await supabase
-          .from("Resos")
-          .insert(newResoPayload)
-          .select()
-          .single();
-
-        if (insertError) {
-          throw insertError;
-        }
-
-        const createdReso: Reso = (insertedReso as Reso) ?? {
-          ...newResoPayload,
-        };
-
-        setFetchedResos((prev) => [...prev, createdReso]);
-        setSelectedReso(createdReso);
-        toast.success("Resolution posted successfully!");
+        const { data: existingResos, error: resoError } = await supabase.from<{ resoID: string }>("Resos").select("resoID");
+        if (resoError) throw resoError;
+        const sortedResos = existingResos ? [...existingResos] : []; sortedResos.sort((a, b) => a.resoID.localeCompare(b.resoID));
+        const highestResoID = sortedResos.length > 0 ? (parseInt(sortedResos[sortedResos.length - 1].resoID, 10) + 1).toString().padStart(4, "0") : "0001";
+        const newResoPayload: Reso = { resoID: highestResoID, delegateID, committeeID, content, title, isNew: false };
+        const { data: insertedReso, error: insertError } = await supabase.from("Resos").insert(newResoPayload).select().single();
+        if (insertError) throw insertError;
+        const createdReso: Reso = (insertedReso as Reso) ?? { ...newResoPayload };
+        setFetchedResos((prev) => [...prev, createdReso]); setSelectedReso(createdReso); toast.success("Resolution posted successfully!");
       }
-
-      const snapshot = getEditorSnapshot();
-      initialStateRef.current = {
-        title,
-        docLink: trimmedDocLink,
-        content: snapshot,
-      };
-      setHasUnsavedChanges(false);
-    } catch (error) {
-      console.error("Failed to save resolution:", error);
-      toast.error("Failed to post resolution");
-    } finally {
-      setIsSaving(false);
-    }
+      initialStateRef.current = { title, docLink: trimmedDocLink, content: getEditorSnapshot() }; setHasUnsavedChanges(false);
+    } catch (error) { console.error("Failed to save resolution:", error); toast.error("Failed to post resolution"); } finally { setIsSaving(false); }
   };
 
-  const handleDeleteReso = useCallback(async () => {
-    if (!selectedReso || isBusy) {
-      return;
-    }
+  const handleDeleteReso = useCallback(async () => { if (!selectedReso || isBusy) return; const updatedUser = await logBackIn(); if (!updatedUser) return; const updatedRole = role(updatedUser); if (updatedRole === "delegate") { const d = updatedUser as Delegate; const owns = selectedReso.delegateID === d.delegateID; const hasPerm = Array.isArray(d.resoPerms?.["update:reso"]) ? d.resoPerms["update:reso"].includes(selectedReso.resoID) : false; if (!owns && !hasPerm) return toast.error("You can only delete resolutions you are allowed to update."); } else if (updatedRole !== "chair") return toast.error("You do not have permission to delete this resolution."); if (!window.confirm("Are you sure you want to delete this resolution? This action cannot be undone.")) return; setIsDeleting(true); try { const { error } = await supabase.from("Resos").delete().eq("resoID", selectedReso.resoID); if (error) throw error; const updated = fetchedResos.filter((r) => r.resoID !== selectedReso.resoID); setFetchedResos(updated); if (updated.length > 0) setSelectedReso(updated[0]); else { setSelectedReso(null); setTitle(""); setDocLink(""); initialStateRef.current = { title: "", docLink: "", content: serializeDocument() }; editorRef.current?.commands.clearContent(true); } setHasUnsavedChanges(false); toast.success("Resolution deleted successfully."); } catch (error) { console.error("Failed to delete resolution:", error); toast.error("Failed to delete resolution"); } finally { setIsDeleting(false); } }, [fetchedResos, isBusy, logBackIn, selectedReso]);
 
-    const updatedUser = await logBackIn();
-    if (!updatedUser) return;
+  if (userRole !== "delegate" && userRole !== "chair") return <div className="p-8 text-center">Restricted access.</div>;
 
-    const updatedRole = role(updatedUser);
-
-    if (updatedRole === "delegate") {
-      const delegateUser = updatedUser as Delegate;
-      const ownsReso = selectedReso.delegateID === delegateUser.delegateID;
-      const hasUpdatePermission = Array.isArray(delegateUser.resoPerms?.["update:reso"])
-        ? delegateUser.resoPerms["update:reso"].includes(selectedReso.resoID)
-        : false;
-
-      if (!ownsReso && !hasUpdatePermission) {
-        toast.error("You can only delete resolutions you are allowed to update.");
-        return;
-      }
-    } else if (updatedRole !== "chair") {
-      toast.error("You do not have permission to delete this resolution.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this resolution? This action cannot be undone."
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setIsDeleting(true);
-
-    try {
-      const { error } = await supabase
-        .from("Resos")
-        .delete()
-        .eq("resoID", selectedReso.resoID);
-
-      if (error) {
-        throw error;
-      }
-
-      const updatedResos = fetchedResos.filter(
-        (reso) => reso.resoID !== selectedReso.resoID
-      );
-
-      setFetchedResos(updatedResos);
-
-      if (updatedResos.length > 0) {
-        setSelectedReso(updatedResos[0]);
-      } else {
-        setSelectedReso(null);
-        setTitle("");
-        setDocLink("");
-        initialStateRef.current = {
-          title: "",
-          docLink: "",
-          content: serializeDocument(),
-        };
-        if (editorRef.current) {
-          editorRef.current.commands.clearContent(true);
-        }
-      }
-
-      setHasUnsavedChanges(false);
-      toast.success("Resolution deleted successfully.");
-    } catch (error) {
-      console.error("Failed to delete resolution:", error);
-      toast.error("Failed to delete resolution");
-    } finally {
-      setIsDeleting(false);
-    }
-  }, [editorRef, fetchedResos, initialStateRef, isBusy, logBackIn, selectedReso]);
-
-  const toggleResoUpdatePermission = async (delegateID: string) => {
-    if (!currentUser || !selectedReso || userRole !== "chair") {
-      return;
-    }
-
-    try {
-      const delegate = delegates.find(d => d.delegateID === delegateID);
-      if (!delegate) return;
-
-      const hasPermission = 
-        delegate.resoPerms && 
-        delegate.resoPerms["update:reso"] && 
-        Array.isArray(delegate.resoPerms["update:reso"]) && 
-        delegate.resoPerms["update:reso"].includes(selectedReso.resoID);
-
-      let updatedPermissions;
-      
-      if (hasPermission) {
-        updatedPermissions = {
-          ...delegate.resoPerms,
-          "update:reso": delegate.resoPerms["update:reso"].filter(id => id !== selectedReso.resoID)
-        };
-      } else {
-        updatedPermissions = {
-          ...delegate.resoPerms,
-          "update:reso": [
-            ...(Array.isArray(delegate.resoPerms["update:reso"]) ? delegate.resoPerms["update:reso"] : []),
-            selectedReso.resoID
-          ]
-        };
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: updateError } = await (supabase as any)
-        .from("app_users")
-        .update({ reso_perms: updatedPermissions })
-        .eq("id", delegateID);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      setDelegates(delegates.map(d => 
-        d.delegateID === delegateID 
-          ? { ...d, resoPerms: updatedPermissions }
-          : d
-      ));
-      
-      toast.success(`Permission ${hasPermission ? 'removed from' : 'granted to'} ${delegate.firstname}`);
-    } catch (error) {
-      console.error('Error updating permissions:', error);
-      toast.error('Failed to update permissions');
-    }
+  const statusTone = (status?: string | null) => {
+    const normalized = (status || "").toLowerCase();
+    if (normalized.includes("pending")) return "text-amber-700 bg-amber-100";
+    if (normalized.includes("need") || normalized.includes("revision") || normalized.includes("edit")) return "text-rose-700 bg-rose-100";
+    if (normalized.includes("accept") || normalized.includes("approved")) return "text-emerald-700 bg-emerald-100";
+    if (normalized.includes("reject")) return "text-slate-700 bg-slate-200";
+    return "text-slate-700 bg-slate-100";
   };
-
-  if (userRole !== "delegate" && userRole !== "chair") {
-    return (
-      <div className="page-shell">
-        <div className="page-maxwidth flex items-center justify-center">
-          <div className="surface-card p-10 text-center max-w-md">
-            <h2 className="text-2xl font-semibold text-deep-red mb-3">Restricted Access</h2>
-            <p className="text-almost-black-green/75">Only delegates and chairs can manage resolutions. Please sign in with the appropriate credentials.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isDelegateUser) {
-    const delegateUser = currentUser as Delegate;
-    if (!delegateUser.resoPerms["view:ownreso"]) {
-      return (
-        <div className="page-shell">
-          <div className="page-maxwidth flex items-center justify-center">
-            <div className="surface-card p-10 text-center max-w-md space-y-4">
-              <h2 className="text-2xl font-semibold text-deep-red">Permissions Required</h2>
-              <p className="text-almost-black-green/75">You currently don’t have access to submit or edit resolutions. Please contact your chair for approval.</p>
-              {currentUser && "delegateID" in currentUser && (
-                <button
-                  onClick={() => {
-                    logBackIn();
-                    toast.success("Permissions refreshed");
-                  }}
-                  className="ghost-button w-full justify-center"
-                >
-                  Refresh Access
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-  }
 
   return (
     <ParticipantRoute>
-      <div className="page-shell">
-        <main className={`page-maxwidth ${isFullscreenEditor ? "space-y-4" : "space-y-10"}`}>
-          {!isFullscreenEditor && (
-            <header className="surface-card is-emphasised overflow-hidden px-8 py-10 text-center">
-            <span className="badge-pill bg-white/15 text-white/80 inline-flex justify-center mx-auto mb-4">
-              Collaborative Drafting
-            </span>
-            <h1 className="text-4xl md:text-5xl font-serif font-semibold text-white">Resolutions Workspace</h1>
-            <p className="text-white/80 max-w-3xl mx-auto mt-3">
-              Coordinate with your bloc, refine drafts, and push polished resolutions to the dais. Chairs can monitor progress and allocate editing permissions instantly.
-            </p>
-            </header>
-          )}
+      <main className="min-h-screen bg-[#f9f9f9] text-[#1a1c1c] px-8 pb-12 pt-6" style={{ fontFamily: "var(--font-manrope), Manrope, ui-sans-serif, system-ui" }}>
+        <div className="max-w-6xl mx-auto space-y-10">
+          <header>
+            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-[#6E1D1B]/80">Official Portal</p>
+            <h1 className="text-4xl md:text-[2.8rem] font-semibold italic text-[#6E1D1B] mt-2" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>Resolution Submissions</h1>
+            <p className="max-w-3xl text-[#5d5f5f] mt-3">This is the official portal for submitting and tracking resolutions for {getCommitteeDisplayName()}. Once submitted, resolutions appear here for live review updates.</p>
+          </header>
 
-          <section className={`flex flex-col gap-6 ${isFullscreenEditor ? "" : "lg:flex-row"}`}>
-            {!isFullscreenEditor && (
-            <aside className="lg:w-1/3 space-y-4">
-              <div className="surface-card p-6 max-h-[520px] overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-deep-red">All Resos</h2>
-                  <span className="badge-pill bg-soft-ivory text-deep-red/80">{fetchedResos.length} drafts</span>
+          <section className="grid grid-cols-1 xl:grid-cols-12 gap-10">
+            <aside className="xl:col-span-4 space-y-6">
+              <div className="bg-white p-7 rounded-lg border border-[#dcc0bd]/30 shadow-[0_8px_32px_rgba(26,28,28,0.06)] space-y-5">
+                <h2 className="text-xl font-semibold text-[#6E1D1B]" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>Submit New Resolution</h2>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-[0.2em] font-semibold text-[#5d5f5f] mb-2">Resolution Title</label>
+                  <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={isBusy} placeholder="e.g., Regional Security in SE Asia" className="w-full rounded-lg bg-[#f4f3f3] border border-[#e2e2e2] px-4 py-3 text-sm focus:ring-2 focus:ring-[#6E1D1B]/20 focus:border-[#6E1D1B]/30 outline-none disabled:opacity-60" />
                 </div>
-                {fetchedResos.length === 0 ? (
-                  <div className="text-almost-black-green/60 text-center py-6 italic">
-                    No resolutions found. Start by drafting a new proposal.
-                  </div>
-                ) : (
-                  <ul className="space-y-3">
-                    {fetchedResos.map((reso, idx) => {
-                      if (!reso) return null;
-                      const isActive = selectedReso?.resoID === reso.resoID;
-                      return (
-                        <li key={reso.resoID}>
-                          <button
-                            className={`w-full flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all ${isActive ? 'border-deep-red bg-soft-ivory shadow-lg' : 'border-soft-ivory bg-warm-light-grey hover:border-deep-red/60'}`}
-                            onClick={() => handleSelectReso(reso)}
-                          >
-                            <span
-                              className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold shadow-sm ${
-                                isActive
-                                  ? 'bg-[#701e1e] text-white'
-                                  : 'bg-[#f6d4c6] text-[#701e1e]'
-                              }`}
-                            >
-                              {idx + 1}
-                            </span>
-                            <div className="flex-1">
-                              <p className="font-semibold text-almost-black-green">{reso.title ? reso.title : `Resolution #${idx + 1}`}</p>
-                              <p className="text-xs text-almost-black-green/60">Tap to load in editor</p>
-                            </div>
-                            <ArrowRight size={16} className={`transition-colors ${isActive ? 'text-deep-red' : 'text-deep-red/50'}`} />
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-[0.2em] font-semibold text-[#5d5f5f] mb-2">Google Docs URL</label>
+                  <input type="url" value={docLink} onChange={(e) => setDocLink(e.target.value)} disabled={isBusy} placeholder="https://docs.google.com/..." className="w-full rounded-lg bg-[#f4f3f3] border border-[#e2e2e2] px-4 py-3 text-sm focus:ring-2 focus:ring-[#6E1D1B]/20 focus:border-[#6E1D1B]/30 outline-none disabled:opacity-60" />
+                </div>
+                <button onClick={postReso} disabled={isBusy} className="w-full rounded-lg bg-[#6E1D1B] text-white py-3.5 font-bold tracking-wide hover:opacity-90 disabled:opacity-60">{isSaving ? <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Saving...</span> : (selectedReso ? "Update Resolution" : "Link Document")}</button>
+                <button onClick={handleCreateNewReso} disabled={isBusy || (isDelegateUser && !selectedReso && delegateAlreadyHasReso)} className="w-full rounded-lg border border-[#6E1D1B]/30 text-[#6E1D1B] py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-2"><Plus size={14} />New Resolution</button>
+                {selectedReso && <button onClick={handleDeleteReso} disabled={isBusy} className="w-full rounded-lg border border-rose-300 text-rose-700 py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-2">{isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={14} />}Delete Resolution</button>}
+                {hasUnsavedChanges && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 inline-flex items-center gap-2"><AlertTriangle size={14} />Unsaved changes detected.</div>}
               </div>
 
-              {selectedReso && userRole === "chair" && delegates.length > 0 && (
-                <div className="surface-card p-6">
-                  <h3 className="text-lg font-semibold text-deep-red mb-3">Update Permissions</h3>
-                  <div className="max-h-[220px] overflow-y-auto pr-1">
-                    <ul className="space-y-2">
-                      {[...delegates]
-                        .sort((a, b) => `${a.firstname} ${a.lastname}`.localeCompare(`${b.firstname} ${b.lastname}`))
-                        .map((delegate) => (
-                          <li
-                            key={delegate.delegateID}
-                            className="flex items-center justify-between gap-3 rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2"
-                          >
-                            <span className="font-semibold text-almost-black-green truncate">
-                              {delegate.firstname} {delegate.lastname}
-                            </span>
-                            <input
-                              type="checkbox"
-                              checked={delegate.resoPerms &&
-                                delegate.resoPerms["update:reso"] &&
-                                Array.isArray(delegate.resoPerms["update:reso"]) &&
-                                delegate.resoPerms["update:reso"].includes(selectedReso.resoID)}
-                              onChange={() => toggleResoUpdatePermission(delegate.delegateID)}
-                              className="h-4 w-4 rounded border-soft-ivory text-deep-red focus:ring-deep-red"
-                              title="Toggle edit permission"
-                              disabled={userRole !== "chair"}
-                            />
-                          </li>
-                        ))}
-                    </ul>
-                  </div>
-                </div>
-              )}
+              <div className="bg-[#6E1D1B] text-white p-7 rounded-lg relative overflow-hidden">
+                <h3 className="text-lg font-semibold" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>Protocol Note</h3>
+                <p className="text-sm leading-relaxed mt-2 text-white/85">Once submitted, your resolution will appear in your submissions list for review. If revisions are requested, update the same submission and resubmit.</p>
+              </div>
             </aside>
-            )}
 
-            <div className="flex-1">
-              <div className={`surface-card p-4 md:p-6 h-full flex flex-col ${isFullscreenEditor ? "min-h-[calc(100vh-8rem)]" : ""}`}>
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                  <div className="flex-1">
-                    <label className="text-xs uppercase tracking-[0.3em] text-deep-red/70 block mb-2">Resolution Title</label>
-                  <textarea
-                    placeholder="Name your resolution"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    disabled={isBusy}
-                    className="w-full rounded-xl border-2 border-soft-ivory bg-warm-light-grey px-4 py-3 text-almost-black-green shadow-inner transition focus:border-deep-red/70 focus:ring-2 focus:ring-deep-red/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 resize-none"
-                    rows={1}
-                  />
-                </div>
-                <button
-                  onClick={handleCreateNewReso}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-deep-red/20 bg-white px-3 py-1.5 text-xs font-medium text-deep-red transition-colors hover:border-deep-red/40 hover:bg-deep-red/5 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={isBusy || (isDelegateUser && !selectedReso && delegateAlreadyHasReso)}
-                >
-                  <Plus size={14} />
-                  New Resolution
-                </button>
-              </div>
-                {isDelegateUser && !selectedReso && delegateAlreadyHasReso && (
-                  <div className="mb-4 flex items-center gap-2 rounded-xl border border-deep-red/30 bg-deep-red/5 px-4 py-2 text-sm text-deep-red">
-                    <AlertTriangle size={16} className="shrink-0" />
-                    <span>You already submitted one resolution. Open it from the list to edit it.</span>
-                  </div>
-                )}
-                {hasUnsavedChanges && (
-                  <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-                    <AlertTriangle size={16} className="shrink-0" />
-                    <span>Unsaved changes detected. Don&apos;t forget to post your latest edits.</span>
-                  </div>
-                )}
-
-                <div className="mb-4 rounded-xl border border-soft-ivory bg-warm-light-grey/50 px-4 py-3">
-                  <label className="mb-2 block text-xs uppercase tracking-[0.25em] text-deep-red/70">
-                    Choose one: External Document Link OR Local Editor
-                  </label>
-                  <p className="mb-2 text-xs text-almost-black-green/70">
-                    Add a Google Doc/Word link to use external-document mode. Leave this blank to write directly in the local editor.
-                  </p>
-                  <input
-                    type="url"
-                    value={docLink}
-                    onChange={(e) => setDocLink(e.target.value)}
-                    placeholder="https://docs.google.com/... or https://.../resolution.docx"
-                    disabled={isBusy}
-                    className="w-full rounded-xl border border-soft-ivory bg-white px-3 py-2 text-sm text-almost-black-green shadow-inner transition focus:border-deep-red/70 focus:ring-2 focus:ring-deep-red/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                  />
+            <div className="xl:col-span-8 space-y-8">
+              <section className="bg-white rounded-lg p-7 border border-[#dcc0bd]/25">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>Your Submissions</h2>
+                  <span className="px-3 py-1 rounded-full bg-[#e8e8e8] text-[10px] uppercase tracking-wider font-bold text-[#5d5f5f]">Total: {fetchedResos.length}</span>
                 </div>
 
-                {isExternalDocMode && (
-                  <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-900">
-                    External document mode enabled. The local editor is hidden while this link is present.
-                  </div>
-                )}
+                {fetchedResos.length === 0 ? <p className="text-sm text-[#5d5f5f] italic py-6">No submissions yet. Use the form to submit your first resolution.</p> : <div className="space-y-4">{fetchedResos.map((reso) => {
+                  const createdAt = (reso as Reso & { created_at?: string; submitted_at?: string }).submitted_at || (reso as Reso & { created_at?: string; submitted_at?: string }).created_at;
+                  const status = (reso as Reso & { status?: string }).status || "Unknown";
+                  const chairComment = (reso as Reso & { comment?: string }).comment;
+                  const openableLink = readExternalDocLink(parseResoContent(reso.content));
+                  return (
+                    <article key={reso.resoID} className={`rounded-lg border p-5 ${selectedReso?.resoID === reso.resoID ? "border-[#6E1D1B]/40 bg-[#fff8f6]" : "border-[#e2e2e2] bg-white"}`}>
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest text-[#6b7280] font-bold">
+                            <span>Res-{reso.resoID}</span>
+                            <span className="px-2 py-0.5 rounded bg-[#eee0d5] text-[#4e453d]">{getCommitteeDisplayName()}</span>
+                          </div>
+                          <button onClick={() => handleSelectReso(reso)} disabled={isBusy} className="text-left text-xl font-semibold text-[#500608] hover:underline" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>{reso.title || "Untitled Resolution"}</button>
+                          {createdAt && <p className="text-xs text-[#6b7280]">Submitted {new Date(createdAt).toLocaleDateString()}</p>}
+                          {chairComment && <p className="text-sm text-[#564240]">Chair comment: {chairComment}</p>}
+                        </div>
+                        <div className="flex flex-col items-start md:items-end gap-3">
+                          <div className="text-right"><p className="text-[9px] uppercase tracking-widest text-[#9ca3af] font-bold">Status</p><span className={`inline-block mt-1 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold ${statusTone(status)}`}>{status}</span></div>
+                          {openableLink && <a href={openableLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-[#6E1D1B] hover:underline">Open Document <ExternalLink size={13} /></a>}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}</div>}
+              </section>
 
-                {!isExternalDocMode && (
-                  <>
-                    <div className="mb-3 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => setIsFullscreenEditor((prev) => !prev)}
-                        className="inline-flex items-center gap-2 rounded-full border border-deep-red/25 bg-white px-3 py-1.5 text-xs font-medium text-deep-red transition-colors hover:border-deep-red/50 hover:bg-deep-red/5"
-                      >
-                        {isFullscreenEditor ? <Minimize2 size={14} /> : <Expand size={14} />}
-                        {isFullscreenEditor ? "Exit Fullscreen" : "Fullscreen Editor"}
-                      </button>
-                    </div>
-
-                    <div
-                      className={`overflow-hidden rounded-2xl border-2 border-soft-ivory bg-white/95 shadow-sm transition focus-within:border-deep-red/60 ${isFullscreenEditor ? "min-h-[calc(100vh-20rem)]" : "flex-1"} ${isBusy ? "pointer-events-none opacity-60" : ""}`}
-                    >
-                      <SimpleEditor
-                        ref={editorRef}
-                        content={cleanedResoContent}
-                        className="h-full toolbar-fixed"
-                      />
-                    </div>
-                  </>
-                )}
-
-                <div className="mt-4 flex flex-col gap-3 border-t border-soft-ivory pt-4 sm:flex-row sm:items-center sm:justify-between">
-                  {selectedReso && (
-                    <button
-                      onClick={handleDeleteReso}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-deep-red/30 bg-deep-red/10 text-deep-red transition-colors hover:border-deep-red/60 hover:bg-deep-red/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-deep-red/40 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={isBusy}
-                      aria-label={isDeleting ? "Deleting resolution" : "Delete resolution"}
-                    >
-                      {isDeleting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 size={16} />
-                      )}
-                    </button>
-                  )}
-                  <button
-                    onClick={postReso}
-                    className="primary-button inline-flex items-center gap-2"
-                    disabled={isBusy}
-                    aria-busy={isSaving}
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>{selectedReso ? "Update Resolution" : "Post Resolution"}</>
-                    )}
-                  </button>
+              <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-[#FFF0E5] rounded-lg p-6">
+                  <h3 className="text-lg text-[#6E1D1B] font-semibold" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>Pre-Session Checklist</h3>
+                  <ul className="mt-3 space-y-2 text-sm text-[#564240]"><li>• Google Doc access is enabled for reviewers</li><li>• Resolution title is clear and specific</li><li>• Sponsors/signatories added if required</li></ul>
                 </div>
-              </div>
+                <div className="bg-[#e2e2e2] rounded-lg p-6 flex items-center justify-center text-center">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-[#6b7280] font-bold">Live Status</p>
+                    <p className="text-2xl text-[#6E1D1B] font-semibold mt-1" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>Resolution workspace ready</p>
+                    <p className="text-xs text-[#6b7280] mt-1">You can submit, update, and track status changes here{userRole === "chair" ? ` across ${delegates.length} delegate account${delegates.length === 1 ? "" : "s"}` : ""}.</p>
+                  </div>
+                </div>
+              </section>
+
+              {!isExternalDocMode && (
+                <section className="bg-white rounded-lg border border-[#e2e2e2] p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs uppercase tracking-[0.2em] text-[#5d5f5f] font-semibold">Local Editor</p>
+                    <button type="button" onClick={() => setIsFullscreenEditor((p) => !p)} className="text-xs inline-flex items-center gap-1 text-[#6E1D1B]">{isFullscreenEditor ? <Minimize2 size={14} /> : <Expand size={14} />}{isFullscreenEditor ? "Exit Fullscreen" : "Fullscreen"}</button>
+                  </div>
+                  <div className={`overflow-hidden rounded-lg border border-[#e2e2e2] bg-white ${isBusy ? "pointer-events-none opacity-60" : ""}`}>
+                    <SimpleEditor ref={editorRef} content={cleanedResoContent} className="h-full toolbar-fixed" />
+                  </div>
+                </section>
+              )}
             </div>
           </section>
-        </main>
-      </div>
+        </div>
+      </main>
     </ParticipantRoute>
   );
 };
