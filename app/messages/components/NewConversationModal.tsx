@@ -43,7 +43,6 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
   const [sendingRequestTo, setSendingRequestTo] = useState<Set<string>>(() => new Set());
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   const [openingChatFor, setOpeningChatFor] = useState<string | null>(null);
-  const [acceptedConnection, setAcceptedConnection] = useState<{ userId: string; name: string } | null>(null);
 
   const [selected, setSelected] = useState<UserSearchResult[]>([]);
   const [name, setName] = useState('');
@@ -51,7 +50,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
   const trimmedQuery = query.trim();
   const canSearch = trimmedQuery.length >= 2;
-  const sharedSearchInputClassName = 'w-full rounded-md border border-[#dcc0bd] border-b-2 border-b-[#dcc0bd] bg-[#f9f9f9] px-12 py-4 text-sm text-[#1f2a2f] placeholder:text-[#564240]/70 focus:border-[#dcc0bd] focus:border-b-[#6E1D1B] focus:outline-none';
+  const sharedSearchInputClassName =
+    'w-full rounded-t-md border-b-2 border-transparent bg-[#f4f3f3] py-4 pl-12 pr-4 text-base text-[#1a1c1c] placeholder:text-[#564240]/70 focus:border-[#6E1D1B] focus:outline-none focus:ring-0';
 
   useModalLayerLock(open);
 
@@ -71,7 +71,6 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     setSendingRequestTo(new Set());
     setRespondingTo(null);
     setOpeningChatFor(null);
-    setAcceptedConnection(null);
   }, [initialTab, open, refreshFriendRequests]);
 
   useEffect(() => {
@@ -227,7 +226,6 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
     const senderId = String(request.sender_id);
     const senderName = getRequestDisplayName(senderId, request.sender);
-    setAcceptedConnection({ userId: senderId, name: senderName });
     toast.success(`You are now connected with ${senderName}.`);
   };
 
@@ -270,62 +268,43 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
   return (
     <Dialog open={open} onClose={onClose} className="relative z-[110]" style={{ fontFamily: 'var(--font-manrope), Manrope, ui-sans-serif, system-ui' }}>
-      <div className="fixed inset-0 bg-[rgba(26,28,28,0.4)] backdrop-blur-[8px]" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6">
+      <div className="fixed inset-0 bg-[rgba(26,28,28,0.4)] backdrop-blur-[4px]" aria-hidden="true" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
         <Dialog.Panel className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-[0_16px_48px_rgba(26,28,28,0.12)]">
-          <div className="border-b border-[#ece8e7] bg-[#fdfbfb] px-8 pb-0 pt-4 pl-4 pr-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <Dialog.Title className="text-4xl font-medium text-[#500608]" style={{ fontFamily: 'var(--font-newsreader), Newsreader, Georgia, serif' }}>Initiate Communication</Dialog.Title>
-            </div>
+          <div className="bg-[#f9f9f9] p-8 pb-6">
+          <div className="flex items-center justify-between gap-4">
+              <Dialog.Title className="text-4xl font-medium leading-tight text-[#6E1D1B]" style={{ fontFamily: 'var(--font-newsreader), Newsreader, Georgia, serif' }}>Initiate Communication</Dialog.Title>
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#564240]/70 transition hover:bg-[#f3eeed] hover:text-[#6E1D1B]"
+              className="inline-flex items-center justify-center rounded-full p-2 text-[#564240]/70 transition-colors hover:bg-[#e2e2e2] hover:text-[#6E1D1B]"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
           </div>
-
-          <div className="flex-1 space-y-6 overflow-y-auto bg-white p-8">
-            <div className="flex justify-center">
-              <div className="inline-flex rounded-lg bg-[#f0ebea] p-1">
+          <div className="flex justify-center bg-[#f9f9f9] px-8 pb-6">
+            <div className="inline-flex space-x-1 rounded-lg border border-[#dcc0bd]/15 bg-[#f4f3f3] p-1">
+              {(['direct', 'group', 'friends', 'requests'] as const).map((value) => (
                 <button
+                  key={value}
                   type="button"
-                  onClick={() => setTab('direct')}
-                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'direct' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70 hover:bg-white/80'}`}
+                  onClick={() => setTab(value)}
+                  className={`rounded-md px-6 py-2 text-sm font-semibold tracking-wide transition-colors ${
+                    tab === value ? 'bg-white text-[#6E1D1B] shadow-sm' : 'text-[#564240] hover:bg-[#e2e2e2] hover:text-[#6E1D1B]'
+                  }`}
                 >
-                  Direct
+                  {value === 'direct' ? 'Direct' : value === 'group' ? 'Group' : value === 'friends' ? 'Friends' : 'Requests'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setTab('group')}
-                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'group' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70 hover:bg-white/80'}`}
-                >
-                  Group
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTab('friends')}
-                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'friends' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70 hover:bg-white/80'}`}
-                >
-                  Friends
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTab('requests')}
-                  className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === 'requests' ? 'bg-white text-deep-red shadow-sm' : 'text-almost-black-green/70 hover:bg-white/80'}`}
-                >
-                  Requests
-                </button>
-              </div>
+              ))}
             </div>
+          </div>
 
+          <div className="flex-1 space-y-8 overflow-y-auto bg-white p-8">
             {tab === 'direct' ? (
               <div className="space-y-6">
-                    <div className="relative">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
+                    <div className="group relative mb-8">
+                      <Search className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-4 h-5 w-5 text-[#564240]/70 group-focus-within:text-[#6E1D1B]" />
                       <input
                         value={query}
                         onChange={(e) => {
@@ -342,20 +321,6 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                       />
                     </div>
 
-                    {acceptedConnection && (
-                      <div className="rounded-2xl border border-[#c8e6c9] bg-[#edf7ed] p-3">
-                        <p className="text-sm font-semibold text-[#245b2a]">You and {acceptedConnection.name} are now connected.</p>
-                        <p className="mt-1 text-xs text-[#245b2a]/80">Start a chat with your new friend now.</p>
-                        <button
-                          type="button"
-                          onClick={() => handleStartChat({ id: acceptedConnection.userId, full_name: acceptedConnection.name })}
-                          className="mt-2 inline-flex items-center gap-2 rounded-xl bg-[#245b2a] px-3 py-2 text-xs font-semibold text-white hover:bg-[#1f4d24]"
-                        >
-                          <MessageCirclePlus className="h-4 w-4" /> Start chat
-                        </button>
-                      </div>
-                    )}
-
                     <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Suggested Delegates</h3>
                     {isSearching && canSearch && <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">Searching...</p>}
                     {!isSearching && !canSearch && <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">Start typing a name or email to search delegates.</p>}
@@ -367,16 +332,16 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                       const delegationLabel = getUserDelegationLabel(user);
                       const state = relationship.type;
                       return (
-                        <div key={user.id} className="rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e8e8e8]">
+                        <div key={user.id} className="group rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e2e2e2]">
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex min-w-0 items-center">
                               <div className="mr-4">
                                 <UserAvatar user={user} size={48} />
                               </div>
                               <div className="min-w-0">
-                                <p className="truncate text-base font-semibold text-deep-red">{user.full_name}</p>
-                                {delegationLabel && <p className="truncate text-sm text-almost-black-green/60">{delegationLabel}</p>}
-                                {!delegationLabel && user.email ? <p className="truncate text-sm text-almost-black-green/60">{user.email}</p> : null}
+                                <p className="truncate text-base font-semibold text-[#1a1c1c]">{user.full_name}</p>
+                                {delegationLabel && <p className="mt-0.5 truncate text-sm text-[#564240]">{delegationLabel}</p>}
+                                {!delegationLabel && user.email ? <p className="mt-0.5 truncate text-sm text-[#564240]">{user.email}</p> : null}
                               </div>
                             </div>
                             {state === 'connected' ? (
@@ -384,15 +349,15 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                                 type="button"
                                 onClick={() => handleStartChat(user)}
                                 disabled={openingChatFor === user.id}
-                                className="inline-flex items-center gap-1 rounded-lg bg-deep-red px-3 py-2 text-xs font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+                                className="inline-flex items-center gap-1 rounded-lg bg-[#6E1D1B] px-3 py-2 text-xs font-semibold text-white disabled:cursor-wait disabled:opacity-70"
                               >
                                 {openingChatFor === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
                                 Chat
                               </button>
                             ) : state === 'incoming' ? (
-                              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-almost-black-green/65">Respond in Requests</span>
+                                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#564240]">Respond in Requests</span>
                             ) : state === 'outgoing' ? (
-                              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-almost-black-green/60">Pending</span>
+                                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#564240]">Pending</span>
                             ) : (
                               <button
                                 type="button"
@@ -405,11 +370,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                               </button>
                             )}
                           </div>
-                          {state === 'connected' ? (
-                            <div className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-xs font-semibold text-deep-red">
-                                <BadgeCheck className="h-4 w-4 text-sky-500" /> In friends
-                            </div>
-                          ) : null}
+                          {state === 'connected' ? <ArrowRight className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6E1D1B] opacity-0 transition-opacity group-hover:opacity-100" /> : null}
                         </div>
                       );
                     })}
@@ -417,8 +378,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
               </div>
             ) : tab === 'friends' ? (
               <div className="space-y-6">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
+                <div className="group relative mb-8">
+                  <Search className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-4 h-5 w-5 text-[#564240]/70 group-focus-within:text-[#6E1D1B]" />
                   <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search friends..." className={sharedSearchInputClassName} />
                 </div>
                 <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">My Friends</h3>
@@ -429,15 +390,15 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   {connectedContacts
                     .filter((contact) => contact.name.toLowerCase().includes(query.toLowerCase()))
                     .map((contact) => (
-                    <div key={contact.userId} className="flex items-center justify-between gap-3 rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e8e8e8]">
+                    <div key={contact.userId} className="group flex items-center justify-between gap-3 rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e2e2e2]">
                       <div className="flex min-w-0 items-center">
                         <div className="mr-4"><UserAvatar user={getContactAvatarUser(contact)} size={48} /></div>
                         <div className="min-w-0">
-                          <p className="truncate text-base font-semibold text-deep-red">{contact.name}</p>
+                          <p className="truncate text-base font-semibold text-[#1a1c1c]">{contact.name}</p>
                           {getUserDelegationLabel(contact.user) ? (
-                            <p className="truncate text-sm text-almost-black-green/60">{getUserDelegationLabel(contact.user)}</p>
+                            <p className="mt-0.5 truncate text-sm text-[#564240]">{getUserDelegationLabel(contact.user)}</p>
                           ) : (
-                            <p className="truncate text-sm text-almost-black-green/60">Friend</p>
+                            <p className="mt-0.5 truncate text-sm text-[#564240]">Friend</p>
                           )}
                         </div>
                       </div>
@@ -445,7 +406,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                         type="button"
                         onClick={() => handleStartChat({ id: contact.userId, full_name: contact.name })}
                         disabled={openingChatFor === contact.userId}
-                        className="inline-flex items-center gap-2 rounded-lg bg-deep-red px-3 py-2 text-xs font-semibold text-white hover:bg-deep-red/90 disabled:cursor-wait disabled:opacity-70"
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#6E1D1B] px-3 py-2 text-xs font-semibold text-white disabled:cursor-wait disabled:opacity-70"
                       >
                         {openingChatFor === contact.userId ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCirclePlus className="h-4 w-4" />}
                         Chat
@@ -458,8 +419,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             ) : tab === 'group' ? (
               <div className="space-y-6">
                   <div className="space-y-6">
-                    <div className="relative">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
+                    <div className="group relative mb-8">
+                      <Search className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-4 h-5 w-5 text-[#564240]/70 group-focus-within:text-[#6E1D1B]" />
                       <input
                         value={query}
                         onChange={(e) => {
@@ -486,7 +447,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                       </div>
                     </div>
                     <div>
-                      <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Delegates</h3>
+                      <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Available Delegates</h3>
 
                       {(isSearching && canSearch) || (!isSearching && hasSearched && canSearch) ? (
                         <div className="mt-2 grid max-h-48 grid-cols-1 gap-4 overflow-y-auto md:grid-cols-2">
@@ -510,17 +471,17 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                                   key={user.id}
                                   type="button"
                                   onClick={() => toggleSelect(user)}
-                                  className={`group flex w-full items-center justify-between rounded-lg p-4 text-left text-sm transition-colors ${
+                                className={`group flex w-full items-center justify-between rounded-lg p-4 text-left text-sm transition-colors ${
                                     isSelected
-                                      ? 'bg-[#e8e8e8]'
-                                      : 'bg-[#f9f9f9] hover:bg-[#e8e8e8]'
+                                      ? 'bg-[#e2e2e2]'
+                                      : 'bg-[#f9f9f9] hover:bg-[#e2e2e2]'
                                   }`}
                                 >
                                   <div className="flex min-w-0 items-center gap-2.5">
-                                    <UserAvatar user={user} size={32} />
+                                    <UserAvatar user={user} size={48} />
                                     <div className="min-w-0">
-                                      <p className="truncate text-sm font-semibold text-deep-red">{user.full_name}</p>
-                                      <p className="truncate text-xs text-almost-black-green/60">{delegationLabel}</p>
+                                      <p className="truncate text-base font-semibold text-[#1a1c1c]">{user.full_name}</p>
+                                      <p className="mt-0.5 truncate text-sm text-[#564240]">{delegationLabel}</p>
                                     </div>
                                   </div>
                                   {isSelected ? (
@@ -528,7 +489,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                                       <BadgeCheck className="h-3.5 w-3.5" /> Added
                                     </span>
                                   ) : (
-                                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-soft-ivory bg-white text-deep-red transition group-hover:border-deep-red/40 group-hover:bg-soft-rose/35">
+                                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#6E1D1B]">
                                       <Plus className="h-3.5 w-3.5" />
                                     </span>
                                   )}
@@ -552,12 +513,12 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                       {selected.map((user) => {
                         const delegationLabel = getUserDelegationLabel(user) || user.email || 'No delegation listed';
                         return (
-                          <div key={user.id} className="flex items-center justify-between gap-2 rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e8e8e8]">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <UserAvatar user={user} size={28} />
+                            <div key={user.id} className="flex items-center justify-between gap-2 rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e2e2e2]">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <UserAvatar user={user} size={48} />
                               <div className="min-w-0">
-                                <p className="truncate text-xs font-semibold text-deep-red">{user.full_name}</p>
-                                <p className="truncate text-[11px] text-almost-black-green/60">{delegationLabel}</p>
+                                <p className="truncate text-base font-semibold text-[#1a1c1c]">{user.full_name}</p>
+                                <p className="mt-0.5 truncate text-sm text-[#564240]">{delegationLabel}</p>
                               </div>
                             </div>
                             <button
@@ -575,13 +536,13 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   )}
                 </div>
 
-                <div className="flex items-center justify-between rounded-lg bg-[#f9f9f9] p-4">
-                  <button type="button" onClick={onClose} className="rounded-lg border border-soft-ivory bg-white px-4 py-2 text-sm font-semibold text-almost-black-green/80">Cancel</button>
+                <div className="flex items-center justify-end gap-4 border-t border-[#dcc0bd]/15 bg-[#f9f9f9] p-8">
+                  <button type="button" onClick={onClose} className="rounded-lg border border-[#dcc0bd]/30 bg-white px-4 py-2 text-sm font-semibold text-[#564240]">Cancel</button>
                   <button
                     type="button"
                     onClick={handleCreateGroup}
                     disabled={isCreatingGroup || !name.trim() || selected.length < 2}
-                    className="inline-flex items-center gap-2 rounded-lg bg-deep-red px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-deep-red/90 disabled:cursor-not-allowed disabled:bg-deep-red/35 disabled:text-white/80"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#6E1D1B] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#6E1D1B]/35 disabled:text-white/80"
                   >
                     {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
                     {isCreatingGroup ? 'Creating group...' : 'Create group'}
