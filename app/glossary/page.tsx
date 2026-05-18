@@ -360,7 +360,7 @@ const Page = () => {
             <div className="max-w-2xl">
               <span className="mb-4 block text-xs font-bold uppercase tracking-[0.2em] text-[#6e1d1b]">Official Handbook</span>
               <h1
-                className="mb-4 text-5xl font-semibold italic leading-tight tracking-tight text-[#6e1d1b] md:text-6xl"
+                className="mb-4 text-5xl font-semibold leading-tight tracking-tight text-[#6e1d1b] md:text-6xl"
                 style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}
               >
                 Delegate Glossary
@@ -410,7 +410,7 @@ const Page = () => {
               <section>
                 <div className="mb-8 flex items-center gap-4">
                   <h2
-                    className="text-3xl font-semibold italic text-[#6e1d1b]"
+                    className="text-3xl font-semibold text-[#6e1d1b]"
                     style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}
                   >
                     Key Terms
@@ -476,7 +476,7 @@ const Page = () => {
 
               <aside className="relative overflow-hidden rounded-2xl border-l-4 border-[#6e1d1b] bg-[#f4f3f3] p-8">
                 <p
-                  className="mb-3 text-2xl italic leading-relaxed text-[#6e1d1b]"
+                  className="mb-3 text-2xl leading-relaxed text-[#6e1d1b]"
                   style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}
                 >
                   Glossary Tip: precise terms make your interventions faster, clearer, and more persuasive under
@@ -489,8 +489,8 @@ const Page = () => {
             <aside className="space-y-8">
               <section className="rounded-2xl border border-[#dcc0bd]/50 bg-[#eeeeee]/50 p-8">
                 <h2
-                  className="mb-6 text-2xl font-semibold italic text-[#6e1d1b]"
-                  style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}
+                  className="mb-6 text-2xl font-semibold text-[#6e1d1b]"
+                  style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif", fontStyle: "normal"}}
                 >
                   Point Categories
                 </h2>
