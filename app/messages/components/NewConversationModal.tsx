@@ -4,7 +4,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import { BadgeCheck, Clock3, Inbox, Loader2, MessageCirclePlus, Plus, Search, UserPlus, Users, X } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Loader2, MessageCirclePlus, Plus, Search, UserPlus, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { FriendRequest, User, UserSearchResult } from '@/lib/chat/types';
 import { getUserDelegationLabel } from '@/lib/chat/delegation';
@@ -323,7 +323,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             </div>
 
             {tab === 'direct' ? (
-              <div className="space-y-4">
+              <div className="space-y-6">
                     <div className="relative">
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
                       <input
@@ -356,124 +356,140 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                       </div>
                     )}
 
-                    {isSearching && canSearch && <p className="text-sm text-almost-black-green/60">Searching...</p>}
-                    {!isSearching && !canSearch && <p className="text-sm text-almost-black-green/60">Start typing a name or email to search.</p>}
-                    {!isSearching && hasSearched && canSearch && !results.length && !error && <p className="text-sm text-almost-black-green/60">No people found</p>}
+                    <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Suggested Delegates</h3>
+                    {isSearching && canSearch && <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">Searching...</p>}
+                    {!isSearching && !canSearch && <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">Start typing a name or email to search delegates.</p>}
+                    {!isSearching && hasSearched && canSearch && !results.length && !error && <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">No delegates found.</p>}
 
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {results.map((user) => {
                       const relationship = relationshipState(user.id);
                       const delegationLabel = getUserDelegationLabel(user);
                       const state = relationship.type;
                       return (
-                        <div key={user.id} className="flex items-center justify-between rounded-xl border border-soft-ivory bg-white px-3 py-2">
-                          <div className="flex items-center gap-3">
-                            <UserAvatar user={user} size={36} />
-                            <div>
-                              <p className="text-sm font-semibold text-deep-red">{user.full_name}</p>
-                              {delegationLabel && <p className="text-xs text-almost-black-green/60">{delegationLabel}</p>}
+                        <div key={user.id} className="rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e8e8e8]">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex min-w-0 items-center">
+                              <div className="mr-4">
+                                <UserAvatar user={user} size={48} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-base font-semibold text-deep-red">{user.full_name}</p>
+                                {delegationLabel && <p className="truncate text-sm text-almost-black-green/60">{delegationLabel}</p>}
+                                {!delegationLabel && user.email ? <p className="truncate text-sm text-almost-black-green/60">{user.email}</p> : null}
+                              </div>
                             </div>
-                          </div>
-                          {state === 'connected' ? (
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex items-center gap-1 rounded-xl bg-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red">
-                                <BadgeCheck className="h-4 w-4 text-sky-500" /> In friends
-                              </span>
+                            {state === 'connected' ? (
                               <button
                                 type="button"
                                 onClick={() => handleStartChat(user)}
                                 disabled={openingChatFor === user.id}
-                                className="inline-flex items-center rounded-xl background-deep-red px-3 py-2 text-xs font-semibold text-white hover:bg-deep-red/90 disabled:cursor-wait disabled:opacity-70"
+                                className="inline-flex items-center gap-1 rounded-lg bg-deep-red px-3 py-2 text-xs font-semibold text-white disabled:cursor-wait disabled:opacity-70"
                               >
-                                {openingChatFor === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Start chat'}
+                                {openingChatFor === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                                Chat
                               </button>
+                            ) : state === 'incoming' ? (
+                              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-almost-black-green/65">Respond in Requests</span>
+                            ) : state === 'outgoing' ? (
+                              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-almost-black-green/60">Pending</span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleSendRequest(user)}
+                                disabled={sendingRequestTo.has(user.id)}
+                                className="inline-flex items-center gap-2 rounded-lg border border-soft-ivory bg-white px-3 py-2 text-xs font-semibold text-deep-red disabled:cursor-wait disabled:opacity-70"
+                              >
+                                {sendingRequestTo.has(user.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                                Connect
+                              </button>
+                            )}
+                          </div>
+                          {state === 'connected' ? (
+                            <div className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-xs font-semibold text-deep-red">
+                                <BadgeCheck className="h-4 w-4 text-sky-500" /> In friends
                             </div>
-                          ) : state === 'incoming' ? (
-                            <span className="rounded-full border border-soft-ivory bg-warm-light-grey/60 px-3 py-1 text-xs font-semibold text-almost-black-green/65">
-                              Respond in Requests
-                            </span>
-                          ) : state === 'outgoing' ? (
-                            <span className="text-xs font-semibold text-almost-black-green/60">Request sent</span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleSendRequest(user)}
-                              disabled={sendingRequestTo.has(user.id)}
-                              className="inline-flex items-center gap-2 rounded-xl border border-soft-ivory px-3 py-2 text-xs font-semibold text-deep-red disabled:cursor-wait disabled:opacity-70"
-                            >
-                              {sendingRequestTo.has(user.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-                              Connect
-                            </button>
-                          )}
+                          ) : null}
                         </div>
                       );
                     })}
+                    </div>
               </div>
             ) : tab === 'friends' ? (
-              <div className="space-y-2 rounded-2xl bg-warm-light-grey/35">
+              <div className="space-y-6">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
+                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search friends..." className={sharedSearchInputClassName} />
+                </div>
+                <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">My Friends</h3>
                 {connectedContacts.length === 0 ? (
-                  <p className="text-sm text-almost-black-green/60">You do not have any accepted friends yet.</p>
+                  <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">You do not have any accepted friends yet.</p>
                 ) : (
-                  connectedContacts.map((contact) => (
-                    <div key={contact.userId} className="flex items-center justify-between gap-3 rounded-2xl border border-soft-ivory bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(17,27,33,0.06)]">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <UserAvatar user={getContactAvatarUser(contact)} size={36} />
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {connectedContacts
+                    .filter((contact) => contact.name.toLowerCase().includes(query.toLowerCase()))
+                    .map((contact) => (
+                    <div key={contact.userId} className="flex items-center justify-between gap-3 rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e8e8e8]">
+                      <div className="flex min-w-0 items-center">
+                        <div className="mr-4"><UserAvatar user={getContactAvatarUser(contact)} size={48} /></div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-deep-red">{contact.name}</p>
+                          <p className="truncate text-base font-semibold text-deep-red">{contact.name}</p>
                           {getUserDelegationLabel(contact.user) ? (
-                            <p className="truncate text-xs text-almost-black-green/60">{getUserDelegationLabel(contact.user)}</p>
-                          ) : null}
+                            <p className="truncate text-sm text-almost-black-green/60">{getUserDelegationLabel(contact.user)}</p>
+                          ) : (
+                            <p className="truncate text-sm text-almost-black-green/60">Friend</p>
+                          )}
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => handleStartChat({ id: contact.userId, full_name: contact.name })}
                         disabled={openingChatFor === contact.userId}
-                        className="inline-flex items-center gap-2 rounded-xl background-deep-red px-3 py-2 text-xs font-semibold text-white hover:bg-deep-red/90 disabled:cursor-wait disabled:opacity-70"
+                        className="inline-flex items-center gap-2 rounded-lg bg-deep-red px-3 py-2 text-xs font-semibold text-white hover:bg-deep-red/90 disabled:cursor-wait disabled:opacity-70"
                       >
                         {openingChatFor === contact.userId ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCirclePlus className="h-4 w-4" />}
-                        Start chat
+                        Chat
                       </button>
                     </div>
-                  ))
+                  ))}
+                  </div>
                 )}
               </div>
             ) : tab === 'group' ? (
-              <div className="mx-auto w-full max-w-2xl space-y-3">
-                <div className="rounded-2xl border border-soft-ivory bg-white p-4 shadow-[0_8px_24px_rgba(38,22,22,0.05)]">
-                  <h3 className="text-sm font-semibold text-deep-red">Create a group conversation</h3>
-                  <div className="mt-3 space-y-3">
-                    <div>
-                      <label className="text-xs font-semibold uppercase tracking-[0.12em] text-almost-black-green/70">Group name</label>
+              <div className="space-y-6">
+                  <div className="space-y-6">
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
                       <input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="e.g. Security Council Drafting"
-                        className="mt-1 w-full rounded-xl border border-soft-ivory bg-warm-light-grey px-3 py-2.5 text-sm"
+                        value={query}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setQuery(value);
+                          if (!value.trim()) {
+                            setResults([]);
+                            setHasSearched(false);
+                          }
+                        }}
+                        placeholder="Search by name, delegation, or role"
+                        className={sharedSearchInputClassName}
                       />
                     </div>
-
-                    <div>
-                      <label className="text-xs font-semibold uppercase tracking-[0.12em] text-almost-black-green/70">Add people</label>
-                      <div className="relative mt-2">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-almost-black-green/50" />
+                    <div className="space-y-2">
+                      <label className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Group Name</label>
+                      <div className="rounded-lg bg-[#f9f9f9] p-4">
                         <input
-                          value={query}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setQuery(value);
-                            if (!value.trim()) {
-                              setResults([]);
-                              setHasSearched(false);
-                            }
-                          }}
-                          placeholder="Search by name, delegation, or role"
-                          className={sharedSearchInputClassName}
-                          
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder="Enter group name..."
+                          className="w-full border-none bg-transparent p-0 text-sm focus:outline-none"
                         />
                       </div>
+                    </div>
+                    <div>
+                      <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Delegates</h3>
 
                       {(isSearching && canSearch) || (!isSearching && hasSearched && canSearch) ? (
-                        <div className="mt-2 max-h-48 space-y-1.5 overflow-y-auto rounded-xl border border-soft-ivory bg-warm-light-grey/20 p-2">
+                        <div className="mt-2 grid max-h-48 grid-cols-1 gap-4 overflow-y-auto md:grid-cols-2">
                           {isSearching ? (
                             <div className="flex items-center gap-2 rounded-lg bg-white px-2.5 py-2 text-xs text-almost-black-green/60">
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -494,10 +510,10 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                                   key={user.id}
                                   type="button"
                                   onClick={() => toggleSelect(user)}
-                                  className={`group flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-sm transition ${
+                                  className={`group flex w-full items-center justify-between rounded-lg p-4 text-left text-sm transition-colors ${
                                     isSelected
-                                      ? 'border-deep-red/40 bg-soft-rose/40'
-                                      : 'border-soft-ivory bg-white hover:border-deep-red/30 hover:bg-soft-rose/20'
+                                      ? 'bg-[#e8e8e8]'
+                                      : 'bg-[#f9f9f9] hover:bg-[#e8e8e8]'
                                   }`}
                                 >
                                   <div className="flex min-w-0 items-center gap-2.5">
@@ -523,18 +539,20 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                       ) : null}
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-2 rounded-2xl border border-soft-ivory bg-white p-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-almost-black-green/60">Selected members ({selected.length})</p>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 pl-2">
+                    <p className="text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Selected Members</p>
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-semibold text-almost-black-green/70">{selected.length}</span>
+                  </div>
                   {selected.length === 0 ? (
-                    <p className="text-xs text-almost-black-green/60">No members selected yet.</p>
+                    <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">No members selected yet.</p>
                   ) : (
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       {selected.map((user) => {
                         const delegationLabel = getUserDelegationLabel(user) || user.email || 'No delegation listed';
                         return (
-                          <div key={user.id} className="flex items-center justify-between gap-2 rounded-xl border border-soft-ivory bg-warm-light-grey/35 px-2.5 py-2">
+                          <div key={user.id} className="flex items-center justify-between gap-2 rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e8e8e8]">
                             <div className="flex min-w-0 items-center gap-2">
                               <UserAvatar user={user} size={28} />
                               <div className="min-w-0">
@@ -557,13 +575,13 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   )}
                 </div>
 
-                <div className="flex items-center justify-between rounded-2xl border border-soft-ivory bg-warm-light-grey/35 p-3">
-                  <p className="text-xs text-almost-black-green/65">Group requires a name and at least 2 other members.</p>
+                <div className="flex items-center justify-between rounded-lg bg-[#f9f9f9] p-4">
+                  <button type="button" onClick={onClose} className="rounded-lg border border-soft-ivory bg-white px-4 py-2 text-sm font-semibold text-almost-black-green/80">Cancel</button>
                   <button
                     type="button"
                     onClick={handleCreateGroup}
                     disabled={isCreatingGroup || !name.trim() || selected.length < 2}
-                    className="inline-flex items-center gap-2 rounded-xl bg-deep-red px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-deep-red/90 disabled:cursor-not-allowed disabled:bg-deep-red/35 disabled:text-white/80 disabled:shadow-none background-deep-red"
+                    className="inline-flex items-center gap-2 rounded-lg bg-deep-red px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-deep-red/90 disabled:cursor-not-allowed disabled:bg-deep-red/35 disabled:text-white/80"
                   >
                     {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
                     {isCreatingGroup ? 'Creating group...' : 'Create group'}
@@ -571,22 +589,19 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                <section className="rounded-2xl border border-soft-ivory bg-white p-4 shadow-[0_8px_24px_rgba(38,22,22,0.05)]">
+              <div className="space-y-6">
+                <section className="space-y-3">
                   <div className="mb-3 flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold text-deep-red">Incoming requests</h3>
+                    <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Incoming Requests</h3>
                     <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#c62828] px-2 text-xs font-semibold text-white">
                       {incomingRequestsList.length}
                     </span>
                   </div>
 
                   {incomingRequestsList.length === 0 ? (
-                    <div className="flex items-center gap-2 rounded-xl border border-dashed border-soft-ivory bg-warm-light-grey/30 px-3 py-3 text-sm text-almost-black-green/65">
-                      <Inbox className="h-4 w-4 text-almost-black-green/50" />
-                      <p>No incoming requests right now.</p>
-                    </div>
+                    <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">No incoming requests right now.</p>
                   ) : (
-                    <div className="space-y-2.5">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       {incomingRequestsList.map((req) => {
                         const displayName = getRequestDisplayName(req.sender_id, req.sender);
                         const metadata = getRequestMetaLine(req.sender);
@@ -599,7 +614,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                             .join('') || '?';
 
                         return (
-                          <div key={req.id} className="rounded-xl border border-soft-ivory bg-warm-light-grey/20 p-3">
+                          <div key={req.id} className="rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e8e8e8]">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0 flex items-center gap-3">
                                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-soft-ivory bg-white text-xs font-semibold text-deep-red">
@@ -638,26 +653,23 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   )}
                 </section>
 
-                <section className="rounded-2xl border border-soft-ivory/90 bg-warm-light-grey/35 p-4">
+                <section className="space-y-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-almost-black-green/65">Sent requests</h3>
+                    <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Sent Requests</h3>
                     <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-soft-ivory bg-white px-1.5 text-[11px] font-semibold text-almost-black-green/70">
                       {sentRequestsList.length}
                     </span>
                   </div>
 
                   {sentRequestsList.length === 0 ? (
-                    <div className="flex items-center gap-2 rounded-lg px-1 py-2 text-xs text-almost-black-green/60">
-                      <Clock3 className="h-3.5 w-3.5" />
-                      <p>No pending sent requests.</p>
-                    </div>
+                    <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">No pending sent requests.</p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       {sentRequestsList.map((req) => (
-                        <div key={req.id} className="flex items-center justify-between rounded-lg border border-soft-ivory/80 bg-white/80 px-3 py-2">
-                          <p className="truncate text-sm text-deep-red">{getRequestDisplayName(req.receiver_id, req.receiver)}</p>
-                          <span className="rounded-full bg-soft-ivory px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-almost-black-green/60">
-                            Awaiting response
+                        <div key={req.id} className="flex items-center justify-between rounded-lg bg-[#f9f9f9] p-4 transition-colors hover:bg-[#e8e8e8]">
+                          <p className="truncate text-sm font-semibold text-deep-red">{getRequestDisplayName(req.receiver_id, req.receiver)}</p>
+                          <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-almost-black-green/60">
+                            Pending
                           </span>
                         </div>
                       ))}
