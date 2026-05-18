@@ -11,7 +11,6 @@ import { ChatProvider, useChat } from "./context/ChatContext";
 import MessageBubble from "./components/MessageBubble";
 import TypingIndicator from "./components/TypingIndicator";
 import ConversationList from "./components/ConversationList";
-import CustomNav from "@/components/ui/customnav";
 import NewConversationModal from "./components/NewConversationModal";
 import ConversationDetailsModal from "./components/ConversationDetailsModal";
 import { useModalFocusTrap, useModalLayerLock } from "./hooks/useModalLayerLock";
@@ -1386,25 +1385,18 @@ const ChatShell: React.FC = () => {
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-[#f9f9f9] [font-family:var(--font-manrope),var(--font-sans)] text-almost-black-green">
-      <div className="mx-auto flex h-full w-full max-w-[1536px] min-h-0 flex-col px-3 py-2 md:px-4 md:py-3">
-        <div
-          className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-[#e7e3e2] bg-[#f9f9f9]"
-          style={{
-            boxShadow: "0 8px 30px rgba(26, 28, 28, 0.06)",
-          }}
-        >
-          <CustomNav embedded />
-          <div className="border-b border-[#e8e4e3] bg-[#f9f9f9]">
-            <div className="mx-auto flex h-[58px] w-full max-w-[1440px] items-center justify-between px-6">
+    <div className="h-[calc(100dvh-5rem)] min-h-0 overflow-hidden bg-[#f9f9f9] [font-family:var(--font-manrope),var(--font-sans)] text-almost-black-green">
+      <div className="flex h-full w-full min-h-0 flex-col px-4 py-3 md:px-6">
+        <div className="border-b border-[#e8e4e3] bg-[#f9f9f9]">
+          <div className="flex h-[58px] w-full items-center justify-between px-2 md:px-0">
               <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[2rem] font-semibold tracking-tight text-[#6E1D1B]">Delegate Messaging</h3>
               <button type="button" onClick={() => setConversationTab("requests")} className="rounded-lg p-1 text-slate-500 transition-colors hover:bg-[#e8e7e7] hover:text-[#6E1D1B]">
                 <BellDot className="h-[18px] w-[18px]" />
               </button>
             </div>
           </div>
-          <div className="mx-auto flex h-full w-full max-w-[1440px] min-h-0 flex-col px-4 pb-4 pt-3 md:px-6">
-            <section className="grid min-h-0 min-w-0 flex-1 grid-cols-1 overflow-hidden rounded-[16px] border border-[#e8e4e3] bg-[#f6f5f4] lg:grid-cols-[320px_minmax(0,1fr)_268px]">
+        <div className="flex h-full w-full min-h-0 flex-col pb-4 pt-3">
+          <section className="grid min-h-0 min-w-0 flex-1 grid-cols-1 overflow-hidden rounded-[16px] border border-[#e8e4e3] bg-[#f6f5f4] lg:grid-cols-[320px_minmax(0,1fr)_268px]">
           <aside className="flex h-full min-h-0 w-80 flex-col overflow-hidden bg-[#f4f3f3]">
             <div className="px-4 py-3">
               <div className="relative">
@@ -2173,7 +2165,6 @@ const ChatShell: React.FC = () => {
           onClose={() => setShowDetails(false)}
           currentUserId={currentUserId}
         />
-          </div>
         </div>
       </div>
     </div>
