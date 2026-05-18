@@ -1386,26 +1386,25 @@ const ChatShell: React.FC = () => {
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-[#1a1f27] [font-family:var(--font-manrope),var(--font-sans)] text-almost-black-green">
-      <div className="mx-auto flex h-full w-full max-w-[1536px] min-h-0 flex-col p-3 md:p-4">
+    <div className="h-[100dvh] overflow-hidden bg-[#f9f9f9] [font-family:var(--font-manrope),var(--font-sans)] text-almost-black-green">
+      <div className="mx-auto flex h-full w-full max-w-[1536px] min-h-0 flex-col px-3 py-2 md:px-4 md:py-3">
         <div
-          className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[30px] bg-[#f6f5f4]"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-[#e7e3e2] bg-[#f9f9f9]"
           style={{
-            border: "none",
-            boxShadow: "0 20px 60px rgba(8, 12, 20, 0.42), 0 0 0 1px rgba(255,255,255,0.04)",
+            boxShadow: "0 8px 30px rgba(26, 28, 28, 0.06)",
           }}
         >
           <CustomNav embedded />
-          <div className="bg-[#f1f0f0]">
-            <div className="mx-auto flex h-[58px] w-full max-w-[1440px] items-center justify-between px-7">
-              <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[3rem] font-semibold tracking-tight text-[#6E1D1B]">Delegate Messaging</h3>
+          <div className="border-b border-[#e8e4e3] bg-[#f9f9f9]">
+            <div className="mx-auto flex h-[58px] w-full max-w-[1440px] items-center justify-between px-6">
+              <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[2rem] font-semibold tracking-tight text-[#6E1D1B]">Delegate Messaging</h3>
               <button type="button" onClick={() => setConversationTab("requests")} className="rounded-lg p-1 text-slate-500 transition-colors hover:bg-[#e8e7e7] hover:text-[#6E1D1B]">
                 <BellDot className="h-[18px] w-[18px]" />
               </button>
             </div>
           </div>
-          <div className="mx-auto flex h-full w-full max-w-[1440px] min-h-0 flex-col px-6 pb-4 pt-3">
-            <section className="grid min-h-0 min-w-0 flex-1 grid-cols-[320px_minmax(0,1fr)_268px] overflow-hidden rounded-[14px] bg-[#f6f5f4]">
+          <div className="mx-auto flex h-full w-full max-w-[1440px] min-h-0 flex-col px-4 pb-4 pt-3 md:px-6">
+            <section className="grid min-h-0 min-w-0 flex-1 grid-cols-1 overflow-hidden rounded-[16px] border border-[#e8e4e3] bg-[#f6f5f4] lg:grid-cols-[320px_minmax(0,1fr)_268px]">
           <aside className="flex h-full min-h-0 w-80 flex-col overflow-hidden bg-[#f4f3f3]">
             <div className="px-4 py-3">
               <div className="relative">
@@ -1473,12 +1472,12 @@ const ChatShell: React.FC = () => {
           </div>
 
           <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#ffffff]">
-            <header className="bg-[#ffffff] px-6 py-3">
+            <header className="border-b border-[#efebea] bg-[#ffffff] px-5 py-3 md:px-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-3">
                     <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" aria-hidden="true" />
-                    <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[2.9rem] font-bold text-deep-red">
+                    <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-[1.65rem] font-semibold text-deep-red md:text-[1.9rem]">
                       {activeRoomTitle}
                     </h3>
                   </div>
@@ -1718,7 +1717,7 @@ const ChatShell: React.FC = () => {
                 </button>
               )}
               {!isAnySelectionModeActive && (
-                <div className="sticky bottom-0 bg-[#f4f3f3] px-2 py-3">
+                <div className="sticky bottom-0 border-t border-[#ebe7e6] bg-[#f4f3f3] px-2 py-3">
                 {activeRoom ? activeTypingDisplay : <div className="mb-2 h-5" aria-hidden="true" />}
                 <input
                   ref={fileInputRef}
@@ -2093,7 +2092,7 @@ const ChatShell: React.FC = () => {
                 )}
             </div>
           </section>
-          <aside className="hidden min-h-0 w-[268px] flex-col gap-5 overflow-y-auto bg-[#f9f9f9] px-5 py-5 lg:flex">
+          <aside className="hidden min-h-0 w-[268px] flex-col gap-5 overflow-y-auto border-l border-[#ebe7e6] bg-[#f9f9f9] px-5 py-5 lg:flex">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Channel Details</p>
               <div className="mt-3 rounded-xl bg-[#f4f3f3] p-3.5 text-xs text-almost-black-green/75">
