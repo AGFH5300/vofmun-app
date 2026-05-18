@@ -23,7 +23,7 @@ const CountryOverlay: React.FC<CountryOverlayProps> = ({
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-deep-red/20 via-dark-burgundy/10 to-transparent backdrop-blur-lg animate-fadein">
     <div className="bg-gradient-to-br from-white/95 via-soft-rose/90 to-pale-aqua/80 backdrop-blur-xl text-almost-black-green rounded-3xl p-10 max-h-[85vh] w-[90vw] max-w-lg overflow-y-auto relative shadow-2xl border border-deep-red/20 animate-slidein-up">
       <button
-        className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center text-2xl font-bold text-deep-red hover:text-dark-burgundy bg-soft-rose/50 hover:bg-deep-red/10 rounded-full transition-all duration-300 animate-btn-pop shadow-lg hover:shadow-xl hover:scale-110"
+        className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center text-2xl font-bold text-deep-red hover:text-dark-burgundy bg-soft-rose/50 hover:bg-deep-red/10 rounded-full transition-all duration-300 animate-btn-pop shadow-lg hover:shadow-xl"
         onClick={closeCountryOverlay}
         data-testid="button-close-overlay"
       >
@@ -36,7 +36,7 @@ const CountryOverlay: React.FC<CountryOverlayProps> = ({
         {countries.map((country, idx) => (
           <div
             key={country.name}
-            className="px-5 py-4 rounded-2xl bg-gradient-to-r from-white/80 via-soft-rose/40 to-pale-aqua/40 hover:from-deep-red/5 hover:via-soft-rose/60 hover:to-pale-aqua/60 text-almost-black-green border border-cool-grey/30 hover:border-deep-red/40 flex items-center gap-4 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-[1.02] animate-fadein-up backdrop-blur-sm"
+            className="px-5 py-4 rounded-2xl bg-gradient-to-r from-white/80 via-soft-rose/40 to-pale-aqua/40 hover:from-deep-red/5 hover:via-soft-rose/60 hover:to-pale-aqua/60 text-almost-black-green border border-cool-grey/30 hover:border-deep-red/40 flex items-center gap-4 cursor-pointer transition-all duration-300 hover:shadow-lg animate-fadein-up backdrop-blur-sm"
             style={{ animationDelay: `${idx * 40}ms` }}
             onClick={() => toggleCountrySelection(country.name)}
             data-testid={`country-item-${country.name}`}
