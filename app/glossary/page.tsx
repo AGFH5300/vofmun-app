@@ -382,7 +382,7 @@ const Page = () => {
           </section>
 
           <div className="sticky top-24 z-30">
-            <section className="rounded-2xl border border-[#dcc0bd]/60 bg-white/90 p-4 shadow-sm backdrop-blur-xl">
+            
               <div
                 className="flex cursor-text items-center gap-3 rounded-xl border border-[#d7dbdb] bg-white px-3 py-2 transition-colors focus-within:border-[#b9bfc0]"
                 onClick={() => searchInputRef.current?.focus()}
@@ -395,13 +395,14 @@ const Page = () => {
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Start typing to filter ‘Quorum’ or ‘Caucus’..."
+                  style={{border: "none", outline: "none", boxShadow: "none", backgroundColor: "transparent"}}
                   className="min-w-0 flex-1 border-none bg-transparent px-0 py-1 text-[15px] text-[#1a1c1c] shadow-none outline-none placeholder:text-[#5d5f5f]/65 ring-0 focus:border-none focus:outline-none focus:ring-0"
+                
                 />
                 <kbd className="hidden shrink-0 rounded-md bg-[#f2f4f4] px-2 py-1 text-[10px] font-semibold tracking-wide text-[#5d5f5f] sm:inline-flex">
                   ESC
                 </kbd>
               </div>
-            </section>
           </div>
 
           <div className="grid grid-cols-1 gap-12 xl:grid-cols-3">
