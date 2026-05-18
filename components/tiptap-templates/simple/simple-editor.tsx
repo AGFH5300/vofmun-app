@@ -100,14 +100,14 @@ const ClearFormattingButton = () => {
 
 const SpacingDropdown = () => {
   const { editor } = React.useContext(EditorContext)
-  const lineHeights = ["1", "1.15", "1.5", "2"]
-  const spacingValues = ["0px", "6px", "12px", "18px"]
+  const lineHeights = ["1.2", "1.35", "1.5", "1.75", "2"]
+  const spacingValues = ["0", "0.35rem", "0.75rem", "1.25rem"]
 
   if (!editor || !editor.isEditable) return null
 
-  const currentLineHeight = (editor.getAttributes("paragraph").lineHeight || editor.getAttributes("heading").lineHeight || "1").toString()
-  const currentBefore = (editor.getAttributes("paragraph").spacingBefore || editor.getAttributes("heading").spacingBefore || "0px").toString()
-  const currentAfter = (editor.getAttributes("paragraph").spacingAfter || editor.getAttributes("heading").spacingAfter || "0px").toString()
+  const currentLineHeight = (editor.getAttributes("paragraph").lineHeight || editor.getAttributes("heading").lineHeight || "1.5").toString()
+  const currentBefore = (editor.getAttributes("paragraph").spacingBefore || editor.getAttributes("heading").spacingBefore || "0").toString()
+  const currentAfter = (editor.getAttributes("paragraph").spacingAfter || editor.getAttributes("heading").spacingAfter || "0").toString()
 
   return (
     <DropdownMenu>
