@@ -51,7 +51,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
 
   const trimmedQuery = query.trim();
   const canSearch = trimmedQuery.length >= 2;
-  const sharedSearchInputClassName = 'w-full rounded-xl border border-[#dfdfdf] bg-[#f8f8f8] px-10 py-3 text-sm text-[#1f2a2f] placeholder:text-[#697378] focus:outline-none focus:ring-1 focus:ring-[#6E1D1B]/20';
+  const sharedSearchInputClassName = 'w-full rounded-md border border-[#dcc0bd] border-b-2 border-b-[#dcc0bd] bg-[#f9f9f9] px-12 py-4 text-sm text-[#1f2a2f] placeholder:text-[#564240]/70 focus:border-[#dcc0bd] focus:border-b-[#6E1D1B] focus:outline-none';
 
   useModalLayerLock(open);
 
@@ -269,28 +269,28 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
   };
 
   return (
-    <Dialog open={open} onClose={onClose} className="relative z-50">
-      <div className="fixed inset-0 bg-[rgba(26,28,28,0.4)] backdrop-blur-[3px]" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-center justify-center px-4 py-6">
+    <Dialog open={open} onClose={onClose} className="relative z-[110]" style={{ fontFamily: 'var(--font-manrope), Manrope, ui-sans-serif, system-ui' }}>
+      <div className="fixed inset-0 bg-[rgba(26,28,28,0.4)] backdrop-blur-[8px]" aria-hidden="true" />
+      <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6">
         <Dialog.Panel className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-[0_16px_48px_rgba(26,28,28,0.12)]">
-          <div className="border-b border-[#ece8e7] px-8 py-5">
+          <div className="border-b border-[#ece8e7] bg-[#fdfbfb] px-8 pb-6 pt-8">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <Dialog.Title className="text-xl font-semibold text-[#6E1D1B]">Initiate Communication</Dialog.Title>
+              <Dialog.Title className="text-4xl font-medium text-[#500608]" style={{ fontFamily: 'var(--font-newsreader), Newsreader, Georgia, serif' }}>Initiate Communication</Dialog.Title>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-soft-ivory/80 bg-white text-almost-black-green/60 transition hover:border-soft-ivory hover:bg-warm-light-grey hover:text-deep-red"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#564240]/70 transition hover:bg-[#f3eeed] hover:text-[#6E1D1B]"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
           </div>
 
-          <div className="flex-1 space-y-4 overflow-y-auto p-8">
+          <div className="flex-1 space-y-6 overflow-y-auto bg-white p-8">
             <div className="flex justify-center">
-              <div className="inline-flex rounded-xl border border-[#ece8e7] bg-[#f6f4f3] p-1.5">
+              <div className="inline-flex rounded-lg bg-[#f0ebea] p-1">
                 <button
                   type="button"
                   onClick={() => setTab('direct')}
@@ -336,9 +336,9 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                             setHasSearched(false);
                           }
                         }}
-                        placeholder="Search by name or email"
+                        placeholder="Search delegates by name, country, or email..."
                         className={sharedSearchInputClassName}
-                        style={{ paddingLeft: '30px' }}
+                        
                       />
                     </div>
 
@@ -466,9 +466,9 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                               setHasSearched(false);
                             }
                           }}
-                          placeholder="Search by name or email"
+                          placeholder="Search by name, delegation, or role"
                           className={sharedSearchInputClassName}
-                          style={{ paddingLeft: '30px' }}
+                          
                         />
                       </div>
 
