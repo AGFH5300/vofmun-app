@@ -1387,7 +1387,8 @@ const ChatShell: React.FC = () => {
   return (
     <div className="h-[calc(100dvh-5rem)] min-h-0 overflow-hidden bg-[#f9f9f9] [font-family:var(--font-manrope),var(--font-sans)] text-almost-black-green">
       <div className="flex h-full w-full min-h-0 flex-col px-4 py-3 md:px-6">
-        <div className="border-b border-[#e8e4e3] bg-[#f9f9f9]">
+        <div className="border-b border-[#e8e4e3] bg-[#f9f9f9]"
+          style={{borderBottomWidth: "0px", marginBottom: "0px"}}>
           <div className="flex h-[58px] w-full items-center justify-between px-2 md:px-0">
               <h3 className="[font-family:var(--font-newsreader),var(--font-serif)] text-2xl font-semibold tracking-tight text-[#6E1D1B]">Delegate Messaging</h3>
               <button type="button" onClick={() => setConversationTab("requests")} className="rounded-lg p-1 text-slate-500 transition-colors hover:bg-[#e8e7e7] hover:text-[#6E1D1B]">
