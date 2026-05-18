@@ -344,10 +344,10 @@ const Page = () => {
 
   return (
     <ParticipantRoute>
-      <div className="min-h-screen bg-[#f9f9f9] text-[#1a1c1c]" style={{ fontFamily: "var(--font-manrope), Manrope, ui-sans-serif, system-ui" }}>
-        <main className="max-w-[1600px] mx-auto px-8 pb-12 pt-8">
-          <div className="grid grid-cols-12 gap-8">
-            <aside className="col-span-12 lg:col-span-3 space-y-6">
+      <div className="min-h-screen bg-[#f7f2ea] text-[#1a1c1c]" style={{ fontFamily: "var(--font-manrope), Manrope, ui-sans-serif, system-ui" }}>
+        <main className="max-w-[1500px] mx-auto px-4 md:px-6 lg:px-8 pb-10 pt-6">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8 items-start">
+            <aside className="xl:col-span-3 space-y-6 xl:sticky xl:top-6">
               <div className="p-6 bg-[#f4f3f3] rounded-xl border border-[#dcc0bd]/40 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-semibold text-[#500608]" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }}>Saved Speeches</h2>
@@ -384,34 +384,34 @@ const Page = () => {
               </div>
             </aside>
 
-            <section className="col-span-12 lg:col-span-9">
-              <div className="bg-white rounded-xl shadow-[0_8px_32px_rgba(26,28,28,0.06)] border border-[#dcc0bd]/30 overflow-hidden flex flex-col min-h-[800px]">
-                <div className="px-6 py-4 bg-[#f4f3f3] border-b border-[#dcc0bd]/40 flex items-center justify-between gap-4">
+            <section className="xl:col-span-9">
+              <div className="bg-[#fffdf9] rounded-2xl shadow-[0_12px_36px_rgba(80,6,8,0.08)] border border-[#dcc0bd]/40 overflow-hidden flex flex-col min-h-[760px]">
+                <div className="px-5 md:px-8 py-4 bg-[#f8f2ed] border-b border-[#dcc0bd]/40 flex items-center justify-between gap-4">
                   <div className="text-xs uppercase tracking-widest text-[#564240]">{selectedSpeech ? `Editing ${selectedSpeech.speechID}` : "New speech"} · {hasUnsavedChanges ? "Unsaved changes" : "Saved"}</div>
                   <button onClick={postSpeech} className="px-6 py-2.5 rounded-xl bg-[#6e1d1b] text-white text-xs font-bold uppercase tracking-widest disabled:opacity-60 inline-flex items-center gap-2" disabled={isBusy}>
                     {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Speech"}
                   </button>
                 </div>
 
-                <div className="flex-1 p-8 md:p-12 bg-white">
-                  <div className="max-w-3xl mx-auto space-y-8 min-h-[540px]">
+                <div className="flex-1 p-4 md:p-8 lg:p-10 bg-[#fffaf4]">
+                  <div className="max-w-5xl mx-auto space-y-6 min-h-[500px]">
                     {delegateProfileError && <div className="rounded-lg border border-[#ba1a1a]/25 bg-[#ffdad6] px-4 py-3 text-sm text-[#93000a]">{delegateProfileError}</div>}
-                    <div className="border-b border-[#6e1d1b]/10 pb-7 space-y-4">
+                    <div className="rounded-xl bg-[#fffdf8] border border-[#e8d7d4] px-4 md:px-6 py-5 space-y-4">
                       <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={isBusy} placeholder="Enter speech title..." className="w-full bg-transparent outline-none text-4xl font-bold text-[#500608] placeholder:text-[#500608]/25 leading-tight" style={{ fontFamily: "var(--font-newsreader), Newsreader, Georgia, serif" }} />
-                      <div className="flex flex-wrap gap-4 items-center text-[11px] font-bold text-[#1a1c1c]">
+                      <div className="flex flex-wrap gap-x-6 gap-y-2 items-center text-[11px] font-bold text-[#1a1c1c]">
                         <div className="flex items-center gap-2"><span className="text-[10px] uppercase tracking-widest text-[#564240]/60">Delegation:</span><span>{currentUser?.country || "Delegation assigned"}</span></div>
                         <div className="flex items-center gap-2"><span className="text-[10px] uppercase tracking-widest text-[#564240]/60">Committee:</span><span>{currentUser?.committee_id ? "Committee assigned" : "Committee assigned"}</span></div>
                         <div className="flex items-center gap-2"><span className="text-[10px] uppercase tracking-widest text-[#564240]/60">Duration:</span><span>~{readingMinutes} Minutes</span></div>
                       </div>
                     </div>
 
-                    <div className={`rounded-xl border border-[#dcc0bd]/60 bg-white ${isBusy ? "opacity-60 pointer-events-none" : ""}`}>
+                    <div className={`rounded-xl bg-transparent ${isBusy ? "opacity-60 pointer-events-none" : ""}`}>
                       <SimpleEditor ref={editorRef} content={parsedSpeechContent} className="toolbar-fixed" placeholder="Draft your intervention..." />
                     </div>
                   </div>
                 </div>
 
-                <div className="px-8 py-3 bg-[#f4f3f3] border-t border-[#dcc0bd]/40 flex flex-wrap items-center justify-between gap-3 text-[10px] uppercase tracking-widest text-[#564240]">
+                <div className="px-5 md:px-8 py-3 bg-[#f8f2ed] border-t border-[#dcc0bd]/40 flex flex-wrap items-center justify-between gap-3 text-[10px] uppercase tracking-widest text-[#564240]">
                   <div className="flex gap-5">
                     <span>Words: {wordCount}</span><span>Characters: {characterCount}</span><span>Reading Time: ~{readingMinutes} min</span>
                   </div>
