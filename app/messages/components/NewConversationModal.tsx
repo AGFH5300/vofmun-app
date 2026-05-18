@@ -273,7 +273,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
       <div className="fixed inset-0 bg-[rgba(26,28,28,0.4)] backdrop-blur-[8px]" aria-hidden="true" />
       <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6">
         <Dialog.Panel className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-[0_16px_48px_rgba(26,28,28,0.12)]">
-          <div className="border-b border-[#ece8e7] bg-[#fdfbfb] px-8 pb-6 pt-8">
+          <div className="border-b border-[#ece8e7] bg-[#fdfbfb] px-8 pb-0 pt-4 pl-4 pr-4">
           <div className="flex items-start justify-between gap-4">
             <div>
               <Dialog.Title className="text-4xl font-medium text-[#500608]" style={{ fontFamily: 'var(--font-newsreader), Newsreader, Georgia, serif' }}>Initiate Communication</Dialog.Title>
