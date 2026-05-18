@@ -1,0 +1,813 @@
+<!-- New Conversation Modal Redesign -->
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VOFMUN Portal - Initiate Communication</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;0,6..72,800;1,6..72,400;1,6..72,500;1,6..72,600;1,6..72,700;1,6..72,800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline-variant": "#dcc0bd",
+                        "on-primary-container": "#f5847b",
+                        "tertiary-container": "#413931",
+                        "on-secondary-container": "#636465",
+                        "surface-container-lowest": "#ffffff",
+                        "background": "#f9f9f9",
+                        "surface-tint": "#9e403b",
+                        "on-secondary": "#ffffff",
+                        "inverse-surface": "#2f3131",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-error-container": "#93000a",
+                        "surface-dim": "#dadada",
+                        "surface-bright": "#f9f9f9",
+                        "inverse-primary": "#ffb3ad",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#454747",
+                        "on-primary-fixed-variant": "#7f2926",
+                        "secondary": "#5d5f5f",
+                        "on-surface-variant": "#564240",
+                        "on-surface": "#1a1c1c",
+                        "error": "#ba1a1a",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-primary-fixed": "#410003",
+                        "tertiary-fixed-dim": "#d2c4ba",
+                        "surface": "#f9f9f9",
+                        "secondary-fixed-dim": "#c6c6c6",
+                        "on-primary": "#ffffff",
+                        "secondary-container": "#e2e2e2",
+                        "primary-container": "#6e1d1b",
+                        "surface-variant": "#e2e2e2",
+                        "on-background": "#1a1c1c",
+                        "primary": "#500608",
+                        "inverse-on-surface": "#f1f1f1",
+                        "tertiary": "#2b231d",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed-variant": "#4e453d",
+                        "surface-container": "#eeeeee",
+                        "tertiary-fixed": "#eee0d5",
+                        "outline": "#89726f",
+                        "surface-container-high": "#e8e8e8",
+                        "primary-fixed-dim": "#ffb3ad",
+                        "surface-container-highest": "#e2e2e2",
+                        "on-tertiary-fixed": "#211a14",
+                        "on-tertiary-container": "#afa298",
+                        "surface-container-low": "#f4f3f3",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Newsreader"],
+                        "display": ["Newsreader"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; background-color: #f9f9f9; color: #1a1c1c; }
+        h1, h2, h3, h4, h5, h6, .font-headline, .font-display { font-family: 'Newsreader', serif; }
+        .glass-panel { background: rgba(255, 240, 229, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .modal-overlay { background: rgba(26, 28, 28, 0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+    </style>
+</head>
+<body class="bg-background min-h-screen text-on-background antialiased relative">
+<!-- Background Context: TopAppBar -->
+<header class="fixed top-0 left-0 w-full flex justify-between items-center px-8 h-20 bg-[#FFF0E5]/80 dark:bg-slate-950/80 backdrop-blur-md no-border shadow-[0_8px_32px_rgba(26,28,28,0.06)] docked full-width z-40">
+<div class="flex items-center">
+<span class="font-['Newsreader'] italic font-bold text-[#6E1D1B] dark:text-[#FFF0E5] text-2xl tracking-tight">VOFMUN Portal</span>
+</div>
+<nav class="hidden md:flex space-x-8">
+<a class="text-slate-500 dark:text-slate-400 font-['Manrope'] uppercase tracking-widest text-xs hover:text-[#6E1D1B] dark:hover:text-[#FFF0E5] transition-colors duration-300" href="#">Dashboard</a>
+<a class="text-[#6E1D1B] dark:text-[#FFF0E5] border-b-2 border-[#6E1D1B] font-['Manrope'] uppercase tracking-widest text-xs font-bold Active: opacity-80 scale-95 transition-all" href="#">Live Updates</a>
+<a class="text-slate-500 dark:text-slate-400 font-['Manrope'] uppercase tracking-widest text-xs hover:text-[#6E1D1B] dark:hover:text-[#FFF0E5] transition-colors duration-300" href="#">Glossary</a>
+<a class="text-slate-500 dark:text-slate-400 font-['Manrope'] uppercase tracking-widest text-xs hover:text-[#6E1D1B] dark:hover:text-[#FFF0E5] transition-colors duration-300" href="#">Resolutions</a>
+<a class="text-slate-500 dark:text-slate-400 font-['Manrope'] uppercase tracking-widest text-xs hover:text-[#6E1D1B] dark:hover:text-[#FFF0E5] transition-colors duration-300" href="#">Speech Repo</a>
+</nav>
+<div class="flex items-center space-x-4">
+<button class="text-[#6E1D1B] dark:text-[#FFF0E5] hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">flag</span>
+</button>
+<button class="text-[#6E1D1B] dark:text-[#E2E2E2] font-['Manrope'] font-semibold text-sm hover:underline">Log Out</button>
+</div>
+</header>
+<!-- Main Content Background (Simulated context) -->
+<main class="pt-28 px-8 max-w-7xl mx-auto opacity-40 blur-[2px] transition-all duration-500 pointer-events-none">
+<div class="grid grid-cols-12 gap-8">
+<div class="col-span-8 space-y-8">
+<div class="h-64 bg-surface-container-low rounded-xl"></div>
+<div class="h-96 bg-surface-container-low rounded-xl"></div>
+</div>
+<div class="col-span-4 space-y-8">
+<div class="h-48 bg-surface-container-low rounded-xl"></div>
+<div class="h-64 bg-surface-container-low rounded-xl"></div>
+</div>
+</div>
+</main>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 sm:p-6">
+<!-- Modal Container -->
+<div class="bg-surface-container-lowest w-full max-w-3xl rounded-xl shadow-[0_16px_48px_rgba(26,28,28,0.12)] overflow-hidden flex flex-col max-h-[921px]">
+<!-- Modal Header -->
+<div class="flex items-center justify-between p-8 pb-6 bg-surface">
+<h2 class="font-headline text-4xl text-primary-container leading-tight">Initiate Communication</h2>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-highest">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 0;">close</span>
+</button>
+</div>
+<!-- Modal Navigation (Segmented Control) -->
+<div class="px-8 pb-6 bg-surface flex justify-center">
+<div class="inline-flex bg-surface-container-low rounded-lg p-1 space-x-1 border border-outline-variant/15">
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-primary-container bg-surface-container-lowest shadow-sm transition-all">
+                        Direct
+                    </button>
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-on-surface-variant hover:text-primary-container hover:bg-surface-container-highest transition-all">
+                        Group
+                    </button>
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-on-surface-variant hover:text-primary-container hover:bg-surface-container-highest transition-all relative">
+                        Friends
+                        <span class="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full"></span>
+</button>
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-on-surface-variant hover:text-primary-container hover:bg-surface-container-highest transition-all">
+                        Requests
+                    </button>
+</div>
+</div>
+<!-- Modal Content Area -->
+<div class="p-8 overflow-y-auto flex-1 bg-surface-container-lowest">
+<!-- Search Input -->
+<div class="relative mb-8 group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-on-surface-variant group-focus-within:text-primary transition-colors" style="font-variation-settings: 'FILL' 0;">search</span>
+</div>
+<input class="w-full pl-12 pr-4 py-4 bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-t-md text-on-surface font-body text-base placeholder-on-surface-variant transition-colors outline-none" placeholder="Search delegates by name, country, or email..." type="text"/>
+</div>
+<!-- Recent / Suggested Section -->
+<div class="space-y-6">
+<h3 class="font-label text-xs font-bold tracking-[0.05em] uppercase text-on-surface-variant pl-2">Suggested Delegates</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Delegate Card 1 -->
+<div class="flex items-center p-4 bg-surface rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-primary font-headline text-xl mr-4 group-hover:bg-surface-container-lowest">
+                                A
+                            </div>
+<div class="flex-1">
+<h4 class="font-body font-semibold text-on-surface text-base">Ansh Win</h4>
+<p class="font-body text-sm text-on-surface-variant flex items-center mt-0.5">
+<span class="material-symbols-outlined text-[16px] mr-1" style="font-variation-settings: 'FILL' 0;">public</span>
+                                    Germany
+                                </p>
+</div>
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_forward</span>
+</button>
+</div>
+<!-- Delegate Card 2 -->
+<div class="flex items-center p-4 bg-surface rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-primary font-headline text-xl mr-4 group-hover:bg-surface-container-lowest">
+                                E
+                            </div>
+<div class="flex-1">
+<h4 class="font-body font-semibold text-on-surface text-base">Elena Rostova</h4>
+<p class="font-body text-sm text-on-surface-variant flex items-center mt-0.5">
+<span class="material-symbols-outlined text-[16px] mr-1" style="font-variation-settings: 'FILL' 0;">public</span>
+                                    Russian Federation
+                                </p>
+</div>
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_forward</span>
+</button>
+</div>
+<!-- Delegate Card 3 -->
+<div class="flex items-center p-4 bg-surface rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-primary font-headline text-xl mr-4 group-hover:bg-surface-container-lowest">
+                                M
+                            </div>
+<div class="flex-1">
+<h4 class="font-body font-semibold text-on-surface text-base">Marcus Chen</h4>
+<p class="font-body text-sm text-on-surface-variant flex items-center mt-0.5">
+<span class="material-symbols-outlined text-[16px] mr-1" style="font-variation-settings: 'FILL' 0;">public</span>
+                                    Singapore
+                                </p>
+</div>
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_forward</span>
+</button>
+</div>
+<!-- Delegate Card 4 -->
+<div class="flex items-center p-4 bg-surface rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-primary font-headline text-xl mr-4 group-hover:bg-surface-container-lowest">
+                                S
+                            </div>
+<div class="flex-1">
+<h4 class="font-body font-semibold text-on-surface text-base">Sarah Jenkins</h4>
+<p class="font-body text-sm text-on-surface-variant flex items-center mt-0.5">
+<span class="material-symbols-outlined text-[16px] mr-1" style="font-variation-settings: 'FILL' 0;">public</span>
+                                    United Kingdom
+                                </p>
+</div>
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>
+
+<!-- Initiate Communication: Requests View Unified -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Initiate Communication - Requests</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary-fixed-dim": "#c6c6c6",
+                      "surface-tint": "#9e403b",
+                      "on-primary-fixed": "#410003",
+                      "tertiary-container": "#413931",
+                      "inverse-primary": "#ffb3ad",
+                      "secondary-fixed": "#e2e2e2",
+                      "outline-variant": "#dcc0bd",
+                      "error-container": "#ffdad6",
+                      "on-error": "#ffffff",
+                      "surface-variant": "#e2e2e2",
+                      "surface-container-highest": "#e2e2e2",
+                      "on-tertiary": "#ffffff",
+                      "primary": "#500608",
+                      "on-secondary-container": "#636465",
+                      "surface-container-high": "#e8e8e8",
+                      "primary-container": "#6e1d1b",
+                      "surface-container-lowest": "#ffffff",
+                      "on-secondary-fixed": "#1a1c1c",
+                      "on-primary": "#ffffff",
+                      "secondary-container": "#e2e2e2",
+                      "primary-fixed-dim": "#ffb3ad",
+                      "on-error-container": "#93000a",
+                      "error": "#ba1a1a",
+                      "on-primary-container": "#f5847b",
+                      "on-tertiary-fixed": "#211a14",
+                      "background": "#f9f9f9",
+                      "surface-dim": "#dadada",
+                      "tertiary-fixed-dim": "#d2c4ba",
+                      "on-tertiary-container": "#afa298",
+                      "surface-bright": "#f9f9f9",
+                      "secondary": "#5d5f5f",
+                      "inverse-on-surface": "#f1f1f1",
+                      "on-primary-fixed-variant": "#7f2926",
+                      "on-surface-variant": "#564240",
+                      "on-surface": "#1a1c1c",
+                      "on-background": "#1a1c1c",
+                      "primary-fixed": "#ffdad6",
+                      "tertiary": "#2b231d",
+                      "outline": "#89726f",
+                      "on-tertiary-fixed-variant": "#4e453d",
+                      "tertiary-fixed": "#eee0d5",
+                      "on-secondary-fixed-variant": "#454747",
+                      "surface-container": "#eeeeee",
+                      "on-secondary": "#ffffff",
+                      "inverse-surface": "#2f3131",
+                      "surface-container-low": "#f4f3f3",
+                      "surface": "#f9f9f9"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {},
+              "fontFamily": {
+                      "headline": [
+                              "Newsreader"
+                      ],
+                      "display": [
+                              "Newsreader"
+                      ],
+                      "body": [
+                              "Manrope"
+                      ],
+                      "label": [
+                              "Manrope"
+                      ]
+              },
+              "fontSize": {}
+      },
+          },
+        }
+      </script>
+<style>
+          .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+          }
+      </style>
+</head>
+<body class="bg-background text-on-background font-body min-h-screen flex items-center justify-center p-4">
+<!-- Modal Backdrop Overlay (Glassmorphism) -->
+<div class="fixed inset-0 bg-surface-variant/70 backdrop-blur-[12px] z-40 flex items-center justify-center p-4 sm:p-8">
+<!-- Modal Container (surface_container_lowest floating on surface_variant) -->
+<div class="bg-surface-container-lowest w-full max-w-3xl rounded-xl shadow-[0_16px_48px_rgba(26,28,28,0.12)] overflow-hidden flex flex-col max-h-[921px]">
+<div class="flex items-center justify-between p-8 pb-6 bg-surface">
+<h2 class="font-headline text-4xl text-primary-container leading-tight">Initiate Communication</h2>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-highest">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 0;">close</span>
+</button>
+</div>
+<div class="px-8 pb-6 bg-surface flex justify-center">
+<div class="inline-flex bg-surface-container-low rounded-lg p-1 space-x-1 border border-outline-variant/15">
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-on-surface-variant hover:text-primary-container hover:bg-surface-container-highest transition-all">
+                Direct
+            </button>
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-on-surface-variant hover:text-primary-container hover:bg-surface-container-highest transition-all">
+                Group
+            </button>
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-on-surface-variant hover:text-primary-container hover:bg-surface-container-highest transition-all relative">
+                Friends
+                <span class="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full"></span>
+</button>
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-primary-container bg-surface-container-lowest shadow-sm transition-all">
+                Requests
+            </button>
+</div>
+</div>
+<div class="p-8 overflow-y-auto flex-1 bg-surface-container-lowest space-y-12">
+<section class="space-y-6">
+<h3 class="font-label text-xs font-bold tracking-[0.05em] uppercase text-on-surface-variant pl-2">Incoming Requests</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="flex items-center p-4 bg-surface rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="w-12 h-12 rounded-full overflow-hidden bg-surface-container-highest flex-shrink-0 mr-4">
+<img alt="Delegate Portrait" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBWVxW24r-RebxG5P9KyXcE5Md9WEM3LpZh5UZHB3yZuZm7W5D-kwIhKmhk6o1I-hbkoWkNdPJP443lkKHFxpomLQgTp4He8aa9K0B1uqbjQVgZCdXxTcBS7FpsBgRbpwZx3Y6LYEZYc-hgvLuElj4f3kLf6v0KDmx2febCEPOpVR9xgcHUiHu0lyIpbQ1lYp4T0oD6OePdk3eCcOFfsvd2FUBWK2I4YUNBlZZbB-Gqaf-ztLZ7sMKZUmMlJYA_SN7HIrXRFz7nXs"/>
+</div>
+<div class="flex-1">
+<h4 class="font-body font-semibold text-on-surface text-base">Delegate from Japan</h4>
+<p class="font-body text-sm text-on-surface-variant">Economic and Financial Committee</p>
+</div>
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 text-primary hover:bg-primary/10 rounded-full"><span class="material-symbols-outlined">check</span></button>
+<button class="p-1 text-error hover:bg-error/10 rounded-full"><span class="material-symbols-outlined">close</span></button>
+</div>
+</div>
+<div class="flex items-center p-4 bg-surface rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="w-12 h-12 rounded-full overflow-hidden bg-surface-container-highest flex-shrink-0 mr-4">
+<img alt="Delegate Portrait" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfys8MK7O1OdvYZG4qIYeiO6RRBnxwK3L9aohu_Cq4s10V4sQfTpOwKQZvvTMASQehuQMKm6XgG-r7OlC8OL7f6qJe80CtIxnYfHerKBjoa-MNCvwnhZlXiQmdsEfOLLwOaiQk6kJ_U41DqvkH5zuo42rxvYBONZ2vVcZNuoAaZqq6OfHCxBHSfdHYN3ZwIuaVhHkAq9fDonxxjOpiDqr4pRt8OweWSpCNnOHGX_1WaOwF_tON5n3WcYdIHYiHTFTp20wwrvGUdkg"/>
+</div>
+<div class="flex-1">
+<h4 class="font-body font-semibold text-on-surface text-base">Delegate from Brazil</h4>
+<p class="font-body text-sm text-on-surface-variant">Security Council</p>
+</div>
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 text-primary hover:bg-primary/10 rounded-full"><span class="material-symbols-outlined">check</span></button>
+<button class="p-1 text-error hover:bg-error/10 rounded-full"><span class="material-symbols-outlined">close</span></button>
+</div>
+</div>
+</div>
+</section>
+<section class="space-y-6">
+<h3 class="font-label text-xs font-bold tracking-[0.05em] uppercase text-on-surface-variant pl-2">Sent Requests</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="flex items-center p-4 bg-surface rounded-lg group">
+<div class="w-12 h-12 rounded-full bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed font-headline text-xl mr-4">
+                        UK
+                    </div>
+<div class="flex-1">
+<h4 class="font-body font-semibold text-on-surface text-base">Delegate from UK</h4>
+<p class="font-body text-sm text-on-surface-variant">Human Rights Council</p>
+</div>
+<div class="text-[10px] font-bold uppercase tracking-widest bg-surface-container-highest text-on-surface-variant px-2 py-1 rounded">
+                        Pending
+                    </div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</body></html>
+
+<!-- Initiate Communication: Group View Unified -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Initiate Communication - Group</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "secondary-fixed-dim": "#c6c6c6",
+                        "surface-tint": "#9e403b",
+                        "on-primary-fixed": "#410003",
+                        "tertiary-container": "#413931",
+                        "inverse-primary": "#ffb3ad",
+                        "secondary-fixed": "#e2e2e2",
+                        "outline-variant": "#dcc0bd",
+                        "error-container": "#ffdad6",
+                        "on-error": "#ffffff",
+                        "surface-variant": "#e2e2e2",
+                        "surface-container-highest": "#e2e2e2",
+                        "on-tertiary": "#ffffff",
+                        "primary": "#500608",
+                        "on-secondary-container": "#636465",
+                        "surface-container-high": "#e8e8e8",
+                        "primary-container": "#6e1d1b",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-primary": "#ffffff",
+                        "secondary-container": "#e2e2e2",
+                        "primary-fixed-dim": "#ffb3ad",
+                        "on-error-container": "#93000a",
+                        "error": "#ba1a1a",
+                        "on-primary-container": "#f5847b",
+                        "on-tertiary-fixed": "#211a14",
+                        "background": "#f9f9f9",
+                        "surface-dim": "#dadada",
+                        "tertiary-fixed-dim": "#d2c4ba",
+                        "on-tertiary-container": "#afa298",
+                        "surface-bright": "#f9f9f9",
+                        "secondary": "#5d5f5f",
+                        "inverse-on-surface": "#f1f1f1",
+                        "on-primary-fixed-variant": "#7f2926",
+                        "on-surface-variant": "#564240",
+                        "on-surface": "#1a1c1c",
+                        "on-background": "#1a1c1c",
+                        "primary-fixed": "#ffdad6",
+                        "tertiary": "#2b231d",
+                        "outline": "#89726f",
+                        "on-tertiary-fixed-variant": "#4e453d",
+                        "tertiary-fixed": "#eee0d5",
+                        "on-secondary-fixed-variant": "#454747",
+                        "surface-container": "#eeeeee",
+                        "on-secondary": "#ffffff",
+                        "inverse-surface": "#2f3131",
+                        "surface-container-low": "#f4f3f3",
+                        "surface": "#f9f9f9"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Newsreader"],
+                        "display": ["Newsreader"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        h1, h2, h3, h4, h5, h6, .font-headline { font-family: 'Newsreader', serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background antialiased min-h-screen flex items-center justify-center p-4">
+<!-- Modal Backdrop / Container -->
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-surface-variant/70 backdrop-blur-[12px]">
+<!-- Modal Card -->
+<div class="bg-surface-container-lowest w-full max-w-3xl rounded-xl shadow-[0_16px_48px_rgba(26,28,28,0.12)] overflow-hidden flex flex-col max-h-[90vh]"><!-- Modal Header -->
+<div class="flex items-center justify-between p-8 pb-6 bg-surface">
+<h2 class="font-headline text-4xl text-primary leading-tight italic">Initiate Communication</h2>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-highest">
+<span class="material-symbols-outlined text-2xl">close</span>
+</button>
+</div>
+<!-- Modal Navigation (Segmented Control) -->
+<div class="px-8 pb-6 bg-surface flex justify-center">
+<div class="inline-flex bg-surface-container-low rounded-lg p-1 space-x-1 border border-outline-variant/15">
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-on-surface-variant hover:text-primary-container hover:bg-surface-container-highest transition-all">
+            Direct
+        </button>
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-primary-container bg-surface-container-lowest shadow-sm transition-all">
+            Group
+        </button>
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-on-surface-variant hover:text-primary-container hover:bg-surface-container-highest transition-all relative">
+            Friends
+        </button>
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-on-surface-variant hover:text-primary-container hover:bg-surface-container-highest transition-all">
+            Requests
+        </button>
+</div>
+</div>
+<!-- Modal Content Area -->
+<div class="p-8 overflow-y-auto flex-1 bg-surface-container-lowest space-y-8">
+<!-- Search Input -->
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-on-surface-variant group-focus-within:text-primary transition-colors">search</span>
+</div>
+<input class="w-full pl-12 pr-4 py-4 bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-t-md text-on-surface font-body text-base placeholder-on-surface-variant transition-colors outline-none" placeholder="Search by name, delegation, or role" type="text"/>
+</div>
+<!-- Group Name -->
+<div class="space-y-4">
+<h3 class="font-label text-xs font-bold tracking-[0.05em] uppercase text-on-surface-variant pl-2">Group Name</h3>
+<div class="p-4 bg-surface rounded-lg">
+<input class="w-full bg-transparent border-0 focus:ring-0 p-0 text-on-surface font-body text-base placeholder-on-surface-variant/50" placeholder="Enter group name (e.g., Security Council Drafting)" type="text"/>
+</div>
+</div>
+<!-- Selected Members Section -->
+<div class="space-y-4">
+<h3 class="font-label text-xs font-bold tracking-[0.05em] uppercase text-on-surface-variant pl-2">Selected Members <span class="bg-surface-container-highest text-primary px-2 py-0.5 rounded-full ml-2">3</span></h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Member Card 1 -->
+<div class="flex items-center p-4 bg-surface rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-primary font-headline text-xl mr-4">FR</div>
+<div class="flex-1">
+<h4 class="font-body font-semibold text-on-surface text-base">France (Ambassador)</h4>
+<p class="font-body text-sm text-on-surface-variant">Security Council</p>
+</div>
+<button class="text-error opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Member Card 2 -->
+<div class="flex items-center p-4 bg-surface rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-primary font-headline text-xl mr-4">UK</div>
+<div class="flex-1">
+<h4 class="font-body font-semibold text-on-surface text-base">United Kingdom (Ambassador)</h4>
+<p class="font-body text-sm text-on-surface-variant">Security Council</p>
+</div>
+<button class="text-error opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Member Card 3 -->
+<div class="flex items-center p-4 bg-surface rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<img class="w-12 h-12 rounded-full object-cover mr-4" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2zlhHKl7ePN4lijFPCtqaT_qe3zhk4cEXK3jk_1iM7KUsRfB1KA7FPaR1oLMF4LDEXVfW-om9l_L5ONYcHF2llOvaiZP4IWiYli4dWDTfyIgNcZkXvsZVI0XkMpmC3Dd--3MJeWygk3PhjywaWpjkd53krSFvrEIr6KQEKL_auMoIINTIWpn1Nqux0aQQLQnUcQ7Hbj2gq_UtW7AGOvkENarlA5OU8cAXIo9RnSUcYc5wedV_j27PGbOYOo93xM11XyySnfY02O0"/>
+<div class="flex-1">
+<h4 class="font-body font-semibold text-on-surface text-base">Germany (Head Delegate)</h4>
+<p class="font-body text-sm text-on-surface-variant">Security Council</p>
+</div>
+<button class="text-error opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal Footer -->
+<div class="p-8 bg-surface border-t border-outline-variant/15 flex justify-end gap-4">
+<button class="px-6 py-2 font-label text-sm font-semibold text-primary hover:bg-surface-container-high rounded-md transition-all uppercase">Cancel</button>
+<button class="px-8 py-2 bg-primary text-on-primary font-label text-sm font-semibold rounded-md hover:bg-primary-container transition-all shadow-sm flex items-center gap-2 uppercase tracking-wide">
+        Create Group
+        <span class="material-symbols-outlined text-[18px]">group_add</span>
+</button>
+</div></div>
+</div>
+</body></html>
+
+<!-- Initiate Communication: Friends View Unified -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Initiate Communication - Friends</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed-dim": "#c6c6c6",
+                        "surface-tint": "#9e403b",
+                        "on-primary-fixed": "#410003",
+                        "tertiary-container": "#413931",
+                        "inverse-primary": "#ffb3ad",
+                        "secondary-fixed": "#e2e2e2",
+                        "outline-variant": "#dcc0bd",
+                        "error-container": "#ffdad6",
+                        "on-error": "#ffffff",
+                        "surface-variant": "#e2e2e2",
+                        "surface-container-highest": "#e2e2e2",
+                        "on-tertiary": "#ffffff",
+                        "primary": "#500608",
+                        "on-secondary-container": "#636465",
+                        "surface-container-high": "#e8e8e8",
+                        "primary-container": "#6e1d1b",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-primary": "#ffffff",
+                        "secondary-container": "#e2e2e2",
+                        "primary-fixed-dim": "#ffb3ad",
+                        "on-error-container": "#93000a",
+                        "error": "#ba1a1a",
+                        "on-primary-container": "#f5847b",
+                        "on-tertiary-fixed": "#211a14",
+                        "background": "#f9f9f9",
+                        "surface-dim": "#dadada",
+                        "tertiary-fixed-dim": "#d2c4ba",
+                        "on-tertiary-container": "#afa298",
+                        "surface-bright": "#f9f9f9",
+                        "secondary": "#5d5f5f",
+                        "inverse-on-surface": "#f1f1f1",
+                        "on-primary-fixed-variant": "#7f2926",
+                        "on-surface-variant": "#564240",
+                        "on-surface": "#1a1c1c",
+                        "on-background": "#1a1c1c",
+                        "primary-fixed": "#ffdad6",
+                        "tertiary": "#2b231d",
+                        "outline": "#89726f",
+                        "on-tertiary-fixed-variant": "#4e453d",
+                        "tertiary-fixed": "#eee0d5",
+                        "on-secondary-fixed-variant": "#454747",
+                        "surface-container": "#eeeeee",
+                        "on-secondary": "#ffffff",
+                        "inverse-surface": "#2f3131",
+                        "surface-container-low": "#f4f3f3",
+                        "surface": "#f9f9f9"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {},
+                    "fontFamily": {
+                        "headline": [
+                            "Newsreader", "serif"
+                        ],
+                        "display": [
+                            "Newsreader", "serif"
+                        ],
+                        "body": [
+                            "Manrope", "sans-serif"
+                        ],
+                        "label": [
+                            "Manrope", "sans-serif"
+                        ]
+                    },
+                    "fontSize": {}
+                },
+            },
+        }
+    </script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body min-h-screen relative flex items-center justify-center p-4">
+<!-- Modal Backdrop Overlay -->
+<div class="fixed inset-0 bg-[rgba(26,28,28,0.4)] backdrop-blur-[4px] z-40"></div>
+<!-- Modal Container -->
+<div class="bg-surface-container-lowest w-full max-w-3xl rounded-xl shadow-[0_16px_48px_rgba(26,28,28,0.12)] overflow-hidden flex flex-col max-h-[921px] relative z-50"><!-- Modal Header -->
+<div class="flex items-center justify-between p-8 pb-6 bg-surface">
+<h2 class="font-headline text-4xl text-primary-container leading-tight">Initiate Communication</h2>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-highest">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 0;">close</span>
+</button>
+</div>
+<!-- Modal Navigation (Segmented Control) -->
+<div class="px-8 pb-6 bg-surface flex justify-center">
+<div class="inline-flex bg-surface-container-low rounded-lg p-1 space-x-1 border border-outline-variant/15">
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-on-surface-variant hover:text-primary-container hover:bg-surface-container-highest transition-all">
+            Direct
+        </button>
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-on-surface-variant hover:text-primary-container hover:bg-surface-container-highest transition-all">
+            Group
+        </button>
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-primary-container bg-surface-container-lowest shadow-sm transition-all">
+            Friends
+        </button>
+<button class="px-6 py-2 rounded-md font-label text-sm font-semibold tracking-wide text-on-surface-variant hover:text-primary-container hover:bg-surface-container-highest transition-all">
+            Requests
+        </button>
+</div>
+</div>
+<!-- Modal Content Area -->
+<div class="p-8 overflow-y-auto flex-1 bg-surface-container-lowest">
+<!-- Search Input -->
+<div class="relative mb-8 group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-on-surface-variant group-focus-within:text-primary transition-colors" style="font-variation-settings: 'FILL' 0;">search</span>
+</div>
+<input class="w-full pl-12 pr-4 py-4 bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-t-md text-on-surface font-body text-base placeholder-on-surface-variant transition-colors outline-none" placeholder="Search friends..." type="text"/>
+</div>
+<!-- Friends List Section -->
+<div class="space-y-6">
+<h3 class="font-label text-xs font-bold tracking-[0.05em] uppercase text-on-surface-variant pl-2">My Friends</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Friend Card 1 -->
+<div class="flex items-center p-4 bg-surface rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="relative mr-4">
+<img alt="Avatar" class="w-12 h-12 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMyaNMf8TnRkEYgQMEq42c6cK8L6msHUFRteNtL4webtx7jhEWwwoZ2qZWK3mcygkrxHMKqTBqq0A_6x44-xRhhkbCU731E7xOOZcUN_GO6rlrRUCBTtQuJWcEUxJMoZF6Q52QYpUuUSe7BS8iiIzIx5KoJrqSCMeV8XsBHiS9EQcZFnM-_Mon5vmExvhzAU7y3VDJGy5ujM5iTYj3w9LIfbkEhysJo8MNpkwL1Slp8zEo6KqERbHBjWH1xa6Eh_eolJM3sV8bZiw"/>
+<div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-surface"></div>
+</div>
+<div class="flex-1">
+<h4 class="font-body font-semibold text-on-surface text-base">Dr. Elena Rostova</h4>
+<p class="font-body text-xs text-on-surface-variant">Online</p>
+</div>
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">chat</span>
+</button>
+</div>
+<!-- Friend Card 2 -->
+<div class="flex items-center p-4 bg-surface rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="relative mr-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-primary font-headline text-xl">MW</div>
+<div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-surface"></div>
+</div>
+<div class="flex-1">
+<h4 class="font-body font-semibold text-on-surface text-base">Marcus Thorne</h4>
+<p class="font-body text-xs text-on-surface-variant">Online</p>
+</div>
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">chat</span>
+</button>
+</div>
+<!-- Friend Card 3 -->
+<div class="flex items-center p-4 bg-surface rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="relative mr-4 opacity-70">
+<img alt="Avatar" class="w-12 h-12 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-Mn873lW8HcWtLJfUafUFK0k5GO3OlNVIGPEalbc7QtMbrzpsauseVoH-D4IMTQSgN_2KavUGuTcrKaLWe6bY41znpPmoPXBSuAD-x8r2owhZCQeOY7z9WLEKgId0MRi8hgsq84EkMyMP7f-R23o_E2C9EtbYVlI642KaqILaPDQ-kJLeIyo17OZ4-PUTSTtm_SQ8qXJTasVj3wkWlyy2J67Vt0lvkED8wewRn4rirbXF0-xuPfmvSb0nfw6iwT15nlueCIpoHwU"/>
+<div class="absolute bottom-0 right-0 w-3 h-3 bg-gray-400 rounded-full border-2 border-surface"></div>
+</div>
+<div class="flex-1 opacity-70">
+<h4 class="font-body font-semibold text-on-surface text-base">Aiden Caldwell</h4>
+<p class="font-body text-xs text-on-surface-variant">Offline - 2h ago</p>
+</div>
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">chat</span>
+</button>
+</div>
+<!-- Friend Card 4 -->
+<div class="flex items-center p-4 bg-surface rounded-lg hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="relative mr-4">
+<img alt="Avatar" class="w-12 h-12 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPP1sC9CIOHjAtwZv9SfsX-PPO_GAnDKxTqHI1gwUkaBdY_TlbranfnqGsjKWWZAvMbTGQjSj-m2tKbXQcJHKeoyLXSUwWnU_UkrHLaR7EE5Vi8caoKYWmbIeR6A7OyVu1Vam9UwmohNzsUCKL_lUcgizbGRFB3PcPg0-teqkAeAPINqlwoe4Ge6MaPG8tDvPztrij1N-473tGrXK6sz2HD4Gl72ZMejUF_c9E1Oi7mcnTM7ImPFXRigrKUpn908wHZtwq1BYkqBM"/>
+<div class="absolute bottom-0 right-0 w-3 h-3 bg-yellow-500 rounded-full border-2 border-surface"></div>
+</div>
+<div class="flex-1">
+<h4 class="font-body font-semibold text-on-surface text-base">Sarah Jenkins</h4>
+<p class="font-body text-xs text-on-surface-variant">Away</p>
+</div>
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">chat</span>
+</button>
+</div>
+</div>
+</div>
+</div></div>
+</body></html>
