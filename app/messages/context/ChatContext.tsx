@@ -1754,6 +1754,11 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         case 'notification_created':
         case 'room_created':
         case 'conversation_created': {
+          if (payloadType === 'room_created' && isDevelopment) {
+            console.debug('[GroupCreateDebug] room_created socket event handled', {
+              roomId: roomId || null,
+            });
+          }
           logChatDebug('socket:friendship_event_received', {
             payloadType,
             roomId: roomId || null,
@@ -2619,14 +2624,21 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const createGroupRoom = useCallback(
     async (payload: { name: string; description?: string; icon?: string; memberIds: string[] }) => {
       if (!userId) return null;
+      if (isDevelopment) {
+        console.debug('[GroupCreateDebug] group_create:payload', { name: payload.name, selectedCount: payload.memberIds.length });
+      }
       const response = await fetch(
         `${CHAT_API_URL}/api/rooms/group`,
         await withAuthHeaders({ method: 'POST', body: JSON.stringify(payload) })
       );
+      const json = (await response.json().catch(() => null)) as
+        | RoomWithDetails
+        | { ok?: boolean; success?: boolean; room?: RoomWithDetails; data?: RoomWithDetails; error?: string; devError?: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } }
+        | null;
+      if (isDevelopment) {
+        console.debug('[GroupCreateDebug] group_create:api_response', { status: response.status, ok: response.ok, body: json });
+      }
       if (!response.ok) {
-        const json = (await response.json().catch(() => null)) as
-          | { error?: string; devError?: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } }
-          | null;
         const errorMessage = json?.error || 'Unable to create group chat right now.';
         const devError = json?.devError;
         const devErrorSummary = devError
@@ -2638,14 +2650,28 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           errorMessage,
           devError,
         });
+        if (isDevelopment) {
+          console.debug('[GroupCreateDebug] group_create:error', { status: response.status, message: errorMessage, code: devError?.code || null });
+        }
         toast.error(isDevelopment && devErrorSummary ? `${errorMessage}: ${devErrorSummary}` : errorMessage);
-        return null;
+        throw new Error(errorMessage);
       }
-      const room = (await response.json()) as RoomWithDetails;
+      const room =
+        (json && typeof json === 'object' && 'room' in json ? json.room : null) ||
+        (json && typeof json === 'object' && 'data' in json ? json.data : null) ||
+        (json as RoomWithDetails | null);
+      if (!room || !room.id) {
+        throw new Error('Group room response was missing room data.');
+      }
       setRooms((prev) => [{ ...room, isPinned: pinnedRoomIds.has(room.id) }, ...prev]);
+      joinSocketRooms([room.id]);
+      void refreshRooms();
+      if (isDevelopment) {
+        console.debug('[GroupCreateDebug] group_create:success', { roomId: room.id });
+      }
       return room;
     },
-    [pinnedRoomIds, userId, withAuthHeaders]
+    [joinSocketRooms, pinnedRoomIds, refreshRooms, userId, withAuthHeaders]
   );
 
   const searchUsers = useCallback(
