@@ -1350,6 +1350,10 @@ if (isDev) {
 const nextApp = next({ dev: isDev, hostname: '0.0.0.0', port: PORT, turbopack: isDev });
 const nextHandler = nextApp.getRequestHandler();
 
+app.all('/api/chat/attachments/upload', (req: Request, res: Response) => {
+  nextHandler(req, res);
+});
+
 const CHAT_WS_PATH = '/chat-ws'; // Keep in sync with app/messages/context/ChatContext.tsx
 
 const server = http.createServer((req, res) => {
