@@ -573,7 +573,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   )}
                 </div>
 
-                <div className="flex items-center justify-end gap-4 border-t border-[#dcc0bd]/15 bg-[#f9f9f9] p-8">
+                <div className="flex items-center justify-end gap-4">
                   <button type="button" onClick={onClose} className="rounded-lg border border-[#dcc0bd]/30 bg-white px-4 py-2 text-sm font-semibold text-[#564240]">Cancel</button>
                   <button
                     type="button"
