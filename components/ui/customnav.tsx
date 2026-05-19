@@ -109,7 +109,7 @@ const CustomNav: React.FC<CustomNavProps> = ({ embedded = false }) => {
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 px-4">
       <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-2xl">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[#6E1D1B]">Notifications</h3>
+          <h3 className="text-xs font-semibold text-[#000000]">Notifications</h3>
           <button onClick={() => setIsNotificationsOpen(false)} className="rounded p-1 text-slate-500 hover:bg-slate-100"><X size={16} /></button>
         </div>
         <div className="space-y-2">
