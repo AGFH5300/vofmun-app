@@ -53,6 +53,7 @@ const getDisplayMeta = (room: RoomWithDetails, currentUserId?: string | null) =>
 
 const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTogglePin, currentUserId, onlineUsers }) => {
   const [contextMenuPosition, setContextMenuPosition] = React.useState<{ x: number; y: number } | null>(null);
+  const menuId = React.useMemo(() => `conversation-menu-${room.id}`, [room.id]);
   const meta = getDisplayMeta(room, currentUserId);
   const last = room.lastMessage;
   const unreadCount = Math.max(0, Math.floor(room.unreadCount || 0));
@@ -91,6 +92,18 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
     };
   }, [contextMenuPosition]);
 
+  React.useEffect(() => {
+    const handleAnotherMenuOpen = (event: Event) => {
+      const customEvent = event as CustomEvent<{ id?: string }>;
+      if (customEvent.detail?.id !== menuId) {
+        setContextMenuPosition(null);
+      }
+    };
+
+    window.addEventListener('vofmun-conversation-menu-opened', handleAnotherMenuOpen);
+    return () => window.removeEventListener('vofmun-conversation-menu-opened', handleAnotherMenuOpen);
+  }, [menuId]);
+
   return (
     <li>
       <div
@@ -103,6 +116,8 @@ const ConversationListItem: React.FC<Props> = ({ room, isActive, onSelect, onTog
         }}
         onContextMenu={(event) => {
           event.preventDefault();
+          event.stopPropagation();
+          window.dispatchEvent(new CustomEvent('vofmun-conversation-menu-opened', { detail: { id: menuId } }));
           setContextMenuPosition({ x: event.clientX, y: event.clientY });
         }}
         onClick={() => onSelect(room)}
