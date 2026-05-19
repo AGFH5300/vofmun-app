@@ -818,8 +818,9 @@ const ChatShell: React.FC = () => {
           let uploadedPath: string | null = null;
 
           try {
+            const uploadUrl = "/api/chat/attachments/upload";
             const uploadResponse = await Promise.race([
-              fetch("/api/chat/attachments/upload", {
+              fetch(uploadUrl, {
                 method: "POST",
                 credentials: "include",
                 headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
@@ -836,8 +837,30 @@ const ChatShell: React.FC = () => {
             ]);
 
             if (!uploadResponse.ok) {
-              const payload = await uploadResponse.json().catch(() => null);
-              throw new Error(payload?.error || "Upload failed");
+              const debugBody = await uploadResponse.text().catch(() => "<unreadable>");
+              console.error("Attachment upload response not ok", {
+                uploadUrl,
+                resolvedUrl: uploadResponse.url,
+                status: uploadResponse.status,
+                statusText: uploadResponse.statusText,
+                body: debugBody,
+                hasAccessToken: Boolean(accessToken),
+                roomId: activeRoom.id,
+                fileName: file.name,
+                fileSize: file.size,
+                fileType: file.type,
+                locationOrigin: window.location.origin,
+                locationPathname: window.location.pathname,
+              });
+
+              let parsedError: string | null = null;
+              try {
+                const parsed = JSON.parse(debugBody);
+                parsedError = typeof parsed?.error === "string" ? parsed.error : null;
+              } catch {
+                parsedError = null;
+              }
+              throw new Error(parsedError || `Upload failed (${uploadResponse.status})`);
             }
 
             const payload = await uploadResponse.json();
