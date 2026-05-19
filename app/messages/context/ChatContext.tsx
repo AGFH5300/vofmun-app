@@ -94,6 +94,7 @@ const BOOTSTRAP_FETCH_TIMEOUT_MS = 12000;
 const SEND_FETCH_TIMEOUT_MS = 15000;
 const FRIEND_REQUEST_REFRESH_DEBOUNCE_MS = 80;
 const SOCKET_RESUME_REPAIR_THROTTLE_MS = 2000;
+const UI_SYNC_REFRESH_THROTTLE_MS = 1200;
 
 const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 
@@ -370,6 +371,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const friendRequestToastBootstrapRef = useRef(false);
   const friendRequestToastTransitionsRef = useRef<Set<string>>(new Set());
   const visibilityRefreshInFlightRef = useRef(false);
+  const lastUiSyncRefreshAtRef = useRef(0);
   const repairSyncInFlightRef = useRef(false);
   const lastRepairSyncAtRef = useRef(0);
   const userDirectoryRef = useRef<Record<string, FriendRequest['sender']>>({});
@@ -899,6 +901,21 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     window.localStorage.setItem('vofmun.messages.unreadTotal', String(totalUnreadCount));
     window.dispatchEvent(new CustomEvent('vofmun:messages-unread-updated', { detail: { totalUnreadCount } }));
   }, [totalUnreadCount]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!userId) {
+      window.localStorage.setItem('vofmun.messages.notificationTotal', '0');
+      window.dispatchEvent(new CustomEvent('vofmun:messages-notification-updated', { detail: { totalNotificationCount: 0 } }));
+      return;
+    }
+    const incomingPending = friendRequests.filter((req) => req.status === 'pending' && String(req.receiver_id) === String(userId)).length;
+    const outboundUpdates = friendRequests.filter((req) => (req.status === 'accepted' || req.status === 'rejected') && String(req.sender_id) === String(userId)).length;
+    const totalNotificationCount = incomingPending + outboundUpdates;
+    logChatDebug('notifications:count_updated', { incomingPending, outboundUpdates, totalNotificationCount });
+    window.localStorage.setItem('vofmun.messages.notificationTotal', String(totalNotificationCount));
+    window.dispatchEvent(new CustomEvent('vofmun:messages-notification-updated', { detail: { totalNotificationCount } }));
+  }, [friendRequests, userId]);
 
   useEffect(() => {
     if (!isReceiptsDebugEnabled || !userId) return;
@@ -1529,6 +1546,21 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       const roomId = payload.roomId ? String(payload.roomId) : payloadWithLegacy.room_id ? String(payloadWithLegacy.room_id) : undefined;
       const payloadUserId = payload.userId ? String(payload.userId) : payloadWithLegacy.user_id ? String(payloadWithLegacy.user_id) : undefined;
       const isTyping = payload.isTyping ?? payloadWithLegacy.is_typing;
+      const triggerThrottledUiRefresh = (reason: string) => {
+        const now = Date.now();
+        if (now - lastUiSyncRefreshAtRef.current < UI_SYNC_REFRESH_THROTTLE_MS) {
+          logChatDebug('socket:refresh_skipped_throttled', { reason });
+          return;
+        }
+        lastUiSyncRefreshAtRef.current = now;
+        logChatDebug('socket:refresh_triggered', { reason });
+        void refreshFriendRequestsRef.current();
+        void refreshRoomsRef.current();
+        const selectedRoomId = activeRoomIdRef.current;
+        if (selectedRoomId) {
+          void refreshRoomMessages(selectedRoomId);
+        }
+      };
 
       switch (payloadType) {
         case 'authenticated': {
@@ -1713,6 +1745,22 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           }
           break;
         }
+        case 'friend_request_created':
+        case 'friend_request_sent':
+        case 'friend_request_updated':
+        case 'friend_request_accepted':
+        case 'friend_request_rejected':
+        case 'connection_created':
+        case 'notification_created':
+        case 'room_created':
+        case 'conversation_created': {
+          logChatDebug('socket:friendship_event_received', {
+            payloadType,
+            roomId: roomId || null,
+          });
+          triggerThrottledUiRefresh(payloadType || 'friendship_event');
+          break;
+        }
         default:
           logChatDebug('socket:unhandled_payload', {
             payloadType: payloadType || 'missing',
@@ -1721,7 +1769,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
       }
     },
-    [applyRealtimeMessageChange, joinSocketRooms, runRepairSync]
+    [applyRealtimeMessageChange, joinSocketRooms, refreshRoomMessages, runRepairSync]
   );
 
   const connectSocket = useCallback(() => {

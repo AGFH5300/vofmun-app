@@ -1252,6 +1252,27 @@ const ChatShell: React.FC = () => {
     [currentUserId, friendRequests],
   );
 
+  useEffect(() => {
+    if (!currentUserId) return;
+    const connectedPeerById = new Map<string, string>();
+    friendRequests.forEach((request) => {
+      if (request.status !== "accepted") return;
+      const senderId = String(request.sender_id);
+      const receiverId = String(request.receiver_id);
+      const peerId = senderId === String(currentUserId) ? receiverId : receiverId === String(currentUserId) ? senderId : null;
+      if (!peerId) return;
+      if (rooms.some((room) => room.type === "direct" && room.members.some((member) => String(member.user_id) === peerId))) {
+        return;
+      }
+      connectedPeerById.set(peerId, resolveUserDisplay(peerId, senderId === String(currentUserId) ? request.receiver : request.sender));
+    });
+
+    if (connectedPeerById.size === 0) return;
+    if (showAcceptedPrompt && connectedPeerById.has(showAcceptedPrompt.userId)) return;
+    const [userId, name] = connectedPeerById.entries().next().value as [string, string];
+    setShowAcceptedPrompt({ userId, name });
+  }, [currentUserId, friendRequests, resolveUserDisplay, rooms, showAcceptedPrompt]);
+
   const sharedResources = useMemo(() => {
     if (!activeRoom) return [];
     return (messages[activeRoom.id] || [])

@@ -165,6 +165,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     return Array.from(byUser.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [currentUserId, friendRequests, resolveUserDisplay]);
 
+  const requestTabBadgeCount = incomingRequestsList.length;
+
   const getRequestDisplayName = (requestUserId: string, requestUser?: FriendRequest['sender'] | null) =>
     resolveUserDisplay(requestUserId, requestUser);
 
@@ -304,7 +306,14 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                     tab === value ? 'bg-white text-[#6E1D1B] shadow-sm' : 'text-[#564240] hover:bg-[#e2e2e2] hover:text-[#6E1D1B]'
                   }`}
                 >
-                  {value === 'direct' ? 'Direct' : value === 'group' ? 'Group' : value === 'friends' ? 'Friends' : 'Requests'}
+                  <span className="inline-flex items-center gap-1.5">
+                    {value === 'direct' ? 'Direct' : value === 'group' ? 'Group' : value === 'friends' ? 'Friends' : 'Requests'}
+                    {value === 'requests' && requestTabBadgeCount > 0 ? (
+                      <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-[#b31312] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                        {requestTabBadgeCount > 99 ? '99+' : requestTabBadgeCount}
+                      </span>
+                    ) : null}
+                  </span>
                 </button>
               ))}
             </div>
