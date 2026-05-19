@@ -265,17 +265,34 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     }
 
     const memberIds = selected.map((u) => u.id);
-    if (memberIds.length < 2) {
-      setError('Please select at least 2 participants for a group chat.');
+    if (memberIds.length === 0) {
+      setError('Please select at least 1 participant for a group chat.');
       return;
     }
 
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[GroupCreateDebug] group_create:submit', {
+        groupName: trimmedName,
+        selectedCount: memberIds.length,
+      });
+    }
+
     setIsCreatingGroup(true);
-    const room = await createGroupRoom({ name: trimmedName, memberIds });
-    setIsCreatingGroup(false);
-    if (!room) return;
-    await selectRoom(room);
-    onClose();
+    try {
+      const room = await createGroupRoom({ name: trimmedName, memberIds });
+      if (!room) {
+        setError('Unable to create group chat right now.');
+        return;
+      }
+      await selectRoom(room);
+      setName('');
+      setSelected([]);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to create group chat right now.');
+    } finally {
+      setIsCreatingGroup(false);
+    }
   };
 
   return (
@@ -561,7 +578,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   <button
                     type="button"
                     onClick={handleCreateGroup}
-                    disabled={isCreatingGroup || !name.trim() || selected.length < 2}
+                    disabled={isCreatingGroup || !name.trim() || selected.length === 0}
                     className="inline-flex items-center gap-2 rounded-lg bg-[#6E1D1B] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#6E1D1B]/35 disabled:text-white/80"
                   >
                     {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}

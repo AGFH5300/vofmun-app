@@ -687,8 +687,8 @@ app.post('/api/rooms/group', chatWriteRateLimit, requireAuth, async (req: Authed
       return res.status(400).json({ error: 'Select at least one participant' });
     }
 
-    if (normalizedMemberIds.length < 2) {
-      return res.status(400).json({ error: 'Select at least two participants for a group chat' });
+    if (normalizedMemberIds.length < 1) {
+      return res.status(400).json({ error: 'Select at least one participant for a group chat' });
     }
 
     const finalMemberUserIds = normalizeUniqueUserIds([creatorUserId, ...normalizedMemberIds]);
@@ -806,6 +806,11 @@ app.post('/api/rooms/group', chatWriteRateLimit, requireAuth, async (req: Authed
       creatorIncluded: members.some((member) => String(member.user_id) === creatorUserId),
       memberCount: members.length,
     });
+
+    broadcast(
+      (ctx) => Boolean(ctx.userId && finalMemberUserIds.includes(String(ctx.userId))),
+      { type: 'room_created', roomId } satisfies ChatSocketPayload
+    );
 
     return res.json({ ...(createdRoom as any), members, lastMessage, room_type: deriveRoomType(createdRoom as any, members) } as RoomWithDetails);
   } catch (error) {
