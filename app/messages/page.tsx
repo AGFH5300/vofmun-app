@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   CalendarDays,
   ChevronDown,
+  ChevronUp,
   Circle,
   Copy,
   FileText,
@@ -1367,27 +1368,45 @@ const ChatShell: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [highlightedMessageId]);
 
-  const jumpToMessage = React.useCallback((messageId: string) => {
+
+  useEffect(() => {
+    if (!showInChatSearch) return;
+    const selectedResult = inChatSearchResults[selectedSearchResultIndex];
+    if (!selectedResult) return;
+
     const container = messagesContainerRef.current;
     if (!container) return;
+    const messageId = String(selectedResult.id);
     const target = container.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
     if (!target) return;
+
     target.scrollIntoView({ behavior: "smooth", block: "center" });
     setHighlightedMessageId(messageId);
-  }, []);
+  }, [inChatSearchResults, selectedSearchResultIndex, showInChatSearch]);
 
-  const handleOpenAllFilesItem = async (attachment: MessageAttachmentInput) => {
+  const handleOpenAllFilesItem = async (attachment: MessageAttachmentInput, download = false) => {
     if (!attachment.bucket || !attachment.path) return;
     setAllFilesDownloadBusyPath(attachment.path);
     try {
       const { data, error } = await supabase.storage
         .from(attachment.bucket)
-        .createSignedUrl(attachment.path, 60, { download: attachment.original_name || true });
+        .createSignedUrl(attachment.path, 60, download ? { download: attachment.original_name || true } : undefined);
       if (error || !data?.signedUrl) {
-        toast.error("Unable to open file.");
+        toast.error(download ? "Unable to download file." : "Unable to open file.");
         return;
       }
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      if (download) {
+        const link = document.createElement("a");
+        link.href = data.signedUrl;
+        link.download = attachment.original_name || "download";
+        link.rel = "noopener noreferrer";
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } else {
+        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      }
     } finally {
       setAllFilesDownloadBusyPath(null);
     }
@@ -1727,19 +1746,14 @@ const ChatShell: React.FC = () => {
                 <div className="border-b border-[#efebea] bg-[#fffaf3] px-6 py-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <input ref={inChatSearchInputRef} value={inChatSearchQuery} onChange={(event) => { setInChatSearchQuery(event.target.value); setSelectedSearchResultIndex(0); }} className="h-9 min-w-[220px] flex-1 rounded-lg border border-[#e4dbd9] bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#6E1D1B]/20" placeholder="Search in this chat..." />
-                    <button type="button" onClick={() => setSelectedSearchResultIndex((prev) => (inChatSearchResults.length ? (prev - 1 + inChatSearchResults.length) % inChatSearchResults.length : 0))} className="rounded-lg border border-[#e4dbd9] px-2 py-1 text-xs font-semibold text-[#6E1D1B]">Prev</button>
-                    <button type="button" onClick={() => setSelectedSearchResultIndex((prev) => (inChatSearchResults.length ? (prev + 1) % inChatSearchResults.length : 0))} className="rounded-lg border border-[#e4dbd9] px-2 py-1 text-xs font-semibold text-[#6E1D1B]">Next</button>
+                    <button type="button" disabled={inChatSearchResults.length === 0} onClick={() => setSelectedSearchResultIndex((prev) => (inChatSearchResults.length ? (prev - 1 + inChatSearchResults.length) % inChatSearchResults.length : 0))} className="rounded-lg border border-[#e4dbd9] p-1.5 text-[#6E1D1B] disabled:cursor-not-allowed disabled:opacity-40" aria-label="Previous match">
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                    <button type="button" disabled={inChatSearchResults.length === 0} onClick={() => setSelectedSearchResultIndex((prev) => (inChatSearchResults.length ? (prev + 1) % inChatSearchResults.length : 0))} className="rounded-lg border border-[#e4dbd9] p-1.5 text-[#6E1D1B] disabled:cursor-not-allowed disabled:opacity-40" aria-label="Next match">
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                    <span className="text-xs text-almost-black-green/70">{inChatSearchQuery.trim() ? (inChatSearchResults.length === 0 ? "No results" : `${inChatSearchResults.length} result${inChatSearchResults.length === 1 ? "" : "s"}`) : ""}</span>
                     <button type="button" onClick={() => { setShowInChatSearch(false); setInChatSearchQuery(""); }} className="rounded-lg border border-[#e4dbd9] px-2 py-1 text-xs font-semibold text-[#6E1D1B]">Close</button>
-                  </div>
-                  <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-[#efe3e1] bg-white">
-                    {!inChatSearchQuery.trim() ? <p className="px-3 py-2 text-xs text-almost-black-green/60">Start typing to search messages in this chat.</p> : null}
-                    {inChatSearchQuery.trim() && inChatSearchResults.length === 0 ? <p className="px-3 py-2 text-xs text-almost-black-green/60">No messages found.</p> : null}
-                    {inChatSearchResults.map((result, index) => (
-                      <button key={result.id} type="button" onClick={() => { setSelectedSearchResultIndex(index); jumpToMessage(String(result.id)); }} className={`block w-full border-b border-[#f4efee] px-3 py-2 text-left text-xs hover:bg-[#fffaf3] ${index === selectedSearchResultIndex ? "bg-[#fff4e8]" : ""}`}>
-                        <p className="font-semibold text-[#6E1D1B]">{result.user?.full_name || "Unknown sender"} • {result.created_at ? new Date(result.created_at).toLocaleString() : "Unknown time"}</p>
-                        <p className="truncate text-almost-black-green/80">{result.content || "(No text content)"}</p>
-                      </button>
-                    ))}
                   </div>
                 </div>
               )}
@@ -1833,6 +1847,8 @@ const ChatShell: React.FC = () => {
                               setIsSelectMode(true);
                               setSelectedMessageIds(new Set([String(targetMessage.id)]));
                             }}
+                            searchHighlightQuery={showInChatSearch ? inChatSearchQuery : ""}
+                            isSearchActiveSelection={showInChatSearch && inChatSearchResults[selectedSearchResultIndex]?.id === message.id}
                             onEnterDeleteSelectionMode={(targetMessage) => {
                               setIsSelectMode(false);
                               setIsDeleteSelectionMode(true);
@@ -2362,9 +2378,14 @@ const ChatShell: React.FC = () => {
                       <p className="truncate text-sm font-semibold text-[#6E1D1B]">{attachment.original_name}</p>
                       <p className="text-xs text-almost-black-green/65">{formatSize(attachment.size_bytes)} • {attachment.mime_type || "File"} • {message.user?.full_name || "Unknown sender"} • {message.created_at ? new Date(message.created_at).toLocaleString() : "Unknown time"}</p>
                     </div>
-                    <button type="button" disabled={allFilesDownloadBusyPath === attachment.path} onClick={() => { void handleOpenAllFilesItem(attachment); }} className="shrink-0 rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
-                      {allFilesDownloadBusyPath === attachment.path ? "Opening..." : "Open"}
-                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button type="button" disabled={allFilesDownloadBusyPath === attachment.path} onClick={() => { void handleOpenAllFilesItem(attachment, false); }} className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
+                        {allFilesDownloadBusyPath === attachment.path ? "Opening..." : "Open"}
+                      </button>
+                      <button type="button" disabled={allFilesDownloadBusyPath === attachment.path} onClick={() => { void handleOpenAllFilesItem(attachment, true); }} className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
+                        Download
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
