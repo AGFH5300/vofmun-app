@@ -37,7 +37,6 @@ import {
 } from "lucide-react";
 import { MessageAttachmentInput, MessageWithUser, RoomWithDetails } from "@/lib/chat/types";
 import supabase from "@/lib/supabase";
-import { getBrowserAccessToken } from "@/lib/auth/browserAuthFetch";
 import { toast } from "sonner";
 
 const formatDateLabel = (dateString: string) => {
@@ -813,58 +812,28 @@ const ChatShell: React.FC = () => {
           const pendingId = queuedItems[index].id;
           const sanitized = sanitizeFileName(file.name);
           const attemptedPath = `${activeRoom.id}/${crypto.randomUUID()}/${sanitized}`;
-          const accessToken = await getBrowserAccessToken("messages:attachment_upload");
           let error: Error | null = null;
           let uploadedPath: string | null = null;
 
           try {
-            const uploadUrl = "/api/chat/attachments/upload";
-            const uploadResponse = await Promise.race([
-              fetch(uploadUrl, {
-                method: "POST",
-                credentials: "include",
-                headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-                body: (() => {
-                  const formData = new FormData();
-                  formData.append("roomId", activeRoom.id);
-                  formData.append("file", file);
-                  return formData;
-                })(),
-              }),
+            const storageUpload = supabase.storage.from("chat-attachments").upload(attemptedPath, file, {
+              cacheControl: "3600",
+              upsert: false,
+              contentType: file.type || "application/octet-stream",
+            });
+
+            const uploadResult = await Promise.race([
+              storageUpload,
               new Promise<never>((_, reject) =>
                 window.setTimeout(() => reject(new Error("Upload timed out. Please try again.")), ATTACHMENT_UPLOAD_TIMEOUT_MS),
               ),
             ]);
 
-            if (!uploadResponse.ok) {
-              const debugBody = await uploadResponse.text().catch(() => "<unreadable>");
-              console.error("Attachment upload response not ok", {
-                uploadUrl,
-                resolvedUrl: uploadResponse.url,
-                status: uploadResponse.status,
-                statusText: uploadResponse.statusText,
-                body: debugBody,
-                hasAccessToken: Boolean(accessToken),
-                roomId: activeRoom.id,
-                fileName: file.name,
-                fileSize: file.size,
-                fileType: file.type,
-                locationOrigin: window.location.origin,
-                locationPathname: window.location.pathname,
-              });
-
-              let parsedError: string | null = null;
-              try {
-                const parsed = JSON.parse(debugBody);
-                parsedError = typeof parsed?.error === "string" ? parsed.error : null;
-              } catch {
-                parsedError = null;
-              }
-              throw new Error(parsedError || `Upload failed (${uploadResponse.status})`);
+            if (uploadResult.error) {
+              throw new Error(uploadResult.error.message || "Upload failed");
             }
 
-            const payload = await uploadResponse.json();
-            uploadedPath = typeof payload?.path === "string" ? payload.path : null;
+            uploadedPath = uploadResult.data?.path || attemptedPath;
           } catch (uploadError) {
             error = uploadError instanceof Error ? uploadError : new Error("Upload failed");
           }
