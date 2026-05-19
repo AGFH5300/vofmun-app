@@ -107,6 +107,14 @@ type PendingAttachmentItem = {
   error?: string;
 };
 
+type PreparedFileLink = {
+  openUrl?: string;
+  downloadUrl?: string;
+  loading: boolean;
+  error?: string;
+  expiresAt?: number;
+};
+
 type ActiveUnreadDividerSession = {
   roomId: string;
   entryUnreadCount: number;
@@ -219,7 +227,7 @@ const ChatShell: React.FC = () => {
   const [inChatSearchQuery, setInChatSearchQuery] = useState("");
   const [selectedSearchResultIndex, setSelectedSearchResultIndex] = useState(0);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
-  const [allFilesActionLoading, setAllFilesActionLoading] = useState<Record<string, "opening" | "downloading">>({});
+  const [preparedFileLinks, setPreparedFileLinks] = useState<Record<string, PreparedFileLink>>({});
   const previousRequestsRef = useRef<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -1384,61 +1392,74 @@ const ChatShell: React.FC = () => {
     setHighlightedMessageId(messageId);
   }, [inChatSearchResults, selectedSearchResultIndex, showInChatSearch]);
 
-  const handleOpenAllFilesItem = async (attachment: MessageAttachmentInput, download = false) => {
+  const getAttachmentLinkKey = (attachment: MessageAttachmentInput) => `${attachment.bucket}:${attachment.path}`;
+
+  const prepareFileLinks = async (attachment: MessageAttachmentInput) => {
     if (!attachment.bucket || !attachment.path) return;
-    const action = download ? "downloading" : "opening";
-    setAllFilesActionLoading((prev) => ({ ...prev, [attachment.path]: action }));
+    const key = getAttachmentLinkKey(attachment);
+    setPreparedFileLinks((prev) => ({ ...prev, [key]: { loading: true } }));
     try {
-      const { data, error } = await supabase.storage
-        .from(attachment.bucket)
-        .createSignedUrl(attachment.path, 60, download ? { download: attachment.original_name || true } : undefined);
-      if (error || !data?.signedUrl) {
-        toast.error(download ? "Unable to download file." : "Unable to open file.");
+      const expirySeconds = 300;
+      const [{ data: openData, error: openError }, { data: downloadData, error: downloadError }] = await Promise.all([
+        supabase.storage.from(attachment.bucket).createSignedUrl(attachment.path, expirySeconds),
+        supabase.storage
+          .from(attachment.bucket)
+          .createSignedUrl(attachment.path, expirySeconds, { download: attachment.original_name || true }),
+      ]);
+
+      if (openError || downloadError || !openData?.signedUrl || !downloadData?.signedUrl) {
+        setPreparedFileLinks((prev) => ({ ...prev, [key]: { loading: false, error: "Unable to prepare file link." } }));
         return;
       }
-      if (download) {
-        const link = document.createElement("a");
-        link.href = data.signedUrl;
-        link.download = attachment.original_name || "download";
-        link.rel = "noopener noreferrer";
-        link.target = "_blank";
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-      } else {
-        const openedWindow = window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-        if (!openedWindow) {
-          toast.error("Unable to open file. Please try again.");
-        }
-      }
+
+      setPreparedFileLinks((prev) => ({
+        ...prev,
+        [key]: {
+          loading: false,
+          openUrl: openData.signedUrl,
+          downloadUrl: downloadData.signedUrl,
+          expiresAt: Date.now() + expirySeconds * 1000,
+        },
+      }));
     } catch {
-      toast.error(download ? "Unable to download file." : "Unable to open file.");
-    } finally {
-      setAllFilesActionLoading((prev) => {
-        const next = { ...prev };
-        delete next[attachment.path];
-        return next;
-      });
+      setPreparedFileLinks((prev) => ({ ...prev, [key]: { loading: false, error: "Unable to prepare file link." } }));
     }
   };
 
-
-  useEffect(() => {
-    if (showAllFilesModal) return;
-    setAllFilesActionLoading({});
-  }, [showAllFilesModal]);
   useEffect(() => {
     if (!showAllFilesModal) return;
-    const clearAllFilesActionState = () => setAllFilesActionLoading({});
+    filteredAttachmentItems.forEach(({ attachment }) => {
+      const key = getAttachmentLinkKey(attachment);
+      if (!preparedFileLinks[key]) {
+        void prepareFileLinks(attachment);
+      }
+    });
+  }, [filteredAttachmentItems, preparedFileLinks, showAllFilesModal]);
 
-    window.addEventListener("focus", clearAllFilesActionState);
-    window.addEventListener("pageshow", clearAllFilesActionState);
+  useEffect(() => {
+    if (!showAllFilesModal) {
+      setPreparedFileLinks({});
+      return;
+    }
+
+    const refreshExpiredLinks = () => {
+      const refreshBufferMs = 30000;
+      filteredAttachmentItems.forEach(({ attachment }) => {
+        const key = getAttachmentLinkKey(attachment);
+        const linkState = preparedFileLinks[key];
+        if (!linkState || linkState.loading || !linkState.expiresAt || linkState.expiresAt - Date.now() <= refreshBufferMs) {
+          void prepareFileLinks(attachment);
+        }
+      });
+    };
+
+    window.addEventListener("focus", refreshExpiredLinks);
+    refreshExpiredLinks();
 
     return () => {
-      window.removeEventListener("focus", clearAllFilesActionState);
-      window.removeEventListener("pageshow", clearAllFilesActionState);
+      window.removeEventListener("focus", refreshExpiredLinks);
     };
-  }, [showAllFilesModal]);
+  }, [filteredAttachmentItems, preparedFileLinks, showAllFilesModal]);
 
   useEffect(() => {
     const minimumLoaderDurationMs = 750;
@@ -2407,22 +2428,39 @@ const ChatShell: React.FC = () => {
                       <p className="text-xs text-almost-black-green/65">{formatSize(attachment.size_bytes)} • {attachment.mime_type || "File"} • {message.user?.full_name || "Unknown sender"} • {message.created_at ? new Date(message.created_at).toLocaleString() : "Unknown time"}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <button type="button" disabled={allFilesActionLoading[attachment.path] === "opening"} onClick={() => { void handleOpenAllFilesItem(attachment, false); }} className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
-                        {allFilesActionLoading[attachment.path] === "opening" ? (
-                          <span className="inline-flex items-center gap-1.5">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            Opening...
-                          </span>
-                        ) : "Open"}
-                      </button>
-                      <button type="button" disabled={allFilesActionLoading[attachment.path] === "downloading"} onClick={() => { void handleOpenAllFilesItem(attachment, true); }} className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
-                        {allFilesActionLoading[attachment.path] === "downloading" ? (
-                          <span className="inline-flex items-center gap-1.5">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            Downloading...
-                          </span>
-                        ) : "Download"}
-                      </button>
+                      {(() => {
+                        const key = getAttachmentLinkKey(attachment);
+                        const linkState = preparedFileLinks[key];
+                        if (!linkState || linkState.loading) {
+                          return (
+                            <>
+                              <button type="button" disabled className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
+                                <span className="inline-flex items-center gap-1.5">
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  Loading...
+                                </span>
+                              </button>
+                              <button type="button" disabled className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">Loading...</button>
+                            </>
+                          );
+                        }
+
+                        if (linkState.error || !linkState.openUrl || !linkState.downloadUrl) {
+                          return (
+                            <>
+                              <span className="text-[11px] text-[#9c4a49]">{linkState.error || "Unable to prepare file link."}</span>
+                              <button type="button" onClick={() => { void prepareFileLinks(attachment); }} className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B]">Retry</button>
+                            </>
+                          );
+                        }
+
+                        return (
+                          <>
+                            <a href={linkState.openUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B]">Open</a>
+                            <a href={linkState.downloadUrl} download={attachment.original_name || true} className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B]">Download</a>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}
