@@ -212,9 +212,17 @@ const ChatShell: React.FC = () => {
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showAllFilesModal, setShowAllFilesModal] = useState(false);
+  const [filesSearchQuery, setFilesSearchQuery] = useState("");
+  const [showInChatSearch, setShowInChatSearch] = useState(false);
+  const [inChatSearchQuery, setInChatSearchQuery] = useState("");
+  const [selectedSearchResultIndex, setSelectedSearchResultIndex] = useState(0);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [allFilesDownloadBusyPath, setAllFilesDownloadBusyPath] = useState<string | null>(null);
   const previousRequestsRef = useRef<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const inChatSearchInputRef = useRef<HTMLInputElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const attachmentMenuRef = useRef<HTMLDivElement | null>(null);
   const attachmentButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -1294,6 +1302,96 @@ const ChatShell: React.FC = () => {
       .reverse()
       .slice(0, 3);
   }, [activeRoom, messages]);
+  const activeRoomAttachmentItems = useMemo(() => {
+    if (!activeRoom) return [] as Array<{ message: MessageWithUser; attachment: MessageAttachmentInput }>;
+    return (messages[activeRoom.id] || [])
+      .flatMap((entry) =>
+        (entry.attachments || [])
+          .filter((attachment) => attachment?.id && attachment.original_name)
+          .map((attachment) => ({ message: entry, attachment })),
+      )
+      .reverse();
+  }, [activeRoom, messages]);
+
+  const filteredAttachmentItems = useMemo(() => {
+    const query = filesSearchQuery.trim().toLowerCase();
+    if (!query) return activeRoomAttachmentItems;
+    return activeRoomAttachmentItems.filter(({ attachment, message }) => {
+      const sender = message.user?.full_name || "";
+      return [attachment.original_name, attachment.mime_type, sender].some((value) =>
+        String(value || "").toLowerCase().includes(query),
+      );
+    });
+  }, [activeRoomAttachmentItems, filesSearchQuery]);
+
+  const inChatSearchResults = useMemo(() => {
+    const query = inChatSearchQuery.trim().toLowerCase();
+    if (!query || !activeRoom) return [] as MessageWithUser[];
+    return activeMessages.filter((message) => String(message.content || "").toLowerCase().includes(query));
+  }, [activeMessages, activeRoom, inChatSearchQuery]);
+
+  useEffect(() => {
+    setShowAllFilesModal(false);
+    setFilesSearchQuery("");
+    setShowInChatSearch(false);
+    setInChatSearchQuery("");
+    setSelectedSearchResultIndex(0);
+    setHighlightedMessageId(null);
+  }, [activeRoom?.id]);
+
+  useEffect(() => {
+    if (!showInChatSearch) return;
+    window.requestAnimationFrame(() => {
+      inChatSearchInputRef.current?.focus();
+      inChatSearchInputRef.current?.select();
+    });
+  }, [showInChatSearch]);
+
+  useEffect(() => {
+    if (!showInChatSearch) return;
+    if (selectedSearchResultIndex >= inChatSearchResults.length) setSelectedSearchResultIndex(0);
+  }, [inChatSearchResults.length, selectedSearchResultIndex, showInChatSearch]);
+
+  useEffect(() => {
+    if (!showInChatSearch) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowInChatSearch(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showInChatSearch]);
+
+  useEffect(() => {
+    if (!highlightedMessageId) return;
+    const timer = window.setTimeout(() => setHighlightedMessageId(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [highlightedMessageId]);
+
+  const jumpToMessage = React.useCallback((messageId: string) => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const target = container.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedMessageId(messageId);
+  }, []);
+
+  const handleOpenAllFilesItem = async (attachment: MessageAttachmentInput) => {
+    if (!attachment.bucket || !attachment.path) return;
+    setAllFilesDownloadBusyPath(attachment.path);
+    try {
+      const { data, error } = await supabase.storage
+        .from(attachment.bucket)
+        .createSignedUrl(attachment.path, 60, { download: attachment.original_name || true });
+      if (error || !data?.signedUrl) {
+        toast.error("Unable to open file.");
+        return;
+      }
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setAllFilesDownloadBusyPath(null);
+    }
+  };
 
   useEffect(() => {
     const minimumLoaderDurationMs = 750;
@@ -1531,7 +1629,10 @@ const ChatShell: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setShowDetails(true)}
+                      onClick={() => {
+                        setShowInChatSearch(true);
+                        setSelectedSearchResultIndex(0);
+                      }}
                       className="rounded-lg p-1.5 text-almost-black-green/60 hover:bg-[#f4f3f3] hover:text-deep-red"
                     >
                       <Search className="h-4 w-4" />
@@ -1622,6 +1723,27 @@ const ChatShell: React.FC = () => {
                   </div>
                 </div>
               )}
+              {activeRoom && showInChatSearch && (
+                <div className="border-b border-[#efebea] bg-[#fffaf3] px-6 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input ref={inChatSearchInputRef} value={inChatSearchQuery} onChange={(event) => { setInChatSearchQuery(event.target.value); setSelectedSearchResultIndex(0); }} className="h-9 min-w-[220px] flex-1 rounded-lg border border-[#e4dbd9] bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#6E1D1B]/20" placeholder="Search in this chat..." />
+                    <button type="button" onClick={() => setSelectedSearchResultIndex((prev) => (inChatSearchResults.length ? (prev - 1 + inChatSearchResults.length) % inChatSearchResults.length : 0))} className="rounded-lg border border-[#e4dbd9] px-2 py-1 text-xs font-semibold text-[#6E1D1B]">Prev</button>
+                    <button type="button" onClick={() => setSelectedSearchResultIndex((prev) => (inChatSearchResults.length ? (prev + 1) % inChatSearchResults.length : 0))} className="rounded-lg border border-[#e4dbd9] px-2 py-1 text-xs font-semibold text-[#6E1D1B]">Next</button>
+                    <button type="button" onClick={() => { setShowInChatSearch(false); setInChatSearchQuery(""); }} className="rounded-lg border border-[#e4dbd9] px-2 py-1 text-xs font-semibold text-[#6E1D1B]">Close</button>
+                  </div>
+                  <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-[#efe3e1] bg-white">
+                    {!inChatSearchQuery.trim() ? <p className="px-3 py-2 text-xs text-almost-black-green/60">Start typing to search messages in this chat.</p> : null}
+                    {inChatSearchQuery.trim() && inChatSearchResults.length === 0 ? <p className="px-3 py-2 text-xs text-almost-black-green/60">No messages found.</p> : null}
+                    {inChatSearchResults.map((result, index) => (
+                      <button key={result.id} type="button" onClick={() => { setSelectedSearchResultIndex(index); jumpToMessage(String(result.id)); }} className={`block w-full border-b border-[#f4efee] px-3 py-2 text-left text-xs hover:bg-[#fffaf3] ${index === selectedSearchResultIndex ? "bg-[#fff4e8]" : ""}`}>
+                        <p className="font-semibold text-[#6E1D1B]">{result.user?.full_name || "Unknown sender"} • {result.created_at ? new Date(result.created_at).toLocaleString() : "Unknown time"}</p>
+                        <p className="truncate text-almost-black-green/80">{result.content || "(No text content)"}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div
                 ref={messagesContainerRef}
                 className="flex-1 overflow-y-auto px-6 py-5"
@@ -1684,7 +1806,7 @@ const ChatShell: React.FC = () => {
                       const bubbleSpacing = isSameSenderAsNext && isSameDayAsNext ? "mb-1" : "mb-2";
 
                       return (
-                        <div key={item.id} data-message-id={item.id} className={bubbleSpacing}>
+                        <div key={item.id} data-message-id={item.id} className={`${bubbleSpacing} ${highlightedMessageId != null && String(highlightedMessageId) === String(item.id) ? "rounded-xl bg-[#fff4d6] px-1.5 py-1 transition-colors duration-300" : ""}`}>
                           <MessageBubble
                             message={message}
                             isOwn={isOwn}
@@ -1795,7 +1917,7 @@ const ChatShell: React.FC = () => {
                       {pendingAttachments.length > 0 ? (
                         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
                           {pendingAttachments.map((attachment) => (
-                            <div key={attachment.id} className="min-w-[220px] max-w-[220px] shrink-0 rounded-xl border border-black/10 bg-white p-2.5">
+                            <div key={`${attachment.bucket}:${attachment.path}`} className="min-w-[220px] max-w-[220px] shrink-0 rounded-xl border border-black/10 bg-white p-2.5">
                               <div className="flex items-start gap-2">
                                 <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-[#efe3dc] text-deep-red">
                                 <FileText className="h-4 w-4" />
@@ -2159,7 +2281,7 @@ const ChatShell: React.FC = () => {
                     <p className="text-[9px] text-almost-black-green/55">{formatSize(file.size_bytes)} • {file.mime_type || "File"}</p>
                   </div>
                 )) : <p className="text-sm text-almost-black-green/55">No files shared yet.</p>}
-                <button type="button" className="mt-1 w-full rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#7b201f] ring-1 ring-[#7b201f]/20 transition hover:bg-[#7b201f]/5">View All Files</button>
+                <button type="button" onClick={() => setShowAllFilesModal(true)} disabled={activeRoomAttachmentItems.length === 0} className="mt-1 w-full rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#7b201f] ring-1 ring-[#7b201f]/20 transition hover:bg-[#7b201f]/5 disabled:cursor-not-allowed disabled:opacity-50">View All Files</button>
               </div>
             </div>
             <div className="rounded-xl bg-[#6E1D1B]/5 p-3.5">
@@ -2223,6 +2345,32 @@ const ChatShell: React.FC = () => {
           onClose={() => setShowDetails(false)}
           currentUserId={currentUserId}
         />
+        {showAllFilesModal && activeRoom && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 px-4">
+            <div className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-xl">
+              <div className="flex items-center justify-between">
+                <p className="text-lg font-semibold text-deep-red">All shared files</p>
+                <button type="button" onClick={() => setShowAllFilesModal(false)} className="rounded-lg border border-soft-ivory px-2 py-1 text-sm text-deep-red">Close</button>
+              </div>
+              <input value={filesSearchQuery} onChange={(event) => setFilesSearchQuery(event.target.value)} placeholder="Filter by filename, type, or sender" className="mt-3 h-10 w-full rounded-xl border border-[#e6e2e0] px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#6E1D1B]/20" />
+              <div className="mt-3 max-h-[55vh] overflow-y-auto rounded-xl border border-[#f0eceb]">
+                {filteredAttachmentItems.length === 0 ? (
+                  <p className="px-4 py-4 text-sm text-almost-black-green/60">{activeRoomAttachmentItems.length === 0 ? "No files shared yet." : "No files match your filter."}</p>
+                ) : filteredAttachmentItems.map(({ attachment, message }) => (
+                  <div key={`${attachment.bucket}:${attachment.path}`} className="flex items-center justify-between gap-3 border-b border-[#f3efee] px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-[#6E1D1B]">{attachment.original_name}</p>
+                      <p className="text-xs text-almost-black-green/65">{formatSize(attachment.size_bytes)} • {attachment.mime_type || "File"} • {message.user?.full_name || "Unknown sender"} • {message.created_at ? new Date(message.created_at).toLocaleString() : "Unknown time"}</p>
+                    </div>
+                    <button type="button" disabled={allFilesDownloadBusyPath === attachment.path} onClick={() => { void handleOpenAllFilesItem(attachment); }} className="shrink-0 rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
+                      {allFilesDownloadBusyPath === attachment.path ? "Opening..." : "Open"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         </div>
       </div>
     </div>
