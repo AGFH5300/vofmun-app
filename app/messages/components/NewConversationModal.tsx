@@ -283,7 +283,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
       <div className="fixed inset-0 bg-[rgba(26,28,28,0.4)] backdrop-blur-[4px]" aria-hidden="true" />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
         <Dialog.Panel className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-[0_16px_48px_rgba(26,28,28,0.12)]">
-          <div className="bg-[#f9f9f9] px-5 pt-5 pb-0 sm:px-8 sm:pt-6 sm:pb-0">
+          <div className="bg-[#f9f9f9] pl-5 pt-5 pb-0 sm:px-8 sm:pt-6 sm:pb-0">
           <div className="flex items-center justify-between gap-4">
               <Dialog.Title className="mb-0 pb-0 text-3xl font-semibold leading-tight text-[#6E1D1B] sm:text-[34px]" style={{ fontFamily: 'var(--font-newsreader), Newsreader, Georgia, serif', fontStyle: 'normal' }}>Initiate Communication</Dialog.Title>
             <button
@@ -295,7 +295,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             </button>
           </div>
           </div>
-          <div className="flex justify-center bg-[#f9f9f9] px-5 pb-4 pt-3 sm:px-8">
+          <div className="flex justify-center bg-[#f9f9f9] px-5 pb-4 pt-0 sm:px-8">
             <div className="inline-flex space-x-1 rounded-lg border border-[#dcc0bd]/15 bg-[#f4f3f3] p-1">
               {(['direct', 'group', 'friends', 'requests'] as const).map((value) => (
                 <button
@@ -322,8 +322,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
           <div className="flex-1 overflow-y-auto bg-white px-5 py-5 sm:px-8 sm:py-6">
             {tab === 'direct' ? (
               <div className="space-y-6">
-                    <div className="group relative mb-8">
-                      <Search className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-4 h-5 w-5 text-[#564240]/70 group-focus-within:text-[#6E1D1B]" />
+                    <div className="group relative mb-4">
+                      <Search className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-2 h-5 w-5 text-[#564240]/70 group-focus-within:text-[#6E1D1B]"/>
                       <input
                         value={query}
                         onChange={(e) => {
@@ -336,14 +336,14 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                         }}
                         placeholder="Search delegates by name, country, or email..."
                         className={sharedSearchInputClassName}
-                        
+                        style={{ paddingLeft: '2.25rem' }}
                       />
                     </div>
 
-                    <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Suggested Delegates</h3>
-                    {isSearching && canSearch && <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">Searching...</p>}
-                    {!isSearching && !canSearch && <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">Start typing a name or email to search delegates.</p>}
-                    {!isSearching && hasSearched && canSearch && !results.length && !error && <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">No delegates found.</p>}
+                    
+                    {isSearching && canSearch && <p className="rounded-lg bg-[#f9f9f9] p-4 mb-0 text-sm text-almost-black-green/60">Searching...</p>}
+                    {!isSearching && !canSearch && <p className="rounded-lg bg-[#f9f9f9] p-4 mb-0 text-sm text-almost-black-green/60">Start typing a name or email to search delegates.</p>}
+                    {!isSearching && hasSearched && canSearch && !results.length && !error && <p className="rounded-lg bg-[#f9f9f9] p-4 mb-0 text-sm text-almost-black-green/60">No delegates found.</p>}
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {results.map((user) => {
@@ -397,11 +397,11 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
               </div>
             ) : tab === 'friends' ? (
               <div className="space-y-6">
-                <div className="group relative mb-8">
-                  <Search className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-4 h-5 w-5 text-[#564240]/70 group-focus-within:text-[#6E1D1B]" />
-                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search friends..." className={sharedSearchInputClassName} />
+                <div className="group relative mb-4">
+                  <Search className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-2 h-5 w-5 text-[#564240]/70 group-focus-within:text-[#6E1D1B]"/>
+                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search friends..." className={sharedSearchInputClassName} style={{ paddingLeft: '2.25rem' }}/>
                 </div>
-                <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">My Friends</h3>
+                <h4 className="pl-2  text-[#000000]">My Friends</h4>
                 {connectedContacts.length === 0 ? (
                   <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">You do not have any accepted friends yet.</p>
                 ) : (
@@ -438,8 +438,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             ) : tab === 'group' ? (
               <div className="space-y-6">
                   <div className="space-y-6">
-                    <div className="group relative mb-8">
-                      <Search className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-4 h-5 w-5 text-[#564240]/70 group-focus-within:text-[#6E1D1B]" />
+                    <div className="group relative mb-4">
+                      <Search className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-2 h-5 w-5 text-[#564240]/70 group-focus-within:text-[#6E1D1B]"/>
                       <input
                         value={query}
                         onChange={(e) => {
@@ -452,6 +452,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                         }}
                         placeholder="Search by name, delegation, or role"
                         className={sharedSearchInputClassName}
+                        style={{ paddingLeft: '2.25rem' }}
                       />
                     </div>
                     <div className="space-y-2">
@@ -466,7 +467,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                       </div>
                     </div>
                     <div>
-                      <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Available Delegates</h3>
+                      <h4 className="pl-2  text-[#000000]">Available Delegates</h4>
 
                       {(isSearching && canSearch) || (!isSearching && hasSearched && canSearch) ? (
                         <div className="mt-2 grid max-h-48 grid-cols-1 gap-4 overflow-y-auto md:grid-cols-2">
@@ -571,7 +572,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             ) : (
               <div className="space-y-5">
                 <section className="space-y-4">
-                  <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Incoming Requests</h3>
+                  <h4 className="pl-2  text-[#000000]">Incoming Requests</h4>
 
                   {incomingRequestsList.length === 0 ? (
                     <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">No incoming requests right now.</p>
@@ -625,7 +626,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                 </section>
 
                 <section className="space-y-4">
-                  <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Sent Requests</h3>
+                  <h4 className="pl-2  text-[#000000]">Sent Requests</h4>
 
                   {sentRequestsList.length === 0 ? (
                     <p className="rounded-lg bg-[#f9f9f9] p-4 text-sm text-almost-black-green/60">No pending sent requests.</p>
