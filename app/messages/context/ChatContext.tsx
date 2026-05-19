@@ -2220,7 +2220,15 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (previous.status === 'pending' && request.status === 'accepted' && request.senderId === userId) {
         const receiverName = resolveUserDisplay(request.receiverId, request.receiver);
         notifyTransition(`${requestId}:pending->accepted:sender`, () => {
-          toast.success(`${receiverName} accepted your friend request.`);
+          toast.success(`${receiverName} accepted your friend request.`, {
+            duration: Infinity,
+            action: {
+              label: 'Dismiss',
+              onClick: () => {
+                /* no-op: sonner dismisses on action click */
+              },
+            },
+          });
         });
         return;
       }
@@ -2228,7 +2236,15 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (previous.status === 'pending' && request.status === 'rejected' && request.senderId === userId) {
         const receiverName = resolveUserDisplay(request.receiverId, request.receiver);
         notifyTransition(`${requestId}:pending->rejected:sender`, () => {
-          toast.info(`${receiverName} declined your friend request.`);
+          toast.info(`${receiverName} declined your friend request.`, {
+            duration: Infinity,
+            action: {
+              label: 'Dismiss',
+              onClick: () => {
+                /* no-op: sonner dismisses on action click */
+              },
+            },
+          });
         });
       }
     });
