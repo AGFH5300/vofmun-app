@@ -2160,7 +2160,7 @@ const ChatShell: React.FC = () => {
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 px-4">
             <div ref={acceptedPromptRef} tabIndex={-1} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
               <p className="text-lg font-semibold text-deep-red">You’re now connected.</p>
-              <p className="mt-1 text-sm text-almost-black-green/70">Start a chat with your new friend?</p>
+              <p className="mt-1 text-sm text-almost-black-green/70">{`Start a chat with "${showAcceptedPrompt.name}"?`}</p>
               <div className="mt-4 flex justify-end gap-2">
                 <button
                   type="button"
