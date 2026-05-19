@@ -165,6 +165,8 @@ const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
   return suggestions;
 })();
 
+const ATTACHMENT_UPLOAD_TIMEOUT_MS = 30000;
+
 const ChatShell: React.FC = () => {
   const {
     rooms,
@@ -810,11 +812,24 @@ const ChatShell: React.FC = () => {
           const pendingId = queuedItems[index].id;
           const sanitized = sanitizeFileName(file.name);
           const path = `${activeRoom.id}/${crypto.randomUUID()}/${sanitized}`;
-          const { error } = await supabase.storage.from("chat-attachments").upload(path, file, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: file.type || undefined,
-          });
+          const uploadResult = await Promise.race([
+            supabase.storage.from("chat-attachments").upload(path, file, {
+              cacheControl: "3600",
+              upsert: false,
+              contentType: file.type || undefined,
+            }),
+            new Promise<{ data: null; error: Error }>((resolve) =>
+              setTimeout(
+                () =>
+                  resolve({
+                    data: null,
+                    error: new Error("Upload timed out. Please try again."),
+                  }),
+                ATTACHMENT_UPLOAD_TIMEOUT_MS,
+              ),
+            ),
+          ]);
+          const { error } = uploadResult;
 
           if (error) {
             console.error("Attachment upload failed", {
