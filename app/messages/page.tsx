@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { MessageAttachmentInput, MessageWithUser, RoomWithDetails } from "@/lib/chat/types";
 import supabase from "@/lib/supabase";
+import { getBrowserAccessToken } from "@/lib/auth/browserAuthFetch";
 import { toast } from "sonner";
 
 const formatDateLabel = (dateString: string) => {
@@ -165,7 +166,7 @@ const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
   return suggestions;
 })();
 
-const ATTACHMENT_UPLOAD_TIMEOUT_MS = 30000;
+const ATTACHMENT_UPLOAD_TIMEOUT_MS = Number.parseInt(process.env.NEXT_PUBLIC_CHAT_ATTACHMENT_UPLOAD_TIMEOUT_MS || "45000", 10);
 
 const ChatShell: React.FC = () => {
   const {
@@ -811,48 +812,62 @@ const ChatShell: React.FC = () => {
         files.map(async (file, index) => {
           const pendingId = queuedItems[index].id;
           const sanitized = sanitizeFileName(file.name);
-          const path = `${activeRoom.id}/${crypto.randomUUID()}/${sanitized}`;
-          const uploadResult = await Promise.race([
-            supabase.storage.from("chat-attachments").upload(path, file, {
-              cacheControl: "3600",
-              upsert: false,
-              contentType: file.type || undefined,
-            }),
-            new Promise<{ data: null; error: Error }>((resolve) =>
-              setTimeout(
-                () =>
-                  resolve({
-                    data: null,
-                    error: new Error("Upload timed out. Please try again."),
-                  }),
-                ATTACHMENT_UPLOAD_TIMEOUT_MS,
-              ),
-            ),
-          ]);
-          const { error } = uploadResult;
+          const attemptedPath = `${activeRoom.id}/${crypto.randomUUID()}/${sanitized}`;
+          const accessToken = await getBrowserAccessToken("messages:attachment_upload");
+          let error: Error | null = null;
+          let uploadedPath: string | null = null;
 
-          if (error) {
+          try {
+            const uploadResponse = await Promise.race([
+              fetch("/api/chat/attachments/upload", {
+                method: "POST",
+                credentials: "include",
+                headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+                body: (() => {
+                  const formData = new FormData();
+                  formData.append("roomId", activeRoom.id);
+                  formData.append("file", file);
+                  return formData;
+                })(),
+              }),
+              new Promise<never>((_, reject) =>
+                window.setTimeout(() => reject(new Error("Upload timed out. Please try again.")), ATTACHMENT_UPLOAD_TIMEOUT_MS),
+              ),
+            ]);
+
+            if (!uploadResponse.ok) {
+              const payload = await uploadResponse.json().catch(() => null);
+              throw new Error(payload?.error || "Upload failed");
+            }
+
+            const payload = await uploadResponse.json();
+            uploadedPath = typeof payload?.path === "string" ? payload.path : null;
+          } catch (uploadError) {
+            error = uploadError instanceof Error ? uploadError : new Error("Upload failed");
+          }
+
+          if (error || !uploadedPath) {
             console.error("Attachment upload failed", {
               fileName: file.name,
-              path,
+              attemptedPath,
               error,
-              message: error.message,
-              name: error.name,
+              message: error?.message || "Upload failed",
+              name: error?.name || "Error",
             });
             setPendingAttachments((prev) =>
               prev.map((item) =>
-                item.id === pendingId ? { ...item, status: "error", error: error.message || "Upload failed" } : item,
+                item.id === pendingId ? { ...item, status: "error", error: error?.message || "Upload failed" } : item,
               ),
             );
             return;
           }
 
-          uploadedPaths.push({ bucket: "chat-attachments", path });
+          uploadedPaths.push({ bucket: "chat-attachments", path: uploadedPath });
 
           const attachment = {
             room_id: activeRoom.id,
             bucket: "chat-attachments",
-            path,
+            path: uploadedPath,
             original_name: file.name,
             mime_type: file.type || "application/octet-stream",
             size_bytes: file.size,
