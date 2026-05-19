@@ -4,7 +4,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import { ArrowRight, BadgeCheck, Loader2, MessageCirclePlus, Plus, Search, UserPlus, Users, X } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Check, Loader2, MessageCirclePlus, Plus, Search, UserPlus, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { FriendRequest, User, UserSearchResult } from '@/lib/chat/types';
 import { getUserDelegationLabel } from '@/lib/chat/delegation';
@@ -271,9 +271,9 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
       <div className="fixed inset-0 bg-[rgba(26,28,28,0.4)] backdrop-blur-[4px]" aria-hidden="true" />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
         <Dialog.Panel className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-[0_16px_48px_rgba(26,28,28,0.12)]">
-          <div className="bg-[#f9f9f9] p-8 pb-6">
+          <div className="bg-[#f9f9f9] px-5 pt-5 pb-0 sm:px-8 sm:pt-6 sm:pb-0">
           <div className="flex items-center justify-between gap-4">
-              <Dialog.Title className="text-4xl font-medium leading-tight text-[#6E1D1B]" style={{ fontFamily: 'var(--font-newsreader), Newsreader, Georgia, serif' }}>Initiate Communication</Dialog.Title>
+              <Dialog.Title className="mb-0 pb-0 text-3xl font-semibold leading-tight text-[#6E1D1B] sm:text-[34px]" style={{ fontFamily: 'var(--font-newsreader), Newsreader, Georgia, serif', fontStyle: 'normal' }}>Initiate Communication</Dialog.Title>
             <button
               type="button"
               onClick={onClose}
@@ -283,14 +283,14 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             </button>
           </div>
           </div>
-          <div className="flex justify-center bg-[#f9f9f9] px-8 pb-6">
+          <div className="flex justify-center bg-[#f9f9f9] px-5 pb-4 pt-3 sm:px-8">
             <div className="inline-flex space-x-1 rounded-lg border border-[#dcc0bd]/15 bg-[#f4f3f3] p-1">
               {(['direct', 'group', 'friends', 'requests'] as const).map((value) => (
                 <button
                   key={value}
                   type="button"
                   onClick={() => setTab(value)}
-                  className={`rounded-md px-6 py-2 text-sm font-semibold tracking-wide transition-colors ${
+                  className={`rounded-md px-5 py-2 text-sm font-semibold transition-colors ${
                     tab === value ? 'bg-white text-[#6E1D1B] shadow-sm' : 'text-[#564240] hover:bg-[#e2e2e2] hover:text-[#6E1D1B]'
                   }`}
                 >
@@ -300,7 +300,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto bg-white p-8">
+          <div className="flex-1 overflow-y-auto bg-white px-5 py-5 sm:px-8 sm:py-6">
             {tab === 'direct' ? (
               <div className="space-y-6">
                     <div className="group relative mb-8">
@@ -550,8 +550,8 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                 </div>
               </div>
             ) : (
-              <div className="space-y-6">
-                <section className="space-y-6">
+              <div className="space-y-5">
+                <section className="space-y-4">
                   <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Incoming Requests</h3>
 
                   {incomingRequestsList.length === 0 ? (
@@ -578,7 +578,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                               <h4 className="truncate text-base font-semibold text-[#1a1c1c]">{displayName}</h4>
                               {metadata ? <p className="mt-0.5 truncate text-sm text-[#564240]">{metadata}</p> : null}
                             </div>
-                            <div className="ml-2 flex shrink-0 items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                            <div className="ml-2 flex shrink-0 items-center gap-2">
                                 <button
                                   type="button"
                                   onClick={() => handleAcceptRequest(req)}
@@ -586,7 +586,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                                   className="rounded-full p-1 text-[#500608] hover:bg-[#500608]/10 disabled:cursor-wait disabled:opacity-70"
                                   aria-label={`Accept request from ${displayName}`}
                                 >
-                                  {respondingTo === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeCheck className="h-4 w-4" />}
+                                  {respondingTo === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                                 </button>
                                 <button
                                   type="button"
@@ -605,7 +605,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                   )}
                 </section>
 
-                <section className="space-y-6">
+                <section className="space-y-4">
                   <h3 className="pl-2 text-xs font-bold uppercase tracking-[0.05em] text-[#564240]/80">Sent Requests</h3>
 
                   {sentRequestsList.length === 0 ? (
@@ -644,7 +644,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
             )}
           </div>
 
-          {error && <p className="mt-3 px-8 pb-6 text-sm text-deep-red/80">{error}</p>}
+          {error && <p className="mt-2 px-5 pb-5 text-sm text-deep-red/80 sm:px-8 sm:pb-6">{error}</p>}
         </Dialog.Panel>
       </div>
     </Dialog>
