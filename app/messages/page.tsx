@@ -219,7 +219,7 @@ const ChatShell: React.FC = () => {
   const [inChatSearchQuery, setInChatSearchQuery] = useState("");
   const [selectedSearchResultIndex, setSelectedSearchResultIndex] = useState(0);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
-  const [allFilesDownloadBusyPath, setAllFilesDownloadBusyPath] = useState<string | null>(null);
+  const [allFilesActionLoading, setAllFilesActionLoading] = useState<Record<string, "opening" | "downloading">>({});
   const previousRequestsRef = useRef<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -1386,7 +1386,8 @@ const ChatShell: React.FC = () => {
 
   const handleOpenAllFilesItem = async (attachment: MessageAttachmentInput, download = false) => {
     if (!attachment.bucket || !attachment.path) return;
-    setAllFilesDownloadBusyPath(attachment.path);
+    const action = download ? "downloading" : "opening";
+    setAllFilesActionLoading((prev) => ({ ...prev, [attachment.path]: action }));
     try {
       const { data, error } = await supabase.storage
         .from(attachment.bucket)
@@ -1405,12 +1406,39 @@ const ChatShell: React.FC = () => {
         link.click();
         link.remove();
       } else {
-        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+        const openedWindow = window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+        if (!openedWindow) {
+          toast.error("Unable to open file. Please allow pop-ups and try again.");
+        }
       }
+    } catch {
+      toast.error(download ? "Unable to download file." : "Unable to open file.");
     } finally {
-      setAllFilesDownloadBusyPath(null);
+      setAllFilesActionLoading((prev) => {
+        const next = { ...prev };
+        delete next[attachment.path];
+        return next;
+      });
     }
   };
+
+
+  useEffect(() => {
+    if (showAllFilesModal) return;
+    setAllFilesActionLoading({});
+  }, [showAllFilesModal]);
+  useEffect(() => {
+    if (!showAllFilesModal) return;
+    const clearAllFilesActionState = () => setAllFilesActionLoading({});
+
+    window.addEventListener("focus", clearAllFilesActionState);
+    window.addEventListener("pageshow", clearAllFilesActionState);
+
+    return () => {
+      window.removeEventListener("focus", clearAllFilesActionState);
+      window.removeEventListener("pageshow", clearAllFilesActionState);
+    };
+  }, [showAllFilesModal]);
 
   useEffect(() => {
     const minimumLoaderDurationMs = 750;
@@ -2379,11 +2407,21 @@ const ChatShell: React.FC = () => {
                       <p className="text-xs text-almost-black-green/65">{formatSize(attachment.size_bytes)} • {attachment.mime_type || "File"} • {message.user?.full_name || "Unknown sender"} • {message.created_at ? new Date(message.created_at).toLocaleString() : "Unknown time"}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <button type="button" disabled={allFilesDownloadBusyPath === attachment.path} onClick={() => { void handleOpenAllFilesItem(attachment, false); }} className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
-                        {allFilesDownloadBusyPath === attachment.path ? "Opening..." : "Open"}
+                      <button type="button" disabled={allFilesActionLoading[attachment.path] === "opening"} onClick={() => { void handleOpenAllFilesItem(attachment, false); }} className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
+                        {allFilesActionLoading[attachment.path] === "opening" ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Opening...
+                          </span>
+                        ) : "Open"}
                       </button>
-                      <button type="button" disabled={allFilesDownloadBusyPath === attachment.path} onClick={() => { void handleOpenAllFilesItem(attachment, true); }} className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
-                        Download
+                      <button type="button" disabled={allFilesActionLoading[attachment.path] === "downloading"} onClick={() => { void handleOpenAllFilesItem(attachment, true); }} className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
+                        {allFilesActionLoading[attachment.path] === "downloading" ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Downloading...
+                          </span>
+                        ) : "Download"}
                       </button>
                     </div>
                   </div>
