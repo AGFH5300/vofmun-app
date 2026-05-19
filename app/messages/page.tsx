@@ -1408,7 +1408,7 @@ const ChatShell: React.FC = () => {
       } else {
         const openedWindow = window.open(data.signedUrl, "_blank", "noopener,noreferrer");
         if (!openedWindow) {
-          toast.error("Unable to open file. Please allow pop-ups and try again.");
+          toast.error("Unable to open file. Please try again.");
         }
       }
     } catch {
