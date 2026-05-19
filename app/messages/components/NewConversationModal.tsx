@@ -221,18 +221,28 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
     const requestId = request.id;
     setError(null);
     setRespondingTo(requestId);
-    await acceptFriendRequest(requestId);
-    setRespondingTo(null);
-
-    const senderId = String(request.sender_id);
-    const senderName = getRequestDisplayName(senderId, request.sender);
-    toast.success(`You are now connected with ${senderName}.`);
+    try {
+      await acceptFriendRequest(requestId);
+      const senderId = String(request.sender_id);
+      const senderName = getRequestDisplayName(senderId, request.sender);
+      toast.success(`You are now connected with ${senderName}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to accept request right now.');
+    } finally {
+      setRespondingTo(null);
+    }
   };
 
   const handleDeclineRequest = async (requestId: string) => {
+    setError(null);
     setRespondingTo(requestId);
-    await declineFriendRequest(requestId);
-    setRespondingTo(null);
+    try {
+      await declineFriendRequest(requestId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to decline request right now.');
+    } finally {
+      setRespondingTo(null);
+    }
   };
 
   const toggleSelect = (user: UserSearchResult) => {

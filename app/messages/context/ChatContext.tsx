@@ -1550,10 +1550,40 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         }
         case 'new_message':
         case 'message_updated': {
-          logChatDebug('socket:message_event_ignored_in_favor_of_broadcast', {
+          const incomingMessage = payload.message || null;
+          const messageRoomId = toComparableId(roomId || incomingMessage?.room_id);
+          const eventType: MessageBroadcastEvent = payloadType === 'message_updated' ? 'UPDATE' : 'INSERT';
+
+          logChatDebug('socket:message_event_received', {
             payloadType,
-            roomId: roomId || payload.message?.room_id || null,
-            messageId: payload.message?.id || null,
+            roomId: messageRoomId || null,
+            messageId: incomingMessage?.id || null,
+            senderId: incomingMessage?.user_id || null,
+          });
+
+          if (!messageRoomId || !incomingMessage?.id) {
+            break;
+          }
+
+          const roomExists = roomsRef.current.some((room) => toComparableId(room.id) === messageRoomId);
+          if (!roomExists) {
+            void refreshRoomsRef.current().then((updatedRooms) => {
+              ensureRoomSubscriptionsRef.current(updatedRooms.map((item) => item.id));
+              const refreshedRoomExists = updatedRooms.some((room) => toComparableId(room.id) === messageRoomId);
+              if (!refreshedRoomExists) {
+                return;
+              }
+              applyRealtimeMessageChange(messageRoomId, eventType, {
+                eventType,
+                message: incomingMessage,
+              });
+            });
+            break;
+          }
+
+          applyRealtimeMessageChange(messageRoomId, eventType, {
+            eventType,
+            message: incomingMessage,
           });
           break;
         }
@@ -1691,7 +1721,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           break;
       }
     },
-    [joinSocketRooms, runRepairSync]
+    [applyRealtimeMessageChange, joinSocketRooms, runRepairSync]
   );
 
   const connectSocket = useCallback(() => {
@@ -2641,50 +2671,34 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const acceptFriendRequest = useCallback(
     async (id: string) => {
-      if (!userId) return;
-      try {
-        const response = await fetch(
-          `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
-          await withAuthHeaders({
-            method: 'POST',
-            headers: { Accept: 'application/json' },
-            body: JSON.stringify({ action: 'accept' }),
-          })
-        );
+      if (!userId) throw new Error('Unauthorized');
+      setFriendRequests((prev) => prev.filter((request) => request.id !== id));
+      const response = await fetch(
+        `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
+        await withAuthHeaders({
+          method: 'POST',
+          headers: { Accept: 'application/json' },
+          body: JSON.stringify({ action: 'accept' }),
+        })
+      );
 
-        const json = (await response.json().catch(() => null)) as { success?: boolean; error?: string } | null;
+      const json = (await response.json().catch(() => null)) as { ok?: boolean; success?: boolean; error?: string; roomId?: string | null } | null;
 
-        if (!response.ok || !json?.success) {
-          console.error('[ChatContext] failed to respond to request', {
-            status: response.status,
-            json,
-          });
-          return;
-        }
-
-        const acceptedRequest = friendRequests.find((req) => req.id === id) || null;
+      if (!response.ok || (!json?.ok && !json?.success)) {
+        console.error('[ChatContext] failed to respond to request', {
+          status: response.status,
+          json,
+        });
         await refreshFriendRequests();
+        throw new Error(json?.error || 'Failed to accept friend request');
+      }
 
-        const peerId = acceptedRequest
-          ? (acceptedRequest.sender_id === userId ? acceptedRequest.receiver_id : acceptedRequest.sender_id)
-          : null;
-
-        const syncRooms = await refreshRooms();
-        const targetRoom =
-          (peerId
-            ? syncRooms.find(
-                (room) =>
-                  room.room_type === 'dm' &&
-                  room.members.some((member) => member.user_id === userId) &&
-                  room.members.some((member) => member.user_id === peerId)
-              )
-            : null);
-
-        if (targetRoom) {
-          await selectRoom(targetRoom);
-        }
-      } catch (error) {
-        console.error('[ChatContext] respondToFriendRequest threw', error);
+      await refreshFriendRequests();
+      const syncRooms = await refreshRooms();
+      const normalizedRoomId = toComparableId(json?.roomId);
+      const targetRoom = normalizedRoomId ? syncRooms.find((room) => toComparableId(room.id) === normalizedRoomId) : null;
+      if (targetRoom) {
+        await selectRoom(targetRoom);
       }
     },
     [friendRequests, refreshFriendRequests, refreshRooms, selectRoom, userId, withAuthHeaders]
@@ -2692,31 +2706,29 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const declineFriendRequest = useCallback(
     async (id: string) => {
-      if (!userId) return;
-      try {
-        const response = await fetch(
-          `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
-          await withAuthHeaders({
-            method: 'POST',
-            headers: { Accept: 'application/json' },
-            body: JSON.stringify({ action: 'reject' }),
-          })
-        );
+      if (!userId) throw new Error('Unauthorized');
+      setFriendRequests((prev) => prev.filter((request) => request.id !== id));
+      const response = await fetch(
+        `${CHAT_API_URL}/api/friend-requests/${id}/respond`,
+        await withAuthHeaders({
+          method: 'POST',
+          headers: { Accept: 'application/json' },
+          body: JSON.stringify({ action: 'reject' }),
+        })
+      );
 
-        const json = (await response.json().catch(() => null)) as { success?: boolean; error?: string } | null;
+      const json = (await response.json().catch(() => null)) as { ok?: boolean; success?: boolean; error?: string } | null;
 
-        if (!response.ok || !json?.success) {
-          console.error('[ChatContext] failed to respond to request', {
-            status: response.status,
-            json,
-          });
-          return;
-        }
-
+      if (!response.ok || (!json?.ok && !json?.success)) {
+        console.error('[ChatContext] failed to respond to request', {
+          status: response.status,
+          json,
+        });
         await refreshFriendRequests();
-      } catch (error) {
-        console.error('[ChatContext] respondToFriendRequest threw', error);
+        throw new Error(json?.error || 'Failed to reject friend request');
       }
+
+      await refreshFriendRequests();
     },
     [refreshFriendRequests, userId, withAuthHeaders]
   );
