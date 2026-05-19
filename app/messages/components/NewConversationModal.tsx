@@ -4,7 +4,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import { ArrowRight, BadgeCheck, Check, Loader2, MessageCirclePlus, Plus, Search, UserPlus, Users, X } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Check, Loader2, MessageCircle, Plus, Search, UserPlus, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { FriendRequest, User, UserSearchResult } from '@/lib/chat/types';
 import { getUserDelegationLabel } from '@/lib/chat/delegation';
@@ -427,7 +427,7 @@ const NewConversationModal: React.FC<Props> = ({ open, onClose, initialTab = 'di
                         disabled={openingChatFor === contact.userId}
                         className="inline-flex items-center gap-2 rounded-lg bg-[#6E1D1B] px-3 py-2 text-xs font-semibold text-white disabled:cursor-wait disabled:opacity-70"
                       >
-                        {openingChatFor === contact.userId ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCirclePlus className="h-4 w-4" />}
+                        {openingChatFor === contact.userId ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
                         Chat
                       </button>
                     </div>
