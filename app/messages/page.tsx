@@ -228,6 +228,9 @@ const ChatShell: React.FC = () => {
   const [selectedSearchResultIndex, setSelectedSearchResultIndex] = useState(0);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [preparedFileLinks, setPreparedFileLinks] = useState<Record<string, PreparedFileLink>>({});
+  const preparingFileLinksRef = useRef<Set<string>>(new Set());
+  const preparedFileLinksRef = useRef<Record<string, PreparedFileLink>>({});
+  const fileLinksRequestVersionRef = useRef(0);
   const previousRequestsRef = useRef<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -1394,10 +1397,32 @@ const ChatShell: React.FC = () => {
 
   const getAttachmentLinkKey = (attachment: MessageAttachmentInput) => `${attachment.bucket}:${attachment.path}`;
 
-  const prepareFileLinks = async (attachment: MessageAttachmentInput) => {
+  const attachmentKeysSignature = useMemo(
+    () => filteredAttachmentItems.map(({ attachment }) => getAttachmentLinkKey(attachment)).join("|"),
+    [filteredAttachmentItems],
+  );
+
+  useEffect(() => {
+    preparedFileLinksRef.current = preparedFileLinks;
+  }, [preparedFileLinks]);
+
+  const prepareFileLinks = async (attachment: MessageAttachmentInput, options?: { force?: boolean }) => {
     if (!attachment.bucket || !attachment.path) return;
     const key = getAttachmentLinkKey(attachment);
-    setPreparedFileLinks((prev) => ({ ...prev, [key]: { loading: true } }));
+    const refreshBufferMs = 30000;
+    const current = preparedFileLinksRef.current[key];
+    const isStillValid = Boolean(current?.openUrl && current?.downloadUrl && current?.expiresAt && current.expiresAt > Date.now() + refreshBufferMs);
+
+    if (!options?.force && (current?.loading || preparingFileLinksRef.current.has(key) || isStillValid)) return;
+
+    preparingFileLinksRef.current.add(key);
+    const requestVersion = fileLinksRequestVersionRef.current;
+    setPreparedFileLinks((prev) => {
+      const existing = prev[key];
+      if (!options?.force && existing?.loading) return prev;
+      return { ...prev, [key]: { ...existing, loading: true, error: undefined } };
+    });
+
     try {
       const expirySeconds = 300;
       const [{ data: openData, error: openError }, { data: downloadData, error: downloadError }] = await Promise.all([
@@ -1407,8 +1432,10 @@ const ChatShell: React.FC = () => {
           .createSignedUrl(attachment.path, expirySeconds, { download: attachment.original_name || true }),
       ]);
 
+      if (requestVersion !== fileLinksRequestVersionRef.current || !showAllFilesModal) return;
+
       if (openError || downloadError || !openData?.signedUrl || !downloadData?.signedUrl) {
-        setPreparedFileLinks((prev) => ({ ...prev, [key]: { loading: false, error: "Unable to prepare file link." } }));
+        setPreparedFileLinks((prev) => ({ ...prev, [key]: { ...prev[key], loading: false, error: "Unable to prepare file link." } }));
         return;
       }
 
@@ -1416,50 +1443,57 @@ const ChatShell: React.FC = () => {
         ...prev,
         [key]: {
           loading: false,
+          error: undefined,
           openUrl: openData.signedUrl,
           downloadUrl: downloadData.signedUrl,
           expiresAt: Date.now() + expirySeconds * 1000,
         },
       }));
     } catch {
-      setPreparedFileLinks((prev) => ({ ...prev, [key]: { loading: false, error: "Unable to prepare file link." } }));
+      if (requestVersion !== fileLinksRequestVersionRef.current || !showAllFilesModal) return;
+      setPreparedFileLinks((prev) => ({ ...prev, [key]: { ...prev[key], loading: false, error: "Unable to prepare file link." } }));
+    } finally {
+      preparingFileLinksRef.current.delete(key);
     }
   };
 
   useEffect(() => {
-    if (!showAllFilesModal) return;
-    filteredAttachmentItems.forEach(({ attachment }) => {
-      const key = getAttachmentLinkKey(attachment);
-      if (!preparedFileLinks[key]) {
-        void prepareFileLinks(attachment);
-      }
-    });
-  }, [filteredAttachmentItems, preparedFileLinks, showAllFilesModal]);
-
-  useEffect(() => {
     if (!showAllFilesModal) {
+      fileLinksRequestVersionRef.current += 1;
+      preparingFileLinksRef.current.clear();
       setPreparedFileLinks({});
       return;
     }
+
+    filteredAttachmentItems.forEach(({ attachment }) => {
+      void prepareFileLinks(attachment);
+    });
+  }, [attachmentKeysSignature, showAllFilesModal, activeRoom?.id]);
+
+  useEffect(() => {
+    if (!showAllFilesModal) return;
 
     const refreshExpiredLinks = () => {
       const refreshBufferMs = 30000;
       filteredAttachmentItems.forEach(({ attachment }) => {
         const key = getAttachmentLinkKey(attachment);
-        const linkState = preparedFileLinks[key];
-        if (!linkState || linkState.loading || !linkState.expiresAt || linkState.expiresAt - Date.now() <= refreshBufferMs) {
+        const linkState = preparedFileLinksRef.current[key];
+        if (!linkState || linkState.loading) return;
+        if (!linkState.expiresAt || linkState.expiresAt - Date.now() <= refreshBufferMs) {
           void prepareFileLinks(attachment);
         }
       });
     };
 
-    window.addEventListener("focus", refreshExpiredLinks);
-    refreshExpiredLinks();
-
-    return () => {
-      window.removeEventListener("focus", refreshExpiredLinks);
+    const onFocus = () => {
+      window.setTimeout(refreshExpiredLinks, 300);
     };
-  }, [filteredAttachmentItems, preparedFileLinks, showAllFilesModal]);
+
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [attachmentKeysSignature, showAllFilesModal, activeRoom?.id]);
 
   useEffect(() => {
     const minimumLoaderDurationMs = 750;
@@ -2434,13 +2468,13 @@ const ChatShell: React.FC = () => {
                         if (!linkState || linkState.loading) {
                           return (
                             <>
-                              <button type="button" disabled className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
+                              <button type="button" disabled className="min-w-[96px] rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-center text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
                                 <span className="inline-flex items-center gap-1.5">
                                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  Loading...
+                                  Preparing...
                                 </span>
                               </button>
-                              <button type="button" disabled className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">Loading...</button>
+                              <button type="button" disabled className="min-w-[96px] rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-center text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">Preparing...</button>
                             </>
                           );
                         }
@@ -2449,15 +2483,15 @@ const ChatShell: React.FC = () => {
                           return (
                             <>
                               <span className="text-[11px] text-[#9c4a49]">{linkState.error || "Unable to prepare file link."}</span>
-                              <button type="button" onClick={() => { void prepareFileLinks(attachment); }} className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B]">Retry</button>
+                              <button type="button" onClick={() => { void prepareFileLinks(attachment, { force: true }); }} className="min-w-[96px] rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-center text-xs font-semibold text-[#6E1D1B]">Retry</button>
                             </>
                           );
                         }
 
                         return (
                           <>
-                            <a href={linkState.openUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B]">Open</a>
-                            <a href={linkState.downloadUrl} download={attachment.original_name || true} className="rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-xs font-semibold text-[#6E1D1B]">Download</a>
+                            <a href={linkState.openUrl} target="_blank" rel="noopener noreferrer" className="min-w-[96px] rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-center text-xs font-semibold text-[#6E1D1B]">Open</a>
+                            <a href={linkState.downloadUrl} download={attachment.original_name || true} className="min-w-[96px] rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-center text-xs font-semibold text-[#6E1D1B]">Download</a>
                           </>
                         );
                       })()}
