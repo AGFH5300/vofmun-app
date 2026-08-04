@@ -1,24 +1,21 @@
-import js from '@eslint/js';
-import tseslint from 'typescript-eslint';
+import { defineConfig, globalIgnores } from 'eslint/config';
+import nextVitals from 'eslint-config-next/core-web-vitals';
+import nextTs from 'eslint-config-next/typescript';
 
-export default tseslint.config(
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
   {
-    languageOptions: {
-      globals: {
-        window: 'readonly',
-        document: 'readonly',
-        navigator: 'readonly',
-        localStorage: 'readonly',
-        setTimeout: 'readonly',
-        clearTimeout: 'readonly',
-        fetch: 'readonly',
-        console: 'readonly',
-      },
-    },
     rules: {
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
-);
+  globalIgnores([
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
+  ]),
+]);
+
+export default eslintConfig;
