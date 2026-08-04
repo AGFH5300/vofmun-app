@@ -52,8 +52,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Update title or content is too long' }, { status: 400 });
     }
 
+    const updateId = crypto.randomUUID();
+    const publishedAt = new Date().toISOString();
     const safeName = sanitizeFileName(file.name);
-    const uploadPath = `live-updates/${crypto.randomUUID()}-${safeName}`;
+    const uploadPath = `live-updates/${updateId}-${safeName}`;
     const bytes = await file.arrayBuffer();
     const { error: uploadError } = await supabaseAdmin.storage
       .from('Updates')
@@ -78,7 +80,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to resolve image URL' }, { status: 500 });
     }
 
-    const { error: insertError } = await supabaseAdmin.from('Updates').insert({ title, content, href });
+    const { error: insertError } = await supabaseAdmin.from('Updates').insert({
+      updateID: updateId,
+      time: publishedAt,
+      title,
+      content,
+      href,
+    });
 
     if (insertError) {
       await supabaseAdmin.storage.from('Updates').remove([uploadPath]);
@@ -90,7 +98,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { success: true, href },
+      { success: true, updateId, publishedAt, href },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {
