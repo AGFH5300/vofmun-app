@@ -1,0 +1,36 @@
+name: Finalize VOFMUN Identity Hardening
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.head_ref == 'codex/port-mun-webapp-features'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/port-mun-webapp-features
+          fetch-depth: 0
+
+      - name: Apply final identity hardening
+        run: |
+          python scripts/finalize-identity-hardening.py
+          git diff --check
+
+      - name: Commit final hardening
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f scripts/finalize-identity-hardening.py
+          git add -A
+          git commit -m "Finalize atomic speech and identity hardening"
+          git push origin HEAD:codex/port-mun-webapp-features
