@@ -69,7 +69,9 @@ export interface MessageAttachment {
   created_at?: string | null;
 }
 
-export type MessageAttachmentInput = Omit<MessageAttachment, 'id' | 'message_id' | 'created_at' | 'created_by'>;
+export type MessageAttachmentInput = Omit<MessageAttachment, 'id' | 'message_id' | 'created_at' | 'created_by'> & {
+  upload_id?: string;
+};
 
 export const LEGACY_CHAT_ID_PREFIX_RE = /^(del|delegate|chair|admin|secretariat)[_-]/i;
 
