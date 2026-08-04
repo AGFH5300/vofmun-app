@@ -44,6 +44,24 @@ jobs:
           const report = JSON.parse(fs.readFileSync('runtime-audit.json', 'utf8'));
           const totals = report.metadata?.vulnerabilities || {};
           console.log('Runtime dependency audit:', totals);
+
+          const vulnerabilities = report.vulnerabilities || {};
+          for (const [name, detail] of Object.entries(vulnerabilities)) {
+            if (!['high', 'critical'].includes(detail.severity)) continue;
+            const via = Array.isArray(detail.via)
+              ? detail.via.map((item) => typeof item === 'string' ? item : `${item.name || name}: ${item.title || item.url || 'advisory'}`)
+              : [];
+            console.error(JSON.stringify({
+              package: name,
+              severity: detail.severity,
+              direct: Boolean(detail.isDirect),
+              range: detail.range,
+              nodes: detail.nodes,
+              via,
+              fixAvailable: detail.fixAvailable,
+            }));
+          }
+
           const blocking = Number(totals.high || 0) + Number(totals.critical || 0);
           if (blocking > 0) {
             console.error(`Blocking runtime vulnerabilities: ${blocking}`);
