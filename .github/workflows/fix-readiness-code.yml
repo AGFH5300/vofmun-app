@@ -1,17 +1,16 @@
 name: Fix VOFMUN Readiness Code
 
 on:
-  push:
+  pull_request:
     branches:
       - main
-    paths:
-      - .github/workflows/fix-readiness-code.yml
 
 permissions:
   contents: write
 
 jobs:
   fix:
+    if: github.head_ref == 'codex/port-mun-webapp-features'
     runs-on: ubuntu-latest
     steps:
       - name: Check out feature branch
