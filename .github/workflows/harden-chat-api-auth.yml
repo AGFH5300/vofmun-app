@@ -1,0 +1,55 @@
+name: Harden Chat API Authentication
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: github.head_ref == 'codex/port-mun-webapp-features'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/port-mun-webapp-features
+          fetch-depth: 0
+
+      - name: Convert protected chat routes to verified bearer authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            app/api/rooms/route.ts
+            app/api/chat/people/route.ts
+            app/api/rooms/direct/route.ts
+            app/api/chat/friend-requests/pending/route.ts
+            app/api/chat/friend-requests/route.ts
+            'app/api/rooms/[roomId]/receipts/route.ts'
+            'app/api/rooms/[roomId]/messages/route.ts'
+            'app/api/chat/friend-requests/[id]/respond/route.ts'
+          )
+
+          for file in "${files[@]}"; do
+            perl -0pi -e 's/getSessionUserFromRequest/getVerifiedSessionUserFromRequest/g' "$file"
+            perl -0pi -e 's/const sessionUser = getVerifiedSessionUserFromRequest\(request\);/const sessionUser = await getVerifiedSessionUserFromRequest(request);/g' "$file"
+          done
+
+          if grep -RIn 'getSessionUserFromRequest' app/api; then
+            echo 'A protected API route still trusts the unsigned display cookie.'
+            exit 1
+          fi
+
+          git diff --check
+
+      - name: Commit hardened routes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/api
+          git commit -m "Require verified bearer auth across chat API routes"
+          git push origin HEAD:codex/port-mun-webapp-features
