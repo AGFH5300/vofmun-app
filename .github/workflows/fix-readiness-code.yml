@@ -25,10 +25,8 @@ jobs:
           python scripts/fix-readiness-code.py
           git diff --check
 
-      - name: Verify and commit fixes
+      - name: Commit fixes for permanent CI
         run: |
-          npm ci
-          npx tsc --noEmit
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/messages app/speechrepo app/resolutions
