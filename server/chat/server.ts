@@ -42,6 +42,9 @@ app.use(express.json());
 
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 const isDevelopment = process.env.NODE_ENV !== 'production';
+const MAX_MESSAGE_LENGTH = 5000;
+const MAX_ATTACHMENTS_PER_MESSAGE = 10;
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 if (!supabaseAdmin) {
   throw new Error('Supabase admin client is not configured. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
@@ -884,8 +887,10 @@ app.get('/api/rooms/:roomId/messages', chatReadRateLimit, requireAuth, async (re
 });
 
 app.post('/api/rooms/:roomId/messages', chatWriteRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
+  let claimedUploadIds: string[] = [];
   try {
     const { roomId } = req.params;
+    const userId = String(req.userId || '');
     const { content, reply_to, attachments = [] } = req.body as {
       content?: string;
       reply_to?: string | null;
@@ -893,26 +898,21 @@ app.post('/api/rooms/:roomId/messages', chatWriteRateLimit, requireAuth, async (
     };
     const trimmedContent = content?.trim() || '';
     const normalizedAttachments = Array.isArray(attachments) ? attachments : [];
+    const replyTo = reply_to ? String(reply_to) : null;
 
     if (!trimmedContent && normalizedAttachments.length === 0) {
       return res.status(400).json({ error: 'Message content or attachments are required' });
     }
-
-    const hasInvalidAttachment = normalizedAttachments.some((attachment) => {
-      if (!attachment || typeof attachment !== 'object') return true;
-      if (String(attachment.room_id || '') !== roomId) return true;
-      if (!attachment.bucket || !attachment.path || !attachment.original_name || !attachment.mime_type) return true;
-      if (!Number.isFinite(Number(attachment.size_bytes)) || Number(attachment.size_bytes) <= 0) return true;
-      return !isAllowedAttachmentPath(roomId, String(attachment.path || ''));
-    });
-
-    if (hasInvalidAttachment) {
-      return res.status(400).json({ error: 'Invalid attachment payload' });
+    if (trimmedContent.length > MAX_MESSAGE_LENGTH) {
+      return res.status(400).json({ error: `Message cannot exceed ${MAX_MESSAGE_LENGTH} characters` });
+    }
+    if (normalizedAttachments.length > MAX_ATTACHMENTS_PER_MESSAGE) {
+      return res.status(400).json({ error: `A message can include at most ${MAX_ATTACHMENTS_PER_MESSAGE} attachments` });
     }
 
     logServerDebug('http:messages:insert_attempt', {
       roomId,
-      resolvedUserId: req.userId || null,
+      resolvedUserId: userId,
       hasContent: Boolean(trimmedContent),
       attachmentCount: normalizedAttachments.length,
     });
@@ -921,69 +921,154 @@ app.post('/api/rooms/:roomId/messages', chatWriteRateLimit, requireAuth, async (
       .from('room_members')
       .select('id')
       .eq('room_id', roomId)
-      .eq('user_id', req.userId!)
+      .eq('user_id', userId)
       .limit(1);
-
     if (membershipError) {
       console.error('Error validating room membership', membershipError);
       return res.status(500).json({ error: 'Failed to validate room membership' });
     }
-
     if (!membershipRows || membershipRows.length === 0) {
       return res.status(403).json({ error: 'Not a room member' });
     }
 
+    if (replyTo) {
+      const { data: replyMessage, error: replyError } = await supabaseAdmin
+        .from('messages')
+        .select('id')
+        .eq('id', replyTo)
+        .eq('room_id', roomId)
+        .maybeSingle();
+      if (replyError) throw replyError;
+      if (!replyMessage) {
+        return res.status(400).json({ error: 'Reply target is not in this room' });
+      }
+    }
+
+    let trustedPending: Array<{
+      id: string;
+      room_id: string;
+      bucket: string;
+      path: string;
+      original_name: string;
+      mime_type: string;
+      size_bytes: number;
+    }> = [];
+
+    if (normalizedAttachments.length > 0) {
+      const uploadIds = normalizedAttachments.map((attachment) => String(attachment.upload_id || '').trim());
+      if (uploadIds.some((uploadId) => !isUuid(uploadId)) || new Set(uploadIds).size !== uploadIds.length) {
+        return res.status(400).json({ error: 'Attachments must reference unique verified uploads' });
+      }
+
+      const { data: pendingRows, error: pendingError } = await supabaseAdmin
+        .from('pending_chat_attachments')
+        .select('id, room_id, bucket, path, original_name, mime_type, size_bytes')
+        .in('id', uploadIds)
+        .eq('created_by', userId)
+        .eq('room_id', roomId)
+        .is('consumed_at', null);
+      if (pendingError) throw pendingError;
+      if (!pendingRows || pendingRows.length !== uploadIds.length) {
+        return res.status(409).json({ error: 'One or more attachments are invalid or already used' });
+      }
+
+      trustedPending = pendingRows.map((row: any) => ({
+        id: String(row.id),
+        room_id: String(row.room_id),
+        bucket: String(row.bucket),
+        path: String(row.path),
+        original_name: String(row.original_name),
+        mime_type: String(row.mime_type || 'application/octet-stream'),
+        size_bytes: Number(row.size_bytes),
+      }));
+      if (trustedPending.some((row) =>
+        row.bucket !== 'chat-attachments' ||
+        row.size_bytes <= 0 ||
+        row.size_bytes > MAX_ATTACHMENT_BYTES ||
+        !row.path.startsWith(`${roomId}/${userId}/`)
+      )) {
+        return res.status(400).json({ error: 'Attachment metadata is invalid' });
+      }
+
+      const { data: claimedRows, error: claimError } = await supabaseAdmin
+        .from('pending_chat_attachments')
+        .update({ consumed_at: new Date().toISOString() })
+        .in('id', uploadIds)
+        .eq('created_by', userId)
+        .eq('room_id', roomId)
+        .is('consumed_at', null)
+        .select('id');
+      if (claimError) throw claimError;
+      if (!claimedRows || claimedRows.length !== uploadIds.length) {
+        await supabaseAdmin.from('pending_chat_attachments').update({ consumed_at: null }).in('id', uploadIds).eq('created_by', userId);
+        return res.status(409).json({ error: 'One or more attachments are already being used' });
+      }
+      claimedUploadIds = uploadIds;
+    }
+
     const { data: inserted, error } = await supabaseAdmin
       .from('messages')
-      .insert({ room_id: roomId, user_id: req.userId!, content: trimmedContent, reply_to: reply_to || null })
+      .insert({ room_id: roomId, user_id: userId, content: trimmedContent, reply_to: replyTo })
       .select('*')
       .single();
-
     if (error || !inserted) {
+      if (claimedUploadIds.length > 0) {
+        await supabaseAdmin.from('pending_chat_attachments').update({ consumed_at: null }).in('id', claimedUploadIds).eq('created_by', userId);
+      }
       return res.status(500).json({ error: 'Failed to send message' });
     }
 
-    if (normalizedAttachments.length > 0) {
-      const attachmentRows = normalizedAttachments.map((attachment) => ({
+    if (trustedPending.length > 0) {
+      const attachmentRows = trustedPending.map((attachment) => ({
         message_id: (inserted as any).id,
         room_id: roomId,
-        bucket: String(attachment.bucket || 'chat-attachments'),
-        path: String(attachment.path || ''),
-        original_name: sanitizeAttachmentName(String(attachment.original_name || 'file')),
-        mime_type: attachment.mime_type || null,
-        size_bytes: Number(attachment.size_bytes || 0),
-        created_by: req.userId!,
+        bucket: attachment.bucket,
+        path: attachment.path,
+        original_name: attachment.original_name,
+        mime_type: attachment.mime_type,
+        size_bytes: attachment.size_bytes,
+        created_by: userId,
       }));
-
       const { error: attachmentError } = await supabaseAdmin.from('message_attachments').insert(attachmentRows);
       if (attachmentError) {
-        await supabaseAdmin.from('message_attachments').delete().eq('message_id', (inserted as any).id);
         await supabaseAdmin.from('messages').delete().eq('id', (inserted as any).id);
+        await supabaseAdmin.from('pending_chat_attachments').update({ consumed_at: null }).in('id', claimedUploadIds).eq('created_by', userId);
         return res.status(500).json({ error: 'Failed to save attachments' });
       }
+      const { error: pendingDeleteError } = await supabaseAdmin
+        .from('pending_chat_attachments')
+        .delete()
+        .in('id', claimedUploadIds)
+        .eq('created_by', userId);
+      if (pendingDeleteError) {
+        console.error('[chat] failed to remove consumed pending uploads', {
+          userId,
+          roomId,
+          uploadIds: claimedUploadIds,
+          error: pendingDeleteError.message || pendingDeleteError,
+        });
+      }
+      claimedUploadIds = [];
     }
 
     const profiles = await fetchProfilesByIds([String((inserted as any).user_id)]);
     const attachmentsByMessageId = await fetchAttachmentsByMessageIds([String((inserted as any).id)]);
-
     const payload: MessageWithUser = {
       ...(inserted as any),
       user: profiles[(inserted as any).user_id],
       attachments: attachmentsByMessageId[String((inserted as any).id)] || [],
     };
 
-    console.debug('message profile enrichment', {
-      roomId,
-      currentUserId: req.userId,
-      messageId: payload.id,
-      messageUserId: payload.user_id,
-      attachedProfileId: payload.user?.id ?? null,
-    });
-
     broadcastToRoom(roomId, { type: 'new_message', message: payload });
-
     return res.json(payload);
   } catch (error) {
+    if (claimedUploadIds.length > 0 && req.userId) {
+      await supabaseAdmin
+        .from('pending_chat_attachments')
+        .update({ consumed_at: null })
+        .in('id', claimedUploadIds)
+        .eq('created_by', req.userId);
+    }
     console.error('Error sending message', error);
     return res.status(500).json({ error: 'Failed to send message' });
   }
@@ -1121,12 +1206,39 @@ app.delete('/api/rooms/:roomId/messages/:messageId', chatWriteRateLimit, require
       return res.status(500).json({ error: 'Failed to delete message' });
     }
 
+    const attachmentPaths = (previousAttachments || [])
+      .filter((attachment: any) => String(attachment.bucket || '') === 'chat-attachments')
+      .map((attachment: any) => String(attachment.path || ''))
+      .filter(Boolean);
+    if (attachmentPaths.length > 0) {
+      const { error: storageCleanupError } = await supabaseAdmin.storage.from('chat-attachments').remove(attachmentPaths);
+      if (storageCleanupError) {
+        console.error('[chat] failed to remove deleted message attachments from storage', {
+          roomId,
+          messageId,
+          paths: attachmentPaths,
+          error: storageCleanupError.message || storageCleanupError,
+        });
+      }
+    }
+    const { error: attachmentDeleteError } = await supabaseAdmin
+      .from('message_attachments')
+      .delete()
+      .eq('message_id', messageId)
+      .eq('room_id', roomId);
+    if (attachmentDeleteError) {
+      console.error('[chat] failed to remove deleted message attachment rows', {
+        roomId,
+        messageId,
+        error: attachmentDeleteError.message || attachmentDeleteError,
+      });
+    }
+
     const profiles = await fetchProfilesByIds([String((updated as any).user_id)]);
-    const attachmentsByMessageId = await fetchAttachmentsByMessageIds([String((updated as any).id)]);
     const payload: MessageWithUser = {
       ...(updated as any),
       user: profiles[(updated as any).user_id],
-      attachments: attachmentsByMessageId[String((updated as any).id)] || [],
+      attachments: [],
     };
 
     broadcastToRoom(roomId, { type: 'message_updated', roomId, message: payload } as ChatSocketPayload);

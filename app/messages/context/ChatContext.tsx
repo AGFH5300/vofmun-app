@@ -2351,21 +2351,23 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           roomId: liveRoomId,
           error: error instanceof Error ? error.message : 'unknown-error',
         });
-        const failedRoomMessages = (messagesRef.current[liveRoomId] || []).map((msg) =>
-          msg.id === tempId ? { ...msg, status: 'error' as MessageStatus } : msg
-        );
+        const rolledBackMessages = (messagesRef.current[liveRoomId] || []).filter((msg) => msg.id !== tempId);
         messagesRef.current = {
           ...messagesRef.current,
-          [liveRoomId]: failedRoomMessages,
+          [liveRoomId]: rolledBackMessages,
         };
         setMessages((prev) => ({
           ...prev,
-          [liveRoomId]: failedRoomMessages,
+          [liveRoomId]: rolledBackMessages,
         }));
-        const failedLastMessage = failedRoomMessages[failedRoomMessages.length - 1] || null;
-        if (failedLastMessage) {
-          applyIncomingMessageToRoomList(liveRoomId, failedLastMessage);
-        }
+        setRooms((prev) =>
+          prev.map((room) =>
+            toComparableId(room.id) === liveRoomId
+              ? { ...room, lastMessage: rolledBackMessages[rolledBackMessages.length - 1] || null }
+              : room,
+          ),
+        );
+        throw error instanceof Error ? error : new Error('Failed to send message');
       }
     },
     [applyIncomingMessageToRoomList, fetchWithTimeout, mergeUsersIntoDirectory, resolveLiveRoomId, upsertRoomMessage, withAuthHeaders]
