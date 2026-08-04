@@ -1,7 +1,7 @@
 // © 2026 Ansh Gupta. All rights reserved.
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 import supabaseAdmin from '../../../../../lib/supabaseAdmin';
-import { getSessionUserFromRequest } from '../../../../../lib/chat/auth';
+import { getVerifiedSessionUserFromRequest } from '../../../../../lib/chat/auth';
 import { fetchPeopleDetailsByIds } from '../../../../../server/chat/people';
 
 const mapProfileToUser = (profile: Awaited<ReturnType<typeof fetchPeopleDetailsByIds>>[string] | null | undefined) => {
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       return jsonResponse({ ok: false, error: 'Server not configured' }, 500);
     }
 
-    const sessionUser = getSessionUserFromRequest(request);
+    const sessionUser = await getVerifiedSessionUserFromRequest(request);
 
     if (!sessionUser) {
       return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);

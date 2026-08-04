@@ -2,7 +2,7 @@
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 import { NextResponse } from 'next/server';
 import supabaseAdmin from '@/lib/supabaseAdmin';
-import { getSessionUserFromRequest } from '@/lib/chat/auth';
+import { getVerifiedSessionUserFromRequest } from '@/lib/chat/auth';
 import { fetchProfilesByIds } from '@/app/api/rooms/_lib/rooms';
 import { MessageAttachment, MessageAttachmentInput, MessageWithUser } from '@/lib/chat/types';
 import { createDefaultMessageMeta } from '@/lib/chat/messageMeta';
@@ -31,7 +31,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ room
       return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
     }
 
-    const sessionUser = getSessionUserFromRequest(request);
+    const sessionUser = await getVerifiedSessionUserFromRequest(request);
     if (!sessionUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -106,7 +106,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
       return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
     }
 
-    const sessionUser = getSessionUserFromRequest(request);
+    const sessionUser = await getVerifiedSessionUserFromRequest(request);
     if (!sessionUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
