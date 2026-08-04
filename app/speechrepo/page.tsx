@@ -109,7 +109,9 @@ const Page = () => {
 
     editor.on("update", handleUpdate);
     setEditorText(editor.getText());
-    return () => editor.off("update", handleUpdate);
+    return () => {
+      editor.off("update", handleUpdate);
+    };
   }, [evaluateUnsavedChanges]);
 
   useEffect(() => {
@@ -191,7 +193,7 @@ const Page = () => {
 
     const selectColumns = "delegateID, committeeID, country, firstname, lastname";
 
-    const verifyDelegateRow = async (queryLabel: string, query: Promise<{ data: unknown; error: { code?: string; message?: string; details?: string; hint?: string } | null }>) => {
+    const verifyDelegateRow = async (queryLabel: string, query: PromiseLike<{ data: any; error: { code?: string; message?: string; details?: string; hint?: string } | null }>) => {
       const { data, error } = await query;
       if (error) {
         logDbError(`${queryLabel}:error`, error as { code?: string; message?: string; details?: string; hint?: string });
@@ -270,12 +272,12 @@ const Page = () => {
           console.error(`[speechrepo] ${operation}`, { code: error.code, message: error.message, details: error.details, hint: error.hint });
         };
         if (isDelegateUser && delegateProfile?.delegateID) {
-          const { data, error } = await supabase.from<{ speechID: string }>("Delegate-Speech").select("speechID").eq("delegateID", delegateProfile.delegateID);
+          const { data, error } = await supabase.from("Delegate-Speech").select("speechID").eq("delegateID", delegateProfile.delegateID);
           if (error) { logDbError("fetch delegate links", error as { code?: string; message?: string; details?: string; hint?: string }); throw error; }
           speechIds = (data ?? []).map((row) => ({ speechID: row.speechID, delegateID: delegateProfile.delegateID }));
         } else if (isChairUser) {
           const chairUser = currentUser as Chair;
-          const { data, error } = await supabase.from<{ speechID: string }>("Chair-Speech").select("speechID").eq("chairID", chairUser.chairID);
+          const { data, error } = await supabase.from("Chair-Speech").select("speechID").eq("chairID", chairUser.chairID);
           if (error) { logDbError("fetch chair links", error as { code?: string; message?: string; details?: string; hint?: string }); throw error; }
           speechIds = (data ?? []).map((row) => ({ speechID: row.speechID }));
         }
@@ -285,7 +287,7 @@ const Page = () => {
           return;
         }
 
-        const { data: speechRows, error: speechesError } = await supabase.from<SpeechRow>("Speech").select("*").in("speechID", speechIds.map((row) => row.speechID));
+        const { data: speechRows, error: speechesError } = await supabase.from("Speech").select("*").in("speechID", speechIds.map((row) => row.speechID));
         if (speechesError) {
           logDbError("fetch speech rows", speechesError as { code?: string; message?: string; details?: string; hint?: string });
           throw speechesError;
@@ -358,7 +360,7 @@ const Page = () => {
         setSelectedSpeech(updatedSpeech);
         toast.success("Speech updated successfully!");
       } else {
-        const { data: existingSpeeches, error: speechIdError } = await supabase.from<{ speechID: string }>("Speech").select("speechID");
+        const { data: existingSpeeches, error: speechIdError } = await supabase.from("Speech").select("speechID");
         if (speechIdError) {
           console.error("[speechrepo] fetch Speech IDs", { code: speechIdError.code, message: speechIdError.message, details: speechIdError.details, hint: speechIdError.hint });
           throw speechIdError;

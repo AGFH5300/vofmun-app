@@ -1285,7 +1285,7 @@ const ChatShell: React.FC = () => {
           const receiverId = String(request.receiver_id);
           const hasDirectRoom = rooms.some(
             (room) =>
-              room.type === "direct" && room.members.some((member) => String(member.user_id) === receiverId),
+              room.room_type === "dm" && room.members.some((member) => String(member.user_id) === receiverId),
           );
           if (!hasDirectRoom) {
             setShowAcceptedPrompt({ userId: receiverId, name });
@@ -2016,7 +2016,7 @@ const ChatShell: React.FC = () => {
                       {pendingAttachments.length > 0 ? (
                         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
                           {pendingAttachments.map((attachment) => (
-                            <div key={`${attachment.bucket}:${attachment.path}`} className="min-w-[220px] max-w-[220px] shrink-0 rounded-xl border border-black/10 bg-white p-2.5">
+                            <div key={attachment.id} className="min-w-[220px] max-w-[220px] shrink-0 rounded-xl border border-black/10 bg-white p-2.5">
                               <div className="flex items-start gap-2">
                                 <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-[#efe3dc] text-deep-red">
                                 <FileText className="h-4 w-4" />

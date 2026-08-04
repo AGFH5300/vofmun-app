@@ -2655,8 +2655,15 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         console.debug('[GroupCreateDebug] group_create:api_response', { status: response.status, ok: response.ok, body: json });
       }
       if (!response.ok) {
-        const errorMessage = json?.error || 'Unable to create group chat right now.';
-        const devError = json?.devError;
+        const errorPayload =
+          json && typeof json === 'object' && ('error' in json || 'devError' in json)
+            ? (json as {
+                error?: string;
+                devError?: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null };
+              })
+            : null;
+        const errorMessage = errorPayload?.error || 'Unable to create group chat right now.';
+        const devError = errorPayload?.devError;
         const devErrorSummary = devError
           ? [devError.code, devError.message, devError.details, devError.hint].filter(Boolean).join(' | ')
           : null;
