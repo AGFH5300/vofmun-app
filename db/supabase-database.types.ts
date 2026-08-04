@@ -9,9 +9,9 @@ export type Database = {
   public: {
     Tables: {
       Admin: {
-        Row: { adminID: string; firstname: string; lastname: string; password: string; email: string };
-        Insert: { adminID: string; firstname: string; lastname: string; password: string; email: string };
-        Update: { adminID?: string; firstname?: string; lastname?: string; password?: string; email?: string };
+        Row: { adminID: string; firstname: string; lastname: string; email: string };
+        Insert: { adminID: string; firstname: string; lastname: string; email: string };
+        Update: { adminID?: string; firstname?: string; lastname?: string; email?: string };
         Relationships: EmptyRelationships;
       };
       Announcement: {
@@ -21,9 +21,9 @@ export type Database = {
         Relationships: EmptyRelationships;
       };
       Chair: {
-        Row: { chairID: string; firstname: string; lastname: string; password: string; email: string; committeeID: string | null };
-        Insert: { chairID: string; firstname: string; lastname: string; password: string; email: string; committeeID?: string | null };
-        Update: { chairID?: string; firstname?: string; lastname?: string; password?: string; email?: string; committeeID?: string | null };
+        Row: { chairID: string; firstname: string; lastname: string; email: string; committeeID: string | null };
+        Insert: { chairID: string; firstname: string; lastname: string; email: string; committeeID?: string | null };
+        Update: { chairID?: string; firstname?: string; lastname?: string; email?: string; committeeID?: string | null };
         Relationships: EmptyRelationships;
       };
       "Chair-Speech": {
@@ -39,9 +39,9 @@ export type Database = {
         Relationships: EmptyRelationships;
       };
       Delegate: {
-        Row: { delegateID: string; firstname: string; lastname: string; password: string; email: string; resoPerms: Json; country: string | null; committeeID: string | null };
-        Insert: { delegateID: string; firstname: string; lastname: string; password: string; email: string; resoPerms?: Json; country?: string | null; committeeID?: string | null };
-        Update: { delegateID?: string; firstname?: string; lastname?: string; password?: string; email?: string; resoPerms?: Json; country?: string | null; committeeID?: string | null };
+        Row: { delegateID: string; firstname: string; lastname: string; email: string; resoPerms: Json; country: string | null; committeeID: string | null };
+        Insert: { delegateID: string; firstname: string; lastname: string; email: string; resoPerms?: Json; country?: string | null; committeeID?: string | null };
+        Update: { delegateID?: string; firstname?: string; lastname?: string; email?: string; resoPerms?: Json; country?: string | null; committeeID?: string | null };
         Relationships: EmptyRelationships;
       };
       "Delegate-Speech": {
@@ -57,9 +57,9 @@ export type Database = {
         Relationships: EmptyRelationships;
       };
       Secretariat: {
-        Row: { secretariatID: string; firstname: string; lastname: string; password: string; email: string };
-        Insert: { secretariatID: string; firstname: string; lastname: string; password: string; email: string };
-        Update: { secretariatID?: string; firstname?: string; lastname?: string; password?: string; email?: string };
+        Row: { secretariatID: string; firstname: string; lastname: string; email: string };
+        Insert: { secretariatID: string; firstname: string; lastname: string; email: string };
+        Update: { secretariatID?: string; firstname?: string; lastname?: string; email?: string };
         Relationships: EmptyRelationships;
       };
       Speech: {
@@ -83,6 +83,7 @@ export type Database = {
           role: string;
           committee_id: string | null;
           country: string | null;
+          legacy_id: string | null;
           reso_perms: Json;
           created_at: string;
           updated_at: string;
@@ -95,6 +96,7 @@ export type Database = {
           role?: string;
           committee_id?: string | null;
           country?: string | null;
+          legacy_id?: string | null;
           reso_perms?: Json;
           created_at?: string;
           updated_at?: string;
@@ -107,6 +109,7 @@ export type Database = {
           role?: string;
           committee_id?: string | null;
           country?: string | null;
+          legacy_id?: string | null;
           reso_perms?: Json;
           created_at?: string;
           updated_at?: string;
@@ -156,25 +159,29 @@ export type Database = {
         Relationships: EmptyRelationships;
       };
       support_requests: {
-        Row: { id: string; user_id: string | null; display_name: string | null; country: string | null; committee_id: string | null; committee_name: string | null; role: string | null; message: string; source: string; created_at: string };
-        Insert: { id?: string; user_id?: string | null; display_name?: string | null; country?: string | null; committee_id?: string | null; committee_name?: string | null; role?: string | null; message: string; source?: string; created_at?: string };
-        Update: { id?: string; user_id?: string | null; display_name?: string | null; country?: string | null; committee_id?: string | null; committee_name?: string | null; role?: string | null; message?: string; source?: string; created_at?: string };
+        Row: { id: string; user_id: string | null; display_name: string | null; country: string | null; committee_id: string | null; committee_name: string | null; role: string | null; message: string; source: string; status: string; created_at: string; updated_at: string };
+        Insert: { id?: string; user_id?: string | null; display_name?: string | null; country?: string | null; committee_id?: string | null; committee_name?: string | null; role?: string | null; message: string; source?: string; status?: string; created_at?: string; updated_at?: string };
+        Update: { id?: string; user_id?: string | null; display_name?: string | null; country?: string | null; committee_id?: string | null; committee_name?: string | null; role?: string | null; message?: string; source?: string; status?: string; created_at?: string; updated_at?: string };
         Relationships: EmptyRelationships;
       };
     };
     Views: Record<string, never>;
     Functions: {
-      create_notification: {
-        Args: { p_user_id: string; p_title: string; p_message: string; p_type?: string; p_category?: string | null; p_entity_id?: string | null };
+      create_resolution: {
+        Args: { p_title: string; p_content: Json };
         Returns: string;
       };
+      create_speech: {
+        Args: { p_title: string; p_content: string; p_date: string };
+        Returns: string;
+      };
+      current_app_committee_id: { Args: Record<string, never>; Returns: string | null };
+      current_app_role: { Args: Record<string, never>; Returns: string | null };
+      current_legacy_id: { Args: Record<string, never>; Returns: string | null };
+      current_reso_perms: { Args: Record<string, never>; Returns: Json };
       get_room_unread_counts: {
         Args: { p_user_id: string };
         Returns: { room_id: string; unread_count: number }[];
-      };
-      log_system_action: {
-        Args: { p_user_id: string; p_action: string; p_entity_type?: string | null; p_entity_id?: string | null; p_details?: Json | null };
-        Returns: string;
       };
       mark_message_receipts: {
         Args: { p_room_id: string; p_message_ids: string[]; p_user_id: string; p_mark_read?: boolean };

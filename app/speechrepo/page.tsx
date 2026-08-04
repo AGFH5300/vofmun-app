@@ -3,7 +3,7 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { Chair, Speech } from "@/db/types";
+import { Speech } from "@/db/types";
 import { useSession } from "../context/sessionContext";
 import { Editor } from "@tiptap/react";
 import { SimpleEditor } from "../../components/tiptap-templates/simple/simple-editor";
@@ -172,60 +172,13 @@ const Page = () => {
   }, [selectedSpeech]);
 
   const resolveDelegateProfile = React.useCallback(async (): Promise<{ delegateID: string; committeeID?: string | null; country?: string | null; name?: string } | null> => {
-    if (!currentUser || !isDelegateUser) return null;
-
-    const relevantUserFields = {
-      id: currentUser.id,
-      role: currentUser.role,
-      delegateID: currentUser.delegateID ?? null,
-      committee_id: currentUser.committee_id ?? null,
-      country: currentUser.country ?? null,
+    if (!currentUser || !isDelegateUser || !currentUser.legacy_id) return null;
+    return {
+      delegateID: currentUser.legacy_id,
+      committeeID: currentUser.committee_id,
+      country: currentUser.country,
+      name: currentUser.full_name,
     };
-
-    if (process.env.NODE_ENV !== "production") {
-      console.debug("[speechrepo] delegateResolution:start", relevantUserFields);
-    }
-
-    const logDbError = (label: string, error: { code?: string; message?: string; details?: string; hint?: string } | null) => {
-      if (!error) return;
-      console.error(`[speechrepo] ${label}`, { code: error.code, message: error.message, details: error.details, hint: error.hint });
-    };
-
-    const selectColumns = "delegateID, committeeID, country, firstname, lastname";
-
-    const verifyDelegateRow = async (queryLabel: string, query: PromiseLike<{ data: any; error: { code?: string; message?: string; details?: string; hint?: string } | null }>) => {
-      const { data, error } = await query;
-      if (error) {
-        logDbError(`${queryLabel}:error`, error as { code?: string; message?: string; details?: string; hint?: string });
-        return null;
-      }
-      if (!data) return null;
-      const row = Array.isArray(data) ? data[0] : data;
-      if (!row?.delegateID) return null;
-      if (process.env.NODE_ENV !== "production") console.debug(`[speechrepo] delegateResolution:matched:${queryLabel}`, { delegateID: row.delegateID });
-      return {
-        delegateID: row.delegateID,
-        committeeID: row.committeeID,
-        country: row.country,
-        name: [row.firstname, row.lastname].filter(Boolean).join(" ").trim() || undefined,
-      };
-    };
-
-    if (currentUser.delegateID) {
-      const byDelegateId = await verifyDelegateRow("delegateID", supabase.from("Delegate").select(selectColumns).eq("delegateID", currentUser.delegateID).maybeSingle());
-      if (byDelegateId) return byDelegateId;
-    }
-
-    if (currentUser.country && currentUser.committee_id) {
-      const byCountryCommittee = await verifyDelegateRow(
-        "country+committeeID",
-        supabase.from("Delegate").select(selectColumns).eq("country", currentUser.country).eq("committeeID", currentUser.committee_id).limit(1)
-      );
-      if (byCountryCommittee) return byCountryCommittee;
-    }
-
-    if (process.env.NODE_ENV !== "production") console.debug("[speechrepo] delegateResolution:unresolved");
-    return null;
   }, [currentUser, isDelegateUser]);
 
   useEffect(() => {
@@ -360,34 +313,16 @@ const Page = () => {
         setSelectedSpeech(updatedSpeech);
         toast.success("Speech updated successfully!");
       } else {
-        const { data: existingSpeeches, error: speechIdError } = await supabase.from("Speech").select("speechID");
-        if (speechIdError) {
-          console.error("[speechrepo] fetch Speech IDs", { code: speechIdError.code, message: speechIdError.message, details: speechIdError.details, hint: speechIdError.hint });
-          throw speechIdError;
+        if (!currentUser.legacy_id) {
+          throw new Error("Conference profile is not linked to a legacy identity");
         }
-        const numericSpeechIds = (existingSpeeches ?? []).map((row) => Number.parseInt(row.speechID, 10)).filter((id) => Number.isFinite(id));
-        const nextSpeechId = (numericSpeechIds.length > 0 ? Math.max(...numericSpeechIds) + 1 : 1).toString().padStart(4, "0");
-
-        const { error: insertError } = await supabase.from("Speech").insert({ speechID: nextSpeechId, content: serializedContent, title: title.trim(), date: timestamp });
-        if (insertError) {
-          console.error("[speechrepo] insert Speech", { code: insertError.code, message: insertError.message, details: insertError.details, hint: insertError.hint });
-          throw insertError;
-        }
-
-        if (isDelegateUser && delegateProfile?.delegateID) {
-          if (process.env.NODE_ENV !== "production") console.debug("[speechrepo] saveDelegateId", delegateProfile.delegateID);
-          const { error: linkError } = await supabase.from("Delegate-Speech").insert({ speechID: nextSpeechId, delegateID: delegateProfile.delegateID });
-          if (linkError) {
-            console.error("[speechrepo] insert Delegate-Speech link", { code: linkError.code, message: linkError.message, details: linkError.details, hint: linkError.hint });
-            throw linkError;
-          }
-        } else if (isChairUser) {
-          const { error: linkError } = await supabase.from("Chair-Speech").insert({ speechID: nextSpeechId, chairID: (currentUser as Chair).chairID });
-          if (linkError) {
-            console.error("[speechrepo] insert Chair-Speech link", { code: linkError.code, message: linkError.message, details: linkError.details, hint: linkError.hint });
-            throw linkError;
-          }
-        }
+        const { data: nextSpeechId, error: createError } = await supabase.rpc("create_speech", {
+          p_title: title.trim(),
+          p_content: serializedContent,
+          p_date: timestamp,
+        });
+        if (createError) throw createError;
+        if (!nextSpeechId) throw new Error("Speech creation returned no ID");
 
         const createdSpeech: Speech = { speechID: nextSpeechId, title: title.trim(), content: serializedContent, date: timestamp, delegateID: delegateProfile?.delegateID ?? "", tags: [] };
         setFetchedSpeeches((prev) => [createdSpeech, ...prev]);
@@ -417,7 +352,7 @@ const Page = () => {
     try {
       await supabase.from("Speech").delete().eq("speechID", selectedSpeech.speechID);
       if (isDelegateUser && delegateProfile?.delegateID) await supabase.from("Delegate-Speech").delete().eq("speechID", selectedSpeech.speechID).eq("delegateID", delegateProfile.delegateID);
-      else if (isChairUser) await supabase.from("Chair-Speech").delete().eq("speechID", selectedSpeech.speechID).eq("chairID", (currentUser as Chair).chairID);
+      else if (isChairUser) await supabase.from("Chair-Speech").delete().eq("speechID", selectedSpeech.speechID).eq("chairID", currentUser.legacy_id);
 
       const updatedSpeeches = fetchedSpeeches.filter((speech) => speech.speechID !== selectedSpeech.speechID);
       setFetchedSpeeches(updatedSpeeches);

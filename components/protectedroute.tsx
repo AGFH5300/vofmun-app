@@ -56,12 +56,12 @@ export const DelegateRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// protects from any1 who aint an admin
+// protects staff-only pages from delegates and chairs
 export const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
 
-  const blocked = !isAuthenticated || currentUser?.role !== 'admin';
+  const blocked = !isAuthenticated || !['admin', 'secretariat'].includes(currentUser?.role || '');
 
   useEffect(() => {
     if (!authReady) return;

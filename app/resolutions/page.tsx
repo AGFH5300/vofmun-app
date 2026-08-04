@@ -101,7 +101,7 @@ const Page = () => {
   const isBusy = isSaving || isDeleting;
   const delegateAlreadyHasReso = React.useMemo(() => {
     if (!isDelegateUser || !currentUser) return false;
-    return fetchedResos.some((reso) => reso.delegateID === currentUser.id);
+    return fetchedResos.some((reso) => reso.delegateID === currentUser.legacy_id);
   }, [currentUser, fetchedResos, isDelegateUser]);
 
   const isValidUuid = useCallback((value: string) => /^[0-9a-fA-F-]{36}$/.test(value), []);
@@ -176,12 +176,13 @@ const Page = () => {
       try {
         const { data, error } = await supabase
           .from("app_users")
-          .select("id, first_name, last_name, reso_perms")
+          .select("legacy_id, first_name, last_name, reso_perms")
           .eq("committee_id", currentUser.committee_id)
-          .eq("role", "delegate");
+          .eq("role", "delegate")
+          .not("legacy_id", "is", null);
         if (error) throw error;
         setDelegates((data || []).map((delegate) => ({
-          delegateID: delegate.id,
+          delegateID: delegate.legacy_id as string,
           firstname: delegate.first_name || "",
           lastname: delegate.last_name || "",
           resoPerms: delegate.reso_perms as shortenedDel["resoPerms"],
@@ -203,7 +204,11 @@ const Page = () => {
         let query = supabase.from("Resos").select("*");
         if (userRole === "delegate") {
           if (!currentUser.reso_perms["view:allreso"]) {
-            query = query.eq("delegateID", currentUser.id);
+            if (!currentUser.legacy_id) {
+            toast.error("Your delegate profile is not linked. Please contact admin.");
+            return;
+          }
+            query = query.eq("delegateID", currentUser.legacy_id);
           } else {
             const committeeUuid = committeeIdFor(currentUser.committee_id || "");
             if (!isValidUuid(committeeUuid)) {
@@ -254,8 +259,8 @@ const Page = () => {
     if (!updatedUserIsDelegate && !selectedReso) return toast.error("Only delegates can post resolutions.");
     if (updatedUserIsDelegate) {
       const delegateUser = updatedUser;
-      if (!delegateUser.reso_perms["update:ownreso"] && selectedReso?.delegateID === delegateUser.id) return toast.error("You do not have permission to post resolutions.");
-      if (selectedReso && (selectedReso.delegateID !== delegateUser.id && !(delegateUser.reso_perms["update:reso"]?.includes(selectedReso.resoID)))) return toast.error("You can only update your own resolutions.");
+      if (!delegateUser.reso_perms["update:ownreso"] && selectedReso?.delegateID === delegateUser.legacy_id) return toast.error("You do not have permission to post resolutions.");
+      if (selectedReso && (selectedReso.delegateID !== delegateUser.legacy_id && !(delegateUser.reso_perms["update:reso"]?.includes(selectedReso.resoID)))) return toast.error("You can only update your own resolutions.");
     }
     if (!title.trim()) return toast.error("Please enter a resolution title");
 
@@ -263,9 +268,10 @@ const Page = () => {
     let delegateID = "0000"; let committeeID = "";
     if (updatedUserIsDelegate) {
       const delegateUser = updatedUser;
-      delegateID = delegateUser.id; committeeID = committeeIdFor(delegateUser.committee_id || "");
+      if (!delegateUser.legacy_id) return toast.error("Your delegate profile is not linked. Please contact admin.");
+      delegateID = delegateUser.legacy_id; committeeID = committeeIdFor(delegateUser.committee_id || "");
       if (!isValidUuid(committeeID)) return toast.error("Unable to resolve your committee. Please contact admin.");
-      if (fetchedResos.filter((r) => r.delegateID === delegateUser.id).length >= 1 && !selectedReso) return toast.error("You can only post one resolution as a delegate.");
+      if (fetchedResos.filter((r) => r.delegateID === delegateUser.legacy_id).length >= 1 && !selectedReso) return toast.error("You can only post one resolution as a delegate.");
     } else if (updatedUserRole === "chair" && selectedReso) {
       const chairUser = updatedUser; committeeID = committeeIdFor(chairUser.committee_id || "");
       if (!isValidUuid(committeeID)) return toast.error("Unable to resolve your committee. Please contact admin.");
@@ -280,21 +286,20 @@ const Page = () => {
         const updatedReso: Reso = { ...selectedReso, content, title };
         setFetchedResos((prev) => prev.map((r) => r.resoID === updatedReso.resoID ? updatedReso : r)); setSelectedReso(updatedReso); toast.success("Resolution updated successfully!");
       } else {
-        const { data: existingResos, error: resoError } = await supabase.from("Resos").select("resoID");
-        if (resoError) throw resoError;
-        const sortedResos = existingResos ? [...existingResos] : []; sortedResos.sort((a, b) => a.resoID.localeCompare(b.resoID));
-        const highestResoID = sortedResos.length > 0 ? (parseInt(sortedResos[sortedResos.length - 1].resoID, 10) + 1).toString().padStart(4, "0") : "0001";
-        const newResoPayload: Reso = { resoID: highestResoID, delegateID, committeeID, content, title, isNew: false };
-        const { data: insertedReso, error: insertError } = await supabase.from("Resos").insert(newResoPayload).select().single();
-        if (insertError) throw insertError;
-        const createdReso: Reso = (insertedReso as Reso) ?? { ...newResoPayload };
+        const { data: createdResoId, error: createError } = await supabase.rpc("create_resolution", {
+          p_title: title.trim(),
+          p_content: content,
+        });
+        if (createError) throw createError;
+        if (!createdResoId) throw new Error("Resolution creation returned no ID");
+        const createdReso: Reso = { resoID: createdResoId, delegateID, committeeID, content, title: title.trim(), isNew: false };
         setFetchedResos((prev) => [...prev, createdReso]); setSelectedReso(createdReso); toast.success("Resolution posted successfully!");
       }
       initialStateRef.current = { title, docLink: trimmedDocLink }; setHasUnsavedChanges(false);
     } catch (error) { console.error("Failed to save resolution:", error); toast.error("Failed to post resolution"); } finally { setIsSaving(false); }
   };
 
-  const handleDeleteReso = useCallback(async () => { if (!selectedReso || isBusy) return; const updatedUser = await logBackIn(); if (!updatedUser) return; const updatedRole = role(updatedUser); if (updatedRole === "delegate") { const d = updatedUser; const owns = selectedReso.delegateID === d.id; const hasPerm = Array.isArray(d.reso_perms?.["update:reso"]) ? d.reso_perms["update:reso"].includes(selectedReso.resoID) : false; if (!owns && !hasPerm) return toast.error("You can only delete resolutions you are allowed to update."); } else if (updatedRole !== "chair") return toast.error("You do not have permission to delete this resolution."); if (!window.confirm("Are you sure you want to delete this resolution? This action cannot be undone.")) return; setIsDeleting(true); try { const { error } = await supabase.from("Resos").delete().eq("resoID", selectedReso.resoID); if (error) throw error; const updated = fetchedResos.filter((r) => r.resoID !== selectedReso.resoID); setFetchedResos(updated); if (updated.length > 0) setSelectedReso(updated[0]); else { setSelectedReso(null); setTitle(""); setDocLink(""); initialStateRef.current = { title: "", docLink: "" }; } setHasUnsavedChanges(false); toast.success("Resolution deleted successfully."); } catch (error) { console.error("Failed to delete resolution:", error); toast.error("Failed to delete resolution"); } finally { setIsDeleting(false); } }, [fetchedResos, isBusy, logBackIn, selectedReso]);
+  const handleDeleteReso = useCallback(async () => { if (!selectedReso || isBusy) return; const updatedUser = await logBackIn(); if (!updatedUser) return; const updatedRole = role(updatedUser); if (updatedRole === "delegate") { const d = updatedUser; const owns = selectedReso.delegateID === d.legacy_id; const hasPerm = Array.isArray(d.reso_perms?.["update:reso"]) ? d.reso_perms["update:reso"].includes(selectedReso.resoID) : false; if (!owns && !hasPerm) return toast.error("You can only delete resolutions you are allowed to update."); } else if (updatedRole !== "chair") return toast.error("You do not have permission to delete this resolution."); if (!window.confirm("Are you sure you want to delete this resolution? This action cannot be undone.")) return; setIsDeleting(true); try { const { error } = await supabase.from("Resos").delete().eq("resoID", selectedReso.resoID); if (error) throw error; const updated = fetchedResos.filter((r) => r.resoID !== selectedReso.resoID); setFetchedResos(updated); if (updated.length > 0) setSelectedReso(updated[0]); else { setSelectedReso(null); setTitle(""); setDocLink(""); initialStateRef.current = { title: "", docLink: "" }; } setHasUnsavedChanges(false); toast.success("Resolution deleted successfully."); } catch (error) { console.error("Failed to delete resolution:", error); toast.error("Failed to delete resolution"); } finally { setIsDeleting(false); } }, [fetchedResos, isBusy, logBackIn, selectedReso]);
 
   if (userRole !== "delegate" && userRole !== "chair") return <div className="p-8 text-center">Restricted access.</div>;
 

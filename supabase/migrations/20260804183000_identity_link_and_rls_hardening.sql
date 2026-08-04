@@ -106,6 +106,8 @@ before insert or update of email, role, legacy_id
 on public.app_users
 for each row execute function public.sync_app_user_legacy_id();
 
+revoke all on function public.sync_app_user_legacy_id() from public, anon, authenticated;
+
 -- Password authentication is handled exclusively by Supabase Auth. The legacy
 -- plaintext/password columns are not used by the application and must not
 -- remain queryable in production.
@@ -217,6 +219,121 @@ on conflict (id) do update set
   public = excluded.public,
   file_size_limit = excluded.file_size_limit;
 
+
+-- Atomic creation functions prevent user-scoped reads from generating duplicate
+-- global four-digit IDs and ensure speeches cannot be left without ownership.
+create or replace function public.create_resolution(
+  p_title text,
+  p_content jsonb
+)
+returns text
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  next_id text;
+  legacy_delegate_id text := public.current_legacy_id();
+  committee_id uuid := public.current_app_committee_id();
+  permissions jsonb := public.current_reso_perms();
+begin
+  if auth.uid() is null or public.current_app_role() <> 'delegate' then
+    raise exception 'Only authenticated delegates can create resolutions' using errcode = '42501';
+  end if;
+  if legacy_delegate_id is null or committee_id is null then
+    raise exception 'Delegate profile is not linked to a legacy conference identity' using errcode = '23503';
+  end if;
+  if not coalesce((permissions ->> 'update:ownreso')::boolean, false) then
+    raise exception 'Resolution creation is not permitted for this delegate' using errcode = '42501';
+  end if;
+  if nullif(trim(p_title), '') is null or char_length(trim(p_title)) > 255 then
+    raise exception 'Resolution title is required and must be at most 255 characters' using errcode = '22023';
+  end if;
+  if p_content is null then
+    raise exception 'Resolution content is required' using errcode = '22023';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('vofmun:create-resolution'));
+
+  if exists (
+    select 1 from public."Resos"
+    where "delegateID" = legacy_delegate_id
+  ) then
+    raise exception 'A delegate may create only one resolution' using errcode = '23505';
+  end if;
+
+  select lpad((coalesce(max(
+    case when "resoID" ~ '^[0-9]+$' then "resoID"::integer end
+  ), 0) + 1)::text, 4, '0')
+  into next_id
+  from public."Resos";
+
+  insert into public."Resos" (
+    "resoID", title, "delegateID", "committeeID", content, "isNew"
+  ) values (
+    next_id, trim(p_title), legacy_delegate_id, committee_id, p_content, false
+  );
+
+  return next_id;
+end;
+$$;
+
+create or replace function public.create_speech(
+  p_title text,
+  p_content text,
+  p_date text
+)
+returns text
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  next_id text;
+  app_role text := public.current_app_role();
+  legacy_owner_id text := public.current_legacy_id();
+begin
+  if auth.uid() is null or app_role not in ('delegate', 'chair') then
+    raise exception 'Only authenticated delegates and chairs can create speeches' using errcode = '42501';
+  end if;
+  if legacy_owner_id is null then
+    raise exception 'Conference profile is not linked to a legacy identity' using errcode = '23503';
+  end if;
+  if nullif(trim(p_title), '') is null or char_length(trim(p_title)) > 255 then
+    raise exception 'Speech title is required and must be at most 255 characters' using errcode = '22023';
+  end if;
+  if nullif(trim(p_content), '') is null then
+    raise exception 'Speech content is required' using errcode = '22023';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('vofmun:create-speech'));
+
+  select lpad((coalesce(max(
+    case when "speechID" ~ '^[0-9]+$' then "speechID"::integer end
+  ), 0) + 1)::text, 4, '0')
+  into next_id
+  from public."Speech";
+
+  insert into public."Speech" ("speechID", title, content, date)
+  values (next_id, trim(p_title), p_content, p_date);
+
+  if app_role = 'delegate' then
+    insert into public."Delegate-Speech" ("speechID", "delegateID")
+    values (next_id, legacy_owner_id);
+  else
+    insert into public."Chair-Speech" ("speechID", "chairID")
+    values (next_id, legacy_owner_id);
+  end if;
+
+  return next_id;
+end;
+$$;
+
+revoke all on function public.create_resolution(text, jsonb) from public, anon;
+revoke all on function public.create_speech(text, text, text) from public, anon;
+grant execute on function public.create_resolution(text, jsonb) to authenticated;
+grant execute on function public.create_speech(text, text, text) to authenticated;
+
 -- Enable RLS on every client-visible application table. Service-role server
 -- routes continue to bypass RLS; browser clients receive only the policies below.
 alter table public.app_users enable row level security;
@@ -263,7 +380,6 @@ with check (
   id = auth.uid()
   and role = 'delegate'
   and committee_id is null
-  and legacy_id is null
   and lower(coalesce(email, '')) = lower(coalesce(auth.jwt() ->> 'email', ''))
   and reso_perms = '{"update:reso": [], "view:allreso": false, "view:ownreso": true, "update:ownreso": true}'::jsonb
 );
@@ -292,18 +408,27 @@ with check (public.current_app_role() in ('admin', 'secretariat'));
 revoke all on table public."Committee" from anon, authenticated;
 grant select, insert, update, delete on table public."Committee" to authenticated;
 
-for table_name in select unnest(array['Announcement', 'Updates']) loop
-  execute format('drop policy if exists %I_authenticated_read on public.%I', lower(table_name), table_name);
-  execute format(
-    'create policy %I_authenticated_read on public.%I for select to authenticated using (true)',
-    lower(table_name), table_name
-  );
-  execute format('drop policy if exists %I_admin_manage on public.%I', lower(table_name), table_name);
-  execute format(
-    'create policy %I_admin_manage on public.%I for all to authenticated using (public.current_app_role() in (''admin'', ''secretariat'')) with check (public.current_app_role() in (''admin'', ''secretariat''))',
-    lower(table_name), table_name
-  );
-end loop;
+drop policy if exists announcement_authenticated_read on public."Announcement";
+create policy announcement_authenticated_read
+on public."Announcement" for select to authenticated
+using (true);
+
+drop policy if exists announcement_admin_manage on public."Announcement";
+create policy announcement_admin_manage
+on public."Announcement" for all to authenticated
+using (public.current_app_role() in ('admin', 'secretariat'))
+with check (public.current_app_role() in ('admin', 'secretariat'));
+
+drop policy if exists updates_authenticated_read on public."Updates";
+create policy updates_authenticated_read
+on public."Updates" for select to authenticated
+using (true);
+
+drop policy if exists updates_admin_manage on public."Updates";
+create policy updates_admin_manage
+on public."Updates" for all to authenticated
+using (public.current_app_role() in ('admin', 'secretariat'))
+with check (public.current_app_role() in ('admin', 'secretariat'));
 
 revoke all on table public."Announcement" from anon, authenticated;
 revoke all on table public."Updates" from anon, authenticated;
@@ -392,7 +517,7 @@ using (
 );
 
 revoke all on table public."Resos" from anon, authenticated;
-grant select, insert, update, delete on table public."Resos" to authenticated;
+grant select, update, delete on table public."Resos" to authenticated;
 
 -- Speech rows are protected through their delegate/chair ownership links.
 drop policy if exists delegate_speech_select_own on public."Delegate-Speech";
@@ -495,7 +620,19 @@ using (
       and link."chairID" = public.current_legacy_id()
   )
 )
-with check (true);
+with check (
+  public.current_app_role() in ('admin', 'secretariat')
+  or exists (
+    select 1 from public."Delegate-Speech" as link
+    where link."speechID" = "Speech"."speechID"
+      and link."delegateID" = public.current_legacy_id()
+  )
+  or exists (
+    select 1 from public."Chair-Speech" as link
+    where link."speechID" = "Speech"."speechID"
+      and link."chairID" = public.current_legacy_id()
+  )
+);
 
 drop policy if exists speech_delete_owned on public."Speech";
 create policy speech_delete_owned
@@ -517,9 +654,9 @@ using (
 revoke all on table public."Speech" from anon, authenticated;
 revoke all on table public."Delegate-Speech" from anon, authenticated;
 revoke all on table public."Chair-Speech" from anon, authenticated;
-grant select, insert, update, delete on table public."Speech" to authenticated;
-grant select, insert, delete on table public."Delegate-Speech" to authenticated;
-grant select, insert, delete on table public."Chair-Speech" to authenticated;
+grant select, update, delete on table public."Speech" to authenticated;
+grant select, delete on table public."Delegate-Speech" to authenticated;
+grant select, delete on table public."Chair-Speech" to authenticated;
 
 -- Support tickets are private to their author and conference staff.
 drop policy if exists support_requests_insert_self on public.support_requests;

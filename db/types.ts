@@ -43,6 +43,7 @@ export interface SessionUser {
   role: AppUserRole;
   committee_id: string | null;
   country: string | null;
+  legacy_id: string | null;
   reso_perms: {
     "view:ownreso": boolean;
     "view:allreso": boolean;
@@ -74,6 +75,7 @@ export interface AppUser {
   role: AppUserRole;
   committee_id: string | null;
   country: string | null;
+  legacy_id: string | null;
   reso_perms: {
     "view:ownreso": boolean;
     "view:allreso": boolean;
