@@ -1,0 +1,59 @@
+name: VOFMUN Readiness CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: readiness-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Production build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://build-check.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-check-anon-key
+        run: npm run build
+
+      - name: Audit runtime dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm audit --omit=dev --json > runtime-audit.json || true
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('runtime-audit.json', 'utf8'));
+          const totals = report.metadata?.vulnerabilities || {};
+          console.log('Runtime dependency audit:', totals);
+          const blocking = Number(totals.high || 0) + Number(totals.critical || 0);
+          if (blocking > 0) {
+            console.error(`Blocking runtime vulnerabilities: ${blocking}`);
+            process.exit(1);
+          }
+          NODE
