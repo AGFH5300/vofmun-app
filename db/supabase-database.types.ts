@@ -175,6 +175,10 @@ export type Database = {
         Args: { p_title: string; p_content: string; p_date: string };
         Returns: string;
       };
+      delete_speech: {
+        Args: { p_speech_id: string };
+        Returns: undefined;
+      };
       current_app_committee_id: { Args: Record<string, never>; Returns: string | null };
       current_app_role: { Args: Record<string, never>; Returns: string | null };
       current_legacy_id: { Args: Record<string, never>; Returns: string | null };

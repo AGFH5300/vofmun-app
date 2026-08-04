@@ -185,6 +185,9 @@ create table if not exists public.support_requests (
   updated_at timestamptz not null default now()
 );
 
+alter table public.support_requests add column if not exists status text not null default 'open';
+alter table public.support_requests add column if not exists updated_at timestamptz not null default now();
+
 create index if not exists support_requests_user_id_idx on public.support_requests(user_id);
 create index if not exists support_requests_status_created_at_idx on public.support_requests(status, created_at desc);
 
@@ -329,10 +332,59 @@ begin
 end;
 $$;
 
+
+create or replace function public.delete_speech(
+  p_speech_id text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  app_role text := public.current_app_role();
+  legacy_owner_id text := public.current_legacy_id();
+begin
+  if auth.uid() is null or app_role not in ('delegate', 'chair') then
+    raise exception 'Only authenticated delegates and chairs can delete speeches' using errcode = '42501';
+  end if;
+  if legacy_owner_id is null then
+    raise exception 'Conference profile is not linked to a legacy identity' using errcode = '23503';
+  end if;
+
+  if app_role = 'delegate' then
+    if not exists (
+      select 1 from public."Delegate-Speech"
+      where "speechID" = p_speech_id and "delegateID" = legacy_owner_id
+    ) then
+      raise exception 'Speech is not owned by this delegate' using errcode = '42501';
+    end if;
+    delete from public."Delegate-Speech"
+    where "speechID" = p_speech_id and "delegateID" = legacy_owner_id;
+  else
+    if not exists (
+      select 1 from public."Chair-Speech"
+      where "speechID" = p_speech_id and "chairID" = legacy_owner_id
+    ) then
+      raise exception 'Speech is not owned by this chair' using errcode = '42501';
+    end if;
+    delete from public."Chair-Speech"
+    where "speechID" = p_speech_id and "chairID" = legacy_owner_id;
+  end if;
+
+  delete from public."Speech" where "speechID" = p_speech_id;
+  if not found then
+    raise exception 'Speech does not exist' using errcode = 'P0002';
+  end if;
+end;
+$$;
+
 revoke all on function public.create_resolution(text, jsonb) from public, anon;
 revoke all on function public.create_speech(text, text, text) from public, anon;
+revoke all on function public.delete_speech(text) from public, anon;
 grant execute on function public.create_resolution(text, jsonb) to authenticated;
 grant execute on function public.create_speech(text, text, text) to authenticated;
+grant execute on function public.delete_speech(text) to authenticated;
 
 -- Enable RLS on every client-visible application table. Service-role server
 -- routes continue to bypass RLS; browser clients receive only the policies below.
@@ -654,9 +706,9 @@ using (
 revoke all on table public."Speech" from anon, authenticated;
 revoke all on table public."Delegate-Speech" from anon, authenticated;
 revoke all on table public."Chair-Speech" from anon, authenticated;
-grant select, update, delete on table public."Speech" to authenticated;
-grant select, delete on table public."Delegate-Speech" to authenticated;
-grant select, delete on table public."Chair-Speech" to authenticated;
+grant select, update on table public."Speech" to authenticated;
+grant select on table public."Delegate-Speech" to authenticated;
+grant select on table public."Chair-Speech" to authenticated;
 
 -- Support tickets are private to their author and conference staff.
 drop policy if exists support_requests_insert_self on public.support_requests;

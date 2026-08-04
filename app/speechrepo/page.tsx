@@ -229,8 +229,11 @@ const Page = () => {
           if (error) { logDbError("fetch delegate links", error as { code?: string; message?: string; details?: string; hint?: string }); throw error; }
           speechIds = (data ?? []).map((row) => ({ speechID: row.speechID, delegateID: delegateProfile.delegateID }));
         } else if (isChairUser) {
-          const chairUser = currentUser as Chair;
-          const { data, error } = await supabase.from("Chair-Speech").select("speechID").eq("chairID", chairUser.chairID);
+          if (!currentUser.legacy_id) {
+            setFetchedSpeeches([]);
+            return;
+          }
+          const { data, error } = await supabase.from("Chair-Speech").select("speechID").eq("chairID", currentUser.legacy_id);
           if (error) { logDbError("fetch chair links", error as { code?: string; message?: string; details?: string; hint?: string }); throw error; }
           speechIds = (data ?? []).map((row) => ({ speechID: row.speechID }));
         }
@@ -350,9 +353,10 @@ const Page = () => {
 
     setIsDeleting(true);
     try {
-      await supabase.from("Speech").delete().eq("speechID", selectedSpeech.speechID);
-      if (isDelegateUser && delegateProfile?.delegateID) await supabase.from("Delegate-Speech").delete().eq("speechID", selectedSpeech.speechID).eq("delegateID", delegateProfile.delegateID);
-      else if (isChairUser) await supabase.from("Chair-Speech").delete().eq("speechID", selectedSpeech.speechID).eq("chairID", currentUser.legacy_id);
+      const { error: deleteError } = await supabase.rpc("delete_speech", {
+        p_speech_id: selectedSpeech.speechID,
+      });
+      if (deleteError) throw deleteError;
 
       const updatedSpeeches = fetchedSpeeches.filter((speech) => speech.speechID !== selectedSpeech.speechID);
       setFetchedSpeeches(updatedSpeeches);
