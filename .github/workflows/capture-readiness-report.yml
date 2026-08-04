@@ -37,11 +37,13 @@ jobs:
           runtime_audit_status=$?
           npx tsc --noEmit > /tmp/tsc.log 2>&1
           typecheck_status=$?
+          npm run lint > /tmp/lint.log 2>&1
+          lint_status=$?
           NEXT_PUBLIC_SUPABASE_URL=https://build-check.supabase.co \
           NEXT_PUBLIC_SUPABASE_ANON_KEY=build-check-anon-key \
           npm run build > /tmp/build.log 2>&1
           build_status=$?
-          export npm_ci_status runtime_audit_status typecheck_status build_status
+          export npm_ci_status runtime_audit_status typecheck_status lint_status build_status
           node <<'NODE'
           const fs = require('node:fs');
           const read = (path) => fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : '';
@@ -50,11 +52,12 @@ jobs:
           const report = {
             generatedAt: new Date().toISOString(),
             branch: 'codex/port-mun-webapp-features',
-            commit: process.env.GITHUB_SHA,
+            sourceCommit: process.env.GITHUB_SHA,
             checks: {
               npmCi: Number(process.env.npm_ci_status),
               runtimeAudit: Number(process.env.runtime_audit_status),
               typecheck: Number(process.env.typecheck_status),
+              lint: Number(process.env.lint_status),
               productionBuild: Number(process.env.build_status),
             },
             runtimeVulnerabilities: audit.metadata?.vulnerabilities || {},
@@ -68,8 +71,9 @@ jobs:
                 fixAvailable: detail.fixAvailable,
               })),
             typecheckLog: read('/tmp/tsc.log').slice(-20000),
-            buildLogTail: read('/tmp/build.log').slice(-12000),
-            installLogTail: read('/tmp/npm-ci.log').slice(-4000),
+            lintLog: read('/tmp/lint.log').slice(-30000),
+            buildLogTail: read('/tmp/build.log').slice(-15000),
+            installLogTail: read('/tmp/npm-ci.log').slice(-5000),
             auditStderr: read('/tmp/runtime-audit.stderr').slice(-4000),
           };
           fs.writeFileSync('readiness-report.json', JSON.stringify(report, null, 2) + '\n');
@@ -80,5 +84,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add readiness-report.json
-          git commit -m "Capture temporary VOFMUN readiness report"
+          git commit -m "Refresh temporary VOFMUN readiness report"
           git push origin HEAD:codex/port-mun-webapp-features
