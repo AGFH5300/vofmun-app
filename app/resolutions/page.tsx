@@ -4,6 +4,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { Reso, SessionUser, shortenedDel } from "@/db/types";
+import type { Json } from "@/db/supabase-database.types";
 import { useSession } from "../context/sessionContext";
 import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
@@ -65,9 +66,9 @@ const addExternalDocBlock = (docLink: string) => {
   };
 };
 
-const parseResoContent = (raw?: string | object | null) => {
-  if (!raw) return undefined;
-  if (typeof raw === "object") return raw;
+const parseResoContent = (raw?: Json): Record<string, unknown> | undefined => {
+  if (raw === null || raw === undefined) return undefined;
+  if (typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
   if (typeof raw !== "string") return undefined;
 
   try {

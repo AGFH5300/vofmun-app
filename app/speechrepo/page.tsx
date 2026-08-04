@@ -295,7 +295,7 @@ const Page = () => {
 
         const normalizedSpeeches: Speech[] = (speechRows ?? []).map((speech) => ({
           ...speech,
-          delegateID: speechIds.find((row) => row.speechID === speech.speechID)?.delegateID ?? speech.delegateID ?? "",
+          delegateID: speechIds.find((row) => row.speechID === speech.speechID)?.delegateID ?? "",
           tags: [],
         }));
 
