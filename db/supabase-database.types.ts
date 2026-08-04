@@ -134,6 +134,12 @@ export type Database = {
         Update: { id?: string; user1_id?: string; user2_id?: string; created_at?: string | null };
         Relationships: EmptyRelationships;
       };
+      pending_chat_attachments: {
+        Row: { id: string; room_id: string; bucket: string; path: string; original_name: string; mime_type: string; size_bytes: number; created_by: string; created_at: string; consumed_at: string | null };
+        Insert: { id?: string; room_id: string; bucket?: string; path: string; original_name: string; mime_type: string; size_bytes: number; created_by: string; created_at?: string; consumed_at?: string | null };
+        Update: { id?: string; room_id?: string; bucket?: string; path?: string; original_name?: string; mime_type?: string; size_bytes?: number; created_by?: string; created_at?: string; consumed_at?: string | null };
+        Relationships: EmptyRelationships;
+      };
       message_attachments: {
         Row: { id: string; message_id: string; room_id: string; bucket: string; path: string; original_name: string; mime_type: string | null; size_bytes: number | null; created_by: string; created_at: string };
         Insert: { id?: string; message_id: string; room_id: string; bucket?: string; path: string; original_name: string; mime_type?: string | null; size_bytes?: number | null; created_by: string; created_at?: string };

@@ -36,8 +36,8 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { MessageAttachmentInput, MessageWithUser, RoomWithDetails } from "@/lib/chat/types";
-import supabase from "@/lib/supabase";
+import { MessageAttachment, MessageAttachmentInput, MessageWithUser, RoomWithDetails } from "@/lib/chat/types";
+import { deletePendingChatAttachment, getChatAttachmentSignedUrl, uploadChatAttachment } from "@/lib/chat/attachmentClient";
 import { toast } from "sonner";
 
 const formatDateLabel = (dateString: string) => {
@@ -248,6 +248,8 @@ const ChatShell: React.FC = () => {
   const lastHandledMessageCountRef = useRef<Record<string, number>>({});
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachmentItem[]>([]);
+  const pendingAttachmentsRef = useRef<PendingAttachmentItem[]>([]);
+  const pendingAttachmentRoomIdRef = useRef<string | null>(null);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [attachmentUploadError, setAttachmentUploadError] = useState<string | null>(null);
   const [showAcceptedPrompt, setShowAcceptedPrompt] = useState<{ userId: string; name: string } | null>(null);
@@ -799,6 +801,8 @@ const ChatShell: React.FC = () => {
 
   const handleAttachmentSelect = async (selectedFiles: FileList | null) => {
     if (!activeRoom || !selectedFiles || selectedFiles.length === 0) return;
+    const targetRoomId = String(activeRoom.id);
+    if (!pendingAttachmentRoomIdRef.current) pendingAttachmentRoomIdRef.current = targetRoomId;
     const files = Array.from(selectedFiles);
     setAttachmentUploadError(null);
 
@@ -821,86 +825,38 @@ const ChatShell: React.FC = () => {
       mime_type: file.type || "application/octet-stream",
       status: "uploading",
     }));
-    setPendingAttachments((prev) => [...prev, ...queuedItems]);
+    setPendingAttachments((previous) => [...previous, ...queuedItems]);
 
-    const uploadedPaths: { bucket: string; path: string }[] = [];
+    await Promise.all(
+      files.map(async (file, index) => {
+        const pendingId = queuedItems[index].id;
+        try {
+          const attachment = await uploadChatAttachment(targetRoomId, file, ATTACHMENT_UPLOAD_TIMEOUT_MS);
 
-    try {
-
-      await Promise.all(
-        files.map(async (file, index) => {
-          const pendingId = queuedItems[index].id;
-          const sanitized = sanitizeFileName(file.name);
-          const attemptedPath = `${activeRoom.id}/${crypto.randomUUID()}/${sanitized}`;
-          let error: Error | null = null;
-          let uploadedPath: string | null = null;
-
-          try {
-            const storageUpload = supabase.storage.from("chat-attachments").upload(attemptedPath, file, {
-              cacheControl: "3600",
-              upsert: false,
-              contentType: file.type || "application/octet-stream",
-            });
-
-            const uploadResult = await Promise.race([
-              storageUpload,
-              new Promise<never>((_, reject) =>
-                window.setTimeout(() => reject(new Error("Upload timed out. Please try again.")), ATTACHMENT_UPLOAD_TIMEOUT_MS),
-              ),
-            ]);
-
-            if (uploadResult.error) {
-              throw new Error(uploadResult.error.message || "Upload failed");
-            }
-
-            uploadedPath = uploadResult.data?.path || attemptedPath;
-          } catch (uploadError) {
-            error = uploadError instanceof Error ? uploadError : new Error("Upload failed");
-          }
-
-          if (error || !uploadedPath) {
-            console.error("Attachment upload failed", {
-              fileName: file.name,
-              attemptedPath,
-              error,
-              message: error?.message || "Upload failed",
-              name: error?.name || "Error",
-            });
-            setPendingAttachments((prev) =>
-              prev.map((item) =>
-                item.id === pendingId ? { ...item, status: "error", error: error?.message || "Upload failed" } : item,
-              ),
-            );
+          if (pendingAttachmentRoomIdRef.current !== targetRoomId) {
+            if (attachment.upload_id) await deletePendingChatAttachment(attachment.upload_id);
+            setPendingAttachments((previous) => previous.filter((item) => item.id !== pendingId));
             return;
           }
 
-          uploadedPaths.push({ bucket: "chat-attachments", path: uploadedPath });
-
-          const attachment = {
-            room_id: activeRoom.id,
-            bucket: "chat-attachments",
-            path: uploadedPath,
-            original_name: file.name,
-            mime_type: file.type || "application/octet-stream",
-            size_bytes: file.size,
-          } as MessageAttachmentInput;
-
-          setPendingAttachments((prev) =>
-            prev.map((item) =>
+          setPendingAttachments((previous) =>
+            previous.map((item) =>
               item.id === pendingId ? { ...item, status: "uploaded", attachment, error: undefined } : item,
             ),
           );
-        }),
-      );
+        } catch (uploadError) {
+          const error = uploadError instanceof Error ? uploadError : new Error("Upload failed");
+          console.error("Attachment upload failed", { fileName: file.name, error });
+          setPendingAttachments((previous) =>
+            previous.map((item) =>
+              item.id === pendingId ? { ...item, status: "error", error: error.message } : item,
+            ),
+          );
+        }
+      }),
+    );
 
-      setShowAttachmentMenu(false);
-    } catch (error) {
-      console.error("Attachment upload catch", error);
-      await Promise.allSettled(
-        uploadedPaths.map(({ bucket, path }) => supabase.storage.from(bucket).remove([path])),
-      );
-      setAttachmentUploadError(error instanceof Error ? error.message : "Failed to upload attachments.");
-    }
+    setShowAttachmentMenu(false);
   };
 
   const hasDraggedFiles = (event: React.DragEvent<HTMLElement>) =>
@@ -949,29 +905,27 @@ const ChatShell: React.FC = () => {
     const trimmedComposer = composer.trim();
 
     if (!roomId || (trimmedComposer.length === 0 && uploadedAttachments.length === 0) || isUploadingAttachments) return;
-    sendTyping(roomId, false);
 
+    const previousComposer = composer;
+    const previousAttachments = pendingAttachments;
+    const previousReplyId = replyingToMessageId;
+    sendTyping(roomId, false);
     setComposer("");
     setPendingAttachments([]);
     setAttachmentUploadError(null);
 
-    const sendOperations: Promise<void>[] = [];
-
-    if (trimmedComposer.length > 0) {
-      sendOperations.push(sendMessage(roomId, trimmedComposer, [], replyingToMessageId));
-    }
-
-    uploadedAttachments.forEach((attachment, index) => {
-      sendOperations.push(sendMessage(roomId, "", [attachment], index === 0 && trimmedComposer.length === 0 ? replyingToMessageId : null));
-    });
-
-    if (sendOperations.length > 0) {
-      await Promise.allSettled(sendOperations);
+    try {
+      await sendMessage(roomId, trimmedComposer, uploadedAttachments, previousReplyId);
       setReplyingToMessageId(null);
-      setDraftsByRoom((prev) => {
-        if (!prev[roomId]) return prev;
-        return { ...prev, [roomId]: "" };
+      setDraftsByRoom((previous) => {
+        if (!previous[roomId]) return previous;
+        return { ...previous, [roomId]: "" };
       });
+    } catch (error) {
+      setComposer((current) => current || previousComposer);
+      setPendingAttachments((current) => (current.length > 0 ? current : previousAttachments));
+      setReplyingToMessageId((current) => current || previousReplyId);
+      toast.error(error instanceof Error ? error.message : "Failed to send message");
     }
   };
 
@@ -1002,14 +956,18 @@ const ChatShell: React.FC = () => {
   };
 
   const removePendingAttachment = async (pendingId: string) => {
-    let removedItem: PendingAttachmentItem | undefined;
-    setPendingAttachments((prev) => {
-      removedItem = prev.find((item) => item.id === pendingId);
-      return prev.filter((item) => item.id !== pendingId);
-    });
+    const removedItem = pendingAttachmentsRef.current.find((item) => item.id === pendingId);
+    setPendingAttachments((previous) => previous.filter((item) => item.id !== pendingId));
 
-    if (removedItem?.attachment?.bucket && removedItem.attachment.path) {
-      await supabase.storage.from(removedItem.attachment.bucket).remove([removedItem.attachment.path]);
+    const uploadId = removedItem?.attachment?.upload_id;
+    if (!uploadId) return;
+    try {
+      await deletePendingChatAttachment(uploadId);
+    } catch (error) {
+      console.warn("Unable to remove pending attachment", {
+        uploadId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   };
 
@@ -1151,8 +1109,26 @@ const ChatShell: React.FC = () => {
   }, [activeRoom?.id]);
 
   useEffect(() => {
+    pendingAttachmentsRef.current = pendingAttachments;
     setIsUploadingAttachments(pendingAttachments.some((item) => item.status === "uploading"));
   }, [pendingAttachments]);
+
+  useEffect(() => {
+    const nextRoomId = activeRoom?.id ? String(activeRoom.id) : null;
+    const previousRoomId = pendingAttachmentRoomIdRef.current;
+    pendingAttachmentRoomIdRef.current = nextRoomId;
+    if (!previousRoomId || previousRoomId === nextRoomId) return;
+
+    const staleUploads = pendingAttachmentsRef.current
+      .map((item) => item.attachment?.upload_id)
+      .filter((uploadId): uploadId is string => Boolean(uploadId));
+    pendingAttachmentsRef.current = [];
+    setPendingAttachments([]);
+    setAttachmentUploadError(null);
+    if (staleUploads.length > 0) {
+      void Promise.allSettled(staleUploads.map((uploadId) => deletePendingChatAttachment(uploadId)));
+    }
+  }, [activeRoom?.id]);
 
   const applyEmojiSuggestion = (emoji: string) => {
     setComposer((value) =>
@@ -1315,7 +1291,7 @@ const ChatShell: React.FC = () => {
       .slice(0, 3);
   }, [activeRoom, messages]);
   const activeRoomAttachmentItems = useMemo(() => {
-    if (!activeRoom) return [] as Array<{ message: MessageWithUser; attachment: MessageAttachmentInput }>;
+    if (!activeRoom) return [] as Array<{ message: MessageWithUser; attachment: MessageAttachment }>;
     return (messages[activeRoom.id] || [])
       .flatMap((entry) =>
         (entry.attachments || [])
@@ -1395,7 +1371,7 @@ const ChatShell: React.FC = () => {
     setHighlightedMessageId(messageId);
   }, [inChatSearchResults, selectedSearchResultIndex, showInChatSearch]);
 
-  const getAttachmentLinkKey = (attachment: MessageAttachmentInput) => `${attachment.bucket}:${attachment.path}`;
+  const getAttachmentLinkKey = (attachment: MessageAttachment) => attachment.id;
 
   const attachmentKeysSignature = useMemo(
     () => filteredAttachmentItems.map(({ attachment }) => getAttachmentLinkKey(attachment)).join("|"),
@@ -1406,7 +1382,7 @@ const ChatShell: React.FC = () => {
     preparedFileLinksRef.current = preparedFileLinks;
   }, [preparedFileLinks]);
 
-  const prepareFileLinks = async (attachment: MessageAttachmentInput, options?: { force?: boolean }) => {
+  const prepareFileLinks = async (attachment: MessageAttachment, options?: { force?: boolean }) => {
     if (!attachment.bucket || !attachment.path) return;
     const key = getAttachmentLinkKey(attachment);
     const refreshBufferMs = 30000;
@@ -1425,27 +1401,20 @@ const ChatShell: React.FC = () => {
 
     try {
       const expirySeconds = 300;
-      const [{ data: openData, error: openError }, { data: downloadData, error: downloadError }] = await Promise.all([
-        supabase.storage.from(attachment.bucket).createSignedUrl(attachment.path, expirySeconds),
-        supabase.storage
-          .from(attachment.bucket)
-          .createSignedUrl(attachment.path, expirySeconds, { download: attachment.original_name || true }),
+      const [openUrl, downloadUrl] = await Promise.all([
+        getChatAttachmentSignedUrl(attachment.id),
+        getChatAttachmentSignedUrl(attachment.id, { download: true }),
       ]);
 
       if (requestVersion !== fileLinksRequestVersionRef.current || !showAllFilesModal) return;
-
-      if (openError || downloadError || !openData?.signedUrl || !downloadData?.signedUrl) {
-        setPreparedFileLinks((prev) => ({ ...prev, [key]: { ...prev[key], loading: false, error: "Unable to prepare file link." } }));
-        return;
-      }
 
       setPreparedFileLinks((prev) => ({
         ...prev,
         [key]: {
           loading: false,
           error: undefined,
-          openUrl: openData.signedUrl,
-          downloadUrl: downloadData.signedUrl,
+          openUrl,
+          downloadUrl,
           expiresAt: Date.now() + expirySeconds * 1000,
         },
       }));

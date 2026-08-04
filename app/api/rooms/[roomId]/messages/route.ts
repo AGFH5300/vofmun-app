@@ -190,7 +190,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
         return NextResponse.json({ error: 'One or more attachments are invalid or already used' }, { status: 409 });
       }
 
-      trustedPending = pendingRows.map((row) => ({ ...row, size_bytes: Number(row.size_bytes) }));
+      trustedPending = pendingRows.map((row) => ({
+        id: row.id,
+        room_id: row.room_id,
+        bucket: row.bucket,
+        path: row.path,
+        original_name: row.original_name,
+        mime_type: row.mime_type || 'application/octet-stream',
+        size_bytes: Number(row.size_bytes),
+      }));
       if (
         trustedPending.some(
           (row) =>

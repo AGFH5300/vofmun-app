@@ -201,6 +201,32 @@ for each row execute function public.update_updated_at_column();
 drop function if exists public.create_notification(uuid, character varying, text, character varying, character varying, uuid);
 drop function if exists public.log_system_action(uuid, character varying, character varying, uuid, jsonb);
 
+-- Pending uploads are service-role-only staging records. A browser receives a
+-- one-time upload_id, and the message API consumes the trusted server record.
+create table if not exists public.pending_chat_attachments (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references public.chat_rooms(id) on delete cascade,
+  bucket text not null default 'chat-attachments' check (bucket = 'chat-attachments'),
+  path text not null unique,
+  original_name text not null check (char_length(original_name) between 1 and 255),
+  mime_type text not null,
+  size_bytes bigint not null check (size_bytes > 0 and size_bytes <= 26214400),
+  created_by uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  consumed_at timestamptz
+);
+
+create index if not exists pending_chat_attachments_creator_created_idx
+  on public.pending_chat_attachments(created_by, created_at desc);
+create index if not exists pending_chat_attachments_room_created_idx
+  on public.pending_chat_attachments(room_id, created_at desc);
+create index if not exists pending_chat_attachments_unconsumed_idx
+  on public.pending_chat_attachments(created_at)
+  where consumed_at is null;
+
+alter table public.pending_chat_attachments enable row level security;
+revoke all on table public.pending_chat_attachments from anon, authenticated;
+
 -- Storage required by the app. Live updates are intentionally public; chat
 -- attachments stay private and are accessed only through short-lived signed URLs.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -216,11 +242,33 @@ on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
-insert into storage.buckets (id, name, public, file_size_limit)
-values ('chat-attachments', 'chat-attachments', false, 26214400)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'chat-attachments',
+  'chat-attachments',
+  false,
+  26214400,
+  array[
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'application/pdf',
+    'text/plain',
+    'text/csv',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/octet-stream'
+  ]
+)
 on conflict (id) do update set
   public = excluded.public,
-  file_size_limit = excluded.file_size_limit;
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
 
 -- Atomic creation functions prevent user-scoped reads from generating duplicate

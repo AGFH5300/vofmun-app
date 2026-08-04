@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const expiresIn = body.download ? 60 : 60 * 60;
+    const expiresIn = body.download ? 5 * 60 : 60 * 60;
     const options = body.download
       ? { download: attachment.original_name || true }
       : undefined;
