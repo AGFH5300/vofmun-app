@@ -1,0 +1,84 @@
+name: Port MUN Features From PR v3
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  port-and-verify:
+    if: github.head_ref == 'codex/port-mun-webapp-features'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out VOFMUN feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/port-mun-webapp-features
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch generic MUN implementation
+        run: |
+          git remote add mun-webapp https://github.com/AGFH5300/mun-webapp.git
+          git fetch mun-webapp main --no-tags
+
+      - name: Cherry-pick feature-only improvements
+        run: |
+          set -euo pipefail
+          commits=(
+            93a073a53cdc1442ae6c64d341ab8724fb453e26
+            da6a2e0102a4fe761e8df9615e8631236113f913
+            50be42daaafebf5715e76bd86b6aec85647bccf3
+            72966b8fe661e08cdf9435c18bf5cdb05b6113d0
+            41be001049ef7c2b0d6b4cd50877ddaaf7c4c5ac
+            238b9cdc0334850fff5a104c5be3b19c09d55b53
+            3babd7fdbf404bf2efe173c780bdef46b920ebbb
+            be840bbbce8899b8bdf302b2b2a3f0d97d927c2a
+            aa0825504d49f6cb65943bcd5ac51b4da7a9251e
+            da96363f9f2d13df872b95e3656ab344083f2642
+            928c041cb948fd473a11247a1e20b3649f625c2d
+            6235c90d33744e1297326b1e4ae1531da96ad1e4
+            377bc7b0d2abc27231b7a974f091a82535b4ee3d
+            3837a638f9212d3075f84ce918cae5cfebf3699f
+          )
+          for commit in "${commits[@]}"; do
+            git cherry-pick -x "$commit"
+          done
+
+      - name: Guard VOFMUN branding and storage namespaces
+        run: |
+          set -euo pipefail
+          forbidden='(?<!VOF)MUN (?:ONE|WEBAPP|Portal)|(?<!vof)mun(?:\.messages|:messages|-conversation-menu-opened|-message-menu-opened)'
+          if grep -RInP "$forbidden" app components lib server --exclude-dir=node_modules; then
+            echo "Generic branding or storage namespaces leaked into the VOFMUN port."
+            exit 1
+          fi
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production application
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://build-check.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-check-anon-key
+        run: npm run build
+
+      - name: Remove branch-only workflow and push results
+        run: |
+          git rm .github/workflows/port-mun-features.yml
+          git commit -m "Remove one-time MUN feature port workflow"
+          git push origin HEAD:codex/port-mun-webapp-features
