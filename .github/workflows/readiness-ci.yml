@@ -32,16 +32,9 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Type-check
-        run: npx tsc --noEmit
-
-      - name: Production build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://build-check.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-check-anon-key
-        run: npm run build
-
       - name: Audit runtime dependencies
+        id: runtime_audit
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -57,3 +50,30 @@ jobs:
             process.exit(1);
           }
           NODE
+
+      - name: Type-check
+        id: typecheck
+        continue-on-error: true
+        run: npx tsc --noEmit
+
+      - name: Production build
+        id: build
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://build-check.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-check-anon-key
+        run: npm run build
+
+      - name: Enforce release gates
+        if: always()
+        env:
+          AUDIT_OUTCOME: ${{ steps.runtime_audit.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          echo "Runtime audit: $AUDIT_OUTCOME"
+          echo "Type-check: $TYPECHECK_OUTCOME"
+          echo "Production build: $BUILD_OUTCOME"
+          if [[ "$AUDIT_OUTCOME" != "success" || "$TYPECHECK_OUTCOME" != "success" || "$BUILD_OUTCOME" != "success" ]]; then
+            exit 1
+          fi
