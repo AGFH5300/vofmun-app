@@ -1,17 +1,17 @@
 name: Apply VOFMUN Identity Hardening
 
 on:
-  pull_request_target:
-    types: [opened, reopened, synchronize]
+  push:
     branches:
       - main
+    paths:
+      - .github/workflows/apply-identity-hardening.yml
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/port-mun-webapp-features'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -22,15 +22,35 @@ jobs:
           fetch-depth: 0
 
       - name: Apply identity and document fixes
+        id: apply
+        shell: bash
         run: |
-          python scripts/apply-identity-hardening.py
-          git diff --check
+          set +e
+          python scripts/apply-identity-hardening.py > /tmp/identity-hardening.log 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          if [[ $status -eq 0 ]]; then
+            git diff --check >> /tmp/identity-hardening.log 2>&1
+            status=$?
+            echo "status=$status" >> "$GITHUB_OUTPUT"
+          fi
+          cat /tmp/identity-hardening.log
+          exit 0
 
-      - name: Commit fixes
+      - name: Commit fixes or diagnostic
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app components db lib supabase
-          git rm scripts/apply-identity-hardening.py
-          git commit -m "Link legacy identities and secure document creation"
+          if [[ "${{ steps.apply.outputs.status }}" == "0" ]]; then
+            rm -f identity-hardening-result.txt
+            git add app components db lib supabase
+            git rm scripts/apply-identity-hardening.py
+            git commit -m "Link legacy identities and secure document creation"
+          else
+            git reset --hard HEAD
+            cp /tmp/identity-hardening.log identity-hardening-result.txt
+            git add identity-hardening-result.txt
+            git commit -m "Capture identity hardening diagnostic"
+          fi
           git push origin HEAD:codex/port-mun-webapp-features
