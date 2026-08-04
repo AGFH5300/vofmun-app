@@ -1,0 +1,84 @@
+name: Capture VOFMUN Readiness Report
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/capture-readiness-report.yml
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/port-mun-webapp-features
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Run all readiness checks
+        shell: bash
+        run: |
+          set +e
+          npm ci > /tmp/npm-ci.log 2>&1
+          npm_ci_status=$?
+          npm audit --omit=dev --json > /tmp/runtime-audit.json 2>/tmp/runtime-audit.stderr
+          runtime_audit_status=$?
+          npx tsc --noEmit > /tmp/tsc.log 2>&1
+          typecheck_status=$?
+          NEXT_PUBLIC_SUPABASE_URL=https://build-check.supabase.co \
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=build-check-anon-key \
+          npm run build > /tmp/build.log 2>&1
+          build_status=$?
+          export npm_ci_status runtime_audit_status typecheck_status build_status
+          node <<'NODE'
+          const fs = require('node:fs');
+          const read = (path) => fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : '';
+          let audit = {};
+          try { audit = JSON.parse(read('/tmp/runtime-audit.json')); } catch {}
+          const report = {
+            generatedAt: new Date().toISOString(),
+            branch: 'codex/port-mun-webapp-features',
+            commit: process.env.GITHUB_SHA,
+            checks: {
+              npmCi: Number(process.env.npm_ci_status),
+              runtimeAudit: Number(process.env.runtime_audit_status),
+              typecheck: Number(process.env.typecheck_status),
+              productionBuild: Number(process.env.build_status),
+            },
+            runtimeVulnerabilities: audit.metadata?.vulnerabilities || {},
+            blockingRuntimePackages: Object.entries(audit.vulnerabilities || {})
+              .filter(([, detail]) => ['high', 'critical'].includes(detail.severity))
+              .map(([name, detail]) => ({
+                name,
+                severity: detail.severity,
+                direct: Boolean(detail.isDirect),
+                range: detail.range,
+                fixAvailable: detail.fixAvailable,
+              })),
+            typecheckLog: read('/tmp/tsc.log').slice(-20000),
+            buildLogTail: read('/tmp/build.log').slice(-12000),
+            installLogTail: read('/tmp/npm-ci.log').slice(-4000),
+            auditStderr: read('/tmp/runtime-audit.stderr').slice(-4000),
+          };
+          fs.writeFileSync('readiness-report.json', JSON.stringify(report, null, 2) + '\n');
+          NODE
+
+      - name: Commit temporary report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add readiness-report.json
+          git commit -m "Capture temporary VOFMUN readiness report"
+          git push origin HEAD:codex/port-mun-webapp-features
