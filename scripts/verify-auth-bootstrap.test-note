@@ -1,1 +1,0 @@
-Auth bootstrap regression checks are executed by scripts/verify-auth-bootstrap.mjs in readiness CI.
