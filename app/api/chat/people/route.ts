@@ -1,7 +1,7 @@
 // © 2026 Ansh Gupta. All rights reserved.
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 import supabaseAdmin from '@/lib/supabaseAdmin';
-import { getSessionUserFromRequest } from '@/lib/chat/auth';
+import { getVerifiedSessionUserFromRequest } from '@/lib/chat/auth';
 import { searchPeople } from '@/server/chat/people';
 
 export async function GET(request: Request) {
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
       return new Response(JSON.stringify({ error: 'Server not configured' }), { status: 500 });
     }
 
-    const sessionUser = getSessionUserFromRequest(request);
+    const sessionUser = await getVerifiedSessionUserFromRequest(request);
     if (!sessionUser) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }

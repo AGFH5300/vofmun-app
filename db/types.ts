@@ -1,8 +1,11 @@
 // © 2026 Ansh Gupta. All rights reserved.
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 
+import type { Json } from './supabase-database.types';
+
 export interface Committee {
   committeeID: string;
+  committeeCode: string;
   name: string;
   fullname: string;
 }
@@ -13,6 +16,8 @@ export interface Chair {
   lastname: string;
   password?: string;
   email: string;
+  committeeID?: string | null;
+  committee?: Committee | null;
   id?: string;
   role?: AppUserRole;
 }
@@ -38,6 +43,7 @@ export interface SessionUser {
   role: AppUserRole;
   committee_id: string | null;
   country: string | null;
+  legacy_id: string | null;
   reso_perms: {
     "view:ownreso": boolean;
     "view:allreso": boolean;
@@ -52,6 +58,7 @@ export interface SessionUser {
   adminID?: string;
   secretariatID?: string;
   committeeID?: string | null;
+  committee?: Committee | null;
   resoPerms?: {
     "view:ownreso": boolean;
     "view:allreso": boolean;
@@ -68,6 +75,7 @@ export interface AppUser {
   role: AppUserRole;
   committee_id: string | null;
   country: string | null;
+  legacy_id: string | null;
   reso_perms: {
     "view:ownreso": boolean;
     "view:allreso": boolean;
@@ -94,7 +102,7 @@ export interface Update {
   time: string;
   title: string;
   content: string;
-  href: string;
+  href: string | null;
 }
 
 export interface Announcement {
@@ -102,7 +110,7 @@ export interface Announcement {
   date: string;
   title: string;
   content: string;
-  href: string;
+  href: string | null;
 }
 
 export interface jargons {
@@ -130,19 +138,18 @@ export interface Delegate {
 }
 
 export interface shortenedDel {
-    delegateID: string;
-    firstname: string;
-    lastname: string;
-    resoPerms: {
-        "view:ownreso": boolean;
-        "view:allreso": boolean;
-        "update:ownreso": boolean;
-        "update:reso": string[];
-    };
+  delegateID: string;
+  firstname: string;
+  lastname: string;
+  resoPerms: {
+    "view:ownreso": boolean;
+    "view:allreso": boolean;
+    "update:ownreso": boolean;
+    "update:reso": string[];
+  };
 }
 
 export interface Article {
-
   source: {
     id: string;
     name: string;
@@ -157,7 +164,7 @@ export interface Article {
 }
 
 export interface Admin {
-  adminID :string;
+  adminID: string;
   firstname: string;
   lastname: string;
   password?: string;
@@ -168,9 +175,9 @@ export interface Admin {
 
 export interface Reso {
   resoID: string;
-  title:string;
+  title: string;
   delegateID: string;
-  committeeID: string;
-  content: object;
-  isNew: boolean;
+  committeeID: string | null;
+  content: Json;
+  isNew: boolean | null;
 }

@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   CalendarDays,
   ChevronDown,
+  ChevronUp,
   Circle,
   Copy,
   FileText,
@@ -35,8 +36,8 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { MessageAttachmentInput, MessageWithUser, RoomWithDetails } from "@/lib/chat/types";
-import supabase from "@/lib/supabase";
+import { MessageAttachment, MessageAttachmentInput, MessageWithUser, RoomWithDetails } from "@/lib/chat/types";
+import { deletePendingChatAttachment, getChatAttachmentSignedUrl, uploadChatAttachment } from "@/lib/chat/attachmentClient";
 import { toast } from "sonner";
 
 const formatDateLabel = (dateString: string) => {
@@ -106,6 +107,14 @@ type PendingAttachmentItem = {
   error?: string;
 };
 
+type PreparedFileLink = {
+  openUrl?: string;
+  downloadUrl?: string;
+  loading: boolean;
+  error?: string;
+  expiresAt?: number;
+};
+
 type ActiveUnreadDividerSession = {
   roomId: string;
   entryUnreadCount: number;
@@ -165,6 +174,8 @@ const EMOJI_SHORTCODES: EmojiSuggestion[] = (() => {
   return suggestions;
 })();
 
+const ATTACHMENT_UPLOAD_TIMEOUT_MS = Number.parseInt(process.env.NEXT_PUBLIC_CHAT_ATTACHMENT_UPLOAD_TIMEOUT_MS || "45000", 10);
+
 const ChatShell: React.FC = () => {
   const {
     rooms,
@@ -210,9 +221,20 @@ const ChatShell: React.FC = () => {
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showAllFilesModal, setShowAllFilesModal] = useState(false);
+  const [filesSearchQuery, setFilesSearchQuery] = useState("");
+  const [showInChatSearch, setShowInChatSearch] = useState(false);
+  const [inChatSearchQuery, setInChatSearchQuery] = useState("");
+  const [selectedSearchResultIndex, setSelectedSearchResultIndex] = useState(0);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [preparedFileLinks, setPreparedFileLinks] = useState<Record<string, PreparedFileLink>>({});
+  const preparingFileLinksRef = useRef<Set<string>>(new Set());
+  const preparedFileLinksRef = useRef<Record<string, PreparedFileLink>>({});
+  const fileLinksRequestVersionRef = useRef(0);
   const previousRequestsRef = useRef<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const inChatSearchInputRef = useRef<HTMLInputElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const attachmentMenuRef = useRef<HTMLDivElement | null>(null);
   const attachmentButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -226,6 +248,8 @@ const ChatShell: React.FC = () => {
   const lastHandledMessageCountRef = useRef<Record<string, number>>({});
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachmentItem[]>([]);
+  const pendingAttachmentsRef = useRef<PendingAttachmentItem[]>([]);
+  const pendingAttachmentRoomIdRef = useRef<string | null>(null);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [attachmentUploadError, setAttachmentUploadError] = useState<string | null>(null);
   const [showAcceptedPrompt, setShowAcceptedPrompt] = useState<{ userId: string; name: string } | null>(null);
@@ -777,6 +801,8 @@ const ChatShell: React.FC = () => {
 
   const handleAttachmentSelect = async (selectedFiles: FileList | null) => {
     if (!activeRoom || !selectedFiles || selectedFiles.length === 0) return;
+    const targetRoomId = String(activeRoom.id);
+    if (!pendingAttachmentRoomIdRef.current) pendingAttachmentRoomIdRef.current = targetRoomId;
     const files = Array.from(selectedFiles);
     setAttachmentUploadError(null);
 
@@ -799,66 +825,38 @@ const ChatShell: React.FC = () => {
       mime_type: file.type || "application/octet-stream",
       status: "uploading",
     }));
-    setPendingAttachments((prev) => [...prev, ...queuedItems]);
+    setPendingAttachments((previous) => [...previous, ...queuedItems]);
 
-    const uploadedPaths: { bucket: string; path: string }[] = [];
+    await Promise.all(
+      files.map(async (file, index) => {
+        const pendingId = queuedItems[index].id;
+        try {
+          const attachment = await uploadChatAttachment(targetRoomId, file, ATTACHMENT_UPLOAD_TIMEOUT_MS);
 
-    try {
-
-      await Promise.all(
-        files.map(async (file, index) => {
-          const pendingId = queuedItems[index].id;
-          const sanitized = sanitizeFileName(file.name);
-          const path = `${activeRoom.id}/${crypto.randomUUID()}/${sanitized}`;
-          const { error } = await supabase.storage.from("chat-attachments").upload(path, file, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: file.type || undefined,
-          });
-
-          if (error) {
-            console.error("Attachment upload failed", {
-              fileName: file.name,
-              path,
-              error,
-              message: error.message,
-              name: error.name,
-            });
-            setPendingAttachments((prev) =>
-              prev.map((item) =>
-                item.id === pendingId ? { ...item, status: "error", error: error.message || "Upload failed" } : item,
-              ),
-            );
+          if (pendingAttachmentRoomIdRef.current !== targetRoomId) {
+            if (attachment.upload_id) await deletePendingChatAttachment(attachment.upload_id);
+            setPendingAttachments((previous) => previous.filter((item) => item.id !== pendingId));
             return;
           }
 
-          uploadedPaths.push({ bucket: "chat-attachments", path });
-
-          const attachment = {
-            room_id: activeRoom.id,
-            bucket: "chat-attachments",
-            path,
-            original_name: file.name,
-            mime_type: file.type || "application/octet-stream",
-            size_bytes: file.size,
-          } as MessageAttachmentInput;
-
-          setPendingAttachments((prev) =>
-            prev.map((item) =>
+          setPendingAttachments((previous) =>
+            previous.map((item) =>
               item.id === pendingId ? { ...item, status: "uploaded", attachment, error: undefined } : item,
             ),
           );
-        }),
-      );
+        } catch (uploadError) {
+          const error = uploadError instanceof Error ? uploadError : new Error("Upload failed");
+          console.error("Attachment upload failed", { fileName: file.name, error });
+          setPendingAttachments((previous) =>
+            previous.map((item) =>
+              item.id === pendingId ? { ...item, status: "error", error: error.message } : item,
+            ),
+          );
+        }
+      }),
+    );
 
-      setShowAttachmentMenu(false);
-    } catch (error) {
-      console.error("Attachment upload catch", error);
-      await Promise.allSettled(
-        uploadedPaths.map(({ bucket, path }) => supabase.storage.from(bucket).remove([path])),
-      );
-      setAttachmentUploadError(error instanceof Error ? error.message : "Failed to upload attachments.");
-    }
+    setShowAttachmentMenu(false);
   };
 
   const hasDraggedFiles = (event: React.DragEvent<HTMLElement>) =>
@@ -907,29 +905,27 @@ const ChatShell: React.FC = () => {
     const trimmedComposer = composer.trim();
 
     if (!roomId || (trimmedComposer.length === 0 && uploadedAttachments.length === 0) || isUploadingAttachments) return;
-    sendTyping(roomId, false);
 
+    const previousComposer = composer;
+    const previousAttachments = pendingAttachments;
+    const previousReplyId = replyingToMessageId;
+    sendTyping(roomId, false);
     setComposer("");
     setPendingAttachments([]);
     setAttachmentUploadError(null);
 
-    const sendOperations: Promise<void>[] = [];
-
-    if (trimmedComposer.length > 0) {
-      sendOperations.push(sendMessage(roomId, trimmedComposer, [], replyingToMessageId));
-    }
-
-    uploadedAttachments.forEach((attachment, index) => {
-      sendOperations.push(sendMessage(roomId, "", [attachment], index === 0 && trimmedComposer.length === 0 ? replyingToMessageId : null));
-    });
-
-    if (sendOperations.length > 0) {
-      await Promise.allSettled(sendOperations);
+    try {
+      await sendMessage(roomId, trimmedComposer, uploadedAttachments, previousReplyId);
       setReplyingToMessageId(null);
-      setDraftsByRoom((prev) => {
-        if (!prev[roomId]) return prev;
-        return { ...prev, [roomId]: "" };
+      setDraftsByRoom((previous) => {
+        if (!previous[roomId]) return previous;
+        return { ...previous, [roomId]: "" };
       });
+    } catch (error) {
+      setComposer((current) => current || previousComposer);
+      setPendingAttachments((current) => (current.length > 0 ? current : previousAttachments));
+      setReplyingToMessageId((current) => current || previousReplyId);
+      toast.error(error instanceof Error ? error.message : "Failed to send message");
     }
   };
 
@@ -960,14 +956,18 @@ const ChatShell: React.FC = () => {
   };
 
   const removePendingAttachment = async (pendingId: string) => {
-    let removedItem: PendingAttachmentItem | undefined;
-    setPendingAttachments((prev) => {
-      removedItem = prev.find((item) => item.id === pendingId);
-      return prev.filter((item) => item.id !== pendingId);
-    });
+    const removedItem = pendingAttachmentsRef.current.find((item) => item.id === pendingId);
+    setPendingAttachments((previous) => previous.filter((item) => item.id !== pendingId));
 
-    if (removedItem?.attachment?.bucket && removedItem.attachment.path) {
-      await supabase.storage.from(removedItem.attachment.bucket).remove([removedItem.attachment.path]);
+    const uploadId = removedItem?.attachment?.upload_id;
+    if (!uploadId) return;
+    try {
+      await deletePendingChatAttachment(uploadId);
+    } catch (error) {
+      console.warn("Unable to remove pending attachment", {
+        uploadId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   };
 
@@ -1109,8 +1109,26 @@ const ChatShell: React.FC = () => {
   }, [activeRoom?.id]);
 
   useEffect(() => {
+    pendingAttachmentsRef.current = pendingAttachments;
     setIsUploadingAttachments(pendingAttachments.some((item) => item.status === "uploading"));
   }, [pendingAttachments]);
+
+  useEffect(() => {
+    const nextRoomId = activeRoom?.id ? String(activeRoom.id) : null;
+    const previousRoomId = pendingAttachmentRoomIdRef.current;
+    pendingAttachmentRoomIdRef.current = nextRoomId;
+    if (!previousRoomId || previousRoomId === nextRoomId) return;
+
+    const staleUploads = pendingAttachmentsRef.current
+      .map((item) => item.attachment?.upload_id)
+      .filter((uploadId): uploadId is string => Boolean(uploadId));
+    pendingAttachmentsRef.current = [];
+    setPendingAttachments([]);
+    setAttachmentUploadError(null);
+    if (staleUploads.length > 0) {
+      void Promise.allSettled(staleUploads.map((uploadId) => deletePendingChatAttachment(uploadId)));
+    }
+  }, [activeRoom?.id]);
 
   const applyEmojiSuggestion = (emoji: string) => {
     setComposer((value) =>
@@ -1243,7 +1261,7 @@ const ChatShell: React.FC = () => {
           const receiverId = String(request.receiver_id);
           const hasDirectRoom = rooms.some(
             (room) =>
-              room.type === "direct" && room.members.some((member) => String(member.user_id) === receiverId),
+              room.room_type === "dm" && room.members.some((member) => String(member.user_id) === receiverId),
           );
           if (!hasDirectRoom) {
             setShowAcceptedPrompt({ userId: receiverId, name });
@@ -1272,6 +1290,179 @@ const ChatShell: React.FC = () => {
       .reverse()
       .slice(0, 3);
   }, [activeRoom, messages]);
+  const activeRoomAttachmentItems = useMemo(() => {
+    if (!activeRoom) return [] as Array<{ message: MessageWithUser; attachment: MessageAttachment }>;
+    return (messages[activeRoom.id] || [])
+      .flatMap((entry) =>
+        (entry.attachments || [])
+          .filter((attachment) => attachment?.id && attachment.original_name)
+          .map((attachment) => ({ message: entry, attachment })),
+      )
+      .reverse();
+  }, [activeRoom, messages]);
+
+  const filteredAttachmentItems = useMemo(() => {
+    const query = filesSearchQuery.trim().toLowerCase();
+    if (!query) return activeRoomAttachmentItems;
+    return activeRoomAttachmentItems.filter(({ attachment, message }) => {
+      const sender = message.user?.full_name || "";
+      return [attachment.original_name, attachment.mime_type, sender].some((value) =>
+        String(value || "").toLowerCase().includes(query),
+      );
+    });
+  }, [activeRoomAttachmentItems, filesSearchQuery]);
+
+  const inChatSearchResults = useMemo(() => {
+    const query = inChatSearchQuery.trim().toLowerCase();
+    if (!query || !activeRoom) return [] as MessageWithUser[];
+    return activeMessages.filter((message) => String(message.content || "").toLowerCase().includes(query));
+  }, [activeMessages, activeRoom, inChatSearchQuery]);
+
+  useEffect(() => {
+    setShowAllFilesModal(false);
+    setFilesSearchQuery("");
+    setShowInChatSearch(false);
+    setInChatSearchQuery("");
+    setSelectedSearchResultIndex(0);
+    setHighlightedMessageId(null);
+  }, [activeRoom?.id]);
+
+  useEffect(() => {
+    if (!showInChatSearch) return;
+    window.requestAnimationFrame(() => {
+      inChatSearchInputRef.current?.focus();
+      inChatSearchInputRef.current?.select();
+    });
+  }, [showInChatSearch]);
+
+  useEffect(() => {
+    if (!showInChatSearch) return;
+    if (selectedSearchResultIndex >= inChatSearchResults.length) setSelectedSearchResultIndex(0);
+  }, [inChatSearchResults.length, selectedSearchResultIndex, showInChatSearch]);
+
+  useEffect(() => {
+    if (!showInChatSearch) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowInChatSearch(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showInChatSearch]);
+
+  useEffect(() => {
+    if (!highlightedMessageId) return;
+    const timer = window.setTimeout(() => setHighlightedMessageId(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [highlightedMessageId]);
+
+
+  useEffect(() => {
+    if (!showInChatSearch) return;
+    const selectedResult = inChatSearchResults[selectedSearchResultIndex];
+    if (!selectedResult) return;
+
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const messageId = String(selectedResult.id);
+    const target = container.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedMessageId(messageId);
+  }, [inChatSearchResults, selectedSearchResultIndex, showInChatSearch]);
+
+  const getAttachmentLinkKey = (attachment: MessageAttachment) => attachment.id;
+
+  const attachmentKeysSignature = useMemo(
+    () => filteredAttachmentItems.map(({ attachment }) => getAttachmentLinkKey(attachment)).join("|"),
+    [filteredAttachmentItems],
+  );
+
+  useEffect(() => {
+    preparedFileLinksRef.current = preparedFileLinks;
+  }, [preparedFileLinks]);
+
+  const prepareFileLinks = async (attachment: MessageAttachment, options?: { force?: boolean }) => {
+    if (!attachment.bucket || !attachment.path) return;
+    const key = getAttachmentLinkKey(attachment);
+    const refreshBufferMs = 30000;
+    const current = preparedFileLinksRef.current[key];
+    const isStillValid = Boolean(current?.openUrl && current?.downloadUrl && current?.expiresAt && current.expiresAt > Date.now() + refreshBufferMs);
+
+    if (!options?.force && (current?.loading || preparingFileLinksRef.current.has(key) || isStillValid)) return;
+
+    preparingFileLinksRef.current.add(key);
+    const requestVersion = fileLinksRequestVersionRef.current;
+    setPreparedFileLinks((prev) => {
+      const existing = prev[key];
+      if (!options?.force && existing?.loading) return prev;
+      return { ...prev, [key]: { ...existing, loading: true, error: undefined } };
+    });
+
+    try {
+      const expirySeconds = 300;
+      const [openUrl, downloadUrl] = await Promise.all([
+        getChatAttachmentSignedUrl(attachment.id),
+        getChatAttachmentSignedUrl(attachment.id, { download: true }),
+      ]);
+
+      if (requestVersion !== fileLinksRequestVersionRef.current || !showAllFilesModal) return;
+
+      setPreparedFileLinks((prev) => ({
+        ...prev,
+        [key]: {
+          loading: false,
+          error: undefined,
+          openUrl,
+          downloadUrl,
+          expiresAt: Date.now() + expirySeconds * 1000,
+        },
+      }));
+    } catch {
+      if (requestVersion !== fileLinksRequestVersionRef.current || !showAllFilesModal) return;
+      setPreparedFileLinks((prev) => ({ ...prev, [key]: { ...prev[key], loading: false, error: "Unable to prepare file link." } }));
+    } finally {
+      preparingFileLinksRef.current.delete(key);
+    }
+  };
+
+  useEffect(() => {
+    if (!showAllFilesModal) {
+      fileLinksRequestVersionRef.current += 1;
+      preparingFileLinksRef.current.clear();
+      setPreparedFileLinks({});
+      return;
+    }
+
+    filteredAttachmentItems.forEach(({ attachment }) => {
+      void prepareFileLinks(attachment);
+    });
+  }, [attachmentKeysSignature, showAllFilesModal, activeRoom?.id]);
+
+  useEffect(() => {
+    if (!showAllFilesModal) return;
+
+    const refreshExpiredLinks = () => {
+      const refreshBufferMs = 30000;
+      filteredAttachmentItems.forEach(({ attachment }) => {
+        const key = getAttachmentLinkKey(attachment);
+        const linkState = preparedFileLinksRef.current[key];
+        if (!linkState || linkState.loading) return;
+        if (!linkState.expiresAt || linkState.expiresAt - Date.now() <= refreshBufferMs) {
+          void prepareFileLinks(attachment);
+        }
+      });
+    };
+
+    const onFocus = () => {
+      window.setTimeout(refreshExpiredLinks, 300);
+    };
+
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [attachmentKeysSignature, showAllFilesModal, activeRoom?.id]);
 
   useEffect(() => {
     const minimumLoaderDurationMs = 750;
@@ -1509,7 +1700,10 @@ const ChatShell: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setShowDetails(true)}
+                      onClick={() => {
+                        setShowInChatSearch(true);
+                        setSelectedSearchResultIndex(0);
+                      }}
                       className="rounded-lg p-1.5 text-almost-black-green/60 hover:bg-[#f4f3f3] hover:text-deep-red"
                     >
                       <Search className="h-4 w-4" />
@@ -1600,6 +1794,22 @@ const ChatShell: React.FC = () => {
                   </div>
                 </div>
               )}
+              {activeRoom && showInChatSearch && (
+                <div className="border-b border-[#efebea] bg-[#fffaf3] px-6 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input ref={inChatSearchInputRef} value={inChatSearchQuery} onChange={(event) => { setInChatSearchQuery(event.target.value); setSelectedSearchResultIndex(0); }} className="h-9 min-w-[220px] flex-1 rounded-lg border border-[#e4dbd9] bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#6E1D1B]/20" placeholder="Search in this chat..." />
+                    <button type="button" disabled={inChatSearchResults.length === 0} onClick={() => setSelectedSearchResultIndex((prev) => (inChatSearchResults.length ? (prev - 1 + inChatSearchResults.length) % inChatSearchResults.length : 0))} className="rounded-lg border border-[#e4dbd9] p-1.5 text-[#6E1D1B] disabled:cursor-not-allowed disabled:opacity-40" aria-label="Previous match">
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                    <button type="button" disabled={inChatSearchResults.length === 0} onClick={() => setSelectedSearchResultIndex((prev) => (inChatSearchResults.length ? (prev + 1) % inChatSearchResults.length : 0))} className="rounded-lg border border-[#e4dbd9] p-1.5 text-[#6E1D1B] disabled:cursor-not-allowed disabled:opacity-40" aria-label="Next match">
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                    <span className="text-xs text-almost-black-green/70">{inChatSearchQuery.trim() ? (inChatSearchResults.length === 0 ? "No results" : `${inChatSearchResults.length} result${inChatSearchResults.length === 1 ? "" : "s"}`) : ""}</span>
+                    <button type="button" onClick={() => { setShowInChatSearch(false); setInChatSearchQuery(""); }} className="rounded-lg border border-[#e4dbd9] px-2 py-1 text-xs font-semibold text-[#6E1D1B]">Close</button>
+                  </div>
+                </div>
+              )}
+
               <div
                 ref={messagesContainerRef}
                 className="flex-1 overflow-y-auto px-6 py-5"
@@ -1662,7 +1872,7 @@ const ChatShell: React.FC = () => {
                       const bubbleSpacing = isSameSenderAsNext && isSameDayAsNext ? "mb-1" : "mb-2";
 
                       return (
-                        <div key={item.id} data-message-id={item.id} className={bubbleSpacing}>
+                        <div key={item.id} data-message-id={item.id} className={`${bubbleSpacing} ${highlightedMessageId != null && String(highlightedMessageId) === String(item.id) ? "rounded-xl bg-[#fff4d6] px-1.5 py-1 transition-colors duration-300" : ""}`}>
                           <MessageBubble
                             message={message}
                             isOwn={isOwn}
@@ -1689,6 +1899,8 @@ const ChatShell: React.FC = () => {
                               setIsSelectMode(true);
                               setSelectedMessageIds(new Set([String(targetMessage.id)]));
                             }}
+                            searchHighlightQuery={showInChatSearch ? inChatSearchQuery : ""}
+                            isSearchActiveSelection={showInChatSearch && inChatSearchResults[selectedSearchResultIndex]?.id === message.id}
                             onEnterDeleteSelectionMode={(targetMessage) => {
                               setIsSelectMode(false);
                               setIsDeleteSelectionMode(true);
@@ -2137,7 +2349,7 @@ const ChatShell: React.FC = () => {
                     <p className="text-[9px] text-almost-black-green/55">{formatSize(file.size_bytes)} • {file.mime_type || "File"}</p>
                   </div>
                 )) : <p className="text-sm text-almost-black-green/55">No files shared yet.</p>}
-                <button type="button" className="mt-1 w-full rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#7b201f] ring-1 ring-[#7b201f]/20 transition hover:bg-[#7b201f]/5">View All Files</button>
+                <button type="button" onClick={() => setShowAllFilesModal(true)} disabled={activeRoomAttachmentItems.length === 0} className="mt-1 w-full rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#7b201f] ring-1 ring-[#7b201f]/20 transition hover:bg-[#7b201f]/5 disabled:cursor-not-allowed disabled:opacity-50">View All Files</button>
               </div>
             </div>
             <div className="rounded-xl bg-[#6E1D1B]/5 p-3.5">
@@ -2201,6 +2413,64 @@ const ChatShell: React.FC = () => {
           onClose={() => setShowDetails(false)}
           currentUserId={currentUserId}
         />
+        {showAllFilesModal && activeRoom && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 px-4">
+            <div className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-xl">
+              <div className="flex items-center justify-between">
+                <p className="text-lg font-semibold text-deep-red">All shared files</p>
+                <button type="button" onClick={() => setShowAllFilesModal(false)} className="rounded-lg border border-soft-ivory px-2 py-1 text-sm text-deep-red">Close</button>
+              </div>
+              <input value={filesSearchQuery} onChange={(event) => setFilesSearchQuery(event.target.value)} placeholder="Filter by filename, type, or sender" className="mt-3 h-10 w-full rounded-xl border border-[#e6e2e0] px-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#6E1D1B]/20" />
+              <div className="mt-3 max-h-[55vh] overflow-y-auto rounded-xl border border-[#f0eceb]">
+                {filteredAttachmentItems.length === 0 ? (
+                  <p className="px-4 py-4 text-sm text-almost-black-green/60">{activeRoomAttachmentItems.length === 0 ? "No files shared yet." : "No files match your filter."}</p>
+                ) : filteredAttachmentItems.map(({ attachment, message }) => (
+                  <div key={`${attachment.bucket}:${attachment.path}`} className="flex items-center justify-between gap-3 border-b border-[#f3efee] px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-[#6E1D1B]">{attachment.original_name}</p>
+                      <p className="text-xs text-almost-black-green/65">{formatSize(attachment.size_bytes)} • {attachment.mime_type || "File"} • {message.user?.full_name || "Unknown sender"} • {message.created_at ? new Date(message.created_at).toLocaleString() : "Unknown time"}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {(() => {
+                        const key = getAttachmentLinkKey(attachment);
+                        const linkState = preparedFileLinks[key];
+                        if (!linkState || linkState.loading) {
+                          return (
+                            <>
+                              <button type="button" disabled className="min-w-[96px] rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-center text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">
+                                <span className="inline-flex items-center gap-1.5">
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  Preparing...
+                                </span>
+                              </button>
+                              <button type="button" disabled className="min-w-[96px] rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-center text-xs font-semibold text-[#6E1D1B] disabled:opacity-60">Preparing...</button>
+                            </>
+                          );
+                        }
+
+                        if (linkState.error || !linkState.openUrl || !linkState.downloadUrl) {
+                          return (
+                            <>
+                              <span className="text-[11px] text-[#9c4a49]">{linkState.error || "Unable to prepare file link."}</span>
+                              <button type="button" onClick={() => { void prepareFileLinks(attachment, { force: true }); }} className="min-w-[96px] rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-center text-xs font-semibold text-[#6E1D1B]">Retry</button>
+                            </>
+                          );
+                        }
+
+                        return (
+                          <>
+                            <a href={linkState.openUrl} target="_blank" rel="noopener noreferrer" className="min-w-[96px] rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-center text-xs font-semibold text-[#6E1D1B]">Open</a>
+                            <a href={linkState.downloadUrl} download={attachment.original_name || true} className="min-w-[96px] rounded-lg border border-[#e3d7d4] px-2.5 py-1.5 text-center text-xs font-semibold text-[#6E1D1B]">Download</a>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         </div>
       </div>
     </div>

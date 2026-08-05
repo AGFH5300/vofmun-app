@@ -75,25 +75,25 @@ const glossarySections: GlossarySection[] = [
       "Structures that determine who speaks, for how long, and under what level of moderation.",
     items: [
       {
-        term: "General Speakers List (GSL)",
+        term: "Open Debate",
         definition:
-          "Default formal speaking list where delegates give broader policy speeches on the agenda topic.",
-        usage: "If no caucus is active, committee usually returns to the GSL.",
-        tip: "Use GSL speeches for big-picture narrative and bloc signaling.",
+          "Primary THIMUN debate mode for resolutions where delegates are recognized by the Chair to speak for or against content.",
+        usage: "After a resolution is introduced and read out, chairs announce open-debate time and recognize delegates from the floor.",
+        tip: "Use open debate strategically to frame your position and respond directly to the resolution on the floor.",
       },
       {
-        term: "Moderated Caucus",
+        term: "Closed Debate",
         definition:
-          "A focused debate format with shorter speeches and a specific subtopic, moderated by the Chair.",
-        usage: "Delegates motion for a moderated caucus with total time, speaking time, and topic.",
-        tip: "Propose precise, strategic subtopics to steer committee direction.",
+          "Debate mode used for amendments where the committee discusses arguments for and against a specific amendment before voting.",
+        usage: "Chairs announce entry into closed debate during amendment discussion, often after a motion to move to the previous question.",
+        tip: "Keep interventions tightly focused on the amendment text because closed debate is time-bound.",
       },
       {
-        term: "Unmoderated Caucus",
+        term: "Lobbying Time",
         definition:
-          "Informal negotiation period where delegates can move freely, lobby, merge ideas, and draft text.",
-        usage: "Most resolution writing and bloc bargaining happens in unmoderated caucuses.",
-        tip: "Enter with concrete goals: recruit co-signers, finalize clause language, and assign tasks.",
+          "Dedicated negotiation period where delegates merge ideas, gather co-submitters, and prepare resolutions before formal resolution debate.",
+        usage: "Committees usually use lobbying sessions for clause drafting, consolidation, and coalition-building.",
+        tip: "Come prepared with draft clauses and clear compromise options to maximize lobbying productivity.",
       },
       {
         term: "Yield to Questions",
@@ -252,7 +252,7 @@ const glossarySections: GlossarySection[] = [
       {
         term: "Procedural Vote",
         definition:
-          "Vote on process-related matters (caucuses, closure, agenda), where abstentions are often not allowed.",
+          "Vote on process-related matters (closure, agenda, or other process questions), where abstentions are often not allowed.",
         usage: "Delegates must vote yes or no on many procedural questions.",
         tip: "Track procedural reliability of partners—it predicts bloc discipline.",
       },
@@ -394,7 +394,7 @@ const Page = () => {
                   type="search"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Start typing to filter ‘Quorum’ or ‘Caucus’..."
+                  placeholder="Start typing to filter ‘Quorum’ or ‘Lobbying’..."
                   style={{border: "none", outline: "none", boxShadow: "none", backgroundColor: "transparent"}}
                   className="min-w-0 flex-1 border-none bg-transparent px-0 py-1 text-[15px] text-[#1a1c1c] shadow-none outline-none placeholder:text-[#5d5f5f]/65 ring-0 focus:border-none focus:outline-none focus:ring-0"
                 

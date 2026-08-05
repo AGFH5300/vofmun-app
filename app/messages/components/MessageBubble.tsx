@@ -5,7 +5,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { MessageAttachment, MessageWithUser, RoomMember } from '@/lib/chat/types';
-import supabase from '@/lib/supabase';
+import { getChatAttachmentSignedUrl } from '@/lib/chat/attachmentClient';
 import { useSession } from '@/app/context/sessionContext';
 import { normalizeMessageMeta } from '@/lib/chat/messageMeta';
 import UserAvatar from './UserAvatar';
@@ -29,6 +29,8 @@ interface Props {
   onToggleSelectMessage?: (messageId: string) => void;
   onEnterSelectMode?: (message: MessageWithUser) => void;
   onEnterDeleteSelectionMode?: (message: MessageWithUser) => void;
+  searchHighlightQuery?: string;
+  isSearchActiveSelection?: boolean;
 }
 
 const statusIcon: Record<string, React.ReactNode> = {
@@ -78,6 +80,33 @@ const isEmojiOnlyMessage = (value: string) => {
 
 
 const MESSAGE_COLLAPSE_MAX_CHARS = 240;
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const renderHighlightedText = (
+  content: string,
+  query: string,
+  isSelected: boolean,
+) => {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) return content;
+
+  const parts = content.split(new RegExp(`(${escapeRegExp(trimmedQuery)})`, 'gi'));
+  if (parts.length <= 1) return content;
+
+  return parts.map((part, index) =>
+    part.toLowerCase() === trimmedQuery.toLowerCase() ? (
+      <mark
+        key={`highlight-${index}-${part}`}
+        className={isSelected ? 'rounded bg-[#ffcc66] px-0.5 text-inherit' : 'rounded bg-[#ffe7a8] px-0.5 text-inherit'}
+      >
+        {part}
+      </mark>
+    ) : (
+      <React.Fragment key={`text-${index}-${part}`}>{part}</React.Fragment>
+    ),
+  );
+};
 const MESSAGE_COLLAPSE_MAX_LINES = 6;
 const INLINE_METADATA_MAX_WIDTH = 240;
 
@@ -153,6 +182,8 @@ const MessageBubble: React.FC<Props> = ({
   onToggleSelectMessage,
   onEnterSelectMode,
   onEnterDeleteSelectionMode,
+  searchHighlightQuery = '',
+  isSearchActiveSelection = false,
 }) => {
   const { user } = useSession();
   const currentUserId = user?.id ? String(user.id) : null;
@@ -392,29 +423,24 @@ const MessageBubble: React.FC<Props> = ({
             return;
           }
 
-          const { data, error } = await supabase.storage
-            .from(attachment.bucket)
-            .createSignedUrl(attachment.path, SIGNED_URL_TTL_SECONDS);
-
-          if (!error && data?.signedUrl) {
+          try {
+            const signedUrl = await getChatAttachmentSignedUrl(attachment.id);
             signedUrlCache.set(cacheKey, {
-              url: data.signedUrl,
+              url: signedUrl,
               expiresAt: now + SIGNED_URL_TTL_SECONDS * 1000,
             });
-            nextMap[attachment.path] = data.signedUrl;
-            return;
-          }
-
-          const message = String(error?.message || 'Attachment unavailable');
-          if (error) {
+            nextMap[attachment.path] = signedUrl;
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Attachment unavailable';
             console.warn('[chat] failed to hydrate attachment URL', {
               attachmentId: attachment.id,
-              bucket: attachment.bucket,
               path: attachment.path,
-              error,
+              message,
             });
+            nextErrors[attachment.path] = /not found|no longer exists/i.test(message)
+              ? 'Attachment no longer exists.'
+              : 'Attachment unavailable.';
           }
-          nextErrors[attachment.path] = /not found/i.test(message) ? 'Attachment no longer exists.' : 'Attachment unavailable.';
         })
       );
 
@@ -454,21 +480,8 @@ const MessageBubble: React.FC<Props> = ({
 
     setDownloadingAttachmentPath(attachment.path);
     try {
-      const { data, error } = await supabase.storage
-        .from(attachment.bucket)
-        .createSignedUrl(attachment.path, 60, { download: attachment.original_name || true });
-
-      if (error || !data?.signedUrl) {
-        console.error('[chat] failed to create signed download URL', {
-          attachmentId: attachment.id,
-          bucket: attachment.bucket,
-          path: attachment.path,
-          error,
-        });
-        return;
-      }
-
-      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+      const signedUrl = await getChatAttachmentSignedUrl(attachment.id, { download: true });
+      window.open(signedUrl, '_blank', 'noopener,noreferrer');
     } finally {
       setDownloadingAttachmentPath(null);
     }
@@ -702,7 +715,7 @@ const MessageBubble: React.FC<Props> = ({
                           : 'text-[14px] leading-[1.3]'
                     }`}
                   >
-                    {message.content}
+                    {renderHighlightedText(message.content, searchHighlightQuery, isSearchActiveSelection)}
                     {message.edited_at && !isDeleted ? <span className="ml-1 text-[10px] text-almost-black-green/50">(edited)</span> : null}
                   </div>
                   <div ref={metadataRef} className="flex shrink-0 items-center gap-0.5 self-end whitespace-nowrap pb-[1px] text-[0.68rem]">
@@ -721,7 +734,7 @@ const MessageBubble: React.FC<Props> = ({
                           : 'text-[14px] leading-[1.3]'
                     } ${isCollapsibleTextMessage && !isExpanded ? 'line-clamp-6' : ''}`}
                   >
-                    {message.content}
+                    {renderHighlightedText(message.content, searchHighlightQuery, isSearchActiveSelection)}
                     {message.edited_at && !isDeleted ? <span className="ml-1 text-[10px] text-almost-black-green/50">(edited)</span> : null}
                     {shouldReserveMetadataTail ? (
                       <span

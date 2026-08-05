@@ -3,7 +3,8 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Reso, Delegate, Chair, shortenedDel } from "@/db/types";
+import { Reso, SessionUser, shortenedDel } from "@/db/types";
+import type { Json } from "@/db/supabase-database.types";
 import { useSession } from "../context/sessionContext";
 import { ParticipantRoute } from "@/components/protectedroute";
 import { toast } from "sonner";
@@ -65,9 +66,9 @@ const addExternalDocBlock = (docLink: string) => {
   };
 };
 
-const parseResoContent = (raw?: string | object | null) => {
-  if (!raw) return undefined;
-  if (typeof raw === "object") return raw;
+const parseResoContent = (raw?: Json): Record<string, unknown> | undefined => {
+  if (raw === null || raw === undefined) return undefined;
+  if (typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
   if (typeof raw !== "string") return undefined;
 
   try {
@@ -99,27 +100,18 @@ const Page = () => {
   const initialStateRef = React.useRef({ title: "", docLink: "" });
   const isBusy = isSaving || isDeleting;
   const delegateAlreadyHasReso = React.useMemo(() => {
-    if (!isDelegateUser || !currentUser || !('delegateID' in currentUser)) return false;
-    return fetchedResos.some((reso) => reso.delegateID === currentUser.delegateID);
+    if (!isDelegateUser || !currentUser) return false;
+    return fetchedResos.some((reso) => reso.delegateID === currentUser.legacy_id);
   }, [currentUser, fetchedResos, isDelegateUser]);
 
   const isValidUuid = useCallback((value: string) => /^[0-9a-fA-F-]{36}$/.test(value), []);
   const committeeIdFor = useCallback((value: string) => committees.find((c) => c.committeeID === value || c.committeeCode === value)?.committeeID ?? value, [committees]);
 
   const getCommitteeDisplayName = useCallback(() => {
-    if (!currentUser) return "your assigned committee";
-    if (userRole === "delegate") {
-      const delegateUser = currentUser as Delegate;
-      const code = delegateUser.committee?.committeeCode;
-      return code && !isValidUuid(code) ? code : "your assigned committee";
-    }
-    if (userRole === "chair") {
-      const chairUser = currentUser as Chair;
-      const code = chairUser.committee?.committeeCode;
-      return code && !isValidUuid(code) ? code : "your assigned committee";
-    }
-    return "your assigned committee";
-  }, [currentUser, isValidUuid, userRole]);
+    if (!currentUser?.committee_id) return "your assigned committee";
+    const committee = committees.find((item) => item.committeeID === currentUser.committee_id);
+    return committee?.committeeCode || "your assigned committee";
+  }, [committees, currentUser?.committee_id]);
 
   useEffect(() => {
     const loadCommittees = async () => {
@@ -148,26 +140,106 @@ const Page = () => {
     setHasUnsavedChanges(false);
   }, [selectedReso]);
 
-  const logBackIn = useCallback(async () => { /* unchanged logic */
-    if (!currentUser) { toast.error("No user logged in"); return null; }
-    if (userRole === "delegate") {
-      const delegateUser = currentUser as Delegate;
-      let latestPerms = delegateUser.resoPerms;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: appUserPerms, error: appUserPermsError } = await (supabase as any).from("app_users").select("reso_perms").eq("id", delegateUser.delegateID).maybeSingle();
-      if (!appUserPermsError && appUserPerms?.reso_perms) latestPerms = appUserPerms.reso_perms;
-      else if (appUserPermsError) { console.error("Failed to fetch delegate permissions from app_users:", appUserPermsError); toast.error("Failed to fetch delegate permissions"); return null; }
-      const enrichedUser: Delegate = { ...delegateUser, resoPerms: latestPerms || { "view:ownreso": false, "view:allreso": false, "update:ownreso": false, "update:reso": [] } };
-      if (JSON.stringify(delegateUser.resoPerms) !== JSON.stringify(enrichedUser.resoPerms)) login(enrichedUser);
-      return enrichedUser;
+  const logBackIn = useCallback(async (): Promise<SessionUser | null> => {
+    if (!currentUser) {
+      toast.error("No user logged in");
+      return null;
     }
-    return currentUser;
+    if (userRole !== "delegate") return currentUser;
+
+    const { data, error } = await supabase
+      .from("app_users")
+      .select("reso_perms")
+      .eq("id", currentUser.id)
+      .maybeSingle();
+    if (error) {
+      console.error("Failed to fetch delegate permissions from app_users:", error);
+      toast.error("Failed to fetch delegate permissions");
+      return null;
+    }
+
+    const fallbackPerms: SessionUser["reso_perms"] = {
+      "view:ownreso": false,
+      "view:allreso": false,
+      "update:ownreso": false,
+      "update:reso": [],
+    };
+    const latestPerms = (data?.reso_perms as SessionUser["reso_perms"] | undefined) || currentUser.reso_perms || fallbackPerms;
+    const enrichedUser: SessionUser = { ...currentUser, reso_perms: latestPerms, resoPerms: latestPerms };
+    if (JSON.stringify(currentUser.reso_perms) !== JSON.stringify(latestPerms)) login(enrichedUser);
+    return enrichedUser;
   }, [currentUser, userRole, login]);
 
-  useEffect(() => { const fetchDels = async () => { if (!currentUser || userRole !== "chair") return; try { const chairUser = currentUser as Chair; const { data, error } = await supabase.from("app_users").select("id, first_name, last_name, reso_perms").eq("committee_id", chairUser.committee.committeeID).eq("role", "delegate"); if (error) throw error; setDelegates((data || []).map((d) => ({ delegateID: d.id, firstname: d.first_name || "", lastname: d.last_name || "", resoPerms: d.reso_perms || { "view:ownreso": false, "view:allreso": false, "update:ownreso": false, "update:reso": [] } }))); } catch (error) { console.error("Failed to fetch delegates:", error); toast.error("Failed to fetch delegates"); } }; fetchDels(); }, [currentUser, userRole]);
+  useEffect(() => {
+    const fetchDels = async () => {
+      if (!currentUser || userRole !== "chair" || !currentUser.committee_id) return;
+      try {
+        const { data, error } = await supabase
+          .from("app_users")
+          .select("legacy_id, first_name, last_name, reso_perms")
+          .eq("committee_id", currentUser.committee_id)
+          .eq("role", "delegate")
+          .not("legacy_id", "is", null);
+        if (error) throw error;
+        setDelegates((data || []).map((delegate) => ({
+          delegateID: delegate.legacy_id as string,
+          firstname: delegate.first_name || "",
+          lastname: delegate.last_name || "",
+          resoPerms: delegate.reso_perms as shortenedDel["resoPerms"],
+        })));
+      } catch (error) {
+        console.error("Failed to fetch delegates:", error);
+        toast.error("Failed to fetch delegates");
+      }
+    };
+    void fetchDels();
+  }, [currentUser, userRole]);
   useEffect(() => { logBackIn(); }, [logBackIn]);
 
-  useEffect(() => { const fetchResos = async () => { if (!currentUser) return; if ((userRole === "delegate" || userRole === "chair") && committees.length === 0) return; try { let query = supabase.from<Reso>("Resos").select("*"); if (userRole === "delegate") { const du = currentUser as Delegate; if (!du.resoPerms["view:allreso"]) query = query.eq("delegateID", du.delegateID); else { const committeeUuid = committeeIdFor(du.committee.committeeID); if (!isValidUuid(committeeUuid)) { toast.error("Invalid committee reference for delegate"); return; } query = query.eq("committeeID", committeeUuid); } } else if (userRole === "chair") { const cu = currentUser as Chair; const committeeUuid = committeeIdFor(cu.committee.committeeID); if (!isValidUuid(committeeUuid)) { toast.error("Invalid committee reference for chair"); return; } query = query.eq("committeeID", committeeUuid); } const { data, error } = await query; if (error) throw error; const fetched = data ?? []; setFetchedResos(fetched); if (selectedReso) { const updated = fetched.find((r: Reso) => r.resoID === selectedReso.resoID); if (updated) setTitle(updated.title || ""); } } catch (error) { console.error("Failed to fetch resolutions:", error); toast.error("Failed to fetch resolutions"); } }; fetchResos(); }, [committees.length, committeeIdFor, currentUser, isValidUuid, selectedReso, userRole]);
+  useEffect(() => {
+    const fetchResos = async () => {
+      if (!currentUser) return;
+      if ((userRole === "delegate" || userRole === "chair") && committees.length === 0) return;
+      try {
+        let query = supabase.from("Resos").select("*");
+        if (userRole === "delegate") {
+          if (!currentUser.reso_perms["view:allreso"]) {
+            if (!currentUser.legacy_id) {
+            toast.error("Your delegate profile is not linked. Please contact admin.");
+            return;
+          }
+            query = query.eq("delegateID", currentUser.legacy_id);
+          } else {
+            const committeeUuid = committeeIdFor(currentUser.committee_id || "");
+            if (!isValidUuid(committeeUuid)) {
+              toast.error("Invalid committee reference for delegate");
+              return;
+            }
+            query = query.eq("committeeID", committeeUuid);
+          }
+        } else if (userRole === "chair") {
+          const committeeUuid = committeeIdFor(currentUser.committee_id || "");
+          if (!isValidUuid(committeeUuid)) {
+            toast.error("Invalid committee reference for chair");
+            return;
+          }
+          query = query.eq("committeeID", committeeUuid);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        const fetched = (data ?? []) as Reso[];
+        setFetchedResos(fetched);
+        if (selectedReso) {
+          const updated = fetched.find((reso) => reso.resoID === selectedReso.resoID);
+          if (updated) setTitle(updated.title || "");
+        }
+      } catch (error) {
+        console.error("Failed to fetch resolutions:", error);
+        toast.error("Failed to fetch resolutions");
+      }
+    };
+    void fetchResos();
+  }, [committees.length, committeeIdFor, currentUser, isValidUuid, selectedReso, userRole]);
 
   const confirmDiscardChanges = useCallback(() => !hasUnsavedChanges || window.confirm(UNSAVED_CHANGES_MESSAGE), [hasUnsavedChanges]);
   useEffect(() => { if (!hasUnsavedChanges) return; const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = UNSAVED_CHANGES_MESSAGE; return UNSAVED_CHANGES_MESSAGE; }; window.addEventListener("beforeunload", h); return () => window.removeEventListener("beforeunload", h); }, [hasUnsavedChanges]);
@@ -186,21 +258,22 @@ const Page = () => {
     if (!trimmedDocLink) return toast.error("Please enter a Google Docs URL.");
     if (!updatedUserIsDelegate && !selectedReso) return toast.error("Only delegates can post resolutions.");
     if (updatedUserIsDelegate) {
-      const delegateUser = updatedUser as Delegate;
-      if (!delegateUser.resoPerms["update:ownreso"] && selectedReso?.delegateID === delegateUser.delegateID) return toast.error("You do not have permission to post resolutions.");
-      if (selectedReso && (selectedReso.delegateID !== delegateUser.delegateID && !(delegateUser.resoPerms["update:reso"]?.includes(selectedReso.resoID)))) return toast.error("You can only update your own resolutions.");
+      const delegateUser = updatedUser;
+      if (!delegateUser.reso_perms["update:ownreso"] && selectedReso?.delegateID === delegateUser.legacy_id) return toast.error("You do not have permission to post resolutions.");
+      if (selectedReso && (selectedReso.delegateID !== delegateUser.legacy_id && !(delegateUser.reso_perms["update:reso"]?.includes(selectedReso.resoID)))) return toast.error("You can only update your own resolutions.");
     }
     if (!title.trim()) return toast.error("Please enter a resolution title");
 
     const content = addExternalDocBlock(trimmedDocLink);
     let delegateID = "0000"; let committeeID = "";
     if (updatedUserIsDelegate) {
-      const delegateUser = updatedUser as Delegate;
-      delegateID = delegateUser.delegateID; committeeID = committeeIdFor(delegateUser.committee.committeeID);
+      const delegateUser = updatedUser;
+      if (!delegateUser.legacy_id) return toast.error("Your delegate profile is not linked. Please contact admin.");
+      delegateID = delegateUser.legacy_id; committeeID = committeeIdFor(delegateUser.committee_id || "");
       if (!isValidUuid(committeeID)) return toast.error("Unable to resolve your committee. Please contact admin.");
-      if (fetchedResos.filter((r) => r.delegateID === delegateUser.delegateID).length >= 1 && !selectedReso) return toast.error("You can only post one resolution as a delegate.");
+      if (fetchedResos.filter((r) => r.delegateID === delegateUser.legacy_id).length >= 1 && !selectedReso) return toast.error("You can only post one resolution as a delegate.");
     } else if (updatedUserRole === "chair" && selectedReso) {
-      const chairUser = updatedUser as Chair; committeeID = committeeIdFor(chairUser.committee.committeeID);
+      const chairUser = updatedUser; committeeID = committeeIdFor(chairUser.committee_id || "");
       if (!isValidUuid(committeeID)) return toast.error("Unable to resolve your committee. Please contact admin.");
       delegateID = selectedReso.delegateID;
     }
@@ -213,21 +286,20 @@ const Page = () => {
         const updatedReso: Reso = { ...selectedReso, content, title };
         setFetchedResos((prev) => prev.map((r) => r.resoID === updatedReso.resoID ? updatedReso : r)); setSelectedReso(updatedReso); toast.success("Resolution updated successfully!");
       } else {
-        const { data: existingResos, error: resoError } = await supabase.from<{ resoID: string }>("Resos").select("resoID");
-        if (resoError) throw resoError;
-        const sortedResos = existingResos ? [...existingResos] : []; sortedResos.sort((a, b) => a.resoID.localeCompare(b.resoID));
-        const highestResoID = sortedResos.length > 0 ? (parseInt(sortedResos[sortedResos.length - 1].resoID, 10) + 1).toString().padStart(4, "0") : "0001";
-        const newResoPayload: Reso = { resoID: highestResoID, delegateID, committeeID, content, title, isNew: false };
-        const { data: insertedReso, error: insertError } = await supabase.from("Resos").insert(newResoPayload).select().single();
-        if (insertError) throw insertError;
-        const createdReso: Reso = (insertedReso as Reso) ?? { ...newResoPayload };
+        const { data: createdResoId, error: createError } = await supabase.rpc("create_resolution", {
+          p_title: title.trim(),
+          p_content: content,
+        });
+        if (createError) throw createError;
+        if (!createdResoId) throw new Error("Resolution creation returned no ID");
+        const createdReso: Reso = { resoID: createdResoId, delegateID, committeeID, content, title: title.trim(), isNew: false };
         setFetchedResos((prev) => [...prev, createdReso]); setSelectedReso(createdReso); toast.success("Resolution posted successfully!");
       }
       initialStateRef.current = { title, docLink: trimmedDocLink }; setHasUnsavedChanges(false);
     } catch (error) { console.error("Failed to save resolution:", error); toast.error("Failed to post resolution"); } finally { setIsSaving(false); }
   };
 
-  const handleDeleteReso = useCallback(async () => { if (!selectedReso || isBusy) return; const updatedUser = await logBackIn(); if (!updatedUser) return; const updatedRole = role(updatedUser); if (updatedRole === "delegate") { const d = updatedUser as Delegate; const owns = selectedReso.delegateID === d.delegateID; const hasPerm = Array.isArray(d.resoPerms?.["update:reso"]) ? d.resoPerms["update:reso"].includes(selectedReso.resoID) : false; if (!owns && !hasPerm) return toast.error("You can only delete resolutions you are allowed to update."); } else if (updatedRole !== "chair") return toast.error("You do not have permission to delete this resolution."); if (!window.confirm("Are you sure you want to delete this resolution? This action cannot be undone.")) return; setIsDeleting(true); try { const { error } = await supabase.from("Resos").delete().eq("resoID", selectedReso.resoID); if (error) throw error; const updated = fetchedResos.filter((r) => r.resoID !== selectedReso.resoID); setFetchedResos(updated); if (updated.length > 0) setSelectedReso(updated[0]); else { setSelectedReso(null); setTitle(""); setDocLink(""); initialStateRef.current = { title: "", docLink: "" }; } setHasUnsavedChanges(false); toast.success("Resolution deleted successfully."); } catch (error) { console.error("Failed to delete resolution:", error); toast.error("Failed to delete resolution"); } finally { setIsDeleting(false); } }, [fetchedResos, isBusy, logBackIn, selectedReso]);
+  const handleDeleteReso = useCallback(async () => { if (!selectedReso || isBusy) return; const updatedUser = await logBackIn(); if (!updatedUser) return; const updatedRole = role(updatedUser); if (updatedRole === "delegate") { const d = updatedUser; const owns = selectedReso.delegateID === d.legacy_id; const hasPerm = Array.isArray(d.reso_perms?.["update:reso"]) ? d.reso_perms["update:reso"].includes(selectedReso.resoID) : false; if (!owns && !hasPerm) return toast.error("You can only delete resolutions you are allowed to update."); } else if (updatedRole !== "chair") return toast.error("You do not have permission to delete this resolution."); if (!window.confirm("Are you sure you want to delete this resolution? This action cannot be undone.")) return; setIsDeleting(true); try { const { error } = await supabase.from("Resos").delete().eq("resoID", selectedReso.resoID); if (error) throw error; const updated = fetchedResos.filter((r) => r.resoID !== selectedReso.resoID); setFetchedResos(updated); if (updated.length > 0) setSelectedReso(updated[0]); else { setSelectedReso(null); setTitle(""); setDocLink(""); initialStateRef.current = { title: "", docLink: "" }; } setHasUnsavedChanges(false); toast.success("Resolution deleted successfully."); } catch (error) { console.error("Failed to delete resolution:", error); toast.error("Failed to delete resolution"); } finally { setIsDeleting(false); } }, [fetchedResos, isBusy, logBackIn, selectedReso]);
 
   if (userRole !== "delegate" && userRole !== "chair") return <div className="p-8 text-center">Restricted access.</div>;
 

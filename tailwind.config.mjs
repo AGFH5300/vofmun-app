@@ -1,5 +1,7 @@
 /** @type {import('tailwindcss').Config} */
-export default {
+import tailwindcssAnimate from "tailwindcss-animate";
+
+const config = {
   content: [
     "./src/**/*.{js,ts,jsx,tsx}",
     "./app/**/*.{js,ts,jsx,tsx}",
@@ -56,10 +58,10 @@ export default {
         'xl': '1rem',
         '2xl': '1.5rem',
         '3xl': '2rem',
-      }
+      },
     },
   },
-  plugins: [
-    require("tailwindcss-animate"),
-  ],
+  plugins: [tailwindcssAnimate],
 };
+
+export default config;

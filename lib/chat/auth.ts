@@ -58,6 +58,10 @@ const mapRawUserToSession = (raw: Record<string, unknown> | null): SessionAuthUs
   return null;
 };
 
+/**
+ * Legacy browser-display cookie parser. This cookie is intentionally not an
+ * authentication source and must never be used to authorize API or socket work.
+ */
 export const getSessionUserFromCookieHeader = (cookieHeader?: string | null): SessionAuthUser | null => {
   const parsed = parseCookieHeader(cookieHeader);
   const rawUser = parsed.user ? decodeURIComponent(parsed.user) : null;
@@ -71,6 +75,9 @@ export const getSessionUserFromCookieHeader = (cookieHeader?: string | null): Se
   }
 };
 
+/**
+ * @deprecated Use getVerifiedSessionUserFromRequest for every protected server route.
+ */
 export const getSessionUserFromRequest = (request: Request): SessionAuthUser | null => {
   const cookieHeader = request.headers.get('cookie') || request.headers.get('Cookie');
   return getSessionUserFromCookieHeader(cookieHeader);
@@ -84,12 +91,12 @@ const parseBearerToken = (authorizationHeader?: string | null) => {
   return token || null;
 };
 
-const normalizeRole = (role: unknown): SessionRole => {
+const normalizeRole = (role: unknown): SessionRole | null => {
   const value = String(role || '').trim().toLowerCase();
   if (value === 'chair' || value === 'admin' || value === 'secretariat' || value === 'delegate') {
     return value;
   }
-  return 'delegate';
+  return null;
 };
 
 export const getBearerTokenFromHeaders = (headers: Record<string, string | string[] | undefined>) => {
@@ -97,6 +104,9 @@ export const getBearerTokenFromHeaders = (headers: Record<string, string | strin
   const headerValue = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
   return parseBearerToken(headerValue);
 };
+
+export const getBearerTokenFromRequest = (request: Request) =>
+  parseBearerToken(request.headers.get('authorization') || request.headers.get('Authorization'));
 
 export const verifySupabaseAccessToken = async (accessToken: string): Promise<SessionAuthUser | null> => {
   if (!accessToken || !supabaseAdmin) return null;
@@ -108,10 +118,35 @@ export const verifySupabaseAccessToken = async (accessToken: string): Promise<Se
 
   assertNoLegacyChatIdentityDev(data.user.id, 'verifySupabaseAccessToken');
 
-  const appRole = data.user.app_metadata?.role;
-  const userRole = data.user.user_metadata?.role;
+  // Authorization roles must come from the server-controlled application table.
+  // Supabase user_metadata is user-editable and must not grant privileges.
+  const { data: appUser, error: appUserError } = await supabaseAdmin
+    .from('app_users')
+    .select('role')
+    .eq('id', data.user.id)
+    .maybeSingle();
+
+  if (appUserError || !appUser) {
+    if (appUserError) {
+      console.error('[chat auth] failed to resolve app user role', {
+        userId: data.user.id,
+        message: appUserError.message,
+      });
+    }
+    return null;
+  }
+
+  const role = normalizeRole(appUser.role);
+  if (!role) return null;
+
   return {
     id: String(data.user.id),
-    role: normalizeRole(appRole || userRole),
+    role,
   };
+};
+
+export const getVerifiedSessionUserFromRequest = async (request: Request): Promise<SessionAuthUser | null> => {
+  const accessToken = getBearerTokenFromRequest(request);
+  if (!accessToken) return null;
+  return verifySupabaseAccessToken(accessToken);
 };

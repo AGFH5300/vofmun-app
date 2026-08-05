@@ -2220,7 +2220,15 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (previous.status === 'pending' && request.status === 'accepted' && request.senderId === userId) {
         const receiverName = resolveUserDisplay(request.receiverId, request.receiver);
         notifyTransition(`${requestId}:pending->accepted:sender`, () => {
-          toast.success(`${receiverName} accepted your friend request.`);
+          toast.success(`${receiverName} accepted your friend request.`, {
+            duration: Infinity,
+            action: {
+              label: 'Dismiss',
+              onClick: () => {
+                /* no-op: sonner dismisses on action click */
+              },
+            },
+          });
         });
         return;
       }
@@ -2228,7 +2236,15 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (previous.status === 'pending' && request.status === 'rejected' && request.senderId === userId) {
         const receiverName = resolveUserDisplay(request.receiverId, request.receiver);
         notifyTransition(`${requestId}:pending->rejected:sender`, () => {
-          toast.info(`${receiverName} declined your friend request.`);
+          toast.info(`${receiverName} declined your friend request.`, {
+            duration: Infinity,
+            action: {
+              label: 'Dismiss',
+              onClick: () => {
+                /* no-op: sonner dismisses on action click */
+              },
+            },
+          });
         });
       }
     });
@@ -2335,21 +2351,23 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           roomId: liveRoomId,
           error: error instanceof Error ? error.message : 'unknown-error',
         });
-        const failedRoomMessages = (messagesRef.current[liveRoomId] || []).map((msg) =>
-          msg.id === tempId ? { ...msg, status: 'error' as MessageStatus } : msg
-        );
+        const rolledBackMessages = (messagesRef.current[liveRoomId] || []).filter((msg) => msg.id !== tempId);
         messagesRef.current = {
           ...messagesRef.current,
-          [liveRoomId]: failedRoomMessages,
+          [liveRoomId]: rolledBackMessages,
         };
         setMessages((prev) => ({
           ...prev,
-          [liveRoomId]: failedRoomMessages,
+          [liveRoomId]: rolledBackMessages,
         }));
-        const failedLastMessage = failedRoomMessages[failedRoomMessages.length - 1] || null;
-        if (failedLastMessage) {
-          applyIncomingMessageToRoomList(liveRoomId, failedLastMessage);
-        }
+        setRooms((prev) =>
+          prev.map((room) =>
+            toComparableId(room.id) === liveRoomId
+              ? { ...room, lastMessage: rolledBackMessages[rolledBackMessages.length - 1] || null }
+              : room,
+          ),
+        );
+        throw error instanceof Error ? error : new Error('Failed to send message');
       }
     },
     [applyIncomingMessageToRoomList, fetchWithTimeout, mergeUsersIntoDirectory, resolveLiveRoomId, upsertRoomMessage, withAuthHeaders]
@@ -2639,8 +2657,15 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         console.debug('[GroupCreateDebug] group_create:api_response', { status: response.status, ok: response.ok, body: json });
       }
       if (!response.ok) {
-        const errorMessage = json?.error || 'Unable to create group chat right now.';
-        const devError = json?.devError;
+        const errorPayload =
+          json && typeof json === 'object' && ('error' in json || 'devError' in json)
+            ? (json as {
+                error?: string;
+                devError?: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null };
+              })
+            : null;
+        const errorMessage = errorPayload?.error || 'Unable to create group chat right now.';
+        const devError = errorPayload?.devError;
         const devErrorSummary = devError
           ? [devError.code, devError.message, devError.details, devError.hint].filter(Boolean).join(' | ')
           : null;

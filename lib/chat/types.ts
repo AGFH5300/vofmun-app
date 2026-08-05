@@ -69,7 +69,9 @@ export interface MessageAttachment {
   created_at?: string | null;
 }
 
-export type MessageAttachmentInput = Omit<MessageAttachment, 'id' | 'message_id' | 'created_at' | 'created_by'>;
+export type MessageAttachmentInput = Omit<MessageAttachment, 'id' | 'message_id' | 'created_at' | 'created_by'> & {
+  upload_id?: string;
+};
 
 export const LEGACY_CHAT_ID_PREFIX_RE = /^(del|delegate|chair|admin|secretariat)[_-]/i;
 
@@ -105,21 +107,32 @@ export interface UserSearchResult extends User {
   has_pending_request?: boolean;
 }
 
+export type ChatSocketEventType =
+  | 'auth'
+  | 'authenticated'
+  | 'auth_error'
+  | 'join_room'
+  | 'room_joined'
+  | 'typing'
+  | 'user_typing'
+  | 'new_message'
+  | 'message_updated'
+  | 'user_online'
+  | 'user_offline'
+  | 'online_users'
+  | 'receipts_updated'
+  | 'friend_request_created'
+  | 'friend_request_sent'
+  | 'friend_request_updated'
+  | 'friend_request_accepted'
+  | 'friend_request_rejected'
+  | 'connection_created'
+  | 'notification_created'
+  | 'room_created'
+  | 'conversation_created';
+
 export interface ChatSocketPayload {
-  type:
-    | 'auth'
-    | 'authenticated'
-    | 'auth_error'
-    | 'join_room'
-    | 'room_joined'
-    | 'typing'
-    | 'user_typing'
-    | 'new_message'
-    | 'message_updated'
-    | 'user_online'
-    | 'user_offline'
-    | 'online_users'
-    | 'receipts_updated';
+  type: ChatSocketEventType;
   token?: string;
   roomId?: string;
   message?: MessageWithUser;

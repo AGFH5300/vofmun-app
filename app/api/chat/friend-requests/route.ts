@@ -2,7 +2,7 @@
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 import { randomUUID } from 'crypto';
 import supabaseAdmin from '../../../../lib/supabaseAdmin';
-import { getSessionUserFromRequest } from '../../../../lib/chat/auth';
+import { getVerifiedSessionUserFromRequest } from '../../../../lib/chat/auth';
 import { fetchPersonById, fetchPeopleDetailsByIds, getUserContext, isVisibleToViewer } from '../../../../server/chat/people';
 import { FriendRequest } from '../../../../lib/chat/types';
 
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
       return jsonResponse({ ok: false, error: 'Server not configured' }, 500);
     }
 
-    const sessionUser = getSessionUserFromRequest(request);
+    const sessionUser = await getVerifiedSessionUserFromRequest(request);
     if (!sessionUser) {
       return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
     }
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
       return jsonResponse({ ok: false, error: 'Server not configured' }, 500);
     }
 
-    const sessionUser = getSessionUserFromRequest(request);
+    const sessionUser = await getVerifiedSessionUserFromRequest(request);
     if (!sessionUser) {
       return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
     }
