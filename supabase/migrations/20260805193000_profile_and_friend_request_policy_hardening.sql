@@ -20,7 +20,7 @@ create policy friend_requests_select_participant
 on public.friend_requests
 for select
 to authenticated
-using (sender_id = auth.uid() or receiver_id = auth.uid());
+using (sender_id::text = auth.uid()::text or receiver_id::text = auth.uid()::text);
 
 revoke all on table public.friend_requests from anon, authenticated;
 grant select on table public.friend_requests to authenticated;
