@@ -1,0 +1,132 @@
+name: VOFMUN Readiness CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: readiness-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Reject generic branding and temporary artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden='(?<!VOF)MUN (?:ONE|WEBAPP|Portal)|(?<!vof)mun(?:\.messages|:messages|-conversation-menu-opened|-message-menu-opened)'
+          if grep -RInP "$forbidden" app components lib server --exclude-dir=node_modules 2>/dev/null; then
+            echo "Generic branding or storage namespaces leaked into VOFMUN."
+            exit 1
+          fi
+          test ! -e readiness-report.json
+          test ! -e identity-hardening-result.txt
+          test ! -e scripts/apply-identity-hardening.py
+          test ! -e scripts/finalize-identity-hardening.py
+
+      - name: Parse database migrations
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check --quiet pglast
+          python <<'PY'
+          from pathlib import Path
+          from pglast import parse_sql
+
+          migrations = sorted(Path('supabase/migrations').glob('*.sql'))
+          for migration in migrations:
+              parse_sql(migration.read_text())
+              print(f'Parsed {migration}')
+          PY
+
+      - name: Audit runtime dependencies
+        id: runtime_audit
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm audit --omit=dev --json > runtime-audit.json || true
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('runtime-audit.json', 'utf8'));
+          const totals = report.metadata?.vulnerabilities || {};
+          console.log('Runtime dependency audit:', totals);
+
+          const vulnerabilities = report.vulnerabilities || {};
+          for (const [name, detail] of Object.entries(vulnerabilities)) {
+            if (!['high', 'critical'].includes(detail.severity)) continue;
+            const via = Array.isArray(detail.via)
+              ? detail.via.map((item) => typeof item === 'string' ? item : `${item.name || name}: ${item.title || item.url || 'advisory'}`)
+              : [];
+            console.error(JSON.stringify({
+              package: name,
+              severity: detail.severity,
+              direct: Boolean(detail.isDirect),
+              range: detail.range,
+              nodes: detail.nodes,
+              via,
+              fixAvailable: detail.fixAvailable,
+            }));
+          }
+
+          const blocking = Number(totals.high || 0) + Number(totals.critical || 0);
+          if (blocking > 0) {
+            console.error(`Blocking runtime vulnerabilities: ${blocking}`);
+            process.exit(1);
+          }
+          NODE
+
+      - name: Type-check
+        id: typecheck
+        continue-on-error: true
+        run: npx tsc --noEmit
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Production build
+        id: build
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://build-check.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-check-anon-key
+        run: npm run build
+
+      - name: Enforce release gates
+        if: always()
+        env:
+          AUDIT_OUTCOME: ${{ steps.runtime_audit.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          echo "Runtime audit: $AUDIT_OUTCOME"
+          echo "Type-check: $TYPECHECK_OUTCOME"
+          echo "Lint: $LINT_OUTCOME"
+          echo "Production build: $BUILD_OUTCOME"
+          if [[ "$AUDIT_OUTCOME" != "success" || "$TYPECHECK_OUTCOME" != "success" || "$LINT_OUTCOME" != "success" || "$BUILD_OUTCOME" != "success" ]]; then
+            exit 1
+          fi
