@@ -13,15 +13,16 @@ interface AppWrapperProps {
 }
 
 export default function AppWrapper({ children }: AppWrapperProps) {
-  const { user: currentUser } = useSession();
+  const { user: currentUser, authReady } = useSession();
   const pathname = usePathname();
   const userRole = role(currentUser);
-  
-  // Standalone auth pages should not show global navigation/footer
+
   const isStandaloneAuthRoute = pathname === "/login" || pathname === "/reset-password";
-  const showNav = !isStandaloneAuthRoute;
-  
-  // Get activeLink from pathname
+  const isPublicLandingRoute = pathname === "/";
+  const hasAuthenticatedChrome = authReady && Boolean(currentUser);
+  const showNav = !isStandaloneAuthRoute && (isPublicLandingRoute || hasAuthenticatedChrome);
+  const showFooter = !isStandaloneAuthRoute && (isPublicLandingRoute || hasAuthenticatedChrome);
+
   const getActiveLink = () => {
     if (pathname === "/home") return "home";
     if (pathname === "/speechrepo") return "speechrepo";
@@ -38,12 +39,12 @@ export default function AppWrapper({ children }: AppWrapperProps) {
     <div className="flex min-h-screen flex-col">
       {showNav && (
         <CustomNav
-          role={userRole as 'delegate' | 'chair' | 'admin'}
+          role={userRole as "delegate" | "chair" | "admin"}
           activeLink={getActiveLink()}
         />
       )}
       <main className={`flex-1 ${showNav ? "pt-20" : ""}`}>{children}</main>
-      {!isStandaloneAuthRoute && <SiteFooter />}
+      {showFooter && <SiteFooter />}
     </div>
   );
 }

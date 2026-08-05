@@ -2,75 +2,71 @@
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 'use client';
 
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 import { useSession } from "../app/context/sessionContext";
 import { useRouter } from "next/navigation";
-
-const PROTECTED_ROUTE_DEBUG_PREFIX = "[ProtectedRouteDebug]";
+import { Loader2 } from "lucide-react";
 
 const useRedirect = () => {
   const router = useRouter();
-  return (path: string) => router.replace(path);
+  return useCallback((path: string) => router.replace(path), [router]);
 };
 
-// this route protects from all unauthorized
+const RouteLoading = () => (
+  <div className="flex min-h-[calc(100vh-5rem)] items-center justify-center bg-[#f9f9f9] px-6">
+    <div className="flex items-center gap-3 rounded-xl border border-[#dcc0bd]/30 bg-white px-5 py-4 text-sm font-medium text-[#6E1D1B] shadow-sm">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      Loading your VOFMUN account…
+    </div>
+  </div>
+);
+
+// Protects routes from unauthenticated users.
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user: currentUser, authReady, isAuthenticated } = useSession();
+  const { authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
 
   useEffect(() => {
-    console.debug(`${PROTECTED_ROUTE_DEBUG_PREFIX} ProtectedRoute`, {
-      authReady,
-      isAuthenticated,
-      hasUser: Boolean(currentUser),
-    });
-    if (!authReady) return;
-    if (!isAuthenticated) {
+    if (authReady && !isAuthenticated) {
       navigate("/login");
     }
-  }, [authReady, currentUser, isAuthenticated, navigate]);
+  }, [authReady, isAuthenticated, navigate]);
 
-  if (!authReady) return null;
+  if (!authReady) return <RouteLoading />;
   if (!isAuthenticated) return null;
 
   return <>{children}</>;
 };
 
-// protects from any1 who aint a delegate
 export const DelegateRoute = ({ children }: { children: React.ReactNode }) => {
   const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
-
-  const blocked = !isAuthenticated || currentUser?.role !== 'delegate';
+  const blocked = !isAuthenticated || currentUser?.role !== "delegate";
 
   useEffect(() => {
-    if (!authReady) return;
-    if (blocked) {
+    if (authReady && blocked) {
       navigate("/login");
     }
-  }, [blocked, authReady, navigate]);
+  }, [authReady, blocked, navigate]);
 
-  if (!authReady) return null;
+  if (!authReady) return <RouteLoading />;
   if (blocked) return null;
 
   return <>{children}</>;
 };
 
-// protects staff-only pages from delegates and chairs
 export const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
-
-  const blocked = !isAuthenticated || !['admin', 'secretariat'].includes(currentUser?.role || '');
+  const blocked = !isAuthenticated || !["admin", "secretariat"].includes(currentUser?.role || "");
 
   useEffect(() => {
-    if (!authReady) return;
-    if (blocked) {
+    if (authReady && blocked) {
       navigate("/login");
     }
-  }, [blocked, authReady, navigate]);
+  }, [authReady, blocked, navigate]);
 
-  if (!authReady) return null;
+  if (!authReady) return <RouteLoading />;
   if (blocked) return null;
 
   return <>{children}</>;
@@ -79,17 +75,15 @@ export const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 export const ChairRoute = ({ children }: { children: React.ReactNode }) => {
   const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
-
-  const blocked = !isAuthenticated || currentUser?.role !== 'chair';
+  const blocked = !isAuthenticated || currentUser?.role !== "chair";
 
   useEffect(() => {
-    if (!authReady) return;
-    if (blocked) {
+    if (authReady && blocked) {
       navigate("/login");
     }
-  }, [blocked, authReady, navigate]);
+  }, [authReady, blocked, navigate]);
 
-  if (!authReady) return null;
+  if (!authReady) return <RouteLoading />;
   if (blocked) return null;
 
   return <>{children}</>;
@@ -98,23 +92,15 @@ export const ChairRoute = ({ children }: { children: React.ReactNode }) => {
 export const ParticipantRoute = ({ children }: { children: React.ReactNode }) => {
   const { user: currentUser, authReady, isAuthenticated } = useSession();
   const navigate = useRedirect();
-
-  const blocked = !isAuthenticated || currentUser?.role === 'admin' || currentUser?.role === 'secretariat';
+  const blocked = !isAuthenticated || currentUser?.role === "admin" || currentUser?.role === "secretariat";
 
   useEffect(() => {
-    console.debug(`${PROTECTED_ROUTE_DEBUG_PREFIX} ParticipantRoute`, {
-      authReady,
-      isAuthenticated,
-      hasUser: Boolean(currentUser),
-      blocked,
-    });
-    if (!authReady) return;
-    if (blocked) {
+    if (authReady && blocked) {
       navigate("/login");
     }
-  }, [blocked, authReady, currentUser, isAuthenticated, navigate]);
+  }, [authReady, blocked, navigate]);
 
-  if (!authReady) return null;
+  if (!authReady) return <RouteLoading />;
   if (blocked) return null;
 
   return <>{children}</>;

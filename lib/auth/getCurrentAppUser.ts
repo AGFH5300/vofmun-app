@@ -1,3 +1,4 @@
+import type { User } from "@supabase/supabase-js";
 import supabase from "@/lib/supabase";
 import { AppUser, AppUserRole } from "@/db/types";
 
@@ -10,16 +11,12 @@ const DEFAULT_RESO_PERMS = {
 
 const normalizeEmail = (email?: string | null) => (email || "").trim().toLowerCase();
 
-export async function getCurrentAppUser() {
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) throw sessionError;
-
-  const session = sessionData.session;
-  if (!session?.access_token) {
-    return { authUser: null, appUser: null as AppUser | null };
-  }
-
-  const authUser = session.user;
+/**
+ * Resolve the application profile for an auth user whose session has already
+ * been established. Keeping auth session reads out of onAuthStateChange avoids
+ * the Supabase auth lock/deadlock that previously left protected pages blank.
+ */
+export async function getAppUserForAuthUser(authUser: User) {
   const { data: existing, error: existingError } = await supabase
     .from("app_users")
     .select("*")
@@ -51,4 +48,16 @@ export async function getCurrentAppUser() {
   if (createdError) throw createdError;
 
   return { authUser, appUser: created as AppUser };
+}
+
+export async function getCurrentAppUser() {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+
+  const session = sessionData.session;
+  if (!session?.user) {
+    return { authUser: null, appUser: null as AppUser | null };
+  }
+
+  return getAppUserForAuthUser(session.user);
 }
