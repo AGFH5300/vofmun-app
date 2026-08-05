@@ -15,7 +15,7 @@ import React, {
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { UserType } from "@/db/types";
 import Cookies from "js-cookie";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import supabase from "@/lib/supabase";
 import { getAppUserForSession } from "@/lib/auth/getCurrentAppUser";
 import { mapAppUserToSessionUser } from "@/lib/auth/mapAppUserToSessionUser";
@@ -32,6 +32,49 @@ interface SessionContextProps {
 const SESSION_DEBUG_PREFIX = "[SessionContextDebug]";
 const INITIAL_SESSION_TIMEOUT_MS = 12_000;
 const SessionContext = createContext<SessionContextProps | undefined>(undefined);
+
+
+const findPersistedSession = (value: unknown): Session | null => {
+  if (!value || typeof value !== "object") return null;
+
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.access_token === "string" &&
+    record.user &&
+    typeof record.user === "object" &&
+    typeof (record.user as Record<string, unknown>).id === "string"
+  ) {
+    return value as Session;
+  }
+
+  for (const nested of Object.values(record)) {
+    const resolved = findPersistedSession(nested);
+    if (resolved) return resolved;
+  }
+
+  return null;
+};
+
+const readPersistedSession = (): Session | null => {
+  if (typeof window === "undefined") return null;
+
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (!key || !key.startsWith("sb-") || !key.endsWith("-auth-token")) continue;
+
+    const rawValue = window.localStorage.getItem(key);
+    if (!rawValue) continue;
+
+    try {
+      const resolved = findPersistedSession(JSON.parse(rawValue));
+      if (resolved) return resolved;
+    } catch {
+      // Ignore malformed or unrelated storage entries.
+    }
+  }
+
+  return null;
+};
 
 const readCachedUser = (): UserType | null => {
   const storedUser = Cookies.get("user");
@@ -55,14 +98,12 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const [isSessionHydrated, setIsSessionHydrated] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
   const userRef = useRef<UserType | null>(null);
   const requestGenerationRef = useRef(0);
   const profileRequestRef = useRef<{
     userId: string;
     promise: Promise<UserType | null>;
   } | null>(null);
-  const isResetPasswordRoute = pathname === "/reset-password";
 
   const applyUser = useCallback((nextUser: UserType | null) => {
     userRef.current = nextUser;
@@ -115,11 +156,6 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     ) => {
       const generation = ++requestGenerationRef.current;
       if (!active) return;
-
-      if (isResetPasswordRoute) {
-        finish();
-        return;
-      }
 
       if (!session?.user) {
         applyUser(null);
@@ -179,6 +215,18 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       scheduledCallbacks.add(timeoutId);
     });
 
+
+    // Replit development previews can occasionally suppress INITIAL_SESSION while
+    // the token refresh still succeeds. Read the Supabase-persisted session without
+    // calling back into the auth client so profile loading remains deterministic.
+    const persistedFallbackId = window.setTimeout(() => {
+      if (!active || receivedInitialAuthEvent) return;
+      const persistedSession = readPersistedSession();
+      if (!persistedSession) return;
+      receivedInitialAuthEvent = true;
+      void synchronizeAuthState("INITIAL_SESSION", persistedSession);
+    }, 1_500);
+
     // Never leave the application behind an infinite loader if the auth client or
     // development transport fails before INITIAL_SESSION is delivered.
     const watchdogId = window.setTimeout(() => {
@@ -191,12 +239,13 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       active = false;
+      window.clearTimeout(persistedFallbackId);
       window.clearTimeout(watchdogId);
       scheduledCallbacks.forEach((timeoutId) => window.clearTimeout(timeoutId));
       scheduledCallbacks.clear();
       authListener.subscription.unsubscribe();
     };
-  }, [applyUser, completeHydration, isResetPasswordRoute, resolveProfile]);
+  }, [applyUser, completeHydration, resolveProfile]);
 
   const login = useCallback((nextUser: NonNullable<UserType>) => {
     requestGenerationRef.current += 1;
