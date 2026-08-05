@@ -209,7 +209,16 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
 
       const timeoutId = window.setTimeout(() => {
         scheduledCallbacks.delete(timeoutId);
-        void synchronizeAuthState(event, session);
+
+        // Supabase may emit INITIAL_SESSION with null while a persisted token is
+        // still being refreshed. Treating that transient state as a confirmed
+        // logout redirects protected pages before refresh can complete.
+        const effectiveSession =
+          event === "INITIAL_SESSION" && !session
+            ? readPersistedSession()
+            : session;
+
+        void synchronizeAuthState(event, effectiveSession);
       }, 0);
 
       scheduledCallbacks.add(timeoutId);

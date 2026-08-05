@@ -136,7 +136,7 @@ const Login = () => {
           <motion.div
             key="brand-panel"
             className="relative flex h-full min-h-[45vh] flex-col items-center justify-center p-8 lg:p-12"
-            initial={{ opacity: 0, x: isMobile ? 0 : -50 }}
+            initial={false}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
           >
@@ -147,7 +147,7 @@ const Login = () => {
 
                 <div className="relative z-10 max-w-md text-center">
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
+                    initial={false}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 1, delay: 0.2 }}
                     className="mb-8"
@@ -162,7 +162,7 @@ const Login = () => {
                   </motion.div>
 
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={false}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.4 }}
                   >
@@ -170,7 +170,7 @@ const Login = () => {
                   </motion.div>
 
                   <motion.p
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={false}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.6 }}
                     className="mt-6 text-lg leading-relaxed text-[#1C1C1C]"
@@ -185,7 +185,7 @@ const Login = () => {
         {/* Right Side - Login Form */}
         <motion.div
           className="lg:w-1/2 flex flex-col justify-center p-8 lg:p-12 bg-[#FFEBDD]"
-          initial={{ opacity: 0, x: isMobile ? 0 : 50 }}
+          initial={false}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
@@ -194,14 +194,14 @@ const Login = () => {
               {showForgotPanel ? (
                 <motion.div
                   key="forgot-panel"
-                  initial={{ opacity: 0, x: isMobile ? 0 : 60 }}
+                  initial={false}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: isMobile ? 0 : 60 }}
                   transition={{ duration: 0.45, ease: "easeOut" }}
                   className="space-y-6"
                 >
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={false}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6 }}
                     className="mb-10 text-center"
@@ -282,13 +282,13 @@ const Login = () => {
               ) : (
                 <motion.div
                   key="login-panel"
-                  initial={{ opacity: 0, x: isMobile ? 0 : 60 }}
+                  initial={false}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: isMobile ? 0 : 60 }}
                   transition={{ duration: 0.45, ease: "easeOut" }}
                 >
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={false}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.2 }}
                     className="mb-10 text-center"
@@ -311,7 +311,7 @@ const Login = () => {
                   <motion.form
                     onSubmit={handleSubmit}
                     className="space-y-6 rounded-3xl border border-[#e5e4e3] bg-[#FFFDFB] p-8 shadow-[0_20px_45px_-20px_rgba(112,30,30,0.45)]"
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={false}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.4 }}
                   >
@@ -364,7 +364,7 @@ const Login = () => {
               {error && (
                 <motion.div
                   className="rounded-xl border border-[#F5A3A3] bg-[#FDECEC] p-4"
-                  initial={{ opacity: 0, scale: 0.95 }}
+                  initial={false}
                   animate={{ opacity: 1, scale: 1 }}
                   data-testid="error-message"
                 >
