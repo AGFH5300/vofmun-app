@@ -8,11 +8,10 @@ import { useRouter } from "next/navigation";
 import { useSession } from "../context/sessionContext";
 import TypeWriter from "@/components/ui/typewriter";
 import supabase from "@/lib/supabase";
-import { getCurrentAppUser } from "@/lib/auth/getCurrentAppUser";
+import { getAppUserForSession } from "@/lib/auth/getCurrentAppUser";
 import { mapAppUserToSessionUser } from "@/lib/auth/mapAppUserToSessionUser";
 import { useMobile } from "@/hooks/use-mobile";
 import { Eye, EyeOff, Loader2, Rocket } from "lucide-react";
-import Cookies from "js-cookie";
 
 const Login = () => {
   const [email, setEmail] = React.useState("");
@@ -59,7 +58,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password: trimmedPassword,
       });
@@ -70,7 +69,14 @@ const Login = () => {
         return;
       }
 
-      const { appUser } = await getCurrentAppUser();
+      const session = signInData.session;
+      if (!session) {
+        setError("Unable to establish a secure login session.");
+        setLoading(false);
+        return;
+      }
+
+      const { appUser } = await getAppUserForSession(session);
 
       if (!appUser) {
         setError("Unable to load profile for this account.");
@@ -88,22 +94,6 @@ const Login = () => {
     }
   };
 
-  React.useEffect(() => {
-    const storedUser = Cookies.get("user");
-
-    if (!storedUser) {
-      return;
-    }
-
-    try {
-      const parsedUser = JSON.parse(storedUser);
-      if (parsedUser?.role) {
-        router.replace(routeByRole(parsedUser.role));
-      }
-    } catch {
-      Cookies.remove("user");
-    }
-  }, [router]);
 
   const handleForgotPassword = async () => {
     if (forgotLoading) return;
