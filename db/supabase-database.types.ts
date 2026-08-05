@@ -6,12 +6,13 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 type EmptyRelationships = [];
 
 export type Database = {
+  __InternalSupabase: { PostgrestVersion: "13.0.5" };
   public: {
     Tables: {
       Admin: {
-        Row: { adminID: string; firstname: string; lastname: string; email: string };
-        Insert: { adminID: string; firstname: string; lastname: string; email: string };
-        Update: { adminID?: string; firstname?: string; lastname?: string; email?: string };
+        Row: { adminID: string; auth_user_id: string | null; firstname: string; lastname: string; email: string };
+        Insert: { adminID: string; auth_user_id?: string | null; firstname: string; lastname: string; email: string };
+        Update: { adminID?: string; auth_user_id?: string | null; firstname?: string; lastname?: string; email?: string };
         Relationships: EmptyRelationships;
       };
       Announcement: {
@@ -21,9 +22,9 @@ export type Database = {
         Relationships: EmptyRelationships;
       };
       Chair: {
-        Row: { chairID: string; firstname: string; lastname: string; email: string; committeeID: string | null };
-        Insert: { chairID: string; firstname: string; lastname: string; email: string; committeeID?: string | null };
-        Update: { chairID?: string; firstname?: string; lastname?: string; email?: string; committeeID?: string | null };
+        Row: { chairID: string; auth_user_id: string | null; firstname: string; lastname: string; email: string; committeeID: string | null };
+        Insert: { chairID: string; auth_user_id?: string | null; firstname: string; lastname: string; email: string; committeeID?: string | null };
+        Update: { chairID?: string; auth_user_id?: string | null; firstname?: string; lastname?: string; email?: string; committeeID?: string | null };
         Relationships: EmptyRelationships;
       };
       "Chair-Speech": {
@@ -39,9 +40,9 @@ export type Database = {
         Relationships: EmptyRelationships;
       };
       Delegate: {
-        Row: { delegateID: string; firstname: string; lastname: string; email: string; resoPerms: Json; country: string | null; committeeID: string | null };
-        Insert: { delegateID: string; firstname: string; lastname: string; email: string; resoPerms?: Json; country?: string | null; committeeID?: string | null };
-        Update: { delegateID?: string; firstname?: string; lastname?: string; email?: string; resoPerms?: Json; country?: string | null; committeeID?: string | null };
+        Row: { delegateID: string; auth_user_id: string | null; firstname: string; lastname: string; email: string; resoPerms: Json; country: string | null; committeeID: string | null };
+        Insert: { delegateID: string; auth_user_id?: string | null; firstname: string; lastname: string; email: string; resoPerms?: Json; country?: string | null; committeeID?: string | null };
+        Update: { delegateID?: string; auth_user_id?: string | null; firstname?: string; lastname?: string; email?: string; resoPerms?: Json; country?: string | null; committeeID?: string | null };
         Relationships: EmptyRelationships;
       };
       "Delegate-Speech": {
@@ -57,9 +58,9 @@ export type Database = {
         Relationships: EmptyRelationships;
       };
       Secretariat: {
-        Row: { secretariatID: string; firstname: string; lastname: string; email: string };
-        Insert: { secretariatID: string; firstname: string; lastname: string; email: string };
-        Update: { secretariatID?: string; firstname?: string; lastname?: string; email?: string };
+        Row: { secretariatID: string; auth_user_id: string | null; firstname: string; lastname: string; email: string };
+        Insert: { secretariatID: string; auth_user_id?: string | null; firstname: string; lastname: string; email: string };
+        Update: { secretariatID?: string; auth_user_id?: string | null; firstname?: string; lastname?: string; email?: string };
         Relationships: EmptyRelationships;
       };
       Speech: {
@@ -75,45 +76,9 @@ export type Database = {
         Relationships: EmptyRelationships;
       };
       app_users: {
-        Row: {
-          id: string;
-          email: string | null;
-          first_name: string | null;
-          last_name: string | null;
-          role: string;
-          committee_id: string | null;
-          country: string | null;
-          legacy_id: string | null;
-          reso_perms: Json;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id: string;
-          email?: string | null;
-          first_name?: string | null;
-          last_name?: string | null;
-          role?: string;
-          committee_id?: string | null;
-          country?: string | null;
-          legacy_id?: string | null;
-          reso_perms?: Json;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          email?: string | null;
-          first_name?: string | null;
-          last_name?: string | null;
-          role?: string;
-          committee_id?: string | null;
-          country?: string | null;
-          legacy_id?: string | null;
-          reso_perms?: Json;
-          created_at?: string;
-          updated_at?: string;
-        };
+        Row: { id: string; email: string | null; first_name: string | null; last_name: string | null; role: string; committee_id: string | null; country: string | null; legacy_id: string | null; reso_perms: Json; created_at: string; updated_at: string };
+        Insert: { id: string; email?: string | null; first_name?: string | null; last_name?: string | null; role?: string; committee_id?: string | null; country?: string | null; legacy_id?: string | null; reso_perms?: Json; created_at?: string; updated_at?: string };
+        Update: { id?: string; email?: string | null; first_name?: string | null; last_name?: string | null; role?: string; committee_id?: string | null; country?: string | null; legacy_id?: string | null; reso_perms?: Json; created_at?: string; updated_at?: string };
         Relationships: EmptyRelationships;
       };
       chat_rooms: {
@@ -134,12 +99,6 @@ export type Database = {
         Update: { id?: string; user1_id?: string; user2_id?: string; created_at?: string | null };
         Relationships: EmptyRelationships;
       };
-      pending_chat_attachments: {
-        Row: { id: string; room_id: string; bucket: string; path: string; original_name: string; mime_type: string; size_bytes: number; created_by: string; created_at: string; consumed_at: string | null };
-        Insert: { id?: string; room_id: string; bucket?: string; path: string; original_name: string; mime_type: string; size_bytes: number; created_by: string; created_at?: string; consumed_at?: string | null };
-        Update: { id?: string; room_id?: string; bucket?: string; path?: string; original_name?: string; mime_type?: string; size_bytes?: number; created_by?: string; created_at?: string; consumed_at?: string | null };
-        Relationships: EmptyRelationships;
-      };
       message_attachments: {
         Row: { id: string; message_id: string; room_id: string; bucket: string; path: string; original_name: string; mime_type: string | null; size_bytes: number | null; created_by: string; created_at: string };
         Insert: { id?: string; message_id: string; room_id: string; bucket?: string; path: string; original_name: string; mime_type?: string | null; size_bytes?: number | null; created_by: string; created_at?: string };
@@ -147,15 +106,39 @@ export type Database = {
         Relationships: EmptyRelationships;
       };
       message_hidden_for_users: {
-        Row: { room_id: string; message_id: string; user_id: string; hidden_at: string | null };
-        Insert: { room_id: string; message_id: string; user_id: string; hidden_at?: string | null };
-        Update: { room_id?: string; message_id?: string; user_id?: string; hidden_at?: string | null };
+        Row: { id: string; room_id: string; message_id: string; user_id: string; hidden_at: string };
+        Insert: { id?: string; room_id: string; message_id: string; user_id: string; hidden_at?: string };
+        Update: { id?: string; room_id?: string; message_id?: string; user_id?: string; hidden_at?: string };
         Relationships: EmptyRelationships;
       };
       messages: {
-        Row: { id: string; room_id: string | null; user_id: string | null; content: string; message_type: string | null; reply_to: string | null; edited_at: string | null; created_at: string | null; updated_at: string | null; meta: Json; deleted_at: string | null; deleted_by: string | null };
-        Insert: { id?: string; room_id?: string | null; user_id?: string | null; content: string; message_type?: string | null; reply_to?: string | null; edited_at?: string | null; created_at?: string | null; updated_at?: string | null; meta?: Json; deleted_at?: string | null; deleted_by?: string | null };
-        Update: { id?: string; room_id?: string | null; user_id?: string | null; content?: string; message_type?: string | null; reply_to?: string | null; edited_at?: string | null; created_at?: string | null; updated_at?: string | null; meta?: Json; deleted_at?: string | null; deleted_by?: string | null };
+        Row: {
+          id: string; room_id: string | null; user_id: string | null; content: string; message_type: string | null; reply_to: string | null;
+          edited_at: string | null; created_at: string | null; updated_at: string | null; meta: Json; deleted_at: string | null; deleted_by: string | null;
+          history_acted_by: string | null; history_action: string | null; history_saved_at: string | null;
+          previous_attachments: Json | null; previous_content: string | null; previous_created_at: string | null; previous_deleted_at: string | null;
+          previous_edited_at: string | null; previous_message_row: Json | null; previous_reply_to: string | null; previous_user_id: string | null;
+        };
+        Insert: {
+          id?: string; room_id?: string | null; user_id?: string | null; content: string; message_type?: string | null; reply_to?: string | null;
+          edited_at?: string | null; created_at?: string | null; updated_at?: string | null; meta?: Json; deleted_at?: string | null; deleted_by?: string | null;
+          history_acted_by?: string | null; history_action?: string | null; history_saved_at?: string | null;
+          previous_attachments?: Json | null; previous_content?: string | null; previous_created_at?: string | null; previous_deleted_at?: string | null;
+          previous_edited_at?: string | null; previous_message_row?: Json | null; previous_reply_to?: string | null; previous_user_id?: string | null;
+        };
+        Update: {
+          id?: string; room_id?: string | null; user_id?: string | null; content?: string; message_type?: string | null; reply_to?: string | null;
+          edited_at?: string | null; created_at?: string | null; updated_at?: string | null; meta?: Json; deleted_at?: string | null; deleted_by?: string | null;
+          history_acted_by?: string | null; history_action?: string | null; history_saved_at?: string | null;
+          previous_attachments?: Json | null; previous_content?: string | null; previous_created_at?: string | null; previous_deleted_at?: string | null;
+          previous_edited_at?: string | null; previous_message_row?: Json | null; previous_reply_to?: string | null; previous_user_id?: string | null;
+        };
+        Relationships: EmptyRelationships;
+      };
+      pending_chat_attachments: {
+        Row: { id: string; room_id: string; bucket: string; path: string; original_name: string; mime_type: string; size_bytes: number; created_by: string; created_at: string; consumed_at: string | null };
+        Insert: { id?: string; room_id: string; bucket?: string; path: string; original_name: string; mime_type: string; size_bytes: number; created_by: string; created_at?: string; consumed_at?: string | null };
+        Update: { id?: string; room_id?: string; bucket?: string; path?: string; original_name?: string; mime_type?: string; size_bytes?: number; created_by?: string; created_at?: string; consumed_at?: string | null };
         Relationships: EmptyRelationships;
       };
       room_members: {
@@ -171,32 +154,24 @@ export type Database = {
         Relationships: EmptyRelationships;
       };
     };
-    Views: Record<string, never>;
+    Views: {
+      v_pending_auth_invites: {
+        Row: { role: string | null; email: string | null; first_name: string | null; last_name: string | null };
+        Relationships: EmptyRelationships;
+      };
+    };
     Functions: {
-      create_resolution: {
-        Args: { p_title: string; p_content: Json };
-        Returns: string;
-      };
-      create_speech: {
-        Args: { p_title: string; p_content: string; p_date: string };
-        Returns: string;
-      };
-      delete_speech: {
-        Args: { p_speech_id: string };
-        Returns: undefined;
-      };
+      create_resolution: { Args: { p_title: string; p_content: Json }; Returns: string };
+      create_speech: { Args: { p_title: string; p_content: string; p_date: string }; Returns: string };
+      delete_speech: { Args: { p_speech_id: string }; Returns: undefined };
       current_app_committee_id: { Args: Record<string, never>; Returns: string | null };
       current_app_role: { Args: Record<string, never>; Returns: string | null };
       current_legacy_id: { Args: Record<string, never>; Returns: string | null };
       current_reso_perms: { Args: Record<string, never>; Returns: Json };
-      get_room_unread_counts: {
-        Args: { p_user_id: string };
-        Returns: { room_id: string; unread_count: number }[];
-      };
-      mark_message_receipts: {
-        Args: { p_room_id: string; p_message_ids: string[]; p_user_id: string; p_mark_read?: boolean };
-        Returns: string[];
-      };
+      get_room_unread_counts: { Args: { p_user_id: string }; Returns: { room_id: string; unread_count: number }[] };
+      mark_message_receipts: { Args: { p_room_id: string; p_message_ids: string[]; p_user_id: string; p_mark_read?: boolean }; Returns: string[] };
+      room_id_from_object_path: { Args: { object_name: string }; Returns: string | null };
+      sync_auth_user_to_app_users: { Args: { p_auth_user_id: string; p_email: string }; Returns: undefined };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
