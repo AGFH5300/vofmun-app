@@ -1,0 +1,62 @@
+name: Generate shell-quote lockfile fix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/fix-shell-quote-lock.yml
+
+permissions:
+  contents: read
+
+jobs:
+  generate-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Add secure shell-quote override
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          packageJson.overrides = {
+            ...(packageJson.overrides || {}),
+            'shell-quote': '1.9.0'
+          };
+          fs.writeFileSync('package.json', JSON.stringify(packageJson, null, 2) + '\n');
+          NODE
+
+      - name: Regenerate package lock
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Verify clean install
+        run: npm ci
+
+      - name: Verify resolved package
+        run: npm ls shell-quote
+
+      - name: Verify production build
+        run: npm run build
+
+      - name: Package corrected dependency files
+        run: zip shell-quote-lockfile-fix.zip package.json package-lock.json
+
+      - name: Upload corrected dependency files
+        uses: actions/upload-artifact@v4
+        with:
+          name: shell-quote-lockfile-fix
+          path: shell-quote-lockfile-fix.zip
+          if-no-files-found: error
+          retention-days: 1
