@@ -1,0 +1,76 @@
+name: Apply public login bootstrap hotfix
+
+on:
+  push:
+    branches:
+      - hotfix/public-login-and-session-bootstrap
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/public-login-and-session-bootstrap
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply bootstrap and visible-login fixes
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          session_path = Path('app/context/sessionContext.tsx')
+          session = session_path.read_text()
+          original_session = session
+
+          old_callback = '''    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {\n      receivedInitialAuthEvent = true;\n\n      const timeoutId = window.setTimeout(() => {\n        scheduledCallbacks.delete(timeoutId);\n        void synchronizeAuthState(event, session);\n      }, 0);\n\n      scheduledCallbacks.add(timeoutId);\n    });'''
+
+          new_callback = '''    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {\n      receivedInitialAuthEvent = true;\n\n      const timeoutId = window.setTimeout(() => {\n        scheduledCallbacks.delete(timeoutId);\n\n        // Supabase may emit INITIAL_SESSION with null while a persisted token is\n        // still being refreshed. Treating that transient state as a confirmed\n        // logout redirects protected pages before refresh can complete.\n        const effectiveSession =\n          event === "INITIAL_SESSION" && !session\n            ? readPersistedSession()\n            : session;\n\n        void synchronizeAuthState(event, effectiveSession);\n      }, 0);\n\n      scheduledCallbacks.add(timeoutId);\n    });'''
+
+          if old_callback not in session:
+              raise SystemExit('Expected auth callback was not found')
+          session = session.replace(old_callback, new_callback)
+
+          if session == original_session:
+              raise SystemExit('Session bootstrap patch made no changes')
+          session_path.write_text(session)
+
+          login_path = Path('app/login/page.tsx')
+          login = login_path.read_text()
+          original_login = login
+
+          # Framer Motion serializes initial opacity 0 into SSR output. If client
+          # hydration is delayed by the Replit preview transport, the entire login
+          # page remains invisible. Render the final state immediately and retain
+          # animate/transition props as progressive enhancement.
+          login, replacement_count = re.subn(
+              r'initial=\{\{[^{}]*\}\}',
+              'initial={false}',
+              login,
+          )
+
+          if replacement_count < 4:
+              raise SystemExit(f'Expected multiple motion initial props, replaced {replacement_count}')
+          if login == original_login:
+              raise SystemExit('Login visibility patch made no changes')
+          login_path.write_text(login)
+          PY
+
+      - name: Commit hotfix
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/context/sessionContext.tsx app/login/page.tsx
+          git commit -m "Fix public login visibility and session bootstrap" || exit 0
+          git push origin HEAD:hotfix/public-login-and-session-bootstrap
