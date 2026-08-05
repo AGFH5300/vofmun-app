@@ -3,8 +3,8 @@
 'use client';
 
 import React, {
-  useCallback,
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -12,12 +12,12 @@ import React, {
   useState,
   ReactNode,
 } from "react";
-import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { UserType } from "@/db/types";
 import Cookies from "js-cookie";
 import { usePathname, useRouter } from "next/navigation";
 import supabase from "@/lib/supabase";
-import { getAppUserForAuthUser } from "@/lib/auth/getCurrentAppUser";
+import { getAppUserForSession } from "@/lib/auth/getCurrentAppUser";
 import { mapAppUserToSessionUser } from "@/lib/auth/mapAppUserToSessionUser";
 
 interface SessionContextProps {
@@ -30,6 +30,7 @@ interface SessionContextProps {
 }
 
 const SESSION_DEBUG_PREFIX = "[SessionContextDebug]";
+const INITIAL_SESSION_TIMEOUT_MS = 12_000;
 const SessionContext = createContext<SessionContextProps | undefined>(undefined);
 
 const readCachedUser = (): UserType | null => {
@@ -55,12 +56,12 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const [authReady, setAuthReady] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  const appUserResolutionInFlightRef = useRef<{
+  const userRef = useRef<UserType | null>(null);
+  const requestGenerationRef = useRef(0);
+  const profileRequestRef = useRef<{
     userId: string;
     promise: Promise<UserType | null>;
   } | null>(null);
-  const hydrateSessionInFlightRef = useRef<Promise<void> | null>(null);
-  const userRef = useRef<UserType | null>(null);
   const isResetPasswordRoute = pathname === "/reset-password";
 
   const applyUser = useCallback((nextUser: UserType | null) => {
@@ -74,194 +75,142 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const resolveAppUser = useCallback(async (authUser: User): Promise<UserType | null> => {
-    const existingRequest = appUserResolutionInFlightRef.current;
-    if (existingRequest?.userId === authUser.id) {
+  const completeHydration = useCallback(() => {
+    setAuthReady(true);
+    setIsSessionHydrated(true);
+  }, []);
+
+  const resolveProfile = useCallback(async (session: Session): Promise<UserType | null> => {
+    const existingRequest = profileRequestRef.current;
+    if (existingRequest?.userId === session.user.id) {
       return existingRequest.promise;
     }
 
     const promise = (async () => {
-      const { appUser } = await getAppUserForAuthUser(authUser);
+      const { appUser } = await getAppUserForSession(session);
       return appUser ? mapAppUserToSessionUser(appUser) : null;
     })().finally(() => {
-      if (appUserResolutionInFlightRef.current?.userId === authUser.id) {
-        appUserResolutionInFlightRef.current = null;
+      if (profileRequestRef.current?.userId === session.user.id) {
+        profileRequestRef.current = null;
       }
     });
 
-    appUserResolutionInFlightRef.current = { userId: authUser.id, promise };
+    profileRequestRef.current = { userId: session.user.id, promise };
     return promise;
   }, []);
 
   useEffect(() => {
     let active = true;
+    let receivedInitialAuthEvent = false;
     const scheduledCallbacks = new Set<number>();
-    const shouldBypassResetPasswordHydration = isResetPasswordRoute;
 
-    const completeHydration = () => {
+    const finish = () => {
       if (!active) return;
-      setAuthReady(true);
-      setIsSessionHydrated(true);
-    };
-
-    const clearSession = () => {
-      if (!active) return;
-      applyUser(null);
       completeHydration();
-    };
-
-    const hydrateSession = async () => {
-      if (hydrateSessionInFlightRef.current) {
-        await hydrateSessionInFlightRef.current;
-        return;
-      }
-
-      const hydrationPromise = (async () => {
-        setAuthReady(false);
-        setIsSessionHydrated(false);
-
-        const cachedUser = readCachedUser();
-
-        try {
-          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-          if (!active) return;
-
-          if (sessionError || !sessionData.session?.user) {
-            clearSession();
-            return;
-          }
-
-          if (shouldBypassResetPasswordHydration) {
-            completeHydration();
-            return;
-          }
-
-          const sessionUser = sessionData.session.user;
-          const matchingCachedUser = cachedUser?.id === sessionUser.id ? cachedUser : null;
-
-          try {
-            const mappedUser = await resolveAppUser(sessionUser);
-            if (!active) return;
-
-            if (mappedUser) {
-              applyUser(mappedUser);
-            } else if (matchingCachedUser) {
-              applyUser(matchingCachedUser);
-            } else {
-              applyUser(null);
-            }
-          } catch (error) {
-            console.error(`${SESSION_DEBUG_PREFIX} profile hydration failed`, error);
-            if (!active) return;
-
-            // A matching cached profile is safe for temporary UI continuity because
-            // every privileged server operation independently verifies the live role.
-            if (matchingCachedUser) {
-              applyUser(matchingCachedUser);
-            } else {
-              applyUser(null);
-            }
-          } finally {
-            completeHydration();
-          }
-        } catch (error) {
-          console.error(`${SESSION_DEBUG_PREFIX} session hydration failed`, error);
-          if (!active) return;
-          clearSession();
-        }
-      })().finally(() => {
-        hydrateSessionInFlightRef.current = null;
-      });
-
-      hydrateSessionInFlightRef.current = hydrationPromise;
-      await hydrationPromise;
     };
 
     const synchronizeAuthState = async (
       event: AuthChangeEvent,
       session: Session | null,
     ) => {
+      const generation = ++requestGenerationRef.current;
       if (!active) return;
 
-      if (hydrateSessionInFlightRef.current) {
-        await hydrateSessionInFlightRef.current;
-      }
-      if (!active) return;
-
-      if (shouldBypassResetPasswordHydration) {
-        completeHydration();
+      if (isResetPasswordRoute) {
+        finish();
         return;
       }
 
       if (!session?.user) {
-        clearSession();
+        applyUser(null);
+        finish();
         return;
       }
 
+      const cachedUser = readCachedUser();
+      const matchingCachedUser = cachedUser?.id === session.user.id ? cachedUser : null;
       const currentUserMatchesSession = userRef.current?.id === session.user.id;
-      const shouldHoldRenderGate = !currentUserMatchesSession && event !== "TOKEN_REFRESHED";
 
-      if (shouldHoldRenderGate) {
+      if (!currentUserMatchesSession) {
         setAuthReady(false);
         setIsSessionHydrated(false);
       }
 
       try {
-        const mappedUser = await resolveAppUser(session.user);
-        if (!active) return;
+        const mappedUser = await resolveProfile(session);
+        if (!active || generation !== requestGenerationRef.current) return;
 
         if (mappedUser) {
           applyUser(mappedUser);
-        } else if (!currentUserMatchesSession) {
+        } else if (matchingCachedUser) {
+          applyUser(matchingCachedUser);
+        } else {
           applyUser(null);
         }
       } catch (error) {
-        console.error(`${SESSION_DEBUG_PREFIX} auth state profile refresh failed`, error);
-        if (!active) return;
+        console.error(`${SESSION_DEBUG_PREFIX} profile synchronization failed`, {
+          event,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        if (!active || generation !== requestGenerationRef.current) return;
 
-        // Keep an already verified profile visible during a transient refresh failure.
-        if (!currentUserMatchesSession) {
+        if (matchingCachedUser) {
+          applyUser(matchingCachedUser);
+        } else if (!currentUserMatchesSession) {
           applyUser(null);
         }
       } finally {
-        completeHydration();
+        if (active && generation === requestGenerationRef.current) {
+          finish();
+        }
       }
     };
 
-    void hydrateSession();
-
-    // Supabase auth callbacks must return immediately. Calling getSession or
-    // awaiting other Supabase work inside the callback can hold the auth lock and
-    // prevent the subsequent app_users request from ever being sent.
+    // Supabase emits INITIAL_SESSION immediately after subscription. The callback
+    // itself must return synchronously; all network/profile work is deferred.
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      receivedInitialAuthEvent = true;
+
       const timeoutId = window.setTimeout(() => {
         scheduledCallbacks.delete(timeoutId);
         void synchronizeAuthState(event, session);
       }, 0);
+
       scheduledCallbacks.add(timeoutId);
     });
 
+    // Never leave the application behind an infinite loader if the auth client or
+    // development transport fails before INITIAL_SESSION is delivered.
+    const watchdogId = window.setTimeout(() => {
+      if (!active || receivedInitialAuthEvent) return;
+      console.error(`${SESSION_DEBUG_PREFIX} initial auth event timed out`);
+      requestGenerationRef.current += 1;
+      applyUser(null);
+      finish();
+    }, INITIAL_SESSION_TIMEOUT_MS);
+
     return () => {
       active = false;
+      window.clearTimeout(watchdogId);
       scheduledCallbacks.forEach((timeoutId) => window.clearTimeout(timeoutId));
       scheduledCallbacks.clear();
       authListener.subscription.unsubscribe();
     };
-  }, [applyUser, isResetPasswordRoute, resolveAppUser]);
+  }, [applyUser, completeHydration, isResetPasswordRoute, resolveProfile]);
 
   const login = useCallback((nextUser: NonNullable<UserType>) => {
+    requestGenerationRef.current += 1;
     applyUser(nextUser);
-    setAuthReady(true);
-    setIsSessionHydrated(true);
-  }, [applyUser]);
+    completeHydration();
+  }, [applyUser, completeHydration]);
 
   const logout = useCallback(async () => {
+    requestGenerationRef.current += 1;
     applyUser(null);
+    completeHydration();
     await supabase.auth.signOut();
-    setAuthReady(true);
-    setIsSessionHydrated(true);
     router.replace("/login");
-  }, [applyUser, router]);
+  }, [applyUser, completeHydration, router]);
 
   const value = useMemo(
     () => ({
