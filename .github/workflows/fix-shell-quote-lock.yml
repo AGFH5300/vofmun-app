@@ -1,4 +1,4 @@
-name: Generate shell-quote lockfile fix
+name: Apply shell-quote lockfile fix
 
 on:
   push:
@@ -8,16 +8,18 @@ on:
       - .github/workflows/fix-shell-quote-lock.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  generate-lockfile:
+  apply-lockfile-fix:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -51,13 +53,12 @@ jobs:
         continue-on-error: true
         run: npm run build
 
-      - name: Package corrected dependency files
-        run: zip shell-quote-lockfile-fix.zip package.json package-lock.json
-
-      - name: Upload corrected dependency files
-        uses: actions/upload-artifact@v4
-        with:
-          name: shell-quote-lockfile-fix
-          path: shell-quote-lockfile-fix.zip
-          if-no-files-found: error
-          retention-days: 1
+      - name: Commit dependency fix and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/fix-shell-quote-lock.yml
+          git add package.json package-lock.json .github/workflows/fix-shell-quote-lock.yml
+          git commit -m "fix: override vulnerable shell-quote dependency"
+          git push origin HEAD:main
