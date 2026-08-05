@@ -16,7 +16,9 @@ const unauthorized = () =>
   NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noStoreHeaders });
 
 export async function GET(request: Request) {
-  if (!supabaseAdmin) {
+  const admin = supabaseAdmin;
+
+  if (!admin) {
     console.error("[profile] Supabase service configuration is unavailable.");
     return NextResponse.json(
       { error: "Profile service is unavailable." },
@@ -27,7 +29,7 @@ export async function GET(request: Request) {
   const accessToken = getBearerTokenFromRequest(request);
   if (!accessToken) return unauthorized();
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+  const { data: authData, error: authError } = await admin.auth.getUser(accessToken);
   const authUser = authData?.user;
 
   if (authError || !authUser?.id) {
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
   }
 
   const loadProfile = async (): Promise<AppUserRow | null> => {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await admin
       .from("app_users")
       .select("*")
       .eq("id", authUser.id)
@@ -57,7 +59,7 @@ export async function GET(request: Request) {
         );
       }
 
-      const { error: syncError } = await supabaseAdmin.rpc("sync_auth_user_to_app_users", {
+      const { error: syncError } = await admin.rpc("sync_auth_user_to_app_users", {
         p_auth_user_id: authUser.id,
         p_email: normalizedEmail,
       });
