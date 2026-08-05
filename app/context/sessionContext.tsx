@@ -12,11 +12,12 @@ import React, {
   useState,
   ReactNode,
 } from "react";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { UserType } from "@/db/types";
 import Cookies from "js-cookie";
 import { usePathname, useRouter } from "next/navigation";
 import supabase from "@/lib/supabase";
-import { getCurrentAppUser } from "@/lib/auth/getCurrentAppUser";
+import { getAppUserForAuthUser } from "@/lib/auth/getCurrentAppUser";
 import { mapAppUserToSessionUser } from "@/lib/auth/mapAppUserToSessionUser";
 
 interface SessionContextProps {
@@ -29,10 +30,24 @@ interface SessionContextProps {
 }
 
 const SESSION_DEBUG_PREFIX = "[SessionContextDebug]";
+const SessionContext = createContext<SessionContextProps | undefined>(undefined);
 
-const SessionContext = createContext<SessionContextProps | undefined>(
-  undefined
-);
+const readCachedUser = (): UserType | null => {
+  const storedUser = Cookies.get("user");
+  if (!storedUser) return null;
+
+  try {
+    const parsed = JSON.parse(storedUser) as UserType;
+    if (!parsed?.id || !parsed.role) {
+      Cookies.remove("user");
+      return null;
+    }
+    return parsed;
+  } catch {
+    Cookies.remove("user");
+    return null;
+  }
+};
 
 export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserType>(null);
@@ -40,36 +55,60 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const [authReady, setAuthReady] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  const appUserResolutionInFlightRef = useRef<Promise<UserType | null> | null>(null);
+  const appUserResolutionInFlightRef = useRef<{
+    userId: string;
+    promise: Promise<UserType | null>;
+  } | null>(null);
   const hydrateSessionInFlightRef = useRef<Promise<void> | null>(null);
   const userRef = useRef<UserType | null>(null);
   const isResetPasswordRoute = pathname === "/reset-password";
 
-  useEffect(() => {
-    userRef.current = user;
-  }, [user]);
+  const applyUser = useCallback((nextUser: UserType | null) => {
+    userRef.current = nextUser;
+    setUser(nextUser);
 
-  const resolveAppUser = useCallback(async (): Promise<UserType | null> => {
-    if (!appUserResolutionInFlightRef.current) {
-      appUserResolutionInFlightRef.current = (async () => {
-        const { appUser } = await getCurrentAppUser();
-        return appUser ? mapAppUserToSessionUser(appUser) : null;
-      })().finally(() => {
-        appUserResolutionInFlightRef.current = null;
-      });
+    if (nextUser) {
+      Cookies.set("user", JSON.stringify(nextUser), { sameSite: "lax" });
+    } else {
+      Cookies.remove("user");
+    }
+  }, []);
+
+  const resolveAppUser = useCallback(async (authUser: User): Promise<UserType | null> => {
+    const existingRequest = appUserResolutionInFlightRef.current;
+    if (existingRequest?.userId === authUser.id) {
+      return existingRequest.promise;
     }
 
-    return appUserResolutionInFlightRef.current;
+    const promise = (async () => {
+      const { appUser } = await getAppUserForAuthUser(authUser);
+      return appUser ? mapAppUserToSessionUser(appUser) : null;
+    })().finally(() => {
+      if (appUserResolutionInFlightRef.current?.userId === authUser.id) {
+        appUserResolutionInFlightRef.current = null;
+      }
+    });
+
+    appUserResolutionInFlightRef.current = { userId: authUser.id, promise };
+    return promise;
   }, []);
 
   useEffect(() => {
     let active = true;
+    const scheduledCallbacks = new Set<number>();
     const shouldBypassResetPasswordHydration = isResetPasswordRoute;
 
-    console.debug(`${SESSION_DEBUG_PREFIX} route_context`, {
-      pathname,
-      bypassResetPasswordHydration: shouldBypassResetPasswordHydration,
-    });
+    const completeHydration = () => {
+      if (!active) return;
+      setAuthReady(true);
+      setIsSessionHydrated(true);
+    };
+
+    const clearSession = () => {
+      if (!active) return;
+      applyUser(null);
+      completeHydration();
+    };
 
     const hydrateSession = async () => {
       if (hydrateSessionInFlightRef.current) {
@@ -77,146 +116,90 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      hydrateSessionInFlightRef.current = (async () => {
-        let hydrationAuthenticated = false;
-        console.debug(`${SESSION_DEBUG_PREFIX} hydrate:start`);
+      const hydrationPromise = (async () => {
         setAuthReady(false);
         setIsSessionHydrated(false);
 
-        const storedUser = Cookies.get("user");
-        if (storedUser) {
-          try {
-            const parsed = JSON.parse(storedUser) as UserType;
-            if (active) {
-              setUser(parsed);
-              console.debug(`${SESSION_DEBUG_PREFIX} hydrate:cookie_user_loaded`, {
-                id: (parsed as { id?: string }).id,
-                role: (parsed as { role?: string }).role,
-              });
-            }
-          } catch {
-            Cookies.remove("user");
-            if (active) {
-              setUser(null);
-            }
-            console.debug(`${SESSION_DEBUG_PREFIX} hydrate:cookie_parse_failed`);
-          }
-        } else if (active) {
-          setUser(null);
-        }
+        const cachedUser = readCachedUser();
 
         try {
           const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-
           if (!active) return;
 
-          if (sessionError) {
-            console.debug(`${SESSION_DEBUG_PREFIX} hydrate:session_error`, {
-              message: sessionError.message,
-            });
-            setUser(null);
-            Cookies.remove("user");
-          } else if (!sessionData.session) {
-            console.debug(`${SESSION_DEBUG_PREFIX} hydrate:no_auth_session`);
-            setUser(null);
-            Cookies.remove("user");
-          } else {
-            console.debug(`${SESSION_DEBUG_PREFIX} hydrate:auth_session_present`, {
-              userId: sessionData.session.user?.id,
-            });
+          if (sessionError || !sessionData.session?.user) {
+            clearSession();
+            return;
+          }
 
-            if (shouldBypassResetPasswordHydration) {
-              hydrationAuthenticated = Boolean(sessionData.session.user);
-              console.debug(`${SESSION_DEBUG_PREFIX} hydrate:app_user_resolution_skipped`, {
-                reason: "reset-password-route",
-              });
-              return;
-            }
+          if (shouldBypassResetPasswordHydration) {
+            completeHydration();
+            return;
+          }
 
-            const mappedUser = await resolveAppUser();
+          const sessionUser = sessionData.session.user;
+          const matchingCachedUser = cachedUser?.id === sessionUser.id ? cachedUser : null;
 
+          try {
+            const mappedUser = await resolveAppUser(sessionUser);
             if (!active) return;
 
-            if (!mappedUser) {
-              console.debug(`${SESSION_DEBUG_PREFIX} hydrate:app_user_missing`);
-              setUser(null);
-              Cookies.remove("user");
+            if (mappedUser) {
+              applyUser(mappedUser);
+            } else if (matchingCachedUser) {
+              applyUser(matchingCachedUser);
             } else {
-              hydrationAuthenticated = true;
-              setUser(mappedUser);
-              Cookies.set("user", JSON.stringify(mappedUser));
-              console.debug(`${SESSION_DEBUG_PREFIX} hydrate:app_user_resolved`, {
-                id: mappedUser.id,
-                role: mappedUser.role,
-              });
+              applyUser(null);
             }
+          } catch (error) {
+            console.error(`${SESSION_DEBUG_PREFIX} profile hydration failed`, error);
+            if (!active) return;
+
+            // A matching cached profile is safe for temporary UI continuity because
+            // every privileged server operation independently verifies the live role.
+            if (matchingCachedUser) {
+              applyUser(matchingCachedUser);
+            } else {
+              applyUser(null);
+            }
+          } finally {
+            completeHydration();
           }
         } catch (error) {
+          console.error(`${SESSION_DEBUG_PREFIX} session hydration failed`, error);
           if (!active) return;
-          console.debug(`${SESSION_DEBUG_PREFIX} hydrate:unexpected_error`, {
-            error: error instanceof Error ? error.message : String(error),
-          });
-          setUser(null);
-          Cookies.remove("user");
-        } finally {
-          if (active) {
-            setAuthReady(true);
-            setIsSessionHydrated(true);
-            console.debug(`${SESSION_DEBUG_PREFIX} hydrate:complete`, {
-              authenticated: hydrationAuthenticated,
-            });
-          }
-          hydrateSessionInFlightRef.current = null;
+          clearSession();
         }
-      })();
-
-      await hydrateSessionInFlightRef.current;
-    };
-
-    void hydrateSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.debug(`${SESSION_DEBUG_PREFIX} auth_state_change:event_name`, {
-        eventName: event,
-        hasSession: Boolean(session),
+      })().finally(() => {
+        hydrateSessionInFlightRef.current = null;
       });
 
+      hydrateSessionInFlightRef.current = hydrationPromise;
+      await hydrationPromise;
+    };
+
+    const synchronizeAuthState = async (
+      event: AuthChangeEvent,
+      session: Session | null,
+    ) => {
       if (!active) return;
 
       if (hydrateSessionInFlightRef.current) {
         await hydrateSessionInFlightRef.current;
       }
-
       if (!active) return;
 
       if (shouldBypassResetPasswordHydration) {
-        console.debug(`${SESSION_DEBUG_PREFIX} reset_password_bypass_active`, {
-          pathname,
-          event,
-          hasSession: Boolean(session),
-        });
-        console.debug(`${SESSION_DEBUG_PREFIX} skipped_app_user_resolution`, {
-          pathname,
-          event,
-        });
-        setAuthReady(true);
-        setIsSessionHydrated(true);
+        completeHydration();
         return;
       }
 
-      if (!session) {
-        setUser(null);
-        Cookies.remove("user");
-        setAuthReady(true);
-        setIsSessionHydrated(true);
+      if (!session?.user) {
+        clearSession();
         return;
       }
 
-      const sessionUserId = session.user?.id ? String(session.user.id) : null;
-      const resolvedUserId = userRef.current?.id ? String(userRef.current.id) : null;
-      const isSameResolvedUser = Boolean(sessionUserId && resolvedUserId && sessionUserId === resolvedUserId);
-      const isSilentResumeEvent = isSameResolvedUser && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED');
-      const shouldHoldRenderGate = !isSilentResumeEvent && event !== 'TOKEN_REFRESHED';
+      const currentUserMatchesSession = userRef.current?.id === session.user.id;
+      const shouldHoldRenderGate = !currentUserMatchesSession && event !== "TOKEN_REFRESHED";
 
       if (shouldHoldRenderGate) {
         setAuthReady(false);
@@ -224,57 +207,61 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       }
 
       try {
-        const mappedUser = await resolveAppUser();
+        const mappedUser = await resolveAppUser(session.user);
         if (!active) return;
 
         if (mappedUser) {
-          setUser(mappedUser);
-          Cookies.set("user", JSON.stringify(mappedUser));
-        } else if (shouldHoldRenderGate) {
-          setUser(null);
-          Cookies.remove("user");
+          applyUser(mappedUser);
+        } else if (!currentUserMatchesSession) {
+          applyUser(null);
         }
       } catch (error) {
+        console.error(`${SESSION_DEBUG_PREFIX} auth state profile refresh failed`, error);
         if (!active) return;
-        console.debug(`${SESSION_DEBUG_PREFIX} auth_state_change:profile_error`, {
-          error: error instanceof Error ? error.message : String(error),
-          event,
-        });
-        if (shouldHoldRenderGate) {
-          setUser(null);
-          Cookies.remove("user");
+
+        // Keep an already verified profile visible during a transient refresh failure.
+        if (!currentUserMatchesSession) {
+          applyUser(null);
         }
       } finally {
-        if (active) {
-          setAuthReady(true);
-          setIsSessionHydrated(true);
-        }
+        completeHydration();
       }
+    };
+
+    void hydrateSession();
+
+    // Supabase auth callbacks must return immediately. Calling getSession or
+    // awaiting other Supabase work inside the callback can hold the auth lock and
+    // prevent the subsequent app_users request from ever being sent.
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      const timeoutId = window.setTimeout(() => {
+        scheduledCallbacks.delete(timeoutId);
+        void synchronizeAuthState(event, session);
+      }, 0);
+      scheduledCallbacks.add(timeoutId);
     });
 
     return () => {
       active = false;
+      scheduledCallbacks.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      scheduledCallbacks.clear();
       authListener.subscription.unsubscribe();
     };
-  }, [isResetPasswordRoute, pathname, resolveAppUser]);
+  }, [applyUser, isResetPasswordRoute, resolveAppUser]);
 
-  const login = (nextUser: NonNullable<UserType>) => {
-    console.debug(`${SESSION_DEBUG_PREFIX} login`, { id: nextUser.id, role: nextUser.role });
-    setUser(nextUser);
-    Cookies.set("user", JSON.stringify(nextUser));
+  const login = useCallback((nextUser: NonNullable<UserType>) => {
+    applyUser(nextUser);
     setAuthReady(true);
     setIsSessionHydrated(true);
-  };
+  }, [applyUser]);
 
-  const logout = async () => {
-    console.debug(`${SESSION_DEBUG_PREFIX} logout:start`);
-    setUser(null);
-    Cookies.remove("user");
+  const logout = useCallback(async () => {
+    applyUser(null);
     await supabase.auth.signOut();
     setAuthReady(true);
     setIsSessionHydrated(true);
     router.replace("/login");
-  };
+  }, [applyUser, router]);
 
   const value = useMemo(
     () => ({
@@ -285,7 +272,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       login,
       logout,
     }),
-    [authReady, isSessionHydrated, user]
+    [authReady, isSessionHydrated, login, logout, user]
   );
 
   return (
