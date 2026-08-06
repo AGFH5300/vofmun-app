@@ -18,6 +18,7 @@ const Login = () => {
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [isClientReady, setIsClientReady] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [showForgotPanel, setShowForgotPanel] = React.useState(false);
   const [forgotLoading, setForgotLoading] = React.useState(false);
@@ -26,6 +27,10 @@ const Login = () => {
   const { login } = useSession();
   const isMobile = useMobile();
   const brandDarkRed = "#701e1e";
+
+  React.useEffect(() => {
+    setIsClientReady(true);
+  }, []);
 
   const routeByRole = (role: string) => {
     if (role === "chair") return "/chair";
@@ -383,10 +388,15 @@ const Login = () => {
               <button
                 type="submit"
                 className="w-full rounded-xl bg-[#701E1E] px-6 py-3 font-sans text-sm font-semibold uppercase tracking-[0.2em] text-white transition-all duration-300 hover:bg-[#8B2424] hover:shadow-[0_20px_40px_-20px_rgba(112,30,30,0.65)] disabled:cursor-not-allowed disabled:bg-[#701E1E]/60 disabled:shadow-none"
-                disabled={loading}
+                disabled={!isClientReady || loading}
                 data-testid="button-login"
               >
-                {loading ? (
+                {!isClientReady ? (
+                  <div className="flex items-center justify-center text-[#FFFDFB]">
+                    <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    Preparing secure login...
+                  </div>
+                ) : loading ? (
                   <div className="flex items-center justify-center text-[#FFFDFB]">
                     <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
                     Signing you in...

@@ -4,6 +4,7 @@ const loginSource = fs.readFileSync('app/login/page.tsx', 'utf8');
 const sessionSource = fs.readFileSync('app/context/sessionContext.tsx', 'utf8');
 const serverSource = fs.readFileSync('server/chat/server.ts', 'utf8');
 const typewriterSource = fs.readFileSync('components/ui/typewriter.tsx', 'utf8');
+const loginSource = fs.readFileSync('app/login/page.tsx', 'utf8');
 
 if (/initial=\{\{[^{}]*opacity:\s*0/.test(loginSource)) {
   throw new Error('Login page still server-renders hidden motion content.');
@@ -34,4 +35,9 @@ if (!serverSource.includes('webpack: true') || !serverSource.includes('turbopack
 
 if (!typewriterSource.includes('useState(FALLBACK_TEXT)') || !typewriterSource.includes('setHasMounted(true)')) {
   throw new Error('Typewriter does not provide SSR fallback text followed by client animation.');
+}
+
+
+if (!loginSource.includes('disabled={!isClientReady || loading}') || !loginSource.includes('Preparing secure login...')) {
+  throw new Error('Login can submit before React hydration and silently reload the page.');
 }
