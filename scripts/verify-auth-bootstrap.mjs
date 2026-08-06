@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 
+// These checks cover the complete public-login bootstrap boundary: visible SSR,
+// session recovery, client hydration, and non-conflicting WebSocket upgrades.
 const loginSource = fs.readFileSync('app/login/page.tsx', 'utf8');
 const sessionSource = fs.readFileSync('app/context/sessionContext.tsx', 'utf8');
 const serverSource = fs.readFileSync('server/chat/server.ts', 'utf8');
