@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   patch:
-    if: github.actor != 'github-actions[bot]'
+    if: github.sha == 'ae2ea6db91aa998ecfbff0b38102f89024f1302f'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
