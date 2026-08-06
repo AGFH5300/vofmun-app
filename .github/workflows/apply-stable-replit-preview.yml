@@ -1,0 +1,71 @@
+name: Apply stable Replit preview
+
+on:
+  push:
+    branches:
+      - fix/rebuild-public-auth-bootstrap
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/rebuild-public-auth-bootstrap
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Make the Replit command use a stable production preview
+        shell: bash
+        run: |
+          python <<'PY'
+          import json
+          from pathlib import Path
+
+          package_path = Path('package.json')
+          package = json.loads(package_path.read_text())
+          package['scripts']['dev:hot'] = 'node scripts/start-stable-preview.mjs'
+          package['scripts']['dev:webpack'] = 'concurrently -s last -n "APP,WARM" -c "cyan,magenta" "node scripts/start-clean-dev.mjs" "node scripts/warmup-dev.mjs"'
+          package_path.write_text(json.dumps(package, indent=2) + '\n')
+
+          Path('scripts/start-stable-preview.mjs').write_text("""import { spawn } from 'node:child_process';\nimport fs from 'node:fs';\nimport path from 'node:path';\n\nconst root = process.cwd();\nconst npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';\nlet activeChild;\nlet stopping = false;\n\nconst run = (argumentsList, extraEnvironment = {}) => new Promise((resolve, reject) => {\n  const child = spawn(npmCommand, argumentsList, {\n    cwd: root,\n    env: {\n      ...process.env,\n      NEXT_TELEMETRY_DISABLED: '1',\n      ...extraEnvironment,\n    },\n    stdio: 'inherit',\n  });\n  activeChild = child;\n\n  child.once('error', reject);\n  child.once('exit', (code, signal) => {\n    activeChild = undefined;\n    if (signal) {\n      reject(new Error(`${argumentsList.join(' ')} stopped with ${signal}`));\n      return;\n    }\n    resolve(code ?? 1);\n  });\n});\n\nconst stop = (signal) => {\n  if (stopping) return;\n  stopping = true;\n  if (activeChild && !activeChild.killed) activeChild.kill(signal);\n};\n\nprocess.once('SIGINT', () => stop('SIGINT'));\nprocess.once('SIGTERM', () => stop('SIGTERM'));\n\ntry {\n  fs.rmSync(path.join(root, '.next'), { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });\n  console.warn('[stable-preview] Removed .next before creating the production preview.');\n\n  const buildCode = await run(['run', 'build'], { NODE_ENV: 'production' });\n  if (buildCode !== 0) process.exit(buildCode);\n\n  console.warn('[stable-preview] Build complete. Starting without HMR or Fast Refresh.');\n  const startCode = await run(['run', 'start'], { NODE_ENV: 'production' });\n  process.exit(startCode);\n} catch (error) {\n  if (!stopping) console.error('[stable-preview] Failed to create or start the preview.', error);\n  process.exit(stopping ? 0 : 1);\n}\n""")
+
+          smoke_path = Path('scripts/smoke-next-hmr.mjs')
+          smoke = smoke_path.read_text()
+          smoke = smoke.replace("const REPLIT_TRUNCATION_BYTES = 960 * 1024;\nconst MAX_SAFE_APP_CHUNK_BYTES = 850 * 1024;\n", '', 1)
+          old_size_checks = """    if (sourceBytes === REPLIT_TRUNCATION_BYTES) {\n      throw new Error(`${routeLabel}: ${sourcePath} ended at Replit's exact 960 KiB truncation boundary.`);\n    }\n    if (isAppChunk && sourceBytes > MAX_SAFE_APP_CHUNK_BYTES) {\n      throw new Error(`${routeLabel}: ${sourcePath} is ${sourceBytes} bytes; app chunks must remain below ${MAX_SAFE_APP_CHUNK_BYTES}.`);\n    }\n"""
+          if old_size_checks not in smoke:
+              raise SystemExit('Old app chunk size assertions missing')
+          smoke = smoke.replace(old_size_checks, '', 1)
+          smoke = smoke.replace("    const isAppChunk = chunkUrl.pathname.includes('/static/chunks/app/');\n\n", '', 1)
+          smoke_path.write_text(smoke)
+
+          verify_path = Path('scripts/verify-auth-bootstrap.mjs')
+          verify = verify_path.read_text()
+          verify = verify.replace(
+              "const packageSource = fs.readFileSync('package.json', 'utf8');",
+              "const packageSource = fs.readFileSync('package.json', 'utf8');\nconst stablePreviewSource = fs.readFileSync('scripts/start-stable-preview.mjs', 'utf8');",
+              1,
+          )
+          old_smoke = """if (!smokeSource.includes('REPLIT_TRUNCATION_BYTES = 960 * 1024') || !smokeSource.includes('MAX_SAFE_APP_CHUNK_BYTES') || !smokeSource.includes("'app/context/sessionContext.tsx'") || !smokeSource.includes("'node_modules/@supabase/auth-js/'")) {\n  throw new Error('CI does not guard against Replit truncation or authenticated modules leaking into app/layout.js.');\n}\n"""
+          new_smoke = """if (!smokeSource.includes("'app/context/sessionContext.tsx'") || !smokeSource.includes("'node_modules/@supabase/auth-js/'") || !smokeSource.includes('new vm.Script')) {\n  throw new Error('CI does not parse generated chunks or prevent authenticated modules leaking into app/layout.js.');\n}\n\nif (!packageSource.includes('node scripts/start-stable-preview.mjs') || !packageSource.includes('dev:webpack')) {\n  throw new Error('The Replit command is not separated from the optional webpack development command.');\n}\n\nif (!stablePreviewSource.includes("['run', 'build']") || !stablePreviewSource.includes("['run', 'start']") || !stablePreviewSource.includes('Starting without HMR or Fast Refresh')) {\n  throw new Error('Stable preview does not build first and start with HMR disabled.');\n}\n"""
+          if old_smoke not in verify:
+              raise SystemExit('Old size-based smoke source assertion missing')
+          verify_path.write_text(verify.replace(old_smoke, new_smoke, 1))
+          PY
+
+      - name: Commit stable preview path
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add package.json scripts/start-stable-preview.mjs scripts/smoke-next-hmr.mjs scripts/verify-auth-bootstrap.mjs
+          git commit -m "Run Replit through a stable production preview"
+          git push origin HEAD:fix/rebuild-public-auth-bootstrap
