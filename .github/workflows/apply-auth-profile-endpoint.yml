@@ -1,0 +1,62 @@
+name: Apply auth profile endpoint
+
+on:
+  push:
+    branches:
+      - fix/restore-auth-profile-endpoint
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/restore-auth-profile-endpoint
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Restore authenticated profile API
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          server_path = Path('server/chat/server.ts')
+          server = server_path.read_text()
+          marker = "// -------------------- ROOMS --------------------\n"
+          route = """// -------------------- AUTH PROFILE --------------------\n\napp.get('/api/auth/profile', chatReadRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {\n  try {\n    const { data: appUser, error } = await supabaseAdmin\n      .from('app_users')\n      .select('id, email, first_name, last_name, role, committee_id, country, legacy_id, reso_perms, created_at, updated_at')\n      .eq('id', req.userId!)\n      .maybeSingle();\n\n    if (error) {\n      console.error('[auth-profile] failed to load app user', {\n        userId: req.userId,\n        error: error.message || error,\n      });\n      return res.status(500).json({ error: 'Unable to load profile' });\n    }\n\n    if (!appUser) {\n      return res.status(404).json({ error: 'Profile not found', appUser: null });\n    }\n\n    return res.json({ appUser });\n  } catch (error) {\n    console.error('[auth-profile] unexpected profile lookup failure', {\n      userId: req.userId,\n      error: error instanceof Error ? error.message : String(error),\n    });\n    return res.status(500).json({ error: 'Unable to load profile' });\n  }\n});\n\n"""
+          if marker not in server:
+              raise SystemExit('Route insertion marker missing')
+          if "app.get('/api/auth/profile'" in server:
+              raise SystemExit('Profile route already exists')
+          server_path.write_text(server.replace(marker, route + marker, 1))
+
+          smoke_path = Path('scripts/smoke-next-hmr.mjs')
+          smoke = smoke_path.read_text()
+          marker = """  const homeResponse = await fetch(`${origin}/home`, { redirect: 'manual', cache: 'no-store' });\n"""
+          check = """  const unauthenticatedProfileResponse = await fetch(`${origin}/api/auth/profile`, {\n    method: 'GET',\n    cache: 'no-store',\n  });\n  if (unauthenticatedProfileResponse.status !== 401) {\n    const body = await unauthenticatedProfileResponse.text();\n    throw new Error(`/api/auth/profile should return JSON 401 without a bearer token, received ${unauthenticatedProfileResponse.status}: ${body}`);\n  }\n  const unauthenticatedProfilePayload = await unauthenticatedProfileResponse.json();\n  if (unauthenticatedProfilePayload?.error !== 'Unauthorized') {\n    throw new Error('/api/auth/profile did not return the expected JSON authentication error.');\n  }\n  console.log('Authenticated profile endpoint routing smoke test passed.');\n\n"""
+          if marker not in smoke:
+              raise SystemExit('Smoke insertion marker missing')
+          smoke_path.write_text(smoke.replace(marker, check + marker, 1))
+
+          verify_path = Path('scripts/verify-auth-bootstrap.mjs')
+          verify = verify_path.read_text()
+          verify += """\n\nif (!serverSource.includes("app.get('/api/auth/profile'") || !serverSource.includes(".from('app_users')") || !serverSource.includes(".eq('id', req.userId!)")) {\n  throw new Error('Authenticated profile endpoint is missing or is not scoped to the verified user ID.');\n}\n\nif (!smokeSource.includes('Authenticated profile endpoint routing smoke test passed.') || !smokeSource.includes('unauthenticatedProfileResponse.status !== 401')) {\n  throw new Error('CI does not verify that /api/auth/profile is registered before the Next fallback.');\n}\n"""
+          verify_path.write_text(verify)
+          PY
+
+      - name: Commit endpoint and regression coverage
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add server/chat/server.ts scripts/smoke-next-hmr.mjs scripts/verify-auth-bootstrap.mjs
+          git commit -m "Restore authenticated profile endpoint"
+          git push origin HEAD:fix/restore-auth-profile-endpoint
