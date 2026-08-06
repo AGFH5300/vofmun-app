@@ -1,0 +1,85 @@
+name: Apply login hydration guard
+
+on:
+  push:
+    branches:
+      - hotfix/restore-client-hydration-and-hmr
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/restore-client-hydration-and-hmr
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Guard login until hydration
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          login_path = Path('app/login/page.tsx')
+          source = login_path.read_text()
+
+          source = source.replace(
+              '  const [loading, setLoading] = React.useState(false);\n',
+              '  const [loading, setLoading] = React.useState(false);\n  const [isClientReady, setIsClientReady] = React.useState(false);\n'
+          )
+
+          marker = '  const brandDarkRed = "#701e1e";\n\n'
+          hydration = '''  const brandDarkRed = "#701e1e";\n\n  React.useEffect(() => {\n    setIsClientReady(true);\n  }, []);\n\n'''
+          if marker not in source:
+              raise SystemExit('Login hydration insertion marker not found')
+          source = source.replace(marker, hydration, 1)
+
+          source = source.replace('                disabled={loading}\n', '                disabled={!isClientReady || loading}\n', 1)
+          source = source.replace(
+              '                {loading ? (\n',
+              '''                {!isClientReady ? (\n                  <div className="flex items-center justify-center text-[#FFFDFB]">\n                    <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>\n                    Preparing secure login...\n                  </div>\n                ) : loading ? (\n''',
+              1,
+          )
+
+          if 'disabled={!isClientReady || loading}' not in source:
+              raise SystemExit('Login hydration guard was not applied')
+          login_path.write_text(source)
+
+          typewriter_path = Path('components/ui/typewriter.tsx')
+          typewriter = typewriter_path.read_text()
+          typewriter = typewriter.replace(
+              '''        setText(currentWord.slice(0, charIndex + 1));\n        setCharIndex((index) => index + 1);''',
+              '''            setText(currentWord.slice(0, charIndex + 1));\n            setCharIndex((index) => index + 1);'''
+          )
+          typewriter = typewriter.replace(
+              '''        setText(currentWord.slice(0, charIndex - 1));\n        setCharIndex((index) => index - 1);''',
+              '''            setText(currentWord.slice(0, charIndex - 1));\n            setCharIndex((index) => index - 1);'''
+          )
+          typewriter_path.write_text(typewriter)
+
+          check_path = Path('scripts/verify-auth-bootstrap.mjs')
+          check = check_path.read_text()
+          check = check.replace(
+              "const typewriterSource = fs.readFileSync('components/ui/typewriter.tsx', 'utf8');",
+              "const typewriterSource = fs.readFileSync('components/ui/typewriter.tsx', 'utf8');\nconst loginSource = fs.readFileSync('app/login/page.tsx', 'utf8');"
+          )
+          check += '''\n\nif (!loginSource.includes('disabled={!isClientReady || loading}') || !loginSource.includes('Preparing secure login...')) {\n  throw new Error('Login can submit before React hydration and silently reload the page.');\n}\n'''
+          check_path.write_text(check)
+          PY
+
+      - name: Commit login guard
+        shell: bash
+        run: |
+          git config user.name AGFH5300
+          git config user.email dxb.avg@gmail.com
+          git add app/login/page.tsx components/ui/typewriter.tsx scripts/verify-auth-bootstrap.mjs
+          git commit -m "Prevent login submission before client hydration" || exit 0
+          git push origin HEAD:hotfix/restore-client-hydration-and-hmr
