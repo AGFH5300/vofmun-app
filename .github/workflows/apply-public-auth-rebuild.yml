@@ -1,0 +1,124 @@
+name: Apply public auth bootstrap rebuild
+
+on:
+  push:
+    branches:
+      - fix/rebuild-public-auth-bootstrap
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/rebuild-public-auth-bootstrap
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Rebuild public auth bootstrap and chunk safeguards
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              file_path = Path(path)
+              source = file_path.read_text()
+              if old not in source:
+                  raise SystemExit(f'Expected pattern missing in {path}: {old[:120]!r}')
+              file_path.write_text(source.replace(old, new, 1))
+
+          next_config = Path('next.config.ts')
+          source = next_config.read_text()
+          marker = "  images: {\n"
+          webpack_block = """  // Replit's development proxy truncates very large eval-source-map chunks.\n  // Keep client chunks compact and valid by disabling inline webpack source maps.\n  webpack(config, { dev, isServer }) {\n    if (dev && !isServer) {\n      config.devtool = false;\n    }\n    return config;\n  },\n  images: {\n"""
+          if marker not in source:
+              raise SystemExit('next.config.ts insertion point missing')
+          next_config.write_text(source.replace(marker, webpack_block, 1))
+
+          Path('app/authenticated-shell.tsx').write_text("""// © 2026 Ansh Gupta. All rights reserved.\n// Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).\n'use client';\n\nimport { SessionProvider } from '@/app/context/sessionContext';\nimport AppWrapper from '@/components/AppWrapper';\nimport { Toaster } from 'sonner';\n\nexport default function AuthenticatedShell({ children }: { children: React.ReactNode }) {\n  return (\n    <SessionProvider>\n      <AppWrapper>{children}</AppWrapper>\n      <Toaster />\n    </SessionProvider>\n  );\n}\n""")
+
+          Path('app/providers.tsx').write_text("""// © 2026 Ansh Gupta. All rights reserved.\n// Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).\n'use client';\n\nimport dynamic from 'next/dynamic';\nimport { usePathname } from 'next/navigation';\nimport { Toaster } from 'sonner';\n\nconst AuthenticatedShell = dynamic(() => import('./authenticated-shell'), {\n  ssr: false,\n  loading: () => (\n    <div className=\"flex min-h-screen items-center justify-center bg-[#fff8f2]\" aria-label=\"Loading account\">\n      <div className=\"h-7 w-7 animate-spin rounded-full border-2 border-[#701e1e]/25 border-t-[#701e1e]\" />\n    </div>\n  ),\n});\n\nexport default function Providers({ children }: { children: React.ReactNode }) {\n  const pathname = usePathname();\n  const isPublicAuthRoute = pathname === '/login' || pathname === '/reset-password';\n\n  // Public authentication pages intentionally avoid loading the global session,\n  // navigation, footer, and their Supabase dependencies into app/layout.js.\n  if (isPublicAuthRoute) {\n    return (\n      <>\n        {children}\n        <Toaster />\n      </>\n    );\n  }\n\n  return <AuthenticatedShell>{children}</AuthenticatedShell>;\n}\n""")
+
+          Path('components/AppWrapper.tsx').write_text("""// © 2026 Ansh Gupta. All rights reserved.\n// Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).\n'use client';\n\nimport dynamic from 'next/dynamic';\nimport { usePathname } from 'next/navigation';\nimport { useSession } from '../app/context/sessionContext';\nimport role from '@/lib/roles';\n\nconst CustomNav = dynamic(() => import('@/components/ui/customnav'), { ssr: false });\nconst SiteFooter = dynamic(() => import('@/components/ui/site-footer'), { ssr: false });\n\ninterface AppWrapperProps {\n  children: React.ReactNode;\n}\n\nexport default function AppWrapper({ children }: AppWrapperProps) {\n  const { user: currentUser, authReady } = useSession();\n  const pathname = usePathname();\n  const userRole = role(currentUser);\n\n  const isPublicLandingRoute = pathname === '/';\n  const hasAuthenticatedChrome = authReady && Boolean(currentUser);\n  const showChrome = isPublicLandingRoute || hasAuthenticatedChrome;\n\n  const getActiveLink = () => {\n    if (pathname === '/home') return 'home';\n    if (pathname === '/speechrepo') return 'speechrepo';\n    if (pathname === '/glossary') return 'glossary';\n    if (pathname === '/resolutions') return 'resolutions';\n    if (pathname === '/live-updates') return 'live-updates';\n    if (pathname === '/committee-overview') return 'committee-overview';\n    if (pathname === '/chair') return 'chair-tool';\n    if (pathname === '/admin') return 'admin';\n    return undefined;\n  };\n\n  return (\n    <div className=\"flex min-h-screen flex-col\">\n      {showChrome && (\n        <CustomNav\n          role={userRole as 'delegate' | 'chair' | 'admin'}\n          activeLink={getActiveLink()}\n        />\n      )}\n      <main className={`flex-1 ${showChrome ? 'pt-20' : ''}`}>{children}</main>\n      {showChrome && <SiteFooter />}\n    </div>\n  );\n}\n""")
+
+          login_path = Path('app/login/page.tsx')
+          login = login_path.read_text()
+          removals = [
+              'import { useRouter } from "next/navigation";\n',
+              'import { useSession } from "../context/sessionContext";\n',
+              'import { mapAppUserToSessionUser } from "@/lib/auth/mapAppUserToSessionUser";\n',
+              '  const router = useRouter();\n',
+              '  const { login } = useSession();\n',
+          ]
+          for removal in removals:
+              if removal not in login:
+                  raise SystemExit(f'Login removal missing: {removal!r}')
+              login = login.replace(removal, '', 1)
+          old_success = """      login(mapAppUserToSessionUser(appUser));\n      router.replace(routeByRole(appUser.role));\n      return;\n"""
+          new_success = """      // Use one deliberate document navigation after Supabase has persisted the\n      // session. The authenticated shell then hydrates from that stored session.\n      window.location.replace(routeByRole(appUser.role));\n      return;\n"""
+          if old_success not in login:
+              raise SystemExit('Login success flow pattern missing')
+          login_path.write_text(login.replace(old_success, new_success, 1))
+
+          Path('components/ui/typewriter.tsx').write_text("""// © 2026 Ansh Gupta. All rights reserved.\n// Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).\n'use client';\n\nimport { useEffect, useState } from 'react';\n\nconst FALLBACK_TEXT = 'Welcome to VOFMUN ONE';\nconst WORDS = [\n  FALLBACK_TEXT,\n  'Your one stop hub for collaboration',\n  'Your one stop hub for innovation',\n  'Your one stop hub for inspiration',\n  'Your one stop hub for interaction',\n  'Your one stop hub for ideas',\n  'Your one stop hub for all information',\n  'Your one stop hub for news',\n  'Are you still reading this?',\n] as const;\n\nconst sharedPrefixLength = (left: string, right: string) => {\n  let index = 0;\n  while (index < left.length && index < right.length && left[index] === right[index]) {\n    index += 1;\n  }\n  return index;\n};\n\nexport default function TypeWriter() {\n  const [text, setText] = useState(FALLBACK_TEXT);\n\n  useEffect(() => {\n    let cancelled = false;\n    let timer: number | undefined;\n    let wordIndex = 0;\n    let characterIndex = 0;\n    let deleting = false;\n\n    const schedule = (callback: () => void, delay: number) => {\n      timer = window.setTimeout(() => {\n        if (!cancelled) callback();\n      }, delay);\n    };\n\n    const tick = () => {\n      const currentWord = WORDS[wordIndex];\n      const nextWordIndex = (wordIndex + 1) % WORDS.length;\n      const nextWord = WORDS[nextWordIndex];\n      const sharedLength = sharedPrefixLength(currentWord, nextWord);\n\n      if (!deleting) {\n        if (characterIndex < currentWord.length) {\n          characterIndex += 1;\n          setText(currentWord.slice(0, characterIndex));\n          schedule(tick, 80);\n          return;\n        }\n\n        deleting = true;\n        schedule(tick, 900);\n        return;\n      }\n\n      if (characterIndex > sharedLength) {\n        characterIndex -= 1;\n        setText(currentWord.slice(0, characterIndex));\n        schedule(tick, 55);\n        return;\n      }\n\n      wordIndex = nextWordIndex;\n      deleting = false;\n      characterIndex = sharedLength;\n      setText(nextWord.slice(0, sharedLength));\n      schedule(tick, 180);\n    };\n\n    // Preserve useful server-rendered text, then begin the animation only after\n    // hydration. Every pending callback is cancelled during unmount or refresh.\n    schedule(() => {\n      setText('');\n      tick();\n    }, 250);\n\n    return () => {\n      cancelled = true;\n      if (timer !== undefined) window.clearTimeout(timer);\n    };\n  }, []);\n\n  return (\n    <div className=\"flex min-h-[3.5rem] items-center justify-center\" aria-live=\"polite\">\n      <h1\n        className=\"text-center text-4xl font-heading font-black leading-tight text-deep-red\"\n        style={{ color: '#701e1e' }}\n      >\n        {text}\n        <span\n          className=\"ml-1 inline-block w-[0.5ch] animate-pulse align-middle text-deep-red\"\n          aria-hidden=\"true\"\n        >\n          |\n        </span>\n      </h1>\n    </div>\n  );\n}\n""")
+
+          smoke_path = Path('scripts/smoke-next-hmr.mjs')
+          smoke = smoke_path.read_text()
+          smoke = smoke.replace(
+              "const origin = `http://127.0.0.1:${port}`;\n",
+              "const origin = `http://127.0.0.1:${port}`;\nconst REPLIT_TRUNCATION_BYTES = 960 * 1024;\nconst MAX_SAFE_APP_CHUNK_BYTES = 850 * 1024;\n",
+              1,
+          )
+          smoke = smoke.replace(
+              "async function verifyGeneratedClientChunks(html) {",
+              "async function verifyGeneratedClientChunks(html, routeLabel) {",
+              1,
+          )
+          old_parse = """    const source = await response.text();\n    try {\n      new vm.Script(source, { filename: chunkUrl.pathname });\n"""
+          new_parse = """    const source = await response.text();\n    const sourceBytes = Buffer.byteLength(source);\n    const isAppChunk = chunkUrl.pathname.includes('/static/chunks/app/');\n\n    if (sourceBytes === REPLIT_TRUNCATION_BYTES) {\n      throw new Error(`${routeLabel}: ${sourcePath} ended at Replit's exact 960 KiB truncation boundary.`);\n    }\n    if (isAppChunk && sourceBytes > MAX_SAFE_APP_CHUNK_BYTES) {\n      throw new Error(`${routeLabel}: ${sourcePath} is ${sourceBytes} bytes; app chunks must remain below ${MAX_SAFE_APP_CHUNK_BYTES}.`);\n    }\n    if (isAppChunk && (source.includes('eval-source-map') || source.includes('eval(__webpack_require__.ts('))) {\n      throw new Error(`${routeLabel}: ${sourcePath} still embeds eval source maps and can exceed Replit's response limit.`);\n    }\n\n    try {\n      new vm.Script(source, { filename: chunkUrl.pathname });\n"""
+          if old_parse not in smoke:
+              raise SystemExit('Smoke parse block missing')
+          smoke = smoke.replace(old_parse, new_parse, 1)
+          smoke = smoke.replace(
+              "  console.log(`Validated ${chunkSources.length} generated Next client chunk(s), including app/layout.js.`);",
+              "  console.log(`Validated ${chunkSources.length} generated Next client chunk(s) for ${routeLabel}, including app/layout.js.`);",
+              1,
+          )
+          old_try = """  const loginHtml = await waitForLogin();\n  await verifyGeneratedClientChunks(loginHtml);\n  // Next 16.3 uses"""
+          new_try = """  const loginHtml = await waitForLogin();\n  await verifyGeneratedClientChunks(loginHtml, '/login');\n\n  const homeResponse = await fetch(`${origin}/home`, { redirect: 'manual', cache: 'no-store' });\n  if (homeResponse.status !== 200) {\n    throw new Error(`Unexpected /home status ${homeResponse.status}`);\n  }\n  await verifyGeneratedClientChunks(await homeResponse.text(), '/home');\n  // Next 16.3 uses"""
+          if old_try not in smoke:
+              raise SystemExit('Smoke try block missing')
+          smoke_path.write_text(smoke.replace(old_try, new_try, 1))
+
+          verify_path = Path('scripts/verify-auth-bootstrap.mjs')
+          verify = verify_path.read_text()
+          verify = verify.replace(
+              "const smokeSource = fs.readFileSync('scripts/smoke-next-hmr.mjs', 'utf8');",
+              "const smokeSource = fs.readFileSync('scripts/smoke-next-hmr.mjs', 'utf8');\nconst providersSource = fs.readFileSync('app/providers.tsx', 'utf8');\nconst appWrapperSource = fs.readFileSync('components/AppWrapper.tsx', 'utf8');\nconst nextConfigSource = fs.readFileSync('next.config.ts', 'utf8');",
+              1,
+          )
+          old_typewriter_check = """if (!typewriterSource.includes('useState(FALLBACK_TEXT)') || !typewriterSource.includes('setHasMounted(true)')) {\n  throw new Error('Typewriter does not provide SSR fallback text followed by client animation.');\n}\n"""
+          new_typewriter_check = """if (!typewriterSource.includes('useState(FALLBACK_TEXT)') || !typewriterSource.includes('cancelled = true') || typewriterSource.includes('setHasMounted(true)')) {\n  throw new Error('Typewriter is not using the single cancellable timer implementation.');\n}\n"""
+          if old_typewriter_check not in verify:
+              raise SystemExit('Typewriter regression check missing')
+          verify = verify.replace(old_typewriter_check, new_typewriter_check, 1)
+          verify += """\n\nif (!nextConfigSource.includes('config.devtool = false')) {\n  throw new Error('Development webpack still emits oversized eval-source-map client chunks.');\n}\n\nif (!providersSource.includes("pathname === '/login'") || !providersSource.includes("dynamic(() => import('./authenticated-shell')") || providersSource.includes("from '@/app/context/sessionContext'")) {\n  throw new Error('Public auth routes still pull the authenticated application shell into app/layout.js.');\n}\n\nif (!appWrapperSource.includes("dynamic(() => import('@/components/ui/customnav')") || !appWrapperSource.includes("dynamic(() => import('@/components/ui/site-footer')")) {\n  throw new Error('Authenticated navigation and footer are not split into lazy chunks.');\n}\n\nif (loginSource.includes('useSession') || loginSource.includes('useRouter') || !loginSource.includes('window.location.replace(routeByRole(appUser.role))')) {\n  throw new Error('Login still depends on the global session shell or client-router race.');\n}\n\nif (!smokeSource.includes('REPLIT_TRUNCATION_BYTES = 960 * 1024') || !smokeSource.includes('MAX_SAFE_APP_CHUNK_BYTES') || !smokeSource.includes("source.includes('eval-source-map')")) {\n  throw new Error('CI does not guard against Replit truncation or oversized eval app chunks.');\n}\n"""
+          verify_path.write_text(verify)
+          PY
+
+      - name: Commit rebuilt auth bootstrap
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add next.config.ts app/authenticated-shell.tsx app/providers.tsx app/login/page.tsx components/AppWrapper.tsx components/ui/typewriter.tsx scripts/smoke-next-hmr.mjs scripts/verify-auth-bootstrap.mjs
+          git commit -m "Rebuild public auth bootstrap below Replit chunk limits"
+          git push origin HEAD:fix/rebuild-public-auth-bootstrap
