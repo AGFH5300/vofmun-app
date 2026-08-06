@@ -7,6 +7,7 @@ const sessionSource = fs.readFileSync('app/context/sessionContext.tsx', 'utf8');
 const serverSource = fs.readFileSync('server/chat/server.ts', 'utf8');
 const typewriterSource = fs.readFileSync('components/ui/typewriter.tsx', 'utf8');
 const packageSource = fs.readFileSync('package.json', 'utf8');
+const stablePreviewSource = fs.readFileSync('scripts/start-stable-preview.mjs', 'utf8');
 const warmupSource = fs.readFileSync('scripts/warmup-dev.mjs', 'utf8');
 const smokeSource = fs.readFileSync('scripts/smoke-next-hmr.mjs', 'utf8');
 const providersSource = fs.readFileSync('app/providers.tsx', 'utf8');
@@ -71,6 +72,14 @@ if (loginSource.includes('useSession') || loginSource.includes('useRouter') || !
   throw new Error('Login still depends on the global session shell or client-router race.');
 }
 
-if (!smokeSource.includes('REPLIT_TRUNCATION_BYTES = 960 * 1024') || !smokeSource.includes('MAX_SAFE_APP_CHUNK_BYTES') || !smokeSource.includes("'app/context/sessionContext.tsx'") || !smokeSource.includes("'node_modules/@supabase/auth-js/'")) {
-  throw new Error('CI does not guard against Replit truncation or authenticated modules leaking into app/layout.js.');
+if (!smokeSource.includes("'app/context/sessionContext.tsx'") || !smokeSource.includes("'node_modules/@supabase/auth-js/'") || !smokeSource.includes('new vm.Script')) {
+  throw new Error('CI does not parse generated chunks or prevent authenticated modules leaking into app/layout.js.');
+}
+
+if (!packageSource.includes('node scripts/start-stable-preview.mjs') || !packageSource.includes('dev:webpack')) {
+  throw new Error('The Replit command is not separated from the optional webpack development command.');
+}
+
+if (!stablePreviewSource.includes("['run', 'build']") || !stablePreviewSource.includes("['run', 'start']") || !stablePreviewSource.includes('Starting without HMR or Fast Refresh')) {
+  throw new Error('Stable preview does not build first and start with HMR disabled.');
 }

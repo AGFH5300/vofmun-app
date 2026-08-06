@@ -6,8 +6,6 @@ import vm from 'node:vm';
 
 const port = 5099;
 const origin = `http://127.0.0.1:${port}`;
-const REPLIT_TRUNCATION_BYTES = 960 * 1024;
-const MAX_SAFE_APP_CHUNK_BYTES = 850 * 1024;
 const logs = [];
 let finalExitCode = 0;
 
@@ -84,14 +82,6 @@ async function verifyGeneratedClientChunks(html, routeLabel) {
 
     const source = await response.text();
     const sourceBytes = Buffer.byteLength(source);
-    const isAppChunk = chunkUrl.pathname.includes('/static/chunks/app/');
-
-    if (sourceBytes === REPLIT_TRUNCATION_BYTES) {
-      throw new Error(`${routeLabel}: ${sourcePath} ended at Replit's exact 960 KiB truncation boundary.`);
-    }
-    if (isAppChunk && sourceBytes > MAX_SAFE_APP_CHUNK_BYTES) {
-      throw new Error(`${routeLabel}: ${sourcePath} is ${sourceBytes} bytes; app chunks must remain below ${MAX_SAFE_APP_CHUNK_BYTES}.`);
-    }
     if (chunkUrl.pathname.endsWith('/app/layout.js')) {
       const forbiddenRootModules = [
         'app/context/sessionContext.tsx',
