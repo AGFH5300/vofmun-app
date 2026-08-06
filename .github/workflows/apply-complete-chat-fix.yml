@@ -24,6 +24,7 @@ jobs:
 
       - name: Apply complete chat fix
         run: |
+          python scripts/fix-chat-ui-transformer.py
           python scripts/apply-chat-runtime-foundation.py
           python scripts/apply-chat-ui-completion.py
 
