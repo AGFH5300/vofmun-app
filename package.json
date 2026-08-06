@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsx server/chat/server.ts",
-    "dev:hot": "concurrently -s last -n \"APP,WARM\" -c \"cyan,magenta\" \"tsx server/chat/server.ts\" \"node scripts/warmup-dev.mjs\"",
+    "dev": "node scripts/start-clean-dev.mjs",
+    "dev:hot": "concurrently -s last -n \"APP,WARM\" -c \"cyan,magenta\" \"node scripts/start-clean-dev.mjs\" \"node scripts/warmup-dev.mjs\"",
     "build": "next build",
     "start": "NODE_ENV=production tsx server/chat/server.ts",
     "lint": "eslint .",

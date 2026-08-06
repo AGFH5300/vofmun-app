@@ -14,7 +14,7 @@ const PORT = Number(process.env.PORT || 5000);
 const HOST = process.env.HOST || "127.0.0.1";
 const BASE = process.env.WARMUP_BASE || `http://${HOST}:${PORT}`;
 
-const MAX_CONCURRENCY = Number(process.env.WARMUP_CONCURRENCY || 6);
+const MAX_CONCURRENCY = Number(process.env.WARMUP_CONCURRENCY || 2);
 const WARMUP_SKIP_MESSAGES = process.env.WARMUP_SKIP_MESSAGES === "1";
 
 // optional: if you need auth cookies to reach protected endpoints
@@ -249,8 +249,9 @@ async function runPool(items, limit, worker) {
 
   const results = await runPool(hits, MAX_CONCURRENCY, async ({ url, method }) => {
     try {
-      const res = await fetch(url, { method, headers });
-      return { url, status: res.status, ok: res.ok, method };
+      const res = await fetch(url, { method, headers, redirect: "manual", cache: "no-store" });
+      const accepted = res.ok || (res.status >= 300 && res.status < 400);
+      return { url, status: res.status, ok: accepted, method };
     } catch (e) {
       // Network error (connection refused during boot, etc.)
       return { url, status: 0, ok: false, method, error: e?.message || String(e) };

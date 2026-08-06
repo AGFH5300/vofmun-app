@@ -6,6 +6,9 @@ const loginSource = fs.readFileSync('app/login/page.tsx', 'utf8');
 const sessionSource = fs.readFileSync('app/context/sessionContext.tsx', 'utf8');
 const serverSource = fs.readFileSync('server/chat/server.ts', 'utf8');
 const typewriterSource = fs.readFileSync('components/ui/typewriter.tsx', 'utf8');
+const packageSource = fs.readFileSync('package.json', 'utf8');
+const warmupSource = fs.readFileSync('scripts/warmup-dev.mjs', 'utf8');
+const smokeSource = fs.readFileSync('scripts/smoke-next-hmr.mjs', 'utf8');
 
 if (/initial=\{\{[^{}]*opacity:\s*0/.test(loginSource)) {
   throw new Error('Login page still server-renders hidden motion content.');
@@ -40,3 +43,16 @@ if (!loginSource.includes('disabled={!isClientReady || loading}') || !loginSourc
 }
 
 console.log('Auth, hydration, and WebSocket regression checks passed.');
+
+
+if (!packageSource.includes('node scripts/start-clean-dev.mjs')) {
+  throw new Error('Development startup does not clear stale generated Next chunks.');
+}
+
+if (!warmupSource.includes('redirect: "manual"') || !warmupSource.includes('WARMUP_CONCURRENCY || 2')) {
+  throw new Error('Development warm-up can still flood /login through followed redirects.');
+}
+
+if (!smokeSource.includes('new vm.Script') || !smokeSource.includes('/app/layout.js')) {
+  throw new Error('CI does not syntax-check the generated layout client chunk.');
+}
