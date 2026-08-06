@@ -1459,7 +1459,17 @@ if (isDev) {
   }
 }
 
-const nextApp = next({ dev: isDev, hostname: '0.0.0.0', port: PORT, turbopack: isDev });
+// Next and the chat socket must share the same HTTP server. Passing the
+// server into Next lets it register its development WebSocket upgrade
+// handler instead of leaving /_next/* HMR connections unhandled.
+const server = http.createServer();
+const nextApp = next({
+  dev: isDev,
+  hostname: '0.0.0.0',
+  port: PORT,
+  httpServer: server,
+  ...(isDev ? { webpack: true, turbopack: false } : {}),
+});
 const nextHandler = nextApp.getRequestHandler();
 
 app.all('/api/chat/attachments/upload', (req: Request, res: Response) => {
@@ -1468,13 +1478,13 @@ app.all('/api/chat/attachments/upload', (req: Request, res: Response) => {
 
 const CHAT_WS_PATH = '/chat-ws'; // Keep in sync with app/messages/context/ChatContext.tsx
 
-const server = http.createServer((req, res) => {
+server.on('request', (req, res) => {
   const url = req.url || '';
   if (url.startsWith('/api/')) {
     app(req, res);
     return;
   }
-  nextHandler(req, res);
+  void nextHandler(req, res);
 });
 
 const wss = new WebSocketServer({ server, path: CHAT_WS_PATH });

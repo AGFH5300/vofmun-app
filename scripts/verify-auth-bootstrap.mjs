@@ -2,6 +2,8 @@ import fs from 'node:fs';
 
 const loginSource = fs.readFileSync('app/login/page.tsx', 'utf8');
 const sessionSource = fs.readFileSync('app/context/sessionContext.tsx', 'utf8');
+const serverSource = fs.readFileSync('server/chat/server.ts', 'utf8');
+const typewriterSource = fs.readFileSync('components/ui/typewriter.tsx', 'utf8');
 
 if (/initial=\{\{[^{}]*opacity:\s*0/.test(loginSource)) {
   throw new Error('Login page still server-renders hidden motion content.');
@@ -16,3 +18,16 @@ if (!sessionSource.includes('? readPersistedSession()')) {
 }
 
 console.log('Auth bootstrap regression checks passed.');
+
+
+if (!serverSource.includes('httpServer: server')) {
+  throw new Error('Next is not attached to the shared HTTP server, so development WebSocket upgrades can fail.');
+}
+
+if (!serverSource.includes('webpack: true') || !serverSource.includes('turbopack: false')) {
+  throw new Error('Replit development mode is not pinned to the stable webpack HMR path.');
+}
+
+if (!typewriterSource.includes('useState(FALLBACK_TEXT)') || !typewriterSource.includes('setHasMounted(true)')) {
+  throw new Error('Typewriter does not provide SSR fallback text followed by client animation.');
+}
