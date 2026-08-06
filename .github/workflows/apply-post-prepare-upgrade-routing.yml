@@ -1,0 +1,104 @@
+name: Apply post-prepare upgrade routing
+
+on:
+  push:
+    branches:
+      - hotfix/restore-client-hydration-and-hmr
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/restore-client-hydration-and-hmr
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Register upgrades after Next preparation
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path('server/chat/server.ts')
+          source = path.read_text()
+          old = '''const wss = new WebSocketServer({ noServer: true });
+          const nextUpgradeHandler = nextApp.getUpgradeHandler();
+
+          server.on('upgrade', (request, socket, head) => {
+            const pathname = new URL(request.url || '/', 'http://localhost').pathname;
+
+            if (pathname === CHAT_WS_PATH) {
+              wss.handleUpgrade(request, socket, head, (webSocket) => {
+                wss.emit('connection', webSocket, request);
+              });
+              return;
+            }
+
+            void nextUpgradeHandler(request, socket, head);
+          });
+
+          wss.on('connection', (socket, req) => {'''
+          new = '''const wss = new WebSocketServer({ noServer: true });
+
+          wss.on('connection', (socket, req) => {'''
+          if old not in source:
+              raise SystemExit('Pre-prepare upgrade block was not found')
+          source = source.replace(old, new)
+
+          old_start = '''const start = async () => {
+            await nextApp.prepare();
+            server.listen(PORT, () => {
+              console.warn(`Unified Next + chat server listening on http://localhost:${PORT}`);
+            });
+          };'''
+          new_start = '''const start = async () => {
+            await nextApp.prepare();
+            const nextUpgradeHandler = nextApp.getUpgradeHandler();
+
+            server.on('upgrade', (request, socket, head) => {
+              const pathname = new URL(request.url || '/', 'http://localhost').pathname;
+
+              if (pathname === CHAT_WS_PATH) {
+                wss.handleUpgrade(request, socket, head, (webSocket) => {
+                  wss.emit('connection', webSocket, request);
+                });
+                return;
+              }
+
+              void nextUpgradeHandler(request, socket, head);
+            });
+
+            server.listen(PORT, () => {
+              console.warn(`Unified Next + chat server listening on http://localhost:${PORT}`);
+            });
+          };'''
+          if old_start not in source:
+              raise SystemExit('Startup block was not found')
+          path.write_text(source.replace(old_start, new_start))
+
+          check_path = Path('scripts/verify-auth-bootstrap.mjs')
+          check = check_path.read_text()
+          check = check.replace(
+              "if (!serverSource.includes('new WebSocketServer({ noServer: true })') || !serverSource.includes('nextApp.getUpgradeHandler()')) {",
+              "if (!serverSource.includes('new WebSocketServer({ noServer: true })') || !serverSource.includes('await nextApp.prepare();\\n  const nextUpgradeHandler = nextApp.getUpgradeHandler();')) {"
+          )
+          check_path.write_text(check)
+          PY
+
+      - name: Commit startup-order fix
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add server/chat/server.ts scripts/verify-auth-bootstrap.mjs
+          git commit -m "Register WebSocket upgrades after Next prepare" || exit 0
+          git push origin HEAD:hotfix/restore-client-hydration-and-hmr
