@@ -189,6 +189,32 @@ try {
   }
   console.log('Authenticated profile endpoint routing smoke test passed.');
 
+  const protectedChatEndpoints = [
+    { path: '/api/chat/attachments/upload', init: { method: 'POST' } },
+    {
+      path: '/api/chat/attachments/sign',
+      init: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' },
+    },
+    {
+      path: '/api/chat/attachments/pending',
+      init: { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: '{}' },
+    },
+    {
+      path: '/api/rooms/00000000-0000-4000-8000-000000000001/receipts',
+      init: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messageIds: [] }) },
+    },
+  ];
+
+  for (const endpoint of protectedChatEndpoints) {
+    const response = await fetch(`${origin}${endpoint.path}`, { ...endpoint.init, cache: 'no-store' });
+    const contentType = response.headers.get('content-type') || '';
+    const payload = await response.json().catch(() => null);
+    if (response.status !== 401 || !contentType.includes('application/json') || payload?.error !== 'Unauthorized') {
+      throw new Error(`${endpoint.path} is not routed through its authenticated JSON handler: ${response.status} ${contentType} ${JSON.stringify(payload)}`);
+    }
+  }
+  console.log('Attachment and receipt API routing smoke tests passed.');
+
   const homeResponse = await fetch(`${origin}/home`, { redirect: 'manual', cache: 'no-store' });
   if (homeResponse.status !== 200) {
     throw new Error(`Unexpected /home status ${homeResponse.status}`);

@@ -68,6 +68,7 @@ const createUserRateLimit = (windowMs: number, maxRequests: number) =>
 
 const chatReadRateLimit = createUserRateLimit(60_000, 120);
 const chatWriteRateLimit = createUserRateLimit(60_000, 40);
+const chatReceiptRateLimit = createUserRateLimit(60_000, 240);
 const requireAuth = async (req: AuthedRequest, res: Response, nextFn: NextFunction) => {
   const hasAuthorizationHeader = Boolean(req.headers['authorization']);
   const bearerToken = getBearerTokenFromHeaders(req.headers);
@@ -1283,7 +1284,7 @@ app.delete('/api/rooms/:roomId/messages/:messageId', chatWriteRateLimit, require
 
 // -------------------- RECEIPTS (FIXED) --------------------
 // This endpoint is served by EXPRESS, not Next's app/api, because /api/* is intercepted here.
-app.post('/api/rooms/:roomId/receipts', chatWriteRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
+app.post('/api/rooms/:roomId/receipts', chatReceiptRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const { roomId } = req.params;
     const { messageIds, markRead } = req.body as { messageIds?: string[]; markRead?: boolean };
@@ -1504,9 +1505,18 @@ const nextApp = next({
 });
 const nextHandler = nextApp.getRequestHandler();
 
-app.all('/api/chat/attachments/upload', (req: Request, res: Response) => {
-  nextHandler(req, res);
-});
+// These attachment handlers live in Next route files, while every /api/* request
+// enters Express first. Forward the complete attachment API surface explicitly.
+app.all(
+  [
+    '/api/chat/attachments/upload',
+    '/api/chat/attachments/sign',
+    '/api/chat/attachments/pending',
+  ],
+  (req: Request, res: Response) => {
+    void nextHandler(req, res);
+  },
+);
 
 const CHAT_WS_PATH = '/chat-ws'; // Keep in sync with app/messages/context/ChatContext.tsx
 

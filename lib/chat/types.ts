@@ -86,6 +86,8 @@ export interface RoomWithDetails extends ChatRoom {
   members: RoomMember[];
   lastMessage?: MessageWithUser | null;
   isPinned?: boolean;
+  isArchived?: boolean;
+  isMuted?: boolean;
   unreadCount?: number;
 }
 

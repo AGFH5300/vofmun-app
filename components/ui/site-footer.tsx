@@ -3,7 +3,6 @@
 'use client';
 
 import React from "react";
-import Link from "next/link";
 
 const SiteFooter: React.FC = () => {
 
@@ -26,27 +25,27 @@ const SiteFooter: React.FC = () => {
             <h3 className="font-semibold text-base sm:text-lg mb-3 sm:mb-4">Quick Links</h3>
             <ul className="space-y-1.5 sm:space-y-2">
               <li>
-                <Link href="vofmun.org/signup" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
+                <a href="https://vofmun.org/signup" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
                   Register
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
-                  href="vofmun.org/proof-of-payment"
+                <a
+                  href="https://vofmun.org/proof-of-payment"
                   className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm"
                 >
                   Proof of Payment
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="vofmun.org/resources" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
+                <a href="https://vofmun.org/resources" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
                   Resources
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="vofmun.org/secretariat" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
+                <a href="https://vofmun.org/secretariat" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
                   Secretariat
-                </Link>
+                </a>
               </li>
             </ul>
           </div>
@@ -56,40 +55,40 @@ const SiteFooter: React.FC = () => {
             <h3 className="font-semibold text-base sm:text-lg mb-3 sm:mb-4">Committees</h3>
             <ul className="space-y-1.5 sm:space-y-2">
               <li>
-                <Link href="vofmun.org/committees/ga1" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
+                <a href="https://vofmun.org/committees/ga1" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
                   General Assembly
-                </Link>
+                </a>
               </li>
 
               <li>
-                <Link href="vofmun.org/committees/ecosoc" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
+                <a href="https://vofmun.org/committees/ecosoc" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
                   ECOSOC
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="vofmun.org/committees/who" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
+                <a href="https://vofmun.org/committees/who" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
                   WHO
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="vofmun.org/committees/unodc" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
+                <a href="https://vofmun.org/committees/unodc" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
                   UNODC
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="vofmun.org/committees/uncstd" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
+                <a href="https://vofmun.org/committees/uncstd" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
                   UNCSTD
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="vofmun.org/committees/icj" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
+                <a href="https://vofmun.org/committees/icj" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
                   ICJ
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="vofmun.org/committees/icrcc" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
+                <a href="https://vofmun.org/committees/icrcc" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
                   ICRCC
-                </Link>
+                </a>
               </li>
             </ul>
           </div>
@@ -100,22 +99,24 @@ const SiteFooter: React.FC = () => {
             <ul className="space-y-1.5 sm:space-y-2">
               <li className="text-gray-400 text-xs sm:text-sm">contact@vofmun.org</li>
               <li>
-                <Link
+                <a
                   href="https://www.linkedin.com/company/vofmun"
                   target="_blank"
+                  rel="noopener noreferrer"
                   className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm"
                 >
                   LinkedIn
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
+                <a
                   href="https://www.instagram.com/vofmun"
                   target="_blank"
+                  rel="noopener noreferrer"
                   className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm"
                 >
                   Instagram
-                </Link>
+                </a>
               </li>
             </ul>
           </div>

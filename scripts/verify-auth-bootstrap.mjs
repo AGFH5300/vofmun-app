@@ -92,3 +92,65 @@ if (!serverSource.includes("app.get('/api/auth/profile'") || !serverSource.inclu
 if (!smokeSource.includes('Authenticated profile endpoint routing smoke test passed.') || !smokeSource.includes('unauthenticatedProfileResponse.status !== 401')) {
   throw new Error('CI does not verify that /api/auth/profile is registered before the Next fallback.');
 }
+
+
+const chatContextSource = fs.readFileSync('app/messages/context/ChatContext.tsx', 'utf8');
+const footerSource = fs.readFileSync('components/ui/site-footer.tsx', 'utf8');
+
+for (const endpoint of [
+  '/api/chat/attachments/upload',
+  '/api/chat/attachments/sign',
+  '/api/chat/attachments/pending',
+]) {
+  if (!serverSource.includes(endpoint)) {
+    throw new Error(`Unified server does not forward ${endpoint} to its Next route handler.`);
+  }
+}
+
+if (!serverSource.includes('chatReceiptRateLimit') || !serverSource.includes("app.post('/api/rooms/:roomId/receipts', chatReceiptRateLimit")) {
+  throw new Error('Receipt writes still share the low-volume generic chat write limit.');
+}
+
+if (!chatContextSource.includes('RECEIPT_FAILURE_BACKOFF_MS') || !chatContextSource.includes('receiptFailureBackoffRef')) {
+  throw new Error('Receipt failures can still create an unbounded retry loop.');
+}
+
+if (!chatContextSource.includes('deliveredOnlyIds') || !chatContextSource.includes('isRoomActivelyRead(normalizedRoomId)')) {
+  throw new Error('Receipt batching or active-room unread clearing has regressed.');
+}
+
+if (!smokeSource.includes('Attachment and receipt API routing smoke tests passed.')) {
+  throw new Error('CI does not exercise every attachment route and the receipt route through the unified server.');
+}
+
+if (/href=["']vofmun\.org\//.test(footerSource)) {
+  throw new Error('Footer still contains relative vofmun.org links that trigger local Next prefetch 404s.');
+}
+
+
+const messagesPageSource = fs.readFileSync('app/messages/page.tsx', 'utf8');
+const messageBubbleSource = fs.readFileSync('app/messages/components/MessageBubble.tsx', 'utf8');
+const conversationItemSource = fs.readFileSync('app/messages/components/ConversationListItem.tsx', 'utf8');
+const conversationListSource = fs.readFileSync('app/messages/components/ConversationList.tsx', 'utf8');
+
+if (!messagesPageSource.includes('editComposerSnapshotRef') || !messagesPageSource.includes('restoreComposerAfterEdit') || !messagesPageSource.includes('Your previous draft will return')) {
+  throw new Error('Composer-based editing no longer preserves and restores the existing draft.');
+}
+
+if (!messageBubbleSource.includes('onRequestEditMessage(message)') || !messagesPageSource.includes('onRequestEditMessage={beginEditingMessage}')) {
+  throw new Error('Message editing has fallen back to the low-contrast inline bubble editor.');
+}
+
+for (const label of ['Open in new window', 'Mark as unread', 'Archive', 'Mute', 'Conversation info', 'Export conversation', 'Clear conversation']) {
+  if (!conversationItemSource.includes(label)) {
+    throw new Error(`Conversation context menu is missing ${label}.`);
+  }
+}
+
+if (conversationItemSource.includes('Contact info')) {
+  throw new Error('Conversation menu incorrectly exposes consumer contact-info language in the MUN app.');
+}
+
+if (!conversationListSource.includes('archivedRooms') || !chatContextSource.includes('manualUnreadRoomIds')) {
+  throw new Error('Archive or manual-unread conversation state is not persisted.');
+}

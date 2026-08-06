@@ -21,6 +21,7 @@ interface Props {
   showAvatar?: boolean;
   presenceDeliveredHint?: boolean;
   onEditMessage?: (messageId: string, content: string) => Promise<void>;
+  onRequestEditMessage?: (message: MessageWithUser) => void;
   onReplyMessage?: (message: MessageWithUser) => void;
   repliedToMessage?: MessageWithUser | null;
   isGroupRoom?: boolean;
@@ -173,6 +174,7 @@ const MessageBubble: React.FC<Props> = ({
   showAvatar = true,
   presenceDeliveredHint = false,
   onEditMessage,
+  onRequestEditMessage,
   onReplyMessage,
   repliedToMessage = null,
   roomMembers = [],
@@ -818,7 +820,12 @@ const MessageBubble: React.FC<Props> = ({
                     onReplyMessage?.(message);
                   }
                   if (entry.label === 'Edit') {
-                    setIsEditing(true);
+                    if (onRequestEditMessage) {
+                      onRequestEditMessage(message);
+                    } else {
+                      setEditingText(message.content || '');
+                      setIsEditing(true);
+                    }
                   }
                   if (entry.label === 'Delete') {
                     onEnterDeleteSelectionMode?.(message);
