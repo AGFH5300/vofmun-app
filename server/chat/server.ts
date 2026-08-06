@@ -1487,7 +1487,21 @@ server.on('request', (req, res) => {
   void nextHandler(req, res);
 });
 
-const wss = new WebSocketServer({ server, path: CHAT_WS_PATH });
+const wss = new WebSocketServer({ noServer: true });
+const nextUpgradeHandler = nextApp.getUpgradeHandler();
+
+server.on('upgrade', (request, socket, head) => {
+  const pathname = new URL(request.url || '/', 'http://localhost').pathname;
+
+  if (pathname === CHAT_WS_PATH) {
+    wss.handleUpgrade(request, socket, head, (webSocket) => {
+      wss.emit('connection', webSocket, request);
+    });
+    return;
+  }
+
+  void nextUpgradeHandler(request, socket, head);
+});
 
 wss.on('connection', (socket, req) => {
   logServerDebug('socket:connection_opened', {
