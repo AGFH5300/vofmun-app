@@ -1488,20 +1488,6 @@ server.on('request', (req, res) => {
 });
 
 const wss = new WebSocketServer({ noServer: true });
-const nextUpgradeHandler = nextApp.getUpgradeHandler();
-
-server.on('upgrade', (request, socket, head) => {
-  const pathname = new URL(request.url || '/', 'http://localhost').pathname;
-
-  if (pathname === CHAT_WS_PATH) {
-    wss.handleUpgrade(request, socket, head, (webSocket) => {
-      wss.emit('connection', webSocket, request);
-    });
-    return;
-  }
-
-  void nextUpgradeHandler(request, socket, head);
-});
 
 wss.on('connection', (socket, req) => {
   logServerDebug('socket:connection_opened', {
@@ -1651,6 +1637,21 @@ wss.on('connection', (socket, req) => {
 
 const start = async () => {
   await nextApp.prepare();
+  const nextUpgradeHandler = nextApp.getUpgradeHandler();
+
+  server.on('upgrade', (request, socket, head) => {
+    const pathname = new URL(request.url || '/', 'http://localhost').pathname;
+
+    if (pathname === CHAT_WS_PATH) {
+      wss.handleUpgrade(request, socket, head, (webSocket) => {
+        wss.emit('connection', webSocket, request);
+      });
+      return;
+    }
+
+    void nextUpgradeHandler(request, socket, head);
+  });
+
   server.listen(PORT, () => {
     console.warn(`Unified Next + chat server listening on http://localhost:${PORT}`);
   });

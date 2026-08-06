@@ -21,7 +21,7 @@ if (!serverSource.includes('httpServer: server')) {
   throw new Error('Next is not attached to the shared HTTP server, so development WebSocket upgrades can fail.');
 }
 
-if (!serverSource.includes('new WebSocketServer({ noServer: true })') || !serverSource.includes('nextApp.getUpgradeHandler()')) {
+if (!serverSource.includes('new WebSocketServer({ noServer: true })') || !serverSource.includes('await nextApp.prepare();\n  const nextUpgradeHandler = nextApp.getUpgradeHandler();')) {
   throw new Error('Chat and Next WebSocket upgrades are not explicitly separated.');
 }
 
