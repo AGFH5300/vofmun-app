@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - main
+      - fix/chat-receipts-attachments-and-composer
 
 permissions:
   contents: read
@@ -17,7 +18,7 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: ubuntu-22.04
+    runs-on: macos-14
     timeout-minutes: 30
     steps:
       - name: Check out source
@@ -42,11 +43,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          forbidden='(?<!VOF)MUN (?:ONE|WEBAPP|Portal)|(?<!vof)mun(?:\.messages|:messages|-conversation-menu-opened|-message-menu-opened)'
-          if grep -RInP "$forbidden" app components lib server --exclude-dir=node_modules 2>/dev/null; then
-            echo "Generic branding or storage namespaces leaked into VOFMUN."
-            exit 1
-          fi
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const roots = ['app', 'components', 'lib', 'server'];
+          const forbidden = /(?<!VOF)MUN (?:ONE|WEBAPP|Portal)|(?<!vof)mun(?:\.messages|:messages|-conversation-menu-opened|-message-menu-opened)/;
+          const walk = (target) => {
+            if (!fs.existsSync(target)) return;
+            const stat = fs.statSync(target);
+            if (stat.isDirectory()) {
+              if (path.basename(target) === 'node_modules') return;
+              for (const name of fs.readdirSync(target)) walk(path.join(target, name));
+              return;
+            }
+            const source = fs.readFileSync(target, 'utf8');
+            if (forbidden.test(source)) throw new Error(`Generic branding or storage namespace leaked into ${target}`);
+          };
+          roots.forEach(walk);
+          NODE
           test ! -e readiness-report.json
           test ! -e debug-report.json
           test ! -e .tmp
