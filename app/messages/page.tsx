@@ -27,6 +27,8 @@ import {
   Laugh,
   Loader2,
   MoreVertical,
+  Pencil,
+  Check,
   ChartNoAxesColumn,
   Plus,
   Search,
@@ -115,6 +117,19 @@ type PreparedFileLink = {
   expiresAt?: number;
 };
 
+type EditingMessageState = {
+  roomId: string;
+  messageId: string;
+  originalContent: string;
+};
+
+type ComposerEditSnapshot = {
+  roomId: string;
+  composer: string;
+  replyingToMessageId: string | null;
+  pendingAttachments: PendingAttachmentItem[];
+};
+
 type ActiveUnreadDividerSession = {
   roomId: string;
   entryUnreadCount: number;
@@ -198,6 +213,10 @@ const ChatShell: React.FC = () => {
     incomingRequests,
     openDirectMessageRoomForUser,
     togglePin,
+    toggleArchive,
+    toggleMute,
+    markRoomUnread,
+    markRoomRead,
     currentUserId,
     resolveUserDisplay,
   } = useChat();
@@ -215,6 +234,10 @@ const ChatShell: React.FC = () => {
     }
   });
   const [replyingToMessageId, setReplyingToMessageId] = useState<string | null>(null);
+  const [editingMessage, setEditingMessage] = useState<EditingMessageState | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const editComposerSnapshotRef = useRef<ComposerEditSnapshot | null>(null);
+  const deepLinkedRoomHandledRef = useRef(false);
   const [search, setSearch] = useState("");
   const [showNewConversation, setShowNewConversation] = useState(false);
   const [conversationTab, setConversationTab] = useState<"direct" | "group" | "friends" | "requests">("direct");
@@ -417,8 +440,9 @@ const ChatShell: React.FC = () => {
       return bTime - aTime;
     };
 
-    const pinned = filteredRooms.filter((room) => room.isPinned).sort(byLatestMessage);
-    const unpinned = filteredRooms.filter((room) => !room.isPinned).sort(byLatestMessage);
+    const selectableRooms = filteredRooms.filter((room) => !room.isArchived);
+    const pinned = selectableRooms.filter((room) => room.isPinned).sort(byLatestMessage);
+    const unpinned = selectableRooms.filter((room) => !room.isPinned).sort(byLatestMessage);
     return [...pinned, ...unpinned];
   }, [filteredRooms]);
 
@@ -519,6 +543,8 @@ const ChatShell: React.FC = () => {
       return;
     }
 
+    if (editingMessage?.roomId === roomId) return;
+
     const nextDraft = draftsByRoom[roomId] || "";
     const previousSnapshot = composerRoomSnapshotRef.current;
     if (previousSnapshot?.roomId === roomId && previousSnapshot.draft === nextDraft) {
@@ -527,18 +553,18 @@ const ChatShell: React.FC = () => {
 
     composerRoomSnapshotRef.current = { roomId, draft: nextDraft };
     setComposer((current) => (current === nextDraft ? current : nextDraft));
-  }, [activeRoom?.id, draftsByRoom]);
+  }, [activeRoom?.id, draftsByRoom, editingMessage?.roomId]);
 
   useEffect(() => {
     const roomId = String(activeRoom?.id || "");
-    if (!roomId) return;
+    if (!roomId || editingMessage?.roomId === roomId) return;
 
     composerRoomSnapshotRef.current = { roomId, draft: composer };
     setDraftsByRoom((prev) => {
       if ((prev[roomId] || "") === composer) return prev;
       return { ...prev, [roomId]: composer };
     });
-  }, [activeRoom?.id, composer]);
+  }, [activeRoom?.id, composer, editingMessage?.roomId]);
 
   useEffect(() => {
     setSelectedMessageIds((prev) => {
@@ -897,12 +923,78 @@ const ChatShell: React.FC = () => {
     await handleAttachmentSelect(event.dataTransfer.files);
   };
 
+  const restoreComposerAfterEdit = () => {
+    const snapshot = editComposerSnapshotRef.current;
+    editComposerSnapshotRef.current = null;
+    setEditingMessage(null);
+    setIsSavingEdit(false);
+
+    if (!snapshot) return;
+    setDraftsByRoom((previous) => ({ ...previous, [snapshot.roomId]: snapshot.composer }));
+    if (String(activeRoom?.id || '') === snapshot.roomId) {
+      setComposer(snapshot.composer);
+      setReplyingToMessageId(snapshot.replyingToMessageId);
+      setPendingAttachments(snapshot.pendingAttachments);
+      pendingAttachmentRoomIdRef.current = snapshot.pendingAttachments.length > 0 ? snapshot.roomId : null;
+      window.requestAnimationFrame(() => focusComposerWithoutScroll());
+    }
+  };
+
+  const cancelEditingMessage = () => {
+    restoreComposerAfterEdit();
+  };
+
+  const beginEditingMessage = (message: MessageWithUser) => {
+    const roomId = activeRoom?.id ? String(activeRoom.id) : '';
+    if (!roomId || message.deleted_at) return;
+
+    editComposerSnapshotRef.current = {
+      roomId,
+      composer,
+      replyingToMessageId,
+      pendingAttachments,
+    };
+    setEditingMessage({
+      roomId,
+      messageId: String(message.id),
+      originalContent: message.content || '',
+    });
+    setComposer(message.content || '');
+    setReplyingToMessageId(null);
+    setPendingAttachments([]);
+    setAttachmentUploadError(null);
+    setShowAttachmentMenu(false);
+    closeEmojiModal();
+    sendTyping(roomId, false);
+    window.requestAnimationFrame(() => focusComposerWithoutScroll());
+  };
+
   const handleSend = async () => {
     const roomId = activeRoom?.id ? String(activeRoom.id) : null;
     const uploadedAttachments = pendingAttachments
       .filter((item) => item.status === "uploaded" && item.attachment)
       .map((item) => item.attachment as MessageAttachmentInput);
     const trimmedComposer = composer.trim();
+
+    if (editingMessage) {
+      if (!roomId || roomId !== editingMessage.roomId || isSavingEdit || trimmedComposer.length === 0) return;
+      if (trimmedComposer === editingMessage.originalContent.trim()) {
+        restoreComposerAfterEdit();
+        return;
+      }
+
+      setIsSavingEdit(true);
+      sendTyping(roomId, false);
+      try {
+        await editMessage(roomId, editingMessage.messageId, trimmedComposer);
+        toast.success('Message updated');
+        restoreComposerAfterEdit();
+      } catch (error) {
+        setIsSavingEdit(false);
+        toast.error(error instanceof Error ? error.message : 'Failed to edit message');
+      }
+      return;
+    }
 
     if (!roomId || (trimmedComposer.length === 0 && uploadedAttachments.length === 0) || isUploadingAttachments) return;
 
@@ -987,6 +1079,7 @@ const ChatShell: React.FC = () => {
   };
 
   const handleSelectRoom = async (room: RoomWithDetails) => {
+    if (editingMessage) cancelEditingMessage();
     setShowAttachmentMenu(false);
     closeEmojiModal();
 
@@ -998,8 +1091,67 @@ const ChatShell: React.FC = () => {
     });
   };
 
+  const openConversationInNewWindow = (room: RoomWithDetails) => {
+    const url = new URL('/messages', window.location.origin);
+    url.searchParams.set('room', String(room.id));
+    window.open(url.toString(), '_blank', 'noopener,noreferrer');
+  };
+
+  const showConversationInfo = async (room: RoomWithDetails) => {
+    await handleSelectRoom(room);
+    setShowDetails(true);
+  };
+
+  const exportConversation = (room: RoomWithDetails) => {
+    const roomMessages = (messages[String(room.id)] || []).filter((message) => !message.deleted_at);
+    const lines = roomMessages.map((message) => {
+      const senderName = message.user?.full_name || `${message.user?.first_name || ''} ${message.user?.last_name || ''}`.trim() || 'Participant';
+      return `[${formatTranscriptTimestamp(message.created_at)}] ${senderName}: ${getMessageTextForTranscript(message)}`;
+    });
+    const blob = new Blob([lines.join('\n') || 'No visible messages.'], { type: 'text/plain;charset=utf-8' });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = `${(room.name || 'conversation').replace(/[^a-z0-9_-]+/gi, '_')}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  };
+
+  const clearConversation = async (room: RoomWithDetails) => {
+    const roomMessages = messages[String(room.id)] || [];
+    const messageIds = roomMessages.map((message) => String(message.id)).filter(Boolean);
+    if (messageIds.length === 0) {
+      toast.info('This conversation is already clear.');
+      return;
+    }
+    const confirmed = window.confirm('Clear all visible messages in this conversation for you? This does not delete them for other participants.');
+    if (!confirmed) return;
+    try {
+      await deleteMessagesForMe(String(room.id), messageIds);
+      toast.success('Conversation cleared for you');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to clear conversation');
+    }
+  };
+
+  useEffect(() => {
+    if (!initialChatReady || deepLinkedRoomHandledRef.current || typeof window === 'undefined') return;
+    const requestedRoomId = new URLSearchParams(window.location.search).get('room');
+    if (!requestedRoomId) {
+      deepLinkedRoomHandledRef.current = true;
+      return;
+    }
+    const requestedRoom = rooms.find((room) => String(room.id) === requestedRoomId);
+    if (!requestedRoom) return;
+    deepLinkedRoomHandledRef.current = true;
+    void handleSelectRoom(requestedRoom);
+  }, [initialChatReady, rooms]);
+
   useEffect(() => {
     if (!initialChatReady || activeRoom || orderedRoomsForDefaultSelection.length === 0) return;
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('room')) return;
     if (typeof window !== "undefined" && window.innerWidth < 1024) return;
     const firstRoom = orderedRoomsForDefaultSelection[0];
     if (!firstRoom) return;
@@ -1100,7 +1252,9 @@ const ChatShell: React.FC = () => {
     <TypingIndicator names={roomTypingNames} />
   ) : null;
   const hasUploadedPendingAttachments = pendingAttachments.some((item) => item.status === "uploaded");
-  const canSendMessage = !isAnySelectionModeActive && (composer.trim().length > 0 || hasUploadedPendingAttachments) && !isUploadingAttachments;
+  const canSendMessage = editingMessage
+    ? !isAnySelectionModeActive && !isSavingEdit && composer.trim().length > 0 && composer.trim() !== editingMessage.originalContent.trim()
+    : !isAnySelectionModeActive && (composer.trim().length > 0 || hasUploadedPendingAttachments) && !isUploadingAttachments;
 
   useEffect(() => {
     setShowAttachmentMenu(false);
@@ -1633,6 +1787,14 @@ const ChatShell: React.FC = () => {
                 activeRoomId={activeRoom?.id}
                 onSelect={handleSelectRoom}
                 onTogglePin={togglePin}
+                onToggleArchive={toggleArchive}
+                onToggleMute={toggleMute}
+                onMarkUnread={markRoomUnread}
+                onMarkRead={markRoomRead}
+                onOpenInNewWindow={openConversationInNewWindow}
+                onShowInfo={showConversationInfo}
+                onExportChat={exportConversation}
+                onClearChat={clearConversation}
                 currentUserId={currentUserId}
                 onlineUsers={onlineUsers}
                 onNewChat={() => {
@@ -1881,7 +2043,7 @@ const ChatShell: React.FC = () => {
                             showAuthor={shouldShowAuthor}
                             showAvatar={shouldShowGroupAvatar}
                             presenceDeliveredHint={presenceDeliveredHint}
-                            onEditMessage={(messageId, content) => editMessage(activeRoom.id, messageId, content)}
+                            onRequestEditMessage={beginEditingMessage}
                             onReplyMessage={(targetMessage) => {
                               setReplyingToMessageId(String(targetMessage.id));
                               window.requestAnimationFrame(() => {
@@ -2033,6 +2195,22 @@ const ChatShell: React.FC = () => {
                   )}
                 {activeRoom ? (
                   <div className="space-y-2">
+                    {editingMessage ? (
+                      <div className="flex items-center justify-between gap-3 rounded-xl border border-[#6E1D1B]/25 bg-[#fff7f4] px-3 py-2 shadow-sm">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#6E1D1B]/10 text-[#6E1D1B]">
+                            <Pencil className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-[#6E1D1B]">Editing message</p>
+                            <p className="truncate text-xs text-almost-black-green/65">Your previous draft will return after saving or cancelling.</p>
+                          </div>
+                        </div>
+                        <button type="button" onClick={cancelEditingMessage} className="rounded-lg border border-[#6E1D1B]/20 bg-white p-1.5 text-[#6E1D1B] hover:bg-[#6E1D1B]/5" aria-label="Cancel message edit">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : null}
                     {replyingToMessage ? (
                       <div className="flex items-start justify-between gap-3 rounded-xl border border-[#d7d7d7] bg-[#f7f7f7] px-3 py-2">
                         <div className="min-w-0">
@@ -2052,7 +2230,7 @@ const ChatShell: React.FC = () => {
                       </div>
                     ) : null}
                   <div className="mx-auto w-full max-w-4xl relative flex items-end gap-3">
-                    {emojiSuggestions.length > 0 && (
+                    {!editingMessage && emojiSuggestions.length > 0 && (
                       <div className="absolute -top-20 left-4 z-30 max-w-[calc(100%-2rem)] rounded-2xl border border-[#d7d7d7] bg-white p-1.5 shadow-[0_14px_30px_rgba(17,27,33,0.2)]">
                         <div className="flex items-center gap-1 overflow-x-auto">
                           {emojiSuggestions.map((item, index) => (
@@ -2096,7 +2274,7 @@ const ChatShell: React.FC = () => {
                         ref={attachmentButtonRef}
                         type="button"
                         onClick={toggleAttachmentMenu}
-                        disabled={isUploadingAttachments}
+                        disabled={isUploadingAttachments || Boolean(editingMessage)}
                         className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[#6b6b6b] transition hover:bg-[#f4f3f3] focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
                         aria-label="Open attachment options"
                       >
@@ -2109,12 +2287,18 @@ const ChatShell: React.FC = () => {
                         onChange={(event) => {
                           const nextValue = event.target.value;
                           setComposer((current) => (current === nextValue ? current : nextValue));
-                          sendTyping(activeRoom.id, true);
+                          if (!editingMessage) sendTyping(activeRoom.id, true);
                         }}
-                        onFocus={() => sendTyping(activeRoom.id, true)}
+                        onFocus={() => { if (!editingMessage) sendTyping(activeRoom.id, true); }}
                         onBlur={() => sendTyping(activeRoom.id, false)}
                         onKeyDown={(event) => {
-                          if (emojiSuggestions.length > 0 && event.key === "ArrowLeft") {
+                          if (editingMessage && event.key === "Escape") {
+                            event.preventDefault();
+                            cancelEditingMessage();
+                            return;
+                          }
+
+                          if (!editingMessage && emojiSuggestions.length > 0 && event.key === "ArrowLeft") {
                             event.preventDefault();
                             setActiveEmojiIndex((prev) =>
                               prev === 0 ? emojiSuggestions.length - 1 : prev - 1,
@@ -2122,7 +2306,7 @@ const ChatShell: React.FC = () => {
                             return;
                           }
 
-                          if (emojiSuggestions.length > 0 && event.key === "ArrowRight") {
+                          if (!editingMessage && emojiSuggestions.length > 0 && event.key === "ArrowRight") {
                             event.preventDefault();
                             setActiveEmojiIndex((prev) =>
                               prev === emojiSuggestions.length - 1 ? 0 : prev + 1,
@@ -2132,7 +2316,7 @@ const ChatShell: React.FC = () => {
 
                           if (event.key === "Enter" && !event.shiftKey) {
                             event.preventDefault();
-                            if (emojiSuggestions.length > 0) {
+                            if (!editingMessage && emojiSuggestions.length > 0) {
                               const activeEmoji =
                                 emojiSuggestions[
                                   Math.min(activeEmojiIndex, emojiSuggestions.length - 1)
@@ -2145,7 +2329,7 @@ const ChatShell: React.FC = () => {
                             handleSend();
                           }
                         }}
-                        placeholder={isAnySelectionModeActive ? "Selection mode active" : "Type your message..."}
+                        placeholder={isAnySelectionModeActive ? "Selection mode active" : editingMessage ? "Edit your message..." : "Type your message..."}
                         rows={1}
                         style={{ border: "none", boxShadow: "none" }}
                         className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent py-3 text-sm text-[#202c33] placeholder:text-[#7a7f84] no-focus"
@@ -2153,7 +2337,9 @@ const ChatShell: React.FC = () => {
                       <button
                         ref={emojiButtonRef}
                         type="button"
+                        disabled={Boolean(editingMessage)}
                         onClick={() => {
+                          if (editingMessage) return;
                           if (showEmojiModal) {
                             closeEmojiModal({ restoreFocus: true, preferButton: true });
                             return;
@@ -2175,13 +2361,13 @@ const ChatShell: React.FC = () => {
                           ? "bg-text-deep-red text-white hover:bg-deep-red/90 background-deep-red"
                           : "cursor-not-allowed bg-[#d7d7d7] text-[#8f8f8f]"
                       }`}
-                      aria-label="Send message"
+                      aria-label={editingMessage ? "Save message edit" : "Send message"}
                     >
-                      <Send className="h-5 w-5" />
+                      {isSavingEdit ? <Loader2 className="h-5 w-5 animate-spin" /> : editingMessage ? <Check className="h-5 w-5" /> : <Send className="h-5 w-5" />}
                     </button>
                   </div>
                   <p className="pt-1 text-center text-[10px] italic text-slate-400">
-                    Press <b>Enter</b> to send, <b>Shift+Enter</b> for a new line.
+                    {editingMessage ? <>Press <b>Enter</b> to save, <b>Escape</b> to cancel.</> : <>Press <b>Enter</b> to send, <b>Shift+Enter</b> for a new line.</>}
                   </p>
                   </div>
                 ) : (
