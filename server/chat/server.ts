@@ -1459,7 +1459,17 @@ if (isDev) {
   }
 }
 
-const nextApp = next({ dev: isDev, hostname: '0.0.0.0', port: PORT, turbopack: isDev });
+// Next and the chat socket must share the same HTTP server. Passing the
+// server into Next lets it register its development WebSocket upgrade
+// handler instead of leaving /_next/* HMR connections unhandled.
+const server = http.createServer();
+const nextApp = next({
+  dev: isDev,
+  hostname: '0.0.0.0',
+  port: PORT,
+  httpServer: server,
+  ...(isDev ? { webpack: true, turbopack: false } : {}),
+});
 const nextHandler = nextApp.getRequestHandler();
 
 app.all('/api/chat/attachments/upload', (req: Request, res: Response) => {
@@ -1468,16 +1478,16 @@ app.all('/api/chat/attachments/upload', (req: Request, res: Response) => {
 
 const CHAT_WS_PATH = '/chat-ws'; // Keep in sync with app/messages/context/ChatContext.tsx
 
-const server = http.createServer((req, res) => {
+server.on('request', (req, res) => {
   const url = req.url || '';
   if (url.startsWith('/api/')) {
     app(req, res);
     return;
   }
-  nextHandler(req, res);
+  void nextHandler(req, res);
 });
 
-const wss = new WebSocketServer({ server, path: CHAT_WS_PATH });
+const wss = new WebSocketServer({ noServer: true });
 
 wss.on('connection', (socket, req) => {
   logServerDebug('socket:connection_opened', {
@@ -1627,6 +1637,21 @@ wss.on('connection', (socket, req) => {
 
 const start = async () => {
   await nextApp.prepare();
+  const nextUpgradeHandler = nextApp.getUpgradeHandler();
+
+  server.on('upgrade', (request, socket, head) => {
+    const pathname = new URL(request.url || '/', 'http://localhost').pathname;
+
+    if (pathname === CHAT_WS_PATH) {
+      wss.handleUpgrade(request, socket, head, (webSocket) => {
+        wss.emit('connection', webSocket, request);
+      });
+      return;
+    }
+
+    void nextUpgradeHandler(request, socket, head);
+  });
+
   server.listen(PORT, () => {
     console.warn(`Unified Next + chat server listening on http://localhost:${PORT}`);
   });
