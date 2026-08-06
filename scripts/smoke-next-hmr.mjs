@@ -175,6 +175,20 @@ try {
   const loginHtml = await waitForLogin();
   await verifyGeneratedClientChunks(loginHtml, '/login');
 
+  const unauthenticatedProfileResponse = await fetch(`${origin}/api/auth/profile`, {
+    method: 'GET',
+    cache: 'no-store',
+  });
+  if (unauthenticatedProfileResponse.status !== 401) {
+    const body = await unauthenticatedProfileResponse.text();
+    throw new Error(`/api/auth/profile should return JSON 401 without a bearer token, received ${unauthenticatedProfileResponse.status}: ${body}`);
+  }
+  const unauthenticatedProfilePayload = await unauthenticatedProfileResponse.json();
+  if (unauthenticatedProfilePayload?.error !== 'Unauthorized') {
+    throw new Error('/api/auth/profile did not return the expected JSON authentication error.');
+  }
+  console.log('Authenticated profile endpoint routing smoke test passed.');
+
   const homeResponse = await fetch(`${origin}/home`, { redirect: 'manual', cache: 'no-store' });
   if (homeResponse.status !== 200) {
     throw new Error(`Unexpected /home status ${homeResponse.status}`);

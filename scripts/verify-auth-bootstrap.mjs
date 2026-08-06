@@ -83,3 +83,12 @@ if (!packageSource.includes('node scripts/start-stable-preview.mjs') || !package
 if (!stablePreviewSource.includes("['run', 'build']") || !stablePreviewSource.includes("['run', 'start']") || !stablePreviewSource.includes('Starting without HMR or Fast Refresh')) {
   throw new Error('Stable preview does not build first and start with HMR disabled.');
 }
+
+
+if (!serverSource.includes("app.get('/api/auth/profile'") || !serverSource.includes(".from('app_users')") || !serverSource.includes(".eq('id', req.userId!)")) {
+  throw new Error('Authenticated profile endpoint is missing or is not scoped to the verified user ID.');
+}
+
+if (!smokeSource.includes('Authenticated profile endpoint routing smoke test passed.') || !smokeSource.includes('unauthenticatedProfileResponse.status !== 401')) {
+  throw new Error('CI does not verify that /api/auth/profile is registered before the Next fallback.');
+}
