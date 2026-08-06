@@ -102,6 +102,7 @@ const SiteFooter: React.FC = () => {
                 <a
                   href="https://www.linkedin.com/company/vofmun"
                   target="_blank"
+                  rel="noopener noreferrer"
                   className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm"
                 >
                   LinkedIn
@@ -111,6 +112,7 @@ const SiteFooter: React.FC = () => {
                 <a
                   href="https://www.instagram.com/vofmun"
                   target="_blank"
+                  rel="noopener noreferrer"
                   className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm"
                 >
                   Instagram
