@@ -1,4 +1,6 @@
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 import WebSocket from 'ws';
 import vm from 'node:vm';
 
@@ -6,6 +8,12 @@ const port = 5099;
 const origin = `http://127.0.0.1:${port}`;
 const logs = [];
 let finalExitCode = 0;
+
+// Reproduce the exact Replit failure before startup. The clean development
+// wrapper must delete this malformed stale chunk before Next begins compiling.
+const staleLayoutPath = path.join(process.cwd(), '.next', 'static', 'chunks', 'app', 'layout.js');
+fs.mkdirSync(path.dirname(staleLayoutPath), { recursive: true });
+fs.writeFileSync(staleLayoutPath, 'const staleLayoutChunk = @;\n', 'utf8');
 
 const child = spawn(process.execPath, ['scripts/start-clean-dev.mjs'], {
   detached: true,
