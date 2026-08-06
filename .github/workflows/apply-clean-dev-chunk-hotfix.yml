@@ -1,0 +1,147 @@
+name: Apply clean dev chunk hotfix
+
+on:
+  push:
+    branches:
+      - hotfix/eliminate-corrupt-dev-layout-chunks
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/eliminate-corrupt-dev-layout-chunks
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply deterministic development startup fixes
+        shell: bash
+        run: |
+          python <<'PY'
+          import json
+          from pathlib import Path
+
+          package_path = Path('package.json')
+          package = json.loads(package_path.read_text())
+          package['scripts']['dev'] = 'node scripts/start-clean-dev.mjs'
+          package['scripts']['dev:hot'] = 'concurrently -s last -n "APP,WARM" -c "cyan,magenta" "node scripts/start-clean-dev.mjs" "node scripts/warmup-dev.mjs"'
+          package_path.write_text(json.dumps(package, indent=2) + '\n')
+
+          warmup_path = Path('scripts/warmup-dev.mjs')
+          warmup = warmup_path.read_text()
+          warmup = warmup.replace(
+              'const MAX_CONCURRENCY = Number(process.env.WARMUP_CONCURRENCY || 6);',
+              'const MAX_CONCURRENCY = Number(process.env.WARMUP_CONCURRENCY || 2);'
+          )
+          warmup = warmup.replace(
+              'const res = await fetch(url, { method, headers });\n      return { url, status: res.status, ok: res.ok, method };',
+              'const res = await fetch(url, { method, headers, redirect: "manual", cache: "no-store" });\n      const accepted = res.ok || (res.status >= 300 && res.status < 400);\n      return { url, status: res.status, ok: accepted, method };'
+          )
+          if 'redirect: "manual"' not in warmup:
+              raise SystemExit('Warm-up redirect patch failed')
+          warmup_path.write_text(warmup)
+
+          smoke_path = Path('scripts/smoke-next-hmr.mjs')
+          smoke = smoke_path.read_text()
+          smoke = smoke.replace(
+              "import WebSocket from 'ws';",
+              "import WebSocket from 'ws';\nimport vm from 'node:vm';"
+          )
+          smoke = smoke.replace(
+              "const child = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'server/chat/server.ts'], {",
+              "const child = spawn(process.execPath, ['scripts/start-clean-dev.mjs'], {"
+          )
+          smoke = smoke.replace(
+              "if (response.status === 200) return;",
+              "if (response.status === 200) return response.text();"
+          )
+          insertion_marker = "function expectWebSocketOpen(pathname, timeoutMs = 15_000) {"
+          verifier = r'''async function verifyGeneratedClientChunks(html) {
+            const scriptSources = Array.from(
+              html.matchAll(/<script[^>]+src=["']([^"']+\.js(?:\?[^"']*)?)["']/g),
+              (match) => match[1],
+            );
+            const chunkSources = Array.from(new Set(
+              scriptSources.filter((source) => source.startsWith('/_next/static/chunks/')),
+            ));
+
+            if (chunkSources.length === 0) {
+              throw new Error('The login response did not reference any Next client chunks.');
+            }
+
+            let sawLayoutChunk = false;
+            for (const sourcePath of chunkSources) {
+              const chunkUrl = new URL(sourcePath, origin);
+              const response = await fetch(chunkUrl, { cache: 'no-store' });
+              if (!response.ok) {
+                throw new Error(`${sourcePath} returned HTTP ${response.status}`);
+              }
+
+              const source = await response.text();
+              try {
+                new vm.Script(source, { filename: chunkUrl.pathname });
+              } catch (error) {
+                const lines = source.split('\n');
+                const lineNumber = Number(error?.stack?.match(/:(\d+):(\d+)/)?.[1] || 0);
+                const contextStart = Math.max(0, lineNumber - 3);
+                const contextEnd = Math.min(lines.length, lineNumber + 2);
+                console.error(lines.slice(contextStart, contextEnd).join('\n'));
+                throw new Error(`Generated client chunk is not valid JavaScript: ${sourcePath}\n${error}`);
+              }
+
+              if (chunkUrl.pathname.endsWith('/app/layout.js')) {
+                sawLayoutChunk = true;
+              }
+            }
+
+            if (!sawLayoutChunk) {
+              const layoutPath = '/_next/static/chunks/app/layout.js';
+              const response = await fetch(new URL(layoutPath, origin), { cache: 'no-store' });
+              if (!response.ok) {
+                throw new Error(`${layoutPath} returned HTTP ${response.status}`);
+              }
+              const source = await response.text();
+              new vm.Script(source, { filename: layoutPath });
+            }
+
+            console.log(`Validated ${chunkSources.length} generated Next client chunk(s), including app/layout.js.`);
+          }
+
+          '''
+          if insertion_marker not in smoke:
+              raise SystemExit('Smoke insertion marker not found')
+          smoke = smoke.replace(insertion_marker, verifier + insertion_marker, 1)
+          smoke = smoke.replace(
+              "await waitForLogin();\n  // Next 16.3 uses",
+              "const loginHtml = await waitForLogin();\n  await verifyGeneratedClientChunks(loginHtml);\n  // Next 16.3 uses"
+          )
+          if "new vm.Script" not in smoke or "scripts/start-clean-dev.mjs" not in smoke:
+              raise SystemExit('Generated chunk verification patch failed')
+          smoke_path.write_text(smoke)
+
+          check_path = Path('scripts/verify-auth-bootstrap.mjs')
+          check = check_path.read_text()
+          check = check.replace(
+              "const typewriterSource = fs.readFileSync('components/ui/typewriter.tsx', 'utf8');",
+              "const typewriterSource = fs.readFileSync('components/ui/typewriter.tsx', 'utf8');\nconst packageSource = fs.readFileSync('package.json', 'utf8');\nconst warmupSource = fs.readFileSync('scripts/warmup-dev.mjs', 'utf8');\nconst smokeSource = fs.readFileSync('scripts/smoke-next-hmr.mjs', 'utf8');"
+          )
+          check += '''\n\nif (!packageSource.includes('node scripts/start-clean-dev.mjs')) {\n  throw new Error('Development startup does not clear stale generated Next chunks.');\n}\n\nif (!warmupSource.includes('redirect: "manual"') || !warmupSource.includes('WARMUP_CONCURRENCY || 2')) {\n  throw new Error('Development warm-up can still flood /login through followed redirects.');\n}\n\nif (!smokeSource.includes('new vm.Script') || !smokeSource.includes('/app/layout.js')) {\n  throw new Error('CI does not syntax-check the generated layout client chunk.');\n}\n'''
+          check_path.write_text(check)
+          PY
+
+      - name: Commit source hotfix
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add package.json scripts/start-clean-dev.mjs scripts/warmup-dev.mjs scripts/smoke-next-hmr.mjs scripts/verify-auth-bootstrap.mjs
+          git commit -m "Eliminate stale and malformed development chunks" || exit 0
+          git push origin HEAD:hotfix/eliminate-corrupt-dev-layout-chunks
