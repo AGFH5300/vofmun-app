@@ -1,0 +1,229 @@
+name: Apply client hydration and HMR hotfix
+
+on:
+  push:
+    branches:
+      - hotfix/restore-client-hydration-and-hmr
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/restore-client-hydration-and-hmr
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply shared server and typewriter fixes
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          server_path = Path('server/chat/server.ts')
+          server = server_path.read_text()
+          old = '''const nextApp = next({ dev: isDev, hostname: '0.0.0.0', port: PORT, turbopack: isDev });
+          const nextHandler = nextApp.getRequestHandler();
+
+          app.all('/api/chat/attachments/upload', (req: Request, res: Response) => {
+            nextHandler(req, res);
+          });
+
+          const CHAT_WS_PATH = '/chat-ws'; // Keep in sync with app/messages/context/ChatContext.tsx
+
+          const server = http.createServer((req, res) => {
+            const url = req.url || '';
+            if (url.startsWith('/api/')) {
+              app(req, res);
+              return;
+            }
+            nextHandler(req, res);
+          });
+
+          const wss = new WebSocketServer({ server, path: CHAT_WS_PATH });'''
+          new = '''// Next and the chat socket must share the same HTTP server. Passing the
+          // server into Next lets it register its development WebSocket upgrade
+          // handler instead of leaving /_next/* HMR connections unhandled.
+          const server = http.createServer();
+          const nextApp = next({
+            dev: isDev,
+            hostname: '0.0.0.0',
+            port: PORT,
+            httpServer: server,
+            ...(isDev ? { webpack: true, turbopack: false } : {}),
+          });
+          const nextHandler = nextApp.getRequestHandler();
+
+          app.all('/api/chat/attachments/upload', (req: Request, res: Response) => {
+            nextHandler(req, res);
+          });
+
+          const CHAT_WS_PATH = '/chat-ws'; // Keep in sync with app/messages/context/ChatContext.tsx
+
+          server.on('request', (req, res) => {
+            const url = req.url || '';
+            if (url.startsWith('/api/')) {
+              app(req, res);
+              return;
+            }
+            void nextHandler(req, res);
+          });
+
+          const wss = new WebSocketServer({ server, path: CHAT_WS_PATH });'''
+          if old not in server:
+              raise SystemExit('Expected unified server block was not found')
+          server_path.write_text(server.replace(old, new))
+
+          typewriter_path = Path('components/ui/typewriter.tsx')
+          typewriter_path.write_text('''// © 2026 Ansh Gupta. All rights reserved.
+          // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
+          "use client";
+
+          import { useCallback, useEffect, useMemo, useState } from "react";
+
+          const FALLBACK_TEXT = "Welcome to VOFMUN ONE";
+
+          export default function TypeWriter() {
+            const [text, setText] = useState(FALLBACK_TEXT);
+            const [blinker, setBlinker] = useState("|");
+            const [count, setCount] = useState(0);
+            const [phase, setPhase] = useState<'typing' | 'pausingAfterTyping' | 'deleting' | 'pausingAfterDeleting'>("typing");
+            const [charIndex, setCharIndex] = useState(0);
+            const [hasMounted, setHasMounted] = useState(false);
+
+            const words = useMemo<string[]>(() => [
+              FALLBACK_TEXT,
+              "Your one stop hub for collaboration",
+              "Your one stop hub for innovation",
+              "Your one stop hub for inspiration",
+              "Your one stop hub for interaction",
+              "Your one stop hub for ideas",
+              "Your one stop hub for all information",
+              "Your one stop hub for news",
+              "Are you still reading this?",
+            ], []);
+
+            const returnIndex = useCallback((index: number) => index % words.length, [words.length]);
+
+            // Keep meaningful text in the server-rendered page, then restart the
+            // animation only after React has attached its client event handlers.
+            useEffect(() => {
+              setText("");
+              setCount(0);
+              setPhase("typing");
+              setCharIndex(0);
+              setHasMounted(true);
+            }, []);
+
+            useEffect(() => {
+              if (!hasMounted || phase === "typing") {
+                setBlinker("|");
+                return;
+              }
+
+              const interval = window.setInterval(() => {
+                setBlinker((previous) => previous === "|" ? "\\u00A0" : "|");
+              }, 400);
+              return () => window.clearInterval(interval);
+            }, [hasMounted, phase]);
+
+            useEffect(() => {
+              if (!hasMounted) return;
+
+              const currentWord = words[count];
+              const nextWord = words[returnIndex(count + 1)];
+              let shared = 0;
+              while (
+                shared < currentWord.length &&
+                shared < nextWord.length &&
+                currentWord[shared] === nextWord[shared]
+              ) {
+                shared += 1;
+              }
+
+              let timeout: number;
+              if (phase === "typing") {
+                if (charIndex < currentWord.length) {
+                  timeout = window.setTimeout(() => {
+                    setText(currentWord.slice(0, charIndex + 1));
+                    setCharIndex((index) => index + 1);
+                  }, 80);
+                } else {
+                  timeout = window.setTimeout(() => setPhase("pausingAfterTyping"), 800);
+                }
+              } else if (phase === "pausingAfterTyping") {
+                timeout = window.setTimeout(() => {
+                  setPhase("deleting");
+                  setCharIndex(currentWord.length);
+                }, 100);
+              } else if (phase === "deleting") {
+                if (charIndex > shared) {
+                  timeout = window.setTimeout(() => {
+                    setText(currentWord.slice(0, charIndex - 1));
+                    setCharIndex((index) => index - 1);
+                  }, 60);
+                } else {
+                  timeout = window.setTimeout(() => setPhase("pausingAfterDeleting"), 600);
+                }
+              } else {
+                timeout = window.setTimeout(() => {
+                  setCount(returnIndex(count + 1));
+                  setPhase("typing");
+                  setCharIndex(shared);
+                  setText(nextWord.slice(0, shared));
+                }, 100);
+              }
+
+              return () => window.clearTimeout(timeout);
+            }, [charIndex, count, hasMounted, phase, returnIndex, words]);
+
+            return (
+              <div className="flex min-h-[3.5rem] items-center justify-center" aria-live="polite">
+                <h1 className="text-center text-4xl font-heading font-black leading-tight text-deep-red" style={{ color: "#701e1e" }}>
+                  {text}
+                  <span className="ml-1 inline-block w-[0.5ch] align-middle text-deep-red" aria-hidden="true">{blinker}</span>
+                </h1>
+              </div>
+            );
+          }
+          '''.replace('          ', ''))
+
+          check_path = Path('scripts/verify-auth-bootstrap.mjs')
+          check = check_path.read_text()
+          check = check.replace(
+              "const sessionSource = fs.readFileSync('app/context/sessionContext.tsx', 'utf8');",
+              "const sessionSource = fs.readFileSync('app/context/sessionContext.tsx', 'utf8');\nconst serverSource = fs.readFileSync('server/chat/server.ts', 'utf8');\nconst typewriterSource = fs.readFileSync('components/ui/typewriter.tsx', 'utf8');"
+          )
+          check += '''
+
+          if (!serverSource.includes('httpServer: server')) {
+            throw new Error('Next is not attached to the shared HTTP server, so development WebSocket upgrades can fail.');
+          }
+
+          if (!serverSource.includes('webpack: true') || !serverSource.includes('turbopack: false')) {
+            throw new Error('Replit development mode is not pinned to the stable webpack HMR path.');
+          }
+
+          if (!typewriterSource.includes('useState(FALLBACK_TEXT)') || !typewriterSource.includes('setHasMounted(true)')) {
+            throw new Error('Typewriter does not provide SSR fallback text followed by client animation.');
+          }
+          '''.replace('          ', '')
+          check_path.write_text(check)
+          PY
+
+      - name: Commit hotfix
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add server/chat/server.ts components/ui/typewriter.tsx scripts/verify-auth-bootstrap.mjs
+          git commit -m "Restore client hydration and Next HMR upgrades" || exit 0
+          git push origin HEAD:hotfix/restore-client-hydration-and-hmr
