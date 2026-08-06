@@ -7,8 +7,11 @@ const sessionSource = fs.readFileSync('app/context/sessionContext.tsx', 'utf8');
 const serverSource = fs.readFileSync('server/chat/server.ts', 'utf8');
 const typewriterSource = fs.readFileSync('components/ui/typewriter.tsx', 'utf8');
 const packageSource = fs.readFileSync('package.json', 'utf8');
+const stablePreviewSource = fs.readFileSync('scripts/start-stable-preview.mjs', 'utf8');
 const warmupSource = fs.readFileSync('scripts/warmup-dev.mjs', 'utf8');
 const smokeSource = fs.readFileSync('scripts/smoke-next-hmr.mjs', 'utf8');
+const providersSource = fs.readFileSync('app/providers.tsx', 'utf8');
+const appWrapperSource = fs.readFileSync('components/AppWrapper.tsx', 'utf8');
 
 if (/initial=\{\{[^{}]*opacity:\s*0/.test(loginSource)) {
   throw new Error('Login page still server-renders hidden motion content.');
@@ -34,8 +37,8 @@ if (!serverSource.includes('webpack: true') || !serverSource.includes('turbopack
   throw new Error('Replit development mode is not pinned to the stable webpack HMR path.');
 }
 
-if (!typewriterSource.includes('useState(FALLBACK_TEXT)') || !typewriterSource.includes('setHasMounted(true)')) {
-  throw new Error('Typewriter does not provide SSR fallback text followed by client animation.');
+if (!typewriterSource.includes('useState(FALLBACK_TEXT)') || !typewriterSource.includes('cancelled = true') || typewriterSource.includes('setHasMounted(true)')) {
+  throw new Error('Typewriter is not using the single cancellable timer implementation.');
 }
 
 if (!loginSource.includes('disabled={!isClientReady || loading}') || !loginSource.includes('Preparing secure login...')) {
@@ -55,4 +58,28 @@ if (!warmupSource.includes('redirect: "manual"') || !warmupSource.includes('WARM
 
 if (!smokeSource.includes('new vm.Script') || !smokeSource.includes('/app/layout.js')) {
   throw new Error('CI does not syntax-check the generated layout client chunk.');
+}
+
+if (!providersSource.includes("pathname === '/login'") || !providersSource.includes("dynamic(() => import('./authenticated-shell')") || providersSource.includes("from '@/app/context/sessionContext'")) {
+  throw new Error('Public auth routes still pull the authenticated application shell into app/layout.js.');
+}
+
+if (!appWrapperSource.includes("dynamic(() => import('@/components/ui/customnav')") || !appWrapperSource.includes("dynamic(() => import('@/components/ui/site-footer')")) {
+  throw new Error('Authenticated navigation and footer are not split into lazy chunks.');
+}
+
+if (loginSource.includes('useSession') || loginSource.includes('useRouter') || !loginSource.includes('window.location.replace(routeByRole(appUser.role))')) {
+  throw new Error('Login still depends on the global session shell or client-router race.');
+}
+
+if (!smokeSource.includes("'app/context/sessionContext.tsx'") || !smokeSource.includes("'node_modules/@supabase/auth-js/'") || !smokeSource.includes('new vm.Script')) {
+  throw new Error('CI does not parse generated chunks or prevent authenticated modules leaking into app/layout.js.');
+}
+
+if (!packageSource.includes('node scripts/start-stable-preview.mjs') || !packageSource.includes('dev:webpack')) {
+  throw new Error('The Replit command is not separated from the optional webpack development command.');
+}
+
+if (!stablePreviewSource.includes("['run', 'build']") || !stablePreviewSource.includes("['run', 'start']") || !stablePreviewSource.includes('Starting without HMR or Fast Refresh')) {
+  throw new Error('Stable preview does not build first and start with HMR disabled.');
 }
