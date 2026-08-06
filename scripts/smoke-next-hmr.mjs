@@ -4,8 +4,10 @@ import WebSocket from 'ws';
 const port = 5099;
 const origin = `http://127.0.0.1:${port}`;
 const logs = [];
+let finalExitCode = 0;
 
-const child = spawn('npx', ['tsx', 'server/chat/server.ts'], {
+const child = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'server/chat/server.ts'], {
+  detached: true,
   env: {
     ...process.env,
     NODE_ENV: 'development',
@@ -74,20 +76,43 @@ function expectWebSocketOpen(pathname, timeoutMs = 15_000) {
   });
 }
 
+function stopServer(signal) {
+  if (!child.pid) return;
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    try {
+      child.kill(signal);
+    } catch {
+      // The process may already have exited.
+    }
+  }
+}
+
+const hardTimeout = setTimeout(() => {
+  console.error('Unified server WebSocket smoke test exceeded 120 seconds.');
+  stopServer('SIGKILL');
+  process.exit(1);
+}, 120_000);
+hardTimeout.unref();
+
 try {
   await waitForLogin();
   await expectWebSocketOpen('/_next/webpack-hmr');
   await expectWebSocketOpen('/chat-ws');
   console.log('Unified server WebSocket smoke test passed.');
 } catch (error) {
+  finalExitCode = 1;
   console.error('Unified server WebSocket smoke test failed.');
   console.error(error);
   console.error(logs.join(''));
-  process.exitCode = 1;
 } finally {
-  child.kill('SIGTERM');
+  clearTimeout(hardTimeout);
+  stopServer('SIGTERM');
   await Promise.race([
     new Promise((resolve) => child.once('exit', resolve)),
-    sleep(5_000).then(() => child.kill('SIGKILL')),
+    sleep(5_000),
   ]);
+  stopServer('SIGKILL');
+  process.exit(finalExitCode);
 }
