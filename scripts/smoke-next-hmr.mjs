@@ -92,9 +92,19 @@ async function verifyGeneratedClientChunks(html, routeLabel) {
     if (isAppChunk && sourceBytes > MAX_SAFE_APP_CHUNK_BYTES) {
       throw new Error(`${routeLabel}: ${sourcePath} is ${sourceBytes} bytes; app chunks must remain below ${MAX_SAFE_APP_CHUNK_BYTES}.`);
     }
-    if (isAppChunk && (source.includes('eval-source-map') || source.includes('eval(__webpack_require__.ts('))) {
-      throw new Error(`${routeLabel}: ${sourcePath} still embeds eval source maps and can exceed Replit's response limit.`);
+    if (chunkUrl.pathname.endsWith('/app/layout.js')) {
+      const forbiddenRootModules = [
+        'app/context/sessionContext.tsx',
+        'components/ui/customnav.tsx',
+        'node_modules/@supabase/auth-js/',
+      ];
+      const leakedModule = forbiddenRootModules.find((moduleName) => source.includes(moduleName));
+      if (leakedModule) {
+        throw new Error(`${routeLabel}: app/layout.js still contains ${leakedModule} instead of lazy-loading the authenticated shell.`);
+      }
     }
+
+    console.log(`[chunk] ${routeLabel} ${sourcePath} ${sourceBytes} bytes`);
 
     try {
       new vm.Script(source, { filename: chunkUrl.pathname });

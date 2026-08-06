@@ -11,7 +11,6 @@ const warmupSource = fs.readFileSync('scripts/warmup-dev.mjs', 'utf8');
 const smokeSource = fs.readFileSync('scripts/smoke-next-hmr.mjs', 'utf8');
 const providersSource = fs.readFileSync('app/providers.tsx', 'utf8');
 const appWrapperSource = fs.readFileSync('components/AppWrapper.tsx', 'utf8');
-const nextConfigSource = fs.readFileSync('next.config.ts', 'utf8');
 
 if (/initial=\{\{[^{}]*opacity:\s*0/.test(loginSource)) {
   throw new Error('Login page still server-renders hidden motion content.');
@@ -60,11 +59,6 @@ if (!smokeSource.includes('new vm.Script') || !smokeSource.includes('/app/layout
   throw new Error('CI does not syntax-check the generated layout client chunk.');
 }
 
-
-if (!nextConfigSource.includes('config.devtool = false')) {
-  throw new Error('Development webpack still emits oversized eval-source-map client chunks.');
-}
-
 if (!providersSource.includes("pathname === '/login'") || !providersSource.includes("dynamic(() => import('./authenticated-shell')") || providersSource.includes("from '@/app/context/sessionContext'")) {
   throw new Error('Public auth routes still pull the authenticated application shell into app/layout.js.');
 }
@@ -77,6 +71,6 @@ if (loginSource.includes('useSession') || loginSource.includes('useRouter') || !
   throw new Error('Login still depends on the global session shell or client-router race.');
 }
 
-if (!smokeSource.includes('REPLIT_TRUNCATION_BYTES = 960 * 1024') || !smokeSource.includes('MAX_SAFE_APP_CHUNK_BYTES') || !smokeSource.includes("source.includes('eval-source-map')")) {
-  throw new Error('CI does not guard against Replit truncation or oversized eval app chunks.');
+if (!smokeSource.includes('REPLIT_TRUNCATION_BYTES = 960 * 1024') || !smokeSource.includes('MAX_SAFE_APP_CHUNK_BYTES') || !smokeSource.includes("'app/context/sessionContext.tsx'") || !smokeSource.includes("'node_modules/@supabase/auth-js/'")) {
+  throw new Error('CI does not guard against Replit truncation or authenticated modules leaking into app/layout.js.');
 }
