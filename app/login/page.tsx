@@ -4,12 +4,9 @@
 
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useRouter } from "next/navigation";
-import { useSession } from "../context/sessionContext";
 import TypeWriter from "@/components/ui/typewriter";
 import supabase from "@/lib/supabase";
 import { getAppUserForSession } from "@/lib/auth/getCurrentAppUser";
-import { mapAppUserToSessionUser } from "@/lib/auth/mapAppUserToSessionUser";
 import { useMobile } from "@/hooks/use-mobile";
 import { Eye, EyeOff, Loader2, Rocket } from "lucide-react";
 
@@ -23,8 +20,6 @@ const Login = () => {
   const [showForgotPanel, setShowForgotPanel] = React.useState(false);
   const [forgotLoading, setForgotLoading] = React.useState(false);
   const [forgotMessage, setForgotMessage] = React.useState("");
-  const router = useRouter();
-  const { login } = useSession();
   const isMobile = useMobile();
   const brandDarkRed = "#701e1e";
 
@@ -89,8 +84,9 @@ const Login = () => {
         return;
       }
 
-      login(mapAppUserToSessionUser(appUser));
-      router.replace(routeByRole(appUser.role));
+      // Use one deliberate document navigation after Supabase has persisted the
+      // session. The authenticated shell then hydrates from that stored session.
+      window.location.replace(routeByRole(appUser.role));
       return;
     } catch (err) {
       console.error("Login error:", err);

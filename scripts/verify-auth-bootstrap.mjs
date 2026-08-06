@@ -9,6 +9,9 @@ const typewriterSource = fs.readFileSync('components/ui/typewriter.tsx', 'utf8')
 const packageSource = fs.readFileSync('package.json', 'utf8');
 const warmupSource = fs.readFileSync('scripts/warmup-dev.mjs', 'utf8');
 const smokeSource = fs.readFileSync('scripts/smoke-next-hmr.mjs', 'utf8');
+const providersSource = fs.readFileSync('app/providers.tsx', 'utf8');
+const appWrapperSource = fs.readFileSync('components/AppWrapper.tsx', 'utf8');
+const nextConfigSource = fs.readFileSync('next.config.ts', 'utf8');
 
 if (/initial=\{\{[^{}]*opacity:\s*0/.test(loginSource)) {
   throw new Error('Login page still server-renders hidden motion content.');
@@ -34,8 +37,8 @@ if (!serverSource.includes('webpack: true') || !serverSource.includes('turbopack
   throw new Error('Replit development mode is not pinned to the stable webpack HMR path.');
 }
 
-if (!typewriterSource.includes('useState(FALLBACK_TEXT)') || !typewriterSource.includes('setHasMounted(true)')) {
-  throw new Error('Typewriter does not provide SSR fallback text followed by client animation.');
+if (!typewriterSource.includes('useState(FALLBACK_TEXT)') || !typewriterSource.includes('cancelled = true') || typewriterSource.includes('setHasMounted(true)')) {
+  throw new Error('Typewriter is not using the single cancellable timer implementation.');
 }
 
 if (!loginSource.includes('disabled={!isClientReady || loading}') || !loginSource.includes('Preparing secure login...')) {
@@ -55,4 +58,25 @@ if (!warmupSource.includes('redirect: "manual"') || !warmupSource.includes('WARM
 
 if (!smokeSource.includes('new vm.Script') || !smokeSource.includes('/app/layout.js')) {
   throw new Error('CI does not syntax-check the generated layout client chunk.');
+}
+
+
+if (!nextConfigSource.includes('config.devtool = false')) {
+  throw new Error('Development webpack still emits oversized eval-source-map client chunks.');
+}
+
+if (!providersSource.includes("pathname === '/login'") || !providersSource.includes("dynamic(() => import('./authenticated-shell')") || providersSource.includes("from '@/app/context/sessionContext'")) {
+  throw new Error('Public auth routes still pull the authenticated application shell into app/layout.js.');
+}
+
+if (!appWrapperSource.includes("dynamic(() => import('@/components/ui/customnav')") || !appWrapperSource.includes("dynamic(() => import('@/components/ui/site-footer')")) {
+  throw new Error('Authenticated navigation and footer are not split into lazy chunks.');
+}
+
+if (loginSource.includes('useSession') || loginSource.includes('useRouter') || !loginSource.includes('window.location.replace(routeByRole(appUser.role))')) {
+  throw new Error('Login still depends on the global session shell or client-router race.');
+}
+
+if (!smokeSource.includes('REPLIT_TRUNCATION_BYTES = 960 * 1024') || !smokeSource.includes('MAX_SAFE_APP_CHUNK_BYTES') || !smokeSource.includes("source.includes('eval-source-map')")) {
+  throw new Error('CI does not guard against Replit truncation or oversized eval app chunks.');
 }
