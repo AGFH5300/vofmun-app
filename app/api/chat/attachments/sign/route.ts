@@ -13,11 +13,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = (await request.json().catch(() => ({}))) as {
-      attachment_id?: string;
-      download?: boolean;
-    };
-    const attachmentId = String(body.attachment_id || '').trim();
+    const requestUrl = new URL(request.url);
+    const attachmentId = String(requestUrl.searchParams.get('attachment_id') || '').trim();
+    const shouldDownload = ['1', 'true'].includes(
+      String(requestUrl.searchParams.get('download') || '').toLowerCase(),
+    );
     if (!attachmentId) {
       return NextResponse.json({ error: 'Attachment ID is required' }, { status: 400 });
     }
@@ -54,8 +54,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const expiresIn = body.download ? 5 * 60 : 60 * 60;
-    const options = body.download
+    const expiresIn = shouldDownload ? 5 * 60 : 60 * 60;
+    const options = shouldDownload
       ? { download: attachment.original_name || true }
       : undefined;
     const { data: signed, error: signedError } = await supabaseAdmin.storage

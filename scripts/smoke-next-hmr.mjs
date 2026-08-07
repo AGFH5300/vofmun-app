@@ -9,6 +9,17 @@ const origin = `http://127.0.0.1:${port}`;
 const logs = [];
 let finalExitCode = 0;
 
+const attachmentClientSource = fs.readFileSync(
+  path.join(process.cwd(), 'lib', 'chat', 'attachmentClient.ts'),
+  'utf8',
+);
+if (
+  attachmentClientSource.includes("'Content-Type': 'application/json'") ||
+  attachmentClientSource.includes('"Content-Type": "application/json"')
+) {
+  throw new Error('Attachment control requests must remain bodyless so Express cannot consume their streams before Next.');
+}
+
 // Reproduce the exact Replit failure before startup. The clean development
 // wrapper must delete this malformed stale chunk before Next begins compiling.
 const staleLayoutPath = path.join(process.cwd(), '.next', 'static', 'chunks', 'app', 'layout.js');
@@ -192,12 +203,12 @@ try {
   const protectedChatEndpoints = [
     { path: '/api/chat/attachments/upload', init: { method: 'POST' } },
     {
-      path: '/api/chat/attachments/sign',
-      init: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' },
+      path: '/api/chat/attachments/sign?attachment_id=00000000-0000-4000-8000-000000000001&download=0',
+      init: { method: 'POST' },
     },
     {
-      path: '/api/chat/attachments/pending',
-      init: { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: '{}' },
+      path: '/api/chat/attachments/pending?upload_id=00000000-0000-4000-8000-000000000001',
+      init: { method: 'DELETE' },
     },
     {
       path: '/api/rooms/00000000-0000-4000-8000-000000000001/receipts',
