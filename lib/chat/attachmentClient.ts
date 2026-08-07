@@ -53,13 +53,10 @@ export const uploadChatAttachment = async (
 export const deletePendingChatAttachment = async (uploadId: string): Promise<void> => {
   if (!uploadId) return;
   const accessToken = await requireAccessToken('chat-attachment-delete');
-  const response = await fetch('/api/chat/attachments/pending', {
+  const query = new URLSearchParams({ upload_id: uploadId });
+  const response = await fetch(`/api/chat/attachments/pending?${query.toString()}`, {
     method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ upload_id: uploadId }),
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
   const payload = await readJson(response);
   if (!response.ok && response.status !== 404) {
@@ -72,16 +69,13 @@ export const getChatAttachmentSignedUrl = async (
   options?: { download?: boolean },
 ): Promise<string> => {
   const accessToken = await requireAccessToken('chat-attachment-link');
-  const response = await fetch('/api/chat/attachments/sign', {
+  const query = new URLSearchParams({
+    attachment_id: attachmentId,
+    download: options?.download ? '1' : '0',
+  });
+  const response = await fetch(`/api/chat/attachments/sign?${query.toString()}`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      attachment_id: attachmentId,
-      download: Boolean(options?.download),
-    }),
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
   const payload = await readJson(response);
   if (!response.ok || typeof payload.signed_url !== 'string') {
