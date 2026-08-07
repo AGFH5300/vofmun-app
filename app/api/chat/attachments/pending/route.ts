@@ -13,8 +13,8 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = (await request.json().catch(() => ({}))) as { upload_id?: string };
-    const uploadId = String(body.upload_id || '').trim();
+    const requestUrl = new URL(request.url);
+    const uploadId = String(requestUrl.searchParams.get('upload_id') || '').trim();
     if (!uploadId) {
       return NextResponse.json({ error: 'Upload ID is required' }, { status: 400 });
     }
