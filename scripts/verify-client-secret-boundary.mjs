@@ -68,4 +68,4 @@ if (/NEXT_PUBLIC_[A-Z0-9_]*(?:SERVICE_ROLE|SECRET|PRIVATE|ADMIN_KEY)/.test(supab
   throw new Error('A server-only Supabase credential is configured as a public browser variable.');
 }
 
-console.log(`Client secret boundary passed: ${clientChunks.length} browser chunks, ${scannedBytes} bytes scanned.`);
+process.stdout.write(`Client secret boundary passed: ${clientChunks.length} browser chunks, ${scannedBytes} bytes scanned.\n`);
