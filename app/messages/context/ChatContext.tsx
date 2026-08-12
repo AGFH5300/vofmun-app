@@ -363,7 +363,9 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const typingIdleTimeoutRef = useRef<Map<string, number>>(new Map());
   const typingExpiryRef = useRef<Map<string, Map<string, number>>>(new Map());
   const receiptDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingReceiptQueueRef = useRef<{ roomId: string; delivered: Set<string>; read: Set<string> } | null>(null);
+  const receiptRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const receiptRetryAtRef = useRef(0);
+  const pendingReceiptQueueRef = useRef<Map<string, { delivered: Set<string>; read: Set<string> }>>(new Map());
   const postedReceiptKeysRef = useRef<Map<string, string>>(new Map());
   const scheduledReceiptKeysRef = useRef<Map<string, string>>(new Map());
   const receiptFailureBackoffRef = useRef<Map<string, number>>(new Map());
@@ -1058,24 +1060,25 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   }, [fetchAndCacheUsers, fetchWithTimeout, hydrateFriendRequestUsers, userId, withAuthHeaders]);
 
   const markReceipts = useCallback(
-    async (roomId: string, messageIds: string[], markRead = false) => {
-      if (!userId || messageIds.length === 0) return;
+    async (roomId: string, messageIds: string[], markRead = false): Promise<number | null> => {
+      if (!userId || messageIds.length === 0) return null;
 
       const normalizedMessageIds = Array.from(new Set(messageIds.map((id) => String(id)))).sort();
       const receiptKey = getReceiptSignature(roomId, normalizedMessageIds, markRead);
       const dedupeScopeKey = `${roomId}|${markRead ? 'read' : 'delivered'}`;
       const blockedUntil = receiptFailureBackoffRef.current.get(dedupeScopeKey) || 0;
       if (blockedUntil > Date.now()) {
+        const retryDelay = blockedUntil - Date.now();
         logReceiptsDebug('receipt_post:backoff', {
           roomId,
           markRead,
-          retryInMs: blockedUntil - Date.now(),
+          retryInMs: retryDelay,
         });
-        return;
+        return retryDelay;
       }
       if (postedReceiptKeysRef.current.get(dedupeScopeKey) === receiptKey || inFlightReceiptKeysRef.current.has(receiptKey)) {
         logReceiptsDebug('receipt_post:deduped', { roomId, markRead, messageIds: normalizedMessageIds });
-        return;
+        return null;
       }
 
       inFlightReceiptKeysRef.current.add(receiptKey);
@@ -1090,6 +1093,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           .clone()
           .json()
           .catch(() => null);
+        let retryDelay: number | null = null;
 
         if (response.ok) {
           postedReceiptKeysRef.current.set(dedupeScopeKey, receiptKey);
@@ -1099,7 +1103,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           }
         } else {
           const retryAfterSeconds = Number.parseInt(response.headers.get('Retry-After') || '', 10);
-          const retryDelay = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+          retryDelay = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
             ? retryAfterSeconds * 1000
             : RECEIPT_FAILURE_BACKOFF_MS;
           receiptFailureBackoffRef.current.set(dedupeScopeKey, Date.now() + retryDelay);
@@ -1111,6 +1115,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           ok: response.ok,
           body: responseBody,
         });
+        return retryDelay;
       } catch (error) {
         receiptFailureBackoffRef.current.set(dedupeScopeKey, Date.now() + RECEIPT_FAILURE_BACKOFF_MS);
         logReceiptsDebug('receipt_post:error', {
@@ -1118,6 +1123,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           markRead,
           message: error instanceof Error ? error.message : String(error),
         });
+        return RECEIPT_FAILURE_BACKOFF_MS;
       } finally {
         inFlightReceiptKeysRef.current.delete(receiptKey);
       }
@@ -1126,23 +1132,62 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   );
 
   const flushScheduledReceipts = useCallback(async () => {
-    const queued = pendingReceiptQueueRef.current;
-    pendingReceiptQueueRef.current = null;
-    if (!queued) return;
+    const queuedEntries = Array.from(pendingReceiptQueueRef.current.entries());
+    pendingReceiptQueueRef.current = new Map();
+    if (queuedEntries.length === 0) return;
 
-    const readIds = Array.from(queued.read);
-    const readIdSet = new Set(readIds);
-    const deliveredOnlyIds = Array.from(queued.delivered).filter((id) => !readIdSet.has(id));
+    const retryDelays: number[] = [];
+    const requeueReceipts = (roomId: string, messageIds: string[], markRead: boolean) => {
+      if (!isMountedRef.current || messageIds.length === 0) return;
+      const retryQueue = pendingReceiptQueueRef.current.get(roomId) || {
+        delivered: new Set<string>(),
+        read: new Set<string>(),
+      };
+      messageIds.forEach((id) => {
+        retryQueue.delivered.add(id);
+        if (markRead) retryQueue.read.add(id);
+      });
+      pendingReceiptQueueRef.current.set(roomId, retryQueue);
+    };
+    for (const [roomId, queued] of queuedEntries) {
+      const readIds = Array.from(queued.read);
+      const readIdSet = new Set(readIds);
+      const deliveredOnlyIds = Array.from(queued.delivered).filter((id) => !readIdSet.has(id));
 
-    scheduledReceiptKeysRef.current.delete(`${queued.roomId}|delivered`);
-    scheduledReceiptKeysRef.current.delete(`${queued.roomId}|read`);
+      scheduledReceiptKeysRef.current.delete(`${roomId}|delivered`);
+      scheduledReceiptKeysRef.current.delete(`${roomId}|read`);
 
-    // A read receipt also records delivery, so never post the same messages twice.
-    if (readIds.length > 0) {
-      await markReceipts(queued.roomId, readIds, true);
+      // A read receipt also records delivery, so never post the same messages twice.
+      if (readIds.length > 0) {
+        const retryDelay = await markReceipts(roomId, readIds, true);
+        if (retryDelay !== null) {
+          requeueReceipts(roomId, readIds, true);
+          retryDelays.push(retryDelay);
+        }
+      }
+      if (deliveredOnlyIds.length > 0) {
+        const retryDelay = await markReceipts(roomId, deliveredOnlyIds, false);
+        if (retryDelay !== null) {
+          requeueReceipts(roomId, deliveredOnlyIds, false);
+          retryDelays.push(retryDelay);
+        }
+      }
     }
-    if (deliveredOnlyIds.length > 0) {
-      await markReceipts(queued.roomId, deliveredOnlyIds, false);
+
+    const earliestRetryDelay = retryDelays.length > 0 ? Math.min(...retryDelays) : null;
+    if (earliestRetryDelay !== null && pendingReceiptQueueRef.current.size > 0) {
+      const retryAt = Date.now() + Math.max(RECEIPT_DEBOUNCE_MS, earliestRetryDelay);
+      if (!receiptRetryTimerRef.current || retryAt < receiptRetryAtRef.current) {
+        if (receiptRetryTimerRef.current) {
+          clearTimeout(receiptRetryTimerRef.current);
+        }
+        receiptRetryAtRef.current = retryAt;
+        receiptRetryTimerRef.current = setTimeout(() => {
+          receiptRetryTimerRef.current = null;
+          receiptRetryAtRef.current = 0;
+          void flushScheduledReceipts();
+        }, Math.max(RECEIPT_DEBOUNCE_MS, retryAt - Date.now()));
+      }
     }
   }, [markReceipts]);
 
@@ -1179,11 +1224,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         }
       }
 
-      const existingQueue = pendingReceiptQueueRef.current;
-      const queue =
-        existingQueue && existingQueue.roomId === roomId
-          ? existingQueue
-          : { roomId, delivered: new Set<string>(), read: new Set<string>() };
+      const queue = pendingReceiptQueueRef.current.get(roomId) || {
+        delivered: new Set<string>(),
+        read: new Set<string>(),
+      };
 
       ids.forEach((id) => {
         if (markRead) {
@@ -1194,7 +1238,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         queue.delivered.add(id);
       });
 
-      pendingReceiptQueueRef.current = queue;
+      pendingReceiptQueueRef.current.set(roomId, queue);
 
       if (receiptDebounceTimerRef.current) {
         clearTimeout(receiptDebounceTimerRef.current);
@@ -1585,7 +1629,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   const handleSocketMessage = useCallback(
     (event: MessageEvent) => {
-      logChatDebug('socket:onmessage:raw', { data: event.data });
+      logChatDebug('socket:onmessage:received', {
+        dataType: typeof event.data,
+        dataLength: typeof event.data === 'string' ? event.data.length : undefined,
+      });
       let payload: ChatSocketPayload;
       try {
         payload = JSON.parse(event.data) as ChatSocketPayload;
@@ -1833,7 +1880,7 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         default:
           logChatDebug('socket:unhandled_payload', {
             payloadType: payloadType || 'missing',
-            ...(payload as unknown as Record<string, unknown>),
+            payloadKeys: Object.keys(payload as unknown as Record<string, unknown>),
           });
           break;
       }
@@ -1865,7 +1912,10 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       wsRef.current = ws;
       const accessToken = await getAccessToken();
       const authPayload: ChatSocketPayload = { type: 'auth', token: accessToken || undefined } as ChatSocketPayload;
-      logChatDebug('socket:onopen:send_auth', authPayload as unknown as Record<string, unknown>);
+      logChatDebug('socket:onopen:send_auth', {
+        type: 'auth',
+        hasToken: Boolean(accessToken),
+      });
       ws.send(JSON.stringify(authPayload));
 
       joinSocketRooms([activeRoomIdRef.current, ...roomsRef.current.map((room) => room.id)]);
@@ -1931,7 +1981,12 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         window.clearTimeout(receiptDebounceTimerRef.current);
         receiptDebounceTimerRef.current = null;
       }
-      pendingReceiptQueueRef.current = null;
+      if (receiptRetryTimerRef.current) {
+        window.clearTimeout(receiptRetryTimerRef.current);
+        receiptRetryTimerRef.current = null;
+        receiptRetryAtRef.current = 0;
+      }
+      pendingReceiptQueueRef.current.clear();
       repairSyncInFlightRef.current = false;
       lastRepairSyncAtRef.current = 0;
       postedReceiptKeysRef.current.clear();
@@ -2391,13 +2446,6 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           contentLength: trimmed.length,
           attachmentCount: attachments.length,
         });
-        console.debug('sendMessage payload', {
-          roomId: liveRoomId,
-          content: trimmed,
-          contentLength: typeof trimmed === 'string' ? trimmed.trim().length : 0,
-          attachments,
-          attachmentsLength: Array.isArray(attachments) ? attachments.length : -1,
-        });
         const response = await fetchWithTimeout(`${CHAT_API_URL}/api/rooms/${liveRoomId}/messages`, await withAuthHeaders({
           method: 'POST',
           body: JSON.stringify({ content: trimmed, reply_to: replyTo, attachments }),
@@ -2407,8 +2455,8 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           console.error('sendMessage failed', {
             status: response.status,
             roomId: liveRoomId,
-            content: trimmed,
-            attachments,
+            contentLength: trimmed.length,
+            attachmentCount: attachments.length,
             errorText,
           });
           logChatDebug('sendMessage:failed_response', { status: response.status, statusText: response.statusText, roomId: liveRoomId });
