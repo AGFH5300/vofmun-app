@@ -16,7 +16,7 @@ import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { UserType } from "@/db/types";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
-import supabase from "@/lib/supabase";
+import supabase, { supabaseAuthStorageKey } from "@/lib/supabase";
 import { getAppUserForSession } from "@/lib/auth/getCurrentAppUser";
 import { mapAppUserToSessionUser } from "@/lib/auth/mapAppUserToSessionUser";
 
@@ -56,24 +56,16 @@ const findPersistedSession = (value: unknown): Session | null => {
 };
 
 const readPersistedSession = (): Session | null => {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined" || !supabaseAuthStorageKey) return null;
 
-  for (let index = 0; index < window.localStorage.length; index += 1) {
-    const key = window.localStorage.key(index);
-    if (!key || !key.startsWith("sb-") || !key.endsWith("-auth-token")) continue;
-
-    const rawValue = window.localStorage.getItem(key);
-    if (!rawValue) continue;
-
-    try {
-      const resolved = findPersistedSession(JSON.parse(rawValue));
-      if (resolved) return resolved;
-    } catch {
-      // Ignore malformed or unrelated storage entries.
-    }
+  try {
+    const rawValue = window.localStorage.getItem(supabaseAuthStorageKey);
+    if (!rawValue) return null;
+    return findPersistedSession(JSON.parse(rawValue));
+  } catch {
+    // Storage access can be denied, and stale values can be malformed.
+    return null;
   }
-
-  return null;
 };
 
 const readCachedUser = (): UserType | null => {

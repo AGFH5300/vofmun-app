@@ -5,7 +5,9 @@ import fs from 'node:fs';
 const loginSource = fs.readFileSync('app/login/page.tsx', 'utf8');
 const sessionSource = fs.readFileSync('app/context/sessionContext.tsx', 'utf8');
 const serverSource = fs.readFileSync('server/chat/server.ts', 'utf8');
+const profileRouteSource = fs.readFileSync('app/api/auth/profile/route.ts', 'utf8');
 const typewriterSource = fs.readFileSync('components/ui/typewriter.tsx', 'utf8');
+const customNavSource = fs.readFileSync('components/ui/customnav.tsx', 'utf8');
 const packageSource = fs.readFileSync('package.json', 'utf8');
 const stablePreviewSource = fs.readFileSync('scripts/start-stable-preview.mjs', 'utf8');
 const warmupSource = fs.readFileSync('scripts/warmup-dev.mjs', 'utf8');
@@ -25,6 +27,14 @@ if (!sessionSource.includes('? readPersistedSession()')) {
   throw new Error('Session bootstrap persisted-session fallback is missing.');
 }
 
+if (!sessionSource.includes('supabaseAuthStorageKey') || sessionSource.includes('window.localStorage.length')) {
+  throw new Error('Session recovery can inspect stale Supabase projects or throw while enumerating storage.');
+}
+
+if (!loginSource.includes('Cookies.set("user", JSON.stringify(mapAppUserToSessionUser(appUser))')) {
+  throw new Error('Login does not cache the verified profile before its hard navigation.');
+}
+
 if (!serverSource.includes('httpServer: server')) {
   throw new Error('Next is not attached to the shared HTTP server, so development WebSocket upgrades can fail.');
 }
@@ -39,6 +49,10 @@ if (!serverSource.includes('webpack: true') || !serverSource.includes('turbopack
 
 if (!typewriterSource.includes('useState(FALLBACK_TEXT)') || !typewriterSource.includes('cancelled = true') || typewriterSource.includes('setHasMounted(true)')) {
   throw new Error('Typewriter is not using the single cancellable timer implementation.');
+}
+
+if (typewriterSource.includes('aria-live="polite"')) {
+  throw new Error('Typewriter still announces every animated character to assistive technology.');
 }
 
 if (!loginSource.includes('disabled={!isClientReady || loading}') || !loginSource.includes('Preparing secure login...')) {
@@ -85,8 +99,13 @@ if (!stablePreviewSource.includes("['run', 'build']") || !stablePreviewSource.in
 }
 
 
-if (!serverSource.includes("app.get('/api/auth/profile'") || !serverSource.includes(".from('app_users')") || !serverSource.includes(".eq('id', req.userId!)")) {
-  throw new Error('Authenticated profile endpoint is missing or is not scoped to the verified user ID.');
+if (
+  !serverSource.includes("'/api/auth/profile'") ||
+  serverSource.includes("app.get('/api/auth/profile'") ||
+  !profileRouteSource.includes('admin.auth.getUser(accessToken)') ||
+  !profileRouteSource.includes('sync_auth_user_to_app_users')
+) {
+  throw new Error('The unified server is not forwarding profile bootstrap to the canonical self-syncing Next handler.');
 }
 
 if (!smokeSource.includes('Authenticated profile endpoint routing smoke test passed.') || !smokeSource.includes('unauthenticatedProfileResponse.status !== 401')) {
@@ -101,6 +120,7 @@ for (const endpoint of [
   '/api/chat/attachments/upload',
   '/api/chat/attachments/sign',
   '/api/chat/attachments/pending',
+  '/api/upload-image',
 ]) {
   if (!serverSource.includes(endpoint)) {
     throw new Error(`Unified server does not forward ${endpoint} to its Next route handler.`);
@@ -111,16 +131,21 @@ if (!serverSource.includes('chatReceiptRateLimit') || !serverSource.includes("ap
   throw new Error('Receipt writes still share the low-volume generic chat write limit.');
 }
 
-if (!chatContextSource.includes('RECEIPT_FAILURE_BACKOFF_MS') || !chatContextSource.includes('receiptFailureBackoffRef')) {
-  throw new Error('Receipt failures can still create an unbounded retry loop.');
+if (
+  !chatContextSource.includes('RECEIPT_FAILURE_BACKOFF_MS') ||
+  !chatContextSource.includes('receiptFailureBackoffRef') ||
+  !chatContextSource.includes('receiptRetryTimerRef') ||
+  !chatContextSource.includes('pendingReceiptQueueRef.current.set(roomId, retryQueue)')
+) {
+  throw new Error('Receipt failures are not retained and retried after bounded backoff.');
 }
 
 if (!chatContextSource.includes('deliveredOnlyIds') || !chatContextSource.includes('isRoomActivelyRead(normalizedRoomId)')) {
   throw new Error('Receipt batching or active-room unread clearing has regressed.');
 }
 
-if (!smokeSource.includes('Attachment and receipt API routing smoke tests passed.')) {
-  throw new Error('CI does not exercise every attachment route and the receipt route through the unified server.');
+if (!smokeSource.includes('Attachment, admin upload, and receipt API routing smoke tests passed.')) {
+  throw new Error('CI does not exercise every Next-owned upload route and the receipt route through the unified server.');
 }
 
 if (/href=["']vofmun\.org\//.test(footerSource)) {
@@ -141,6 +166,10 @@ if (!messageBubbleSource.includes('onRequestEditMessage(message)') || !messagesP
   throw new Error('Message editing has fallen back to the low-contrast inline bubble editor.');
 }
 
+if (!messagesPageSource.includes('if (isUploadingAttachments)') || !messagesPageSource.includes('Wait for the attachment upload to finish')) {
+  throw new Error('Editing can still clear an in-flight attachment upload.');
+}
+
 for (const label of ['Open in new window', 'Mark as unread', 'Archive', 'Mute', 'Conversation info', 'Export conversation', 'Clear conversation']) {
   if (!conversationItemSource.includes(label)) {
     throw new Error(`Conversation context menu is missing ${label}.`);
@@ -153,4 +182,23 @@ if (conversationItemSource.includes('Contact info')) {
 
 if (!conversationListSource.includes('archivedRooms') || !chatContextSource.includes('manualUnreadRoomIds')) {
   throw new Error('Archive or manual-unread conversation state is not persisted.');
+}
+
+
+if (
+  chatContextSource.includes("logChatDebug('socket:onopen:send_auth', authPayload") ||
+  chatContextSource.includes("logChatDebug('socket:onmessage:raw'") ||
+  chatContextSource.includes("console.debug('sendMessage payload'")
+) {
+  throw new Error('Chat debug output can still expose bearer tokens or message bodies.');
+}
+
+if (
+  !customNavSource.includes('<Dialog') ||
+  !customNavSource.includes('<Dialog.Title') ||
+  !customNavSource.includes('How can we help?') ||
+  !customNavSource.includes('{ name: "Home", to: "/home" }') ||
+  customNavSource.includes('{ name: "Dashboard", to: "/home" }')
+) {
+  throw new Error('Support modal accessibility or delegate navigation hierarchy has regressed.');
 }

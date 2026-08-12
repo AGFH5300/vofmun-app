@@ -18,6 +18,15 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
+export const supabaseAuthStorageKey = (() => {
+  try {
+    const projectRef = new URL(supabaseUrl).hostname.split('.')[0];
+    return projectRef ? `sb-${projectRef}-auth-token` : null;
+  } catch {
+    return null;
+  }
+})();
+
 const isBrowser = typeof window !== 'undefined';
 const createSupabaseClient = () =>
   createClient<Database>(supabaseUrl, supabaseKey, {

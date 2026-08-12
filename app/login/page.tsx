@@ -7,6 +7,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import TypeWriter from "@/components/ui/typewriter";
 import supabase from "@/lib/supabase";
 import { getAppUserForSession } from "@/lib/auth/getCurrentAppUser";
+import { mapAppUserToSessionUser } from "@/lib/auth/mapAppUserToSessionUser";
+import Cookies from "js-cookie";
 import { useMobile } from "@/hooks/use-mobile";
 import { Eye, EyeOff, Loader2, Rocket } from "lucide-react";
 
@@ -84,8 +86,9 @@ const Login = () => {
         return;
       }
 
-      // Use one deliberate document navigation after Supabase has persisted the
-      // session. The authenticated shell then hydrates from that stored session.
+      // Cache the already verified profile before the deliberate hard navigation.
+      // The authenticated shell can use it while the profile endpoint warms up.
+      Cookies.set("user", JSON.stringify(mapAppUserToSessionUser(appUser)), { sameSite: "lax" });
       window.location.replace(routeByRole(appUser.role));
       return;
     } catch (err) {

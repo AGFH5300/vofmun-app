@@ -945,6 +945,11 @@ const ChatShell: React.FC = () => {
   };
 
   const beginEditingMessage = (message: MessageWithUser) => {
+    if (isUploadingAttachments) {
+      toast.error('Wait for the attachment upload to finish before editing a message.');
+      return;
+    }
+
     const roomId = activeRoom?.id ? String(activeRoom.id) : '';
     if (!roomId || message.deleted_at) return;
 

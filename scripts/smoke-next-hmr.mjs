@@ -211,6 +211,10 @@ try {
       init: { method: 'DELETE' },
     },
     {
+      path: '/api/upload-image',
+      init: { method: 'POST' },
+    },
+    {
       path: '/api/rooms/00000000-0000-4000-8000-000000000001/receipts',
       init: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messageIds: [] }) },
     },
@@ -224,7 +228,7 @@ try {
       throw new Error(`${endpoint.path} is not routed through its authenticated JSON handler: ${response.status} ${contentType} ${JSON.stringify(payload)}`);
     }
   }
-  console.log('Attachment and receipt API routing smoke tests passed.');
+  console.log('Attachment, admin upload, and receipt API routing smoke tests passed.');
 
   const homeResponse = await fetch(`${origin}/home`, { redirect: 'manual', cache: 'no-store' });
   if (homeResponse.status !== 200) {
