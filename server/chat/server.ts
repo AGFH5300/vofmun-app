@@ -407,38 +407,6 @@ const fetchLastMessage = async (roomId: string, userId?: string | null): Promise
   } as MessageWithUser;
 };
 
-// -------------------- AUTH PROFILE --------------------
-
-app.get('/api/auth/profile', chatReadRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
-  try {
-    const { data: appUser, error } = await supabaseAdmin
-      .from('app_users')
-      .select('id, email, first_name, last_name, role, committee_id, country, legacy_id, reso_perms, created_at, updated_at')
-      .eq('id', req.userId!)
-      .maybeSingle();
-
-    if (error) {
-      console.error('[auth-profile] failed to load app user', {
-        userId: req.userId,
-        error: error.message || error,
-      });
-      return res.status(500).json({ error: 'Unable to load profile' });
-    }
-
-    if (!appUser) {
-      return res.status(404).json({ error: 'Profile not found', appUser: null });
-    }
-
-    return res.json({ appUser });
-  } catch (error) {
-    console.error('[auth-profile] unexpected profile lookup failure', {
-      userId: req.userId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return res.status(500).json({ error: 'Unable to load profile' });
-  }
-});
-
 // -------------------- ROOMS --------------------
 
 app.get('/api/rooms', chatReadRateLimit, requireAuth, async (req: AuthedRequest, res: Response) => {
@@ -1505,10 +1473,12 @@ const nextApp = next({
 });
 const nextHandler = nextApp.getRequestHandler();
 
-// These attachment handlers live in Next route files, while every /api/* request
-// enters Express first. Forward the complete attachment API surface explicitly.
+// These handlers live in Next route files, while every /api/* request enters
+// Express first. Forward the complete Next-owned API surface explicitly.
 app.all(
   [
+    '/api/auth/profile',
+    '/api/upload-image',
     '/api/chat/attachments/upload',
     '/api/chat/attachments/sign',
     '/api/chat/attachments/pending',
