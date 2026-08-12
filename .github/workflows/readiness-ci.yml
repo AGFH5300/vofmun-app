@@ -119,7 +119,14 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://build-check.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: build-check-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-service-role-canary-not-for-client
+          NEWS_API_KEY: ci-news-api-canary-not-for-client
         run: npm run build
+
+      - name: Verify emitted client secret boundary
+        id: client_secret_boundary
+        continue-on-error: true
+        run: node scripts/verify-client-secret-boundary.mjs
 
       - name: Enforce release gates
         if: always()
@@ -128,11 +135,13 @@ jobs:
           TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
           LINT_OUTCOME: ${{ steps.lint.outcome }}
           BUILD_OUTCOME: ${{ steps.build.outcome }}
+          CLIENT_SECRET_OUTCOME: ${{ steps.client_secret_boundary.outcome }}
         run: |
           echo "Runtime audit: $AUDIT_OUTCOME"
           echo "Type-check: $TYPECHECK_OUTCOME"
           echo "Lint: $LINT_OUTCOME"
           echo "Production build: $BUILD_OUTCOME"
-          if [[ "$AUDIT_OUTCOME" != "success" || "$TYPECHECK_OUTCOME" != "success" || "$LINT_OUTCOME" != "success" || "$BUILD_OUTCOME" != "success" ]]; then
+          echo "Client secret boundary: $CLIENT_SECRET_OUTCOME"
+          if [[ "$AUDIT_OUTCOME" != "success" || "$TYPECHECK_OUTCOME" != "success" || "$LINT_OUTCOME" != "success" || "$BUILD_OUTCOME" != "success" || "$CLIENT_SECRET_OUTCOME" != "success" ]]; then
             exit 1
           fi
