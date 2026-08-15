@@ -9,7 +9,9 @@
     "start": "NODE_ENV=production tsx server/chat/server.ts",
     "lint": "eslint .",
     "chat:server": "tsx server/chat/server.ts",
-    "dev:webpack": "concurrently -s last -n \"APP,WARM\" -c \"cyan,magenta\" \"node scripts/start-clean-dev.mjs\" \"node scripts/warmup-dev.mjs\""
+    "dev:webpack": "concurrently -s last -n \"APP,WARM\" -c \"cyan,magenta\" \"node scripts/start-clean-dev.mjs\" \"node scripts/warmup-dev.mjs\"",
+    "test": "tsx --test tests/receipt-retry.test.ts",
+    "verify:release": "node scripts/verify-release-contract.mjs"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.12",

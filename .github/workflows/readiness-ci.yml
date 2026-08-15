@@ -103,6 +103,12 @@ jobs:
           }
           NODE
 
+      - name: Run regression tests
+        run: npm test
+
+      - name: Verify release contracts
+        run: npm run verify:release
+
       - name: Type-check
         id: typecheck
         continue-on-error: true

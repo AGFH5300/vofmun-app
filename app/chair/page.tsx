@@ -8,6 +8,7 @@ import { useMobile } from '@/hooks/use-mobile'
 import { Chair, SessionUser } from '@/db/types'
 import {toast} from 'sonner'
 import { shortenedDel } from '@/db/types'
+import { withBrowserAuthHeaders } from '@/lib/auth/browserAuthFetch'
 
 const DelegateItem = memo(({ 
   delegate, 
@@ -74,7 +75,10 @@ const Page = () => {
                 const chairUser = currentUser as (Chair & SessionUser) | null;
                 if (!chairUser?.committeeID) return;
 
-                const res = await fetch(`/api/delegates?committeeID=${chairUser.committeeID}`);
+                const res = await fetch(
+                    `/api/delegates?committeeID=${chairUser.committeeID}`,
+                    await withBrowserAuthHeaders(undefined, 'chair-delegates-load'),
+                );
                 if (!res.ok) {
                     throw new Error('Failed to fetch delegates');
                 }
@@ -141,16 +145,16 @@ const Page = () => {
             
             if (changedDelegates.length === 1) {
                 const delegate = changedDelegates[0];
-                const response = await fetch('/api/delegates', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        delegateID: delegate.delegateID,
-                        resoPerms: delegate.resoPerms
-                    }),
-                });
+                const response = await fetch(
+                    '/api/delegates',
+                    await withBrowserAuthHeaders({
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            delegateID: delegate.delegateID,
+                            resoPerms: delegate.resoPerms
+                        }),
+                    }, 'chair-delegate-update'),
+                );
                 
                 const result = await response.json();
                 
@@ -166,15 +170,15 @@ const Page = () => {
                     resoPerms: delegate.resoPerms
                 }));
                 
-                const response = await fetch('/api/delegates', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        delegates: formattedDelegates
-                    }),
-                });
+                const response = await fetch(
+                    '/api/delegates',
+                    await withBrowserAuthHeaders({
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            delegates: formattedDelegates
+                        }),
+                    }, 'chair-delegates-bulk-update'),
+                );
                 
                 const result = await response.json();
                 

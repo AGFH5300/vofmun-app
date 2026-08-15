@@ -16,6 +16,7 @@ import {
 import { useSession } from '@/app/context/sessionContext';
 import supabase from '@/lib/supabase';
 import { normalizeMessageMeta, resolveOwnMessageStatus } from '@/lib/chat/messageMeta';
+import { getReceiptRetryDelay } from '@/lib/chat/receiptRetry';
 import { getBrowserAccessToken } from '@/lib/auth/browserAuthFetch';
 import { toast } from 'sonner';
 import type { RealtimeChannel, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
@@ -1102,11 +1103,19 @@ export const ChatProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             setRoomUnreadCount(roomId, 0);
           }
         } else {
-          const retryAfterSeconds = Number.parseInt(response.headers.get('Retry-After') || '', 10);
-          retryDelay = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-            ? retryAfterSeconds * 1000
-            : RECEIPT_FAILURE_BACKOFF_MS;
-          receiptFailureBackoffRef.current.set(dedupeScopeKey, Date.now() + retryDelay);
+          retryDelay = getReceiptRetryDelay(
+            response.status,
+            response.headers.get('Retry-After'),
+            RECEIPT_FAILURE_BACKOFF_MS,
+          );
+
+          if (retryDelay === null) {
+            // Permanent client failures (for example an expired session or a user
+            // who no longer belongs to the room) must not be requeued forever.
+            receiptFailureBackoffRef.current.delete(dedupeScopeKey);
+          } else {
+            receiptFailureBackoffRef.current.set(dedupeScopeKey, Date.now() + retryDelay);
+          }
         }
 
         logReceiptsDebug('receipt_post:response', {

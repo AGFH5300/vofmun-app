@@ -1478,6 +1478,7 @@ const nextHandler = nextApp.getRequestHandler();
 app.all(
   [
     '/api/auth/profile',
+    '/api/delegates',
     '/api/upload-image',
     '/api/chat/attachments/upload',
     '/api/chat/attachments/sign',
