@@ -2,8 +2,7 @@
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 'use client';
 
-/* eslint-disable @next/next/no-img-element */
-
+import Image from 'next/image';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminRoute } from '@/components/protectedroute';
 import { getBrowserAccessToken, withBrowserAuthHeaders } from '@/lib/auth/browserAuthFetch';
@@ -369,7 +368,7 @@ const AdminPage = () => {
               <p className="mt-1 text-sm text-[#564240]/75">Post a verified update to the live conference feed.</p>
               <div className="mt-6 grid gap-5 md:grid-cols-[0.8fr_1.2fr]">
                 <label className="flex min-h-56 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-[#dcc0bd] bg-[#fff8f2] text-center">
-                  {previewUrl ? <img src={previewUrl} alt="Selected update preview" className="h-56 w-full object-cover" /> : <><ImagePlus className="h-8 w-8 text-[#6E1D1B]" /><span className="mt-3 text-sm font-semibold text-[#6E1D1B]">Choose JPEG, PNG, or WebP</span><span className="mt-1 text-xs text-[#564240]/65">Maximum 8 MB</span></>}
+                  {previewUrl ? <Image src={previewUrl} alt="Selected update preview" width={960} height={540} unoptimized className="h-56 w-full object-cover" /> : <><ImagePlus className="h-8 w-8 text-[#6E1D1B]" /><span className="mt-3 text-sm font-semibold text-[#6E1D1B]">Choose JPEG, PNG, or WebP</span><span className="mt-1 text-xs text-[#564240]/65">Maximum 8 MB</span></>}
                   <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)} />
                 </label>
                 <div className="space-y-4">

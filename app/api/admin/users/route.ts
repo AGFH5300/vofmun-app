@@ -6,7 +6,15 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const roles = new Set(['delegate', 'chair', 'admin', 'secretariat']);
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isValidEmail = (value: string) => {
+  if (!value || value.length > 254) return false;
+  const firstAt = value.indexOf('@');
+  if (firstAt <= 0 || firstAt !== value.lastIndexOf('@') || firstAt >= value.length - 3) return false;
+  for (const character of value) if (character <= ' ') return false;
+  const domain = value.slice(firstAt + 1);
+  const dot = domain.lastIndexOf('.');
+  return dot > 0 && dot < domain.length - 1;
+};
 const reply = (body: Record<string, unknown>, status = 200) =>
   NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store, max-age=0' } });
 
@@ -132,7 +140,7 @@ export async function POST(request: Request) {
   const committeeId = typeof body.committeeId === 'string' && body.committeeId ? body.committeeId : null;
   const country = typeof body.country === 'string' ? body.country.trim() || null : null;
 
-  if (!emailPattern.test(email) || !firstName || !lastName || !roles.has(role)) {
+  if (!isValidEmail(email) || !firstName || !lastName || !roles.has(role)) {
     return reply({ error: 'A valid email, first name, last name, and role are required.' }, 400);
   }
   if ((role === 'delegate' || role === 'chair') && !committeeId) {
