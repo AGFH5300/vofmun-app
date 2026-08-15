@@ -32,6 +32,7 @@ export default function AppWrapper({ children }: AppWrapperProps) {
     if (pathname === '/committee-overview') return 'committee-overview';
     if (pathname === '/chair') return 'chair-tool';
     if (pathname === '/admin') return 'admin';
+    if (pathname === '/about') return 'about';
     return undefined;
   };
 

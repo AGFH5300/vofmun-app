@@ -9,6 +9,7 @@ import { usePathname } from "next/navigation";
 import { useSession } from "@/app/context/sessionContext";
 import { useMobile } from "@/hooks/use-mobile";
 import supabase from "@/lib/supabase";
+import { withBrowserAuthHeaders } from "@/lib/auth/browserAuthFetch";
 import { Bell, Ellipsis, LogOut, Menu, Send, X, Flag } from "lucide-react";
 
 interface CustomNavProps {
@@ -20,6 +21,15 @@ interface CustomNavProps {
 interface NavItem {
   name: string;
   to: string;
+}
+
+interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  kind: 'announcement' | 'action' | 'warning';
+  created_at: string;
+  isRead: boolean;
 }
 
 const COUNTRY_CODE_MAP: Record<string, string> = {
@@ -47,6 +57,8 @@ const CustomNav: React.FC<CustomNavProps> = ({ embedded = false }) => {
   const [messagesUnreadTotal, setMessagesUnreadTotal] = useState(0);
   const [messagesNotificationTotal, setMessagesNotificationTotal] = useState(0);
   const [seenNotificationCount, setSeenNotificationCount] = useState(0);
+  const [appNotifications, setAppNotifications] = useState<AppNotification[]>([]);
+  const [appUnreadCount, setAppUnreadCount] = useState(0);
   const pathname = usePathname();
   const countryLabel = currentUser?.country?.trim() || null;
 
@@ -110,27 +122,72 @@ const CustomNav: React.FC<CustomNavProps> = ({ embedded = false }) => {
     };
   }, []);
 
-  const navNotificationCount = messagesUnreadTotal + messagesNotificationTotal;
-  const hasUnseenNotifications = navNotificationCount > seenNotificationCount;
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    let active = true;
+    const loadNotifications = async () => {
+      try {
+        const response = await fetch('/api/notifications', await withBrowserAuthHeaders(undefined, 'navbar-notifications'));
+        if (!response.ok) return;
+        const body = (await response.json()) as { notifications?: AppNotification[]; unreadCount?: number };
+        if (!active) return;
+        setAppNotifications(body.notifications || []);
+        setAppUnreadCount(Math.max(0, body.unreadCount || 0));
+      } catch (error) {
+        console.warn('[navbar notifications] load failed', {
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    };
+
+    void loadNotifications();
+    const timer = window.setInterval(() => void loadNotifications(), 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [currentUser?.id]);
+
+  const localNotificationCount = messagesUnreadTotal + messagesNotificationTotal;
+  const navNotificationCount = localNotificationCount + appUnreadCount;
+  const hasUnseenNotifications = localNotificationCount > seenNotificationCount || appUnreadCount > 0;
 
   const markNotificationsSeen = () => {
     if (typeof window === "undefined") return;
-    const nextSeenCount = messagesUnreadTotal + messagesNotificationTotal;
-    setSeenNotificationCount(nextSeenCount);
-    window.localStorage.setItem("vofmun.messages.seenNotificationTotal", String(nextSeenCount));
+    setSeenNotificationCount(localNotificationCount);
+    window.localStorage.setItem("vofmun.messages.seenNotificationTotal", String(localNotificationCount));
+
+    if (appUnreadCount > 0) {
+      setAppUnreadCount(0);
+      setAppNotifications((items) => items.map((item) => ({ ...item, isRead: true })));
+      void (async () => {
+        try {
+          await fetch('/api/notifications', await withBrowserAuthHeaders({
+            method: 'POST',
+            body: JSON.stringify({ all: true }),
+          }, 'navbar-notifications-read'));
+        } catch (error) {
+          console.warn('[navbar notifications] mark-read failed', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      })();
+    }
   };
 
   const notificationsModal = isNotificationsOpen ? (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 px-4">
       <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-2xl">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-[#000000]">Notifications</h3>
-          <button onClick={() => setIsNotificationsOpen(false)} className="rounded p-1 text-slate-500 hover:bg-slate-100"><X size={16} /></button>
+          <h3 className="font-serif text-2xl font-semibold text-[#6E1D1B]">Notifications</h3>
+          <button onClick={() => setIsNotificationsOpen(false)} className="rounded p-1 text-slate-500 hover:bg-slate-100" aria-label="Close notifications"><X size={16} /></button>
         </div>
-        <div className="space-y-2">
+        <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
           {messagesUnreadTotal > 0 ? <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">New messages</p><p className="mt-1 text-sm text-slate-700">You have {messagesUnreadTotal} unread {messagesUnreadTotal === 1 ? 'message' : 'messages'}.</p></div> : null}
           {messagesNotificationTotal > 0 ? <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Request updates</p><p className="mt-1 text-sm text-slate-700">You have {messagesNotificationTotal} friend request {messagesNotificationTotal === 1 ? 'update' : 'updates'}.</p></div> : null}
-          {navNotificationCount === 0 ? <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">No new notifications right now.</p> : null}
+          {appNotifications.map((notification) => <article key={notification.id} className={`rounded-lg border px-3 py-3 ${notification.isRead ? 'border-slate-200 bg-white' : 'border-[#dcc0bd] bg-[#fff8f2]'}`}><div className="flex items-start justify-between gap-3"><p className="text-sm font-semibold text-[#1a1c1c]">{notification.title}</p><span className="shrink-0 text-[10px] uppercase tracking-[0.1em] text-[#6E1D1B]/65">{notification.kind}</span></div><p className="mt-1 whitespace-pre-wrap text-sm leading-5 text-slate-700">{notification.message}</p><p className="mt-2 text-[11px] text-slate-500">{new Date(notification.created_at).toLocaleString()}</p></article>)}
+          {navNotificationCount === 0 && appNotifications.length === 0 ? <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">No notifications right now.</p> : null}
         </div>
         <div className="mt-4 flex justify-end">
           <button onClick={() => setIsNotificationsOpen(false)} className="rounded-lg bg-[#6E1D1B] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white">Close</button>
@@ -191,7 +248,7 @@ const CustomNav: React.FC<CustomNavProps> = ({ embedded = false }) => {
     ],
     [],
   );
-  const secondaryItems: NavItem[] = useMemo(() => { const items: NavItem[] = [{ name: "Speech Repository", to: "/speechrepo" }]; if (currentUser?.role === "admin" || currentUser?.role === "secretariat") items.push({ name: "Admin", to: "/admin" }); if (currentUser?.role === "chair") items.push({ name: "Chair", to: "/chair" }); return items; }, [currentUser?.role]);
+  const secondaryItems: NavItem[] = useMemo(() => { const items: NavItem[] = [{ name: "Speech Repository", to: "/speechrepo" }, { name: "About", to: "/about" }]; if (currentUser?.role === "admin" || currentUser?.role === "secretariat") items.push({ name: "Admin", to: "/admin" }); if (currentUser?.role === "chair") items.push({ name: "Chair", to: "/chair" }); return items; }, [currentUser?.role]);
   const mobileItems = useMemo(() => [...primaryNavigationItems, ...secondaryItems], [primaryNavigationItems, secondaryItems]);
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 

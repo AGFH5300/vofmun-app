@@ -56,7 +56,7 @@ const mapDelegate = (delegate: {
   id: string;
   first_name: string | null;
   last_name: string | null;
-  email: string;
+  email: string | null;
   country: string | null;
   committee_id: string | null;
   reso_perms: unknown;
@@ -64,7 +64,7 @@ const mapDelegate = (delegate: {
   delegateID: delegate.id,
   firstname: delegate.first_name || '',
   lastname: delegate.last_name || '',
-  email: delegate.email,
+  email: delegate.email || '',
   country: delegate.country,
   committeeID: delegate.committee_id,
   resoPerms: parsePermissions(delegate.reso_perms) || {
@@ -177,7 +177,7 @@ export async function PUT(request: Request) {
       .eq('role', 'delegate')
       .in('id', ids);
 
-    if (actor.role === 'chair') targetQuery = targetQuery.eq('committee_id', actorCommittee);
+    if (actor.role === 'chair') targetQuery = targetQuery.eq('committee_id', actorCommittee!);
 
     const { data: targets, error: targetError } = await targetQuery;
     if (targetError) throw targetError;

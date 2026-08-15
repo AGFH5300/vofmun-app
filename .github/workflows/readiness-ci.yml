@@ -18,6 +18,20 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vofmun_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d vofmun_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     timeout-minutes: 30
     steps:
       - name: Check out source
@@ -65,6 +79,20 @@ jobs:
               parse_sql(migration.read_text())
               print(f'Parsed {migration}')
           PY
+
+      - name: Apply migrations to a clean database
+        env:
+          PGURL: postgresql://postgres:postgres@127.0.0.1:5432/vofmun_ci
+        shell: bash
+        run: |
+          psql "$PGURL" -v ON_ERROR_STOP=1 -f scripts/prepare-ci-database.sql
+          for migration in supabase/migrations/*.sql; do
+            echo "Applying $migration"
+            psql "$PGURL" -v ON_ERROR_STOP=1 -f "$migration"
+          done
+
+      - name: Verify database contract
+        run: npm run verify:database
 
       - name: Audit runtime dependencies
         id: runtime_audit

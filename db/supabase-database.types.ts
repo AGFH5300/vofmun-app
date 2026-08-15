@@ -147,6 +147,24 @@ export type Database = {
         Update: { id?: string; room_id?: string | null; user_id?: string | null; role?: string | null; joined_at?: string | null };
         Relationships: EmptyRelationships;
       };
+      app_notifications: {
+        Row: { id: string; title: string; message: string; kind: string; target_scope: string; target_role: string | null; target_committee_id: string | null; target_user_id: string | null; created_by: string | null; created_at: string; expires_at: string | null };
+        Insert: { id?: string; title: string; message: string; kind?: string; target_scope?: string; target_role?: string | null; target_committee_id?: string | null; target_user_id?: string | null; created_by?: string | null; created_at?: string; expires_at?: string | null };
+        Update: { id?: string; title?: string; message?: string; kind?: string; target_scope?: string; target_role?: string | null; target_committee_id?: string | null; target_user_id?: string | null; created_by?: string | null; created_at?: string; expires_at?: string | null };
+        Relationships: EmptyRelationships;
+      };
+      notification_reads: {
+        Row: { notification_id: string; user_id: string; read_at: string };
+        Insert: { notification_id: string; user_id: string; read_at?: string };
+        Update: { notification_id?: string; user_id?: string; read_at?: string };
+        Relationships: EmptyRelationships;
+      };
+      conference_settings: {
+        Row: { id: string; conference_name: string; timezone: string; utc_offset: string; start_at: string | null; end_at: string | null; schedule: Json; crisis_status: string; crisis_title: string | null; crisis_content: string | null; crisis_media_url: string | null; updated_by: string | null; updated_at: string };
+        Insert: { id?: string; conference_name?: string; timezone?: string; utc_offset?: string; start_at?: string | null; end_at?: string | null; schedule?: Json; crisis_status?: string; crisis_title?: string | null; crisis_content?: string | null; crisis_media_url?: string | null; updated_by?: string | null; updated_at?: string };
+        Update: { id?: string; conference_name?: string; timezone?: string; utc_offset?: string; start_at?: string | null; end_at?: string | null; schedule?: Json; crisis_status?: string; crisis_title?: string | null; crisis_content?: string | null; crisis_media_url?: string | null; updated_by?: string | null; updated_at?: string };
+        Relationships: EmptyRelationships;
+      };
       support_requests: {
         Row: { id: string; user_id: string | null; display_name: string | null; country: string | null; committee_id: string | null; committee_name: string | null; role: string | null; message: string; source: string; status: string; created_at: string; updated_at: string };
         Insert: { id?: string; user_id?: string | null; display_name?: string | null; country?: string | null; committee_id?: string | null; committee_name?: string | null; role?: string | null; message: string; source?: string; status?: string; created_at?: string; updated_at?: string };
