@@ -315,14 +315,14 @@ language sql
 stable
 security definer
 set search_path = public, pg_temp
-as $
+as $$
   select exists (
     select 1
     from public.room_members rm
     where rm.room_id = p_room_id
       and rm.user_id = (select auth.uid())
   )
-$;
+$$;
 
 revoke all on function public.is_room_member(uuid) from public, anon;
 grant execute on function public.is_room_member(uuid) to authenticated;
