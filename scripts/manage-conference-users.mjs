@@ -640,9 +640,11 @@ const listStorageDirectory = async (supabase, bucket, prefix) => {
 
 const cleanupTestUsers = async ({ supabase, projectRef, roster, options }) => {
   if (options.mode !== 'qa') throw new Error('cleanup-test requires --mode qa.');
-  assertWriteConfirmation({ options, projectRef, rosterCount: roster.rows.length, action: 'cleanup-test' });
-  if (options.confirm_cleanup !== CLEANUP_CONFIRMATION) {
-    throw new Error(`cleanup-test requires --confirm-cleanup ${CLEANUP_CONFIRMATION}.`);
+  if (options.apply) {
+    assertWriteConfirmation({ options, projectRef, rosterCount: roster.rows.length, action: 'cleanup-test' });
+    if (options.confirm_cleanup !== CLEANUP_CONFIRMATION) {
+      throw new Error(`cleanup-test requires --confirm-cleanup ${CLEANUP_CONFIRMATION}.`);
+    }
   }
   const live = await loadLiveDirectory(supabase, roster.rows);
   const targetEmails = new Set(roster.rows.map((row) => row.email));
@@ -678,6 +680,11 @@ const cleanupTestUsers = async ({ supabase, projectRef, roster, options }) => {
   const storagePaths = new Set((attachmentRows || []).filter((row) => row.bucket === 'chat-attachments').map((row) => row.path));
   for (const roomId of roomIds) {
     for (const objectPath of await listStorageDirectory(supabase, 'chat-attachments', roomId)) storagePaths.add(objectPath);
+  }
+  console.log(`Cleanup preview: auth=${authTargets.length}, profiles=${appTargets.length}, rooms=${roomIds.length}, storage_objects=${storagePaths.size}.`);
+  if (!options.apply) {
+    console.log('Read-only cleanup preview complete. Re-run with the explicit apply confirmations to delete these exact targets.');
+    return;
   }
   for (const pathBatch of chunk([...storagePaths], 100)) {
     const { error } = await supabase.storage.from('chat-attachments').remove(pathBatch);
@@ -746,7 +753,8 @@ Examples:
     --redirect-to https://your-stable-preview.example/reset-password \\
     --emails-per-hour 25 --apply --confirm-project ${EXPECTED_PROJECT_REF} --confirm-count 8
   npm run conference:users -- status --mode qa --roster .private/qa-roster.csv
-  npm run conference:users -- cleanup-test --mode qa --roster .private/qa-roster.csv \\
+  npm run conference:users -- cleanup-test --mode qa --roster .private/qa-cleanup.csv
+  npm run conference:users -- cleanup-test --mode qa --roster .private/qa-cleanup.csv \\
     --apply --confirm-project ${EXPECTED_PROJECT_REF} --confirm-count 8 \\
     --confirm-cleanup ${CLEANUP_CONFIRMATION}
   npm run conference:users -- provision --mode production --roster .private/conference-roster.csv \\
