@@ -320,7 +320,7 @@ as $$
     select 1
     from public.room_members rm
     where rm.room_id = p_room_id
-      and rm.user_id = (select auth.uid())
+      and rm.user_id::text = (select auth.uid())::text
   )
 $$;
 
@@ -362,12 +362,20 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_auth_user_created();
 
-create or replace view public.v_pending_auth_invites
-with (security_invoker = true)
-as
-select role, email, first_name, last_name
-from public.app_users
-where false;
+do $$
+begin
+  if to_regclass('public.v_pending_auth_invites') is null then
+    execute $view$
+      create view public.v_pending_auth_invites
+      with (security_invoker = true)
+      as
+      select role, email, first_name, last_name
+      from public.app_users
+      where false
+    $view$;
+  end if;
+end;
+$$;
 
 alter table public.chat_rooms enable row level security;
 alter table public.room_members enable row level security;
@@ -395,7 +403,7 @@ using (public.is_room_member(message_attachments.room_id));
 
 drop policy if exists message_hidden_self_select on public.message_hidden_for_users;
 create policy message_hidden_self_select on public.message_hidden_for_users for select to authenticated
-using (user_id = (select auth.uid()));
+using (user_id::text = (select auth.uid())::text);
 
 grant select on public.chat_rooms, public.room_members, public.messages, public.message_attachments, public.message_hidden_for_users to authenticated;
 grant select, insert, update, delete on all tables in schema public to service_role;
