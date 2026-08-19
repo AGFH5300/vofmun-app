@@ -1,0 +1,6 @@
+email,first_name,last_name,role,committee_code,country,school,grade
+primary.admin@example.com,Primary,Administrator,admin,,,,
+secretariat.member@example.com,Secretariat,Member,secretariat,,,,
+ga1.chair@example.com,GA1,Chair,chair,GA1,,,
+ga1.delegate@example.com,Delegate,One,delegate,GA1,Republic of India,Example School,11
+
