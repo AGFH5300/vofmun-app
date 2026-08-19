@@ -2,289 +2,230 @@
 // Proprietary - NOT OPEN SOURCE. No copying/modification/deployment without permission (dxb.avg@gmail.com).
 'use client';
 
-import React, { useEffect, useMemo } from 'react';
-import { Update } from '@/db/types';
+/* eslint-disable @next/next/no-img-element */
+
+import React, { useEffect, useMemo, useState } from 'react';
+import { Calendar, ExternalLink, Megaphone } from 'lucide-react';
 import { ProtectedRoute } from '@/components/protectedroute';
-import { Calendar, Megaphone } from 'lucide-react';
+import { withBrowserAuthHeaders } from '@/lib/auth/browserAuthFetch';
 import supabase from '@/lib/supabase';
+import type { Update } from '@/db/types';
 
 type ScheduleItemType = 'registration' | 'committee' | 'break' | 'ceremony' | 'departure' | 'featured';
-
-type ScheduleItem = {
-    label: string;
-    title: string;
-    start: string;
-    end: string;
-    type: ScheduleItemType;
+type ScheduleItem = { label: string; title: string; start: string; end: string; type: ScheduleItemType };
+type ConferenceDay = { shortLabel: string; label: string; dateISO: string; events: ScheduleItem[] };
+type ConferenceSettings = {
+  conference_name: string;
+  timezone: string;
+  utc_offset: string;
+  start_at: string | null;
+  end_at: string | null;
+  schedule: ConferenceDay[];
+  crisis_status: 'not_published' | 'published';
+  crisis_title: string | null;
+  crisis_content: string | null;
+  crisis_media_url: string | null;
 };
-
-type ConferenceDay = {
-    shortLabel: string;
-    label: string;
-    dateISO: string;
-    events: ScheduleItem[];
-};
-
-const conferenceSchedule: ConferenceDay[] = [
-    {
-        shortLabel: 'Day 1',
-        label: 'Friday, June 12',
-        dateISO: '2026-06-12',
-        events: [
-            { label: 'Registration', title: 'Registration/Chair Briefing', start: '13:30', end: '14:00', type: 'registration' },
-            { label: 'Ceremony', title: 'Opening Ceremony', start: '14:00', end: '15:00', type: 'ceremony' },
-            { label: 'Committee', title: 'Committee Session 1', start: '15:00', end: '16:00', type: 'committee' },
-            { label: 'Break', title: 'In-Committee Break', start: '16:00', end: '16:30', type: 'break' },
-            { label: 'Committee', title: 'Committee Session 2', start: '16:30', end: '18:30', type: 'committee' },
-            { label: 'Departure', title: 'Dispersal', start: '18:30', end: '18:45', type: 'departure' },
-        ],
-    },
-    {
-        shortLabel: 'Day 2',
-        label: 'Saturday, June 13',
-        dateISO: '2026-06-13',
-        events: [
-            { label: 'Registration', title: 'Registration/Chair Briefing', start: '08:00', end: '08:30', type: 'registration' },
-            { label: 'Committee', title: 'Committee Session 3', start: '08:30', end: '10:00', type: 'committee' },
-            { label: 'Break', title: 'In-Committee Break', start: '10:00', end: '10:30', type: 'break' },
-            { label: 'Committee', title: 'Committee Session 4', start: '10:30', end: '12:00', type: 'committee' },
-            { label: 'Break', title: 'Lunch Break (food)', start: '12:00', end: '13:00', type: 'break' },
-            { label: 'Committee', title: 'Committee Session 5', start: '13:00', end: '14:45', type: 'committee' },
-            { label: 'Break', title: 'Break', start: '14:45', end: '15:00', type: 'break' },
-            { label: 'Committee', title: 'Workshops & Seminar/Panel', start: '15:00', end: '17:30', type: 'committee' },
-            { label: 'Committee', title: 'Committee Session 6', start: '17:00', end: '18:00', type: 'committee' },
-            { label: 'Departure', title: 'Dispersal', start: '18:00', end: '18:15', type: 'departure' },
-            { label: 'Featured', title: 'Social Night', start: '18:00', end: '20:00', type: 'featured' },
-            { label: 'Featured', title: 'Post-Social Night Dispersal', start: '20:00', end: '20:15', type: 'featured' },
-        ],
-    },
-    {
-        shortLabel: 'Day 3',
-        label: 'Sunday, June 14',
-        dateISO: '2026-06-14',
-        events: [
-            { label: 'Registration', title: 'Registration/Chair Briefing', start: '08:00', end: '08:30', type: 'registration' },
-            { label: 'Committee', title: 'Committee Session 7', start: '08:30', end: '10:00', type: 'committee' },
-            { label: 'Break', title: 'In-Committee Break', start: '10:00', end: '10:30', type: 'break' },
-            { label: 'Committee', title: 'Committee Session 8', start: '10:30', end: '12:00', type: 'committee' },
-            { label: 'Break', title: 'Lunch Break (food)', start: '12:00', end: '13:00', type: 'break' },
-            { label: 'Committee', title: 'Committee Session 9', start: '13:00', end: '14:30', type: 'committee' },
-            { label: 'Ceremony', title: 'Closing Ceremony', start: '14:30', end: '16:00', type: 'ceremony' },
-            { label: 'Departure', title: 'Dispersal', start: '16:00', end: '16:15', type: 'departure' },
-        ],
-    },
-];
-
-const UAE_OFFSET = '+04:00';
-const CONFERENCE_START_ISO = `2026-06-12T13:30:00${UAE_OFFSET}`;
-const CONFERENCE_END_ISO = `2026-06-14T16:15:00${UAE_OFFSET}`;
-
-const toDateTime = (dateISO: string, time: string) => new Date(`${dateISO}T${time}:00${UAE_OFFSET}`);
 
 const formatDuration = (milliseconds: number) => {
-    const clamped = Math.max(0, milliseconds);
-    const totalSeconds = Math.floor(clamped / 1000);
-    const days = Math.floor(totalSeconds / 86400);
-    const hours = Math.floor((totalSeconds % 86400) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    const hhmmss = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    return days > 0 ? `${days}d ${hhmmss}` : hhmmss;
+  const totalSeconds = Math.floor(Math.max(0, milliseconds) / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const clock = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  return days > 0 ? `${days}d ${clock}` : clock;
+};
+
+const isConferenceDay = (value: unknown): value is ConferenceDay => {
+  if (!value || typeof value !== 'object') return false;
+  const day = value as Record<string, unknown>;
+  return typeof day.shortLabel === 'string' && typeof day.label === 'string' && typeof day.dateISO === 'string' && Array.isArray(day.events);
 };
 
 const Page = () => {
-    const [isLoading, setIsLoading] = React.useState<boolean>(true);
-    const [updates, setUpdates] = React.useState<Update[]>([]);
-    const [now, setNow] = React.useState<Date>(new Date());
+  const [updatesLoading, setUpdatesLoading] = useState(true);
+  const [conferenceLoading, setConferenceLoading] = useState(true);
+  const [conferenceError, setConferenceError] = useState('');
+  const [updates, setUpdates] = useState<Update[]>([]);
+  const [conference, setConference] = useState<ConferenceSettings | null>(null);
+  const [now, setNow] = useState(new Date());
+  const headingStyle: React.CSSProperties = { fontFamily: "'Newsreader', serif" };
 
-    const headingStyle: React.CSSProperties = { fontFamily: "'Newsreader', serif" };
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-    useEffect(() => {
-        const timer = window.setInterval(() => setNow(new Date()), 1000);
-        return () => window.clearInterval(timer);
-    }, []);
+  useEffect(() => {
+    let active = true;
 
-    useEffect(() => {
-        const fetchUpdates = async () => {
-            try {
-                setIsLoading(true);
-                const { data, error } = await supabase.from('Updates').select('*').order('time', { ascending: false });
-                if (error) {
-                    console.error('Failed to fetch updates:', error);
-                    return;
-                }
-                if (data) setUpdates(data);
-            } catch (error) {
-                console.error('Error fetching updates:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
+    const fetchConference = async () => {
+      try {
+        setConferenceLoading(true);
+        const response = await fetch('/api/conference', await withBrowserAuthHeaders(undefined, 'live-conference-load'));
+        const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+        if (!response.ok) throw new Error(typeof body.error === 'string' ? body.error : 'Unable to load conference settings.');
 
-        fetchUpdates();
+        const record = body.conference as ConferenceSettings;
+        const schedule = Array.isArray(record?.schedule) ? record.schedule.filter(isConferenceDay) : [];
+        if (active) {
+          setConference({ ...record, schedule });
+          setConferenceError('');
+        }
+      } catch (error) {
+        if (active) {
+          setConference(null);
+          setConferenceError(error instanceof Error ? error.message : 'Unable to load conference settings.');
+        }
+      } finally {
+        if (active) setConferenceLoading(false);
+      }
+    };
 
-        const updatesChannel = supabase
-            .channel('live-updates-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'Updates' }, () => {
-                fetchUpdates();
-            })
-            .subscribe();
+    void fetchConference();
+    return () => { active = false; };
+  }, []);
 
-        return () => {
-            supabase.removeChannel(updatesChannel);
-        };
-    }, []);
+  useEffect(() => {
+    const fetchUpdates = async () => {
+      try {
+        setUpdatesLoading(true);
+        const { data, error } = await supabase.from('Updates').select('*').order('time', { ascending: false });
+        if (error) throw error;
+        setUpdates(data || []);
+      } catch (error) {
+        console.error('[live updates] feed load failed', error);
+      } finally {
+        setUpdatesLoading(false);
+      }
+    };
 
-    const timeline = useMemo(() => {
-        const allEvents = conferenceSchedule
-            .flatMap((day, dayIndex) =>
-                day.events.map((event) => ({
-                    ...event,
-                    dayIndex,
-                    startDate: toDateTime(day.dateISO, event.start),
-                    endDate: toDateTime(day.dateISO, event.end),
-                })),
-            )
-            .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+    void fetchUpdates();
+    const channel = supabase
+      .channel('live-updates-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Updates' }, () => void fetchUpdates())
+      .subscribe();
 
-        const conferenceStart = new Date(CONFERENCE_START_ISO);
-        const conferenceEnd = new Date(CONFERENCE_END_ISO);
-        const isConferenceWindow = now >= conferenceStart && now <= conferenceEnd;
-        const currentEvent = isConferenceWindow ? allEvents.find((event) => now >= event.startDate && now < event.endDate) ?? null : null;
-        const nextEvent = allEvents.find((event) => event.startDate > now) ?? null;
-        const isConferenceCompleted = now > conferenceEnd;
+    return () => { void supabase.removeChannel(channel); };
+  }, []);
 
-        const activeDayIndex = isConferenceWindow
-            ? conferenceSchedule.findIndex((day) => now >= toDateTime(day.dateISO, '00:00') && now <= toDateTime(day.dateISO, '23:59'))
-            : 0;
+  const timeline = useMemo(() => {
+    const schedule = conference?.schedule || [];
+    const offset = conference?.utc_offset || '+04:00';
+    const toDateTime = (dateISO: string, time: string) => new Date(`${dateISO}T${time}:00${offset}`);
+    const events = schedule
+      .flatMap((day, dayIndex) => day.events.map((event) => ({
+        ...event,
+        dayIndex,
+        startDate: toDateTime(day.dateISO, event.start),
+        endDate: toDateTime(day.dateISO, event.end),
+      })))
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
 
-        return {
-            isConferenceWindow,
-            currentEvent,
-            nextEvent,
-            isConferenceCompleted,
-            conferenceEnd,
-            activeDayIndex: activeDayIndex === -1 ? 0 : activeDayIndex,
-        };
-    }, [now]);
+    const start = conference?.start_at ? new Date(conference.start_at) : events[0]?.startDate || null;
+    const end = conference?.end_at ? new Date(conference.end_at) : events.at(-1)?.endDate || null;
+    const isWindow = Boolean(start && end && now >= start && now <= end);
+    const completed = Boolean(end && now > end);
+    const currentEvent = events.find((event) => now >= event.startDate && now < event.endDate) || null;
+    const nextEvent = events.find((event) => event.startDate > now) || null;
 
-    const activeDay = conferenceSchedule[timeline.activeDayIndex];
-
-    return (
-        <ProtectedRoute>
-            <main className="min-h-screen bg-[#f9f9f9] text-[#1a1c1c]" style={{ fontFamily: "'Manrope', sans-serif" }}>
-                <div className="mx-auto w-full max-w-[1600px] space-y-10 px-6 py-8 lg:px-8">
-                    <section className="space-y-4">
-                        <h1
-                          className="text-4xl !font-semibold tracking-tight text-[#500608]"
-                          style={headingStyle}>
-                          Session Status
-                        </h1>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
-                                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-[#564240]">Current Session</span>
-                                <h4 className="text-[30px] leading-tight text-[#500608] !font-medium" style={headingStyle}>
-                                    {timeline.currentEvent ? timeline.currentEvent.title : timeline.isConferenceCompleted ? 'Conference completed' : 'Conference not started'}
-                                </h4>
-                          </div>
-                            <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
-                                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-[#564240]">Starts Next</span>
-                                <span className="text-[30px] leading-tight text-[#500608]" style={headingStyle}>
-                                    {timeline.nextEvent ? formatDuration(timeline.nextEvent.startDate.getTime() - now.getTime()) : 'Conference completed'}
-                                </span>
-                                <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[#564240]">
-                                    {timeline.nextEvent ? `Until ${timeline.nextEvent.title}` : 'No upcoming sessions'}
-                                </p>
-                            </div>
-                            <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
-                                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-[#564240]">Conference End</span>
-                                <span className="text-[30px] leading-tight text-[#500608]" style={headingStyle}>
-                                    {timeline.isConferenceCompleted ? 'Conference completed' : formatDuration(timeline.conferenceEnd.getTime() - now.getTime())}
-                                </span>
-                                <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[#564240]">Until final dispersal</p>
-                            </div>
-                        </div>
-                    </section>
-
-                    <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12">
-                        <section className="space-y-5 lg:col-span-4">
-                            <div className="flex items-center justify-between border-b border-[#dcc0bd]/30 pb-3">
-                                <h3 className="text-2xl font-semibold text-[#1a1c1c]" style={headingStyle}>Daily Schedule</h3>
-                                <span className="rounded-md bg-[#eee0d5] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#211a14]">{activeDay.shortLabel}</span>
-                            </div>
-                            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#564240]">{activeDay.label}</p>
-                            <div className="relative ml-2 border-l-2 border-[#e2e2e2] py-1">
-                                {activeDay.events.map((event) => {
-                                    const eventStart = toDateTime(activeDay.dateISO, event.start);
-                                    const eventEnd = toDateTime(activeDay.dateISO, event.end);
-                                    const isCurrent = timeline.isConferenceWindow && now >= eventStart && now < eventEnd;
-                                    const isPast = timeline.isConferenceWindow && now >= eventEnd;
-
-                                    return (
-                                        <div key={`${event.start}-${event.title}`} className={`relative mb-6 pl-7 ${isCurrent ? '-ml-2 rounded-r-lg border-l-2 border-[#500608] bg-[#f4f3f3] py-3 pr-3' : ''}`}>
-                                            <div className={`absolute -left-[9px] top-1.5 h-4 w-4 rounded-full border-2 border-[#f9f9f9] ${isCurrent ? 'bg-[#500608]' : 'bg-[#e2e2e2]'}`} />
-                                            <span className={`mb-1 block text-[11px] font-bold uppercase tracking-[0.14em] ${isCurrent ? 'text-[#500608]' : 'text-[#564240]'}`}>
-                                                {event.start} - {event.end}{isCurrent ? ' (CURRENT)' : isPast ? ' (PAST)' : ''}
-                                            </span>
-                                            <h5 className={`text-lg leading-snug ${isCurrent ? 'text-[#500608]' : isPast ? 'text-[#1a1c1c]/60' : 'text-[#1a1c1c]'}`} style={headingStyle}>{event.title}</h5>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </section>
-
-                        <section className="space-y-5 lg:col-span-8">
-                            <div className="rounded-2xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
-                                <h4 className="mb-3 flex items-center gap-2 border-b border-[#dcc0bd]/20 pb-3 text-2xl font-medium text-[#500608]" style={headingStyle}>
-                                    <Megaphone className="h-5 w-5" /> Announcements
-                                </h4>
-                                {isLoading ? (
-                                    <div className="text-sm text-[#564240]">Loading live updates...</div>
-                                ) : updates.length > 0 ? (
-                                    <div className="max-h-[560px] min-h-[320px] space-y-3 overflow-y-auto pr-1">
-                                        {updates.map((update) => (
-                                            <div key={update.updateID} className="rounded-lg border border-[#dcc0bd]/30 bg-[#f4f3f3] p-3">
-                                                <div className="mb-1 flex items-start justify-between gap-2">
-                                                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7f2926]">Update</span>
-                                                    <span className="text-[11px] text-[#564240]">{new Date(update.time).toLocaleString()}</span>
-                                                </div>
-                                                <p className="text-sm font-semibold text-[#500608]">{update.title}</p>
-                                                <p className="mt-1 text-sm leading-relaxed text-[#1a1c1c]">{update.content}</p>
-                                                {update.href ? <img src={update.href} alt={`Update ${update.updateID} attachment`} className="mt-3 max-h-72 w-full rounded-md object-cover" /> : null}
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="min-h-[160px] rounded-lg border border-[#dcc0bd]/25 bg-[#f4f3f3] p-4 text-sm text-[#564240]">No announcements published yet.</div>
-                                )}
-                            </div>
-
-                            <section className="overflow-hidden rounded-2xl border border-[#dcc0bd]/25 bg-white shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
-                                <div className="border-b border-[#dcc0bd]/20 bg-[#ffffff] px-4 py-3">
-                                  <h4
-                                    className="!mb-0 flex items-center gap-2 text-2xl font-medium text-[#500608]"
-                                    style={{ ...headingStyle, marginBottom: 0 }}
-                                  >
-                                    <Calendar className="h-5 w-5 shrink-0 relative top-[-1px]" />
-                                    Crisis Briefing
-                                  </h4>
-
-                                  <span className="mt-2 inline-flex rounded-md bg-[#ffdad6] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#93000a]">
-                                    Not Published
-                                  </span>
-                                </div>
-                                <div className="p-4">
-                                    <div className="flex aspect-[16/9] items-center justify-center rounded-lg border border-[#dcc0bd]/30 bg-[#e8e8e8] px-4 text-center text-sm text-[#564240]">
-                                        No crisis briefing media is currently published.
-                                    </div>
-                                </div>
-                            </section>
-                        </section>
-                    </div>
-                </div>
-            </main>
-        </ProtectedRoute>
+    let activeDayIndex = 0;
+    const currentDayIndex = schedule.findIndex((day) =>
+      now >= toDateTime(day.dateISO, '00:00') && now <= toDateTime(day.dateISO, '23:59'),
     );
+    if (currentDayIndex >= 0) {
+      activeDayIndex = currentDayIndex;
+    } else {
+      const upcomingDayIndex = schedule.findIndex((day) => now < toDateTime(day.dateISO, '23:59'));
+      activeDayIndex = upcomingDayIndex >= 0 ? upcomingDayIndex : Math.max(0, schedule.length - 1);
+    }
+
+    return { events, start, end, isWindow, completed, currentEvent, nextEvent, activeDayIndex, toDateTime };
+  }, [conference, now]);
+
+  const activeDay = conference?.schedule[timeline.activeDayIndex] || null;
+  const sessionLabel = timeline.currentEvent
+    ? timeline.currentEvent.title
+    : timeline.completed
+      ? 'Conference completed'
+      : timeline.start && now < timeline.start
+        ? 'Conference not started'
+        : 'No session in progress';
+
+  return (
+    <ProtectedRoute>
+      <main className="min-h-screen bg-[#f9f9f9] text-[#1a1c1c]" style={{ fontFamily: "'Manrope', sans-serif" }}>
+        <div className="mx-auto w-full max-w-[1600px] space-y-10 px-6 py-8 lg:px-8">
+          <section className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6E1D1B]/60">{conference?.conference_name || 'VOFMUN'}</p>
+              <h1 className="text-4xl font-semibold tracking-tight text-[#500608]" style={headingStyle}>Session Status</h1>
+            </div>
+
+            {conferenceError ? <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{conferenceError}</p> : null}
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
+                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-[#564240]">Current Session</span>
+                <h4 className="text-[30px] font-medium leading-tight text-[#500608]" style={headingStyle}>{conferenceLoading ? 'Loading…' : sessionLabel}</h4>
+              </div>
+              <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
+                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-[#564240]">Starts Next</span>
+                <span className="text-[30px] leading-tight text-[#500608]" style={headingStyle}>{timeline.nextEvent ? formatDuration(timeline.nextEvent.startDate.getTime() - now.getTime()) : 'No upcoming session'}</span>
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[#564240]">{timeline.nextEvent ? timeline.nextEvent.title : 'Schedule complete'}</p>
+              </div>
+              <div className="rounded-xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
+                <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-[#564240]">Conference End</span>
+                <span className="text-[30px] leading-tight text-[#500608]" style={headingStyle}>{timeline.end ? timeline.completed ? 'Completed' : formatDuration(timeline.end.getTime() - now.getTime()) : 'Not configured'}</span>
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[#564240]">{conference?.timezone || 'Conference timezone'}</p>
+              </div>
+            </div>
+          </section>
+
+          <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12">
+            <section className="space-y-5 lg:col-span-4">
+              <div className="flex items-center justify-between border-b border-[#dcc0bd]/30 pb-3">
+                <h3 className="text-2xl font-semibold" style={headingStyle}>Daily Schedule</h3>
+                {activeDay ? <span className="rounded-md bg-[#eee0d5] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#211a14]">{activeDay.shortLabel}</span> : null}
+              </div>
+              {activeDay ? (
+                <>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#564240]">{activeDay.label}</p>
+                  <div className="relative ml-2 border-l-2 border-[#e2e2e2] py-1">
+                    {activeDay.events.map((event) => {
+                      const eventStart = timeline.toDateTime(activeDay.dateISO, event.start);
+                      const eventEnd = timeline.toDateTime(activeDay.dateISO, event.end);
+                      const isCurrent = now >= eventStart && now < eventEnd;
+                      const isPast = now >= eventEnd;
+                      return <div key={`${event.start}-${event.end}-${event.title}`} className={`relative mb-6 pl-7 ${isCurrent ? '-ml-2 rounded-r-lg border-l-2 border-[#500608] bg-[#f4f3f3] py-3 pr-3' : ''}`}><div className={`absolute -left-[9px] top-1.5 h-4 w-4 rounded-full border-2 border-[#f9f9f9] ${isCurrent ? 'bg-[#500608]' : 'bg-[#e2e2e2]'}`} /><span className={`mb-1 block text-[11px] font-bold uppercase tracking-[0.14em] ${isCurrent ? 'text-[#500608]' : 'text-[#564240]'}`}>{event.start} – {event.end}{isCurrent ? ' · Current' : isPast ? ' · Past' : ''}</span><h5 className={`text-lg leading-snug ${isCurrent ? 'text-[#500608]' : isPast ? 'text-[#1a1c1c]/60' : 'text-[#1a1c1c]'}`} style={headingStyle}>{event.title}</h5></div>;
+                    })}
+                  </div>
+                </>
+              ) : <p className="rounded-xl bg-white p-4 text-sm text-[#564240]">The conference schedule has not been configured.</p>}
+            </section>
+
+            <section className="space-y-5 lg:col-span-8">
+              <div className="rounded-2xl border border-[#dcc0bd]/25 bg-white p-5 shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
+                <h4 className="mb-3 flex items-center gap-2 border-b border-[#dcc0bd]/20 pb-3 text-2xl font-medium text-[#500608]" style={headingStyle}><Megaphone className="h-5 w-5" /> Announcements</h4>
+                {updatesLoading ? <div className="text-sm text-[#564240]">Loading live updates…</div> : updates.length > 0 ? <div className="max-h-[560px] min-h-[320px] space-y-3 overflow-y-auto pr-1">{updates.map((update) => <article key={update.updateID} className="rounded-lg border border-[#dcc0bd]/30 bg-[#f4f3f3] p-3"><div className="mb-1 flex items-start justify-between gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7f2926]">Update</span><span className="text-[11px] text-[#564240]">{new Date(update.time).toLocaleString()}</span></div><p className="text-sm font-semibold text-[#500608]">{update.title}</p><p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{update.content}</p>{update.href ? <img src={update.href} alt={`${update.title} attachment`} className="mt-3 max-h-72 w-full rounded-md object-cover" /> : null}</article>)}</div> : <div className="min-h-[160px] rounded-lg border border-[#dcc0bd]/25 bg-[#f4f3f3] p-4 text-sm text-[#564240]">No announcements published yet.</div>}
+              </div>
+
+              <section className="overflow-hidden rounded-2xl border border-[#dcc0bd]/25 bg-white shadow-[0_8px_24px_rgba(26,28,28,0.05)]">
+                <div className="border-b border-[#dcc0bd]/20 px-4 py-3">
+                  <h4 className="flex items-center gap-2 text-2xl font-medium text-[#500608]" style={headingStyle}><Calendar className="h-5 w-5" /> Crisis Briefing</h4>
+                  <span className={`mt-2 inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ${conference?.crisis_status === 'published' ? 'bg-emerald-100 text-emerald-800' : 'bg-[#ffdad6] text-[#93000a]'}`}>{conference?.crisis_status === 'published' ? 'Published' : 'Not published'}</span>
+                </div>
+                <div className="p-4">
+                  {conference?.crisis_status === 'published' ? <div className="rounded-xl border border-[#dcc0bd]/30 bg-[#fffdfb] p-5"><h5 className="font-serif text-2xl font-semibold text-[#500608]">{conference.crisis_title || 'Crisis briefing'}</h5>{conference.crisis_content ? <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[#1a1c1c]/85">{conference.crisis_content}</p> : null}{conference.crisis_media_url ? <a href={conference.crisis_media_url} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#6E1D1B] px-4 py-2.5 text-sm font-semibold text-white">Open briefing media <ExternalLink className="h-4 w-4" /></a> : null}</div> : <div className="flex aspect-[16/9] items-center justify-center rounded-lg border border-[#dcc0bd]/30 bg-[#e8e8e8] px-4 text-center text-sm text-[#564240]">No crisis briefing is currently published.</div>}
+                </div>
+              </section>
+            </section>
+          </div>
+        </div>
+      </main>
+    </ProtectedRoute>
+  );
 };
 
 export default Page;

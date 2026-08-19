@@ -40,9 +40,9 @@ export type Database = {
         Relationships: EmptyRelationships;
       };
       Delegate: {
-        Row: { delegateID: string; auth_user_id: string | null; firstname: string; lastname: string; email: string; resoPerms: Json; country: string | null; committeeID: string | null };
-        Insert: { delegateID: string; auth_user_id?: string | null; firstname: string; lastname: string; email: string; resoPerms?: Json; country?: string | null; committeeID?: string | null };
-        Update: { delegateID?: string; auth_user_id?: string | null; firstname?: string; lastname?: string; email?: string; resoPerms?: Json; country?: string | null; committeeID?: string | null };
+        Row: { delegateID: string; auth_user_id: string | null; firstname: string; lastname: string; email: string; resoPerms: Json; country: string | null; school: string | null; grade: string | null; committeeID: string | null };
+        Insert: { delegateID: string; auth_user_id?: string | null; firstname: string; lastname: string; email: string; resoPerms?: Json; country?: string | null; school?: string | null; grade?: string | null; committeeID?: string | null };
+        Update: { delegateID?: string; auth_user_id?: string | null; firstname?: string; lastname?: string; email?: string; resoPerms?: Json; country?: string | null; school?: string | null; grade?: string | null; committeeID?: string | null };
         Relationships: EmptyRelationships;
       };
       "Delegate-Speech": {
@@ -76,9 +76,9 @@ export type Database = {
         Relationships: EmptyRelationships;
       };
       app_users: {
-        Row: { id: string; email: string | null; first_name: string | null; last_name: string | null; role: string; committee_id: string | null; country: string | null; legacy_id: string | null; reso_perms: Json; created_at: string; updated_at: string };
-        Insert: { id: string; email?: string | null; first_name?: string | null; last_name?: string | null; role?: string; committee_id?: string | null; country?: string | null; legacy_id?: string | null; reso_perms?: Json; created_at?: string; updated_at?: string };
-        Update: { id?: string; email?: string | null; first_name?: string | null; last_name?: string | null; role?: string; committee_id?: string | null; country?: string | null; legacy_id?: string | null; reso_perms?: Json; created_at?: string; updated_at?: string };
+        Row: { id: string; email: string | null; first_name: string | null; last_name: string | null; role: string; committee_id: string | null; country: string | null; school: string | null; grade: string | null; legacy_id: string | null; reso_perms: Json; created_at: string; updated_at: string };
+        Insert: { id: string; email?: string | null; first_name?: string | null; last_name?: string | null; role?: string; committee_id?: string | null; country?: string | null; school?: string | null; grade?: string | null; legacy_id?: string | null; reso_perms?: Json; created_at?: string; updated_at?: string };
+        Update: { id?: string; email?: string | null; first_name?: string | null; last_name?: string | null; role?: string; committee_id?: string | null; country?: string | null; school?: string | null; grade?: string | null; legacy_id?: string | null; reso_perms?: Json; created_at?: string; updated_at?: string };
         Relationships: EmptyRelationships;
       };
       chat_rooms: {
@@ -147,6 +147,42 @@ export type Database = {
         Update: { id?: string; room_id?: string | null; user_id?: string | null; role?: string | null; joined_at?: string | null };
         Relationships: EmptyRelationships;
       };
+      app_notifications: {
+        Row: { id: string; title: string; message: string; kind: string; target_scope: string; target_role: string | null; target_committee_id: string | null; target_user_id: string | null; created_by: string | null; created_at: string; expires_at: string | null };
+        Insert: { id?: string; title: string; message: string; kind?: string; target_scope?: string; target_role?: string | null; target_committee_id?: string | null; target_user_id?: string | null; created_by?: string | null; created_at?: string; expires_at?: string | null };
+        Update: { id?: string; title?: string; message?: string; kind?: string; target_scope?: string; target_role?: string | null; target_committee_id?: string | null; target_user_id?: string | null; created_by?: string | null; created_at?: string; expires_at?: string | null };
+        Relationships: EmptyRelationships;
+      };
+      notification_reads: {
+        Row: { notification_id: string; user_id: string; read_at: string };
+        Insert: { notification_id: string; user_id: string; read_at?: string };
+        Update: { notification_id?: string; user_id?: string; read_at?: string };
+        Relationships: EmptyRelationships;
+      };
+      conference_settings: {
+        Row: { id: string; conference_name: string; timezone: string; utc_offset: string; start_at: string | null; end_at: string | null; schedule: Json; crisis_status: string; crisis_title: string | null; crisis_content: string | null; crisis_media_url: string | null; updated_by: string | null; updated_at: string };
+        Insert: { id?: string; conference_name?: string; timezone?: string; utc_offset?: string; start_at?: string | null; end_at?: string | null; schedule?: Json; crisis_status?: string; crisis_title?: string | null; crisis_content?: string | null; crisis_media_url?: string | null; updated_by?: string | null; updated_at?: string };
+        Update: { id?: string; conference_name?: string; timezone?: string; utc_offset?: string; start_at?: string | null; end_at?: string | null; schedule?: Json; crisis_status?: string; crisis_title?: string | null; crisis_content?: string | null; crisis_media_url?: string | null; updated_by?: string | null; updated_at?: string };
+        Relationships: EmptyRelationships;
+      };
+      committee_matrix_seats: {
+        Row: { id: string; committee_id: string; country_name: string; sort_order: number; created_at: string };
+        Insert: { id?: string; committee_id: string; country_name: string; sort_order: number; created_at?: string };
+        Update: { id?: string; committee_id?: string; country_name?: string; sort_order?: number; created_at?: string };
+        Relationships: EmptyRelationships;
+      };
+      chair_committee_sessions: {
+        Row: { id: string; committee_id: string; session_number: number; title: string; status: string; state: Json; version: number; created_by: string | null; updated_by: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; committee_id: string; session_number?: number; title?: string; status?: string; state?: Json; version?: number; created_by?: string | null; updated_by?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; committee_id?: string; session_number?: number; title?: string; status?: string; state?: Json; version?: number; created_by?: string | null; updated_by?: string | null; created_at?: string; updated_at?: string };
+        Relationships: EmptyRelationships;
+      };
+      chair_delegate_metrics: {
+        Row: { committee_id: string; delegate_id: string; attendance_status: string; tallies: Json; scores: Json; notes: string; award_status: string; updated_by: string | null; updated_at: string };
+        Insert: { committee_id: string; delegate_id: string; attendance_status?: string; tallies?: Json; scores?: Json; notes?: string; award_status?: string; updated_by?: string | null; updated_at?: string };
+        Update: { committee_id?: string; delegate_id?: string; attendance_status?: string; tallies?: Json; scores?: Json; notes?: string; award_status?: string; updated_by?: string | null; updated_at?: string };
+        Relationships: EmptyRelationships;
+      };
       support_requests: {
         Row: { id: string; user_id: string | null; display_name: string | null; country: string | null; committee_id: string | null; committee_name: string | null; role: string | null; message: string; source: string; status: string; created_at: string; updated_at: string };
         Insert: { id?: string; user_id?: string | null; display_name?: string | null; country?: string | null; committee_id?: string | null; committee_name?: string | null; role?: string | null; message: string; source?: string; status?: string; created_at?: string; updated_at?: string };
@@ -177,3 +213,4 @@ export type Database = {
     CompositeTypes: Record<string, never>;
   };
 };
+

@@ -105,8 +105,23 @@ const Page = () => {
               </div>
               <div className="rounded-lg bg-[#f4f3f3] p-6">
                 <h4 className="mb-3 font-bold text-[#500608]" style={{ fontFamily: headingFont }}>Notifications</h4>
-                <p className="text-sm leading-relaxed text-slate-600">Use the bell in the navbar for notices. Notification counts are hidden until a live source is configured.</p>
+                <p className="text-sm leading-relaxed text-slate-600">Use the bell in the navbar for official announcements, action notices, friend-request updates, and unread messages.</p>
               </div>
+            </div>
+          </section>
+
+          <section className="mt-10 grid gap-6 rounded-xl border border-[#dcc0bd]/25 bg-white p-7 shadow-[0_8px_32px_rgba(26,28,28,0.05)] md:grid-cols-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6E1D1B]/60">About Us</p>
+              <h3 className="mt-2 text-3xl font-bold text-[#500608]" style={{ fontFamily: headingFont }}>Voices of the Future Model United Nations</h3>
+              <p className="mt-3 text-sm leading-7 text-slate-600">VOFMUN gives students a rigorous, collaborative setting to practise diplomacy, research, public speaking, negotiation, and resolution writing. VOFMUN ONE keeps every participant connected to the live conference workflow.</p>
+              <Link href="/about" className="mt-5 inline-flex rounded-lg bg-[#500608] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-white">Learn about VOFMUN</Link>
+            </div>
+            <div className="rounded-xl bg-[#fff0e5] p-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6E1D1B]/60">Meet Our Team</p>
+              <h4 className="mt-2 text-2xl font-bold text-[#500608]" style={{ fontFamily: headingFont }}>Secretariat, Chairs, Technology & Media</h4>
+              <p className="mt-3 text-sm leading-7 text-slate-600">The conference is delivered by the secretariat, committee chairs, and the technology and media teams working together across participant support and live operations.</p>
+              <a href="https://vofmun.org/secretariat" target="_blank" rel="noreferrer" className="mt-5 inline-flex text-sm font-semibold text-[#6E1D1B] hover:underline">View the current secretariat</a>
             </div>
           </section>
         </main>

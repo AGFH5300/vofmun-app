@@ -1477,7 +1477,15 @@ const nextHandler = nextApp.getRequestHandler();
 // Express first. Forward the complete Next-owned API surface explicitly.
 app.all(
   [
+    '/api/health',
     '/api/auth/profile',
+    '/api/delegates',
+    '/api/chair/operations',
+    '/api/notifications',
+    '/api/conference',
+    '/api/admin/support-requests',
+    '/api/admin/notifications',
+    '/api/admin/users',
     '/api/upload-image',
     '/api/chat/attachments/upload',
     '/api/chat/attachments/sign',
@@ -1675,3 +1683,4 @@ start().catch((error) => {
 });
 
 export default app;
+

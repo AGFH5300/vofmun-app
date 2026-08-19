@@ -18,6 +18,20 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vofmun_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d vofmun_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     timeout-minutes: 30
     steps:
       - name: Check out source
@@ -66,6 +80,34 @@ jobs:
               print(f'Parsed {migration}')
           PY
 
+      - name: Apply migrations to a clean database
+        env:
+          PGURL: postgresql://postgres:postgres@127.0.0.1:5432/vofmun_ci
+        shell: bash
+        run: |
+          psql "$PGURL" -v ON_ERROR_STOP=1 -f scripts/prepare-ci-database.sql
+          for migration in supabase/migrations/*.sql; do
+            echo "Applying $migration"
+            psql "$PGURL" -v ON_ERROR_STOP=1 -f "$migration"
+          done
+          psql "$PGURL" -v ON_ERROR_STOP=1 -f scripts/verify-ci-chair-data.sql
+
+      - name: Verify backdated baseline preserves receipt hardening
+        env:
+          PGURL: postgresql://postgres:postgres@127.0.0.1:5432/vofmun_ci
+        shell: bash
+        run: |
+          set -euo pipefail
+          signature='public.mark_message_receipts(uuid,uuid[],character varying,boolean)'
+          before="$(psql "$PGURL" -Atc "select md5(pg_get_functiondef('$signature'::regprocedure))")"
+          psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260801000000_initial_schema_contract.sql
+          after="$(psql "$PGURL" -Atc "select md5(pg_get_functiondef('$signature'::regprocedure))")"
+          test -n "$before"
+          test "$before" = "$after"
+
+      - name: Verify database contract
+        run: npm run verify:database
+
       - name: Audit runtime dependencies
         id: runtime_audit
         continue-on-error: true
@@ -102,6 +144,12 @@ jobs:
             process.exit(1);
           }
           NODE
+
+      - name: Run regression tests
+        run: npm test
+
+      - name: Verify release contracts
+        run: npm run verify:release
 
       - name: Type-check
         id: typecheck
@@ -145,3 +193,4 @@ jobs:
           if [[ "$AUDIT_OUTCOME" != "success" || "$TYPECHECK_OUTCOME" != "success" || "$LINT_OUTCOME" != "success" || "$BUILD_OUTCOME" != "success" || "$CLIENT_SECRET_OUTCOME" != "success" ]]; then
             exit 1
           fi
+

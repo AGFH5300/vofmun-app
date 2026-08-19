@@ -3,6 +3,7 @@
 'use client';
 
 import React from "react";
+import Link from "next/link";
 
 const SiteFooter: React.FC = () => {
 
@@ -24,6 +25,7 @@ const SiteFooter: React.FC = () => {
           <div>
             <h3 className="font-semibold text-base sm:text-lg mb-3 sm:mb-4">Quick Links</h3>
             <ul className="space-y-1.5 sm:space-y-2">
+              <li><Link href="/about" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">About VOFMUN</Link></li>
               <li>
                 <a href="https://vofmun.org/signup" className="text-gray-400 hover:text-white transition-colors text-xs sm:text-sm">
                   Register
