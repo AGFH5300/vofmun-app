@@ -246,7 +246,13 @@ const updateMetric = async (context: ActorContext, body: Record<string, unknown>
     }
     const delta = body.delta === -1 ? -1 : 1;
     const kind = body.kind as TallyKind;
-    next.tallies[kind] = Math.max(0, Math.min(999, next.tallies[kind] + delta));
+    const adjust = (value: number) => Math.max(0, Math.min(999, value + delta));
+    if (kind === 'speech') next.tallies = { ...next.tallies, speech: adjust(next.tallies.speech) };
+    else if (kind === 'motion') next.tallies = { ...next.tallies, motion: adjust(next.tallies.motion) };
+    else if (kind === 'poi') next.tallies = { ...next.tallies, poi: adjust(next.tallies.poi) };
+    else if (kind === 'amendment') next.tallies = { ...next.tallies, amendment: adjust(next.tallies.amendment) };
+    else if (kind === 'resolution') next.tallies = { ...next.tallies, resolution: adjust(next.tallies.resolution) };
+    else next.tallies = { ...next.tallies, diplomacy: adjust(next.tallies.diplomacy) };
   } else if (body.action === 'metric.assessment') {
     next.scores = normalizeScores(body.scores);
     next.notes = typeof body.notes === 'string' ? body.notes.trim().slice(0, 4_000) : '';

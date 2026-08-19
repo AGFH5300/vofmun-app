@@ -69,3 +69,16 @@ test('votes and score matrices accept only bounded values', () => {
   assert.equal(scores.speaking, 0);
   assert.equal(scores.diplomacy, 7);
 });
+
+test('untrusted dynamic keys cannot mutate object prototypes', () => {
+  const idFactory = ids();
+  let state = createDefaultChairSessionState();
+  state = applyChairSessionAction(state, { action: 'timer', timer: '__proto__', command: 'start' }, { idFactory });
+  assert.equal(state.timers.speaker.running, true);
+
+  state = applyChairSessionAction(state, { action: 'vote.open', title: 'Security test' }, { idFactory });
+  state = applyChairSessionAction(state, { action: 'vote.set', delegateId: '__proto__', choice: 'for' }, { idFactory });
+  assert.equal(Object.prototype.hasOwnProperty.call(state.vote?.choices, '__proto__'), true);
+  assert.equal(state.vote?.choices['__proto__'], 'for');
+  assert.equal(Object.getPrototypeOf({}), Object.prototype);
+});

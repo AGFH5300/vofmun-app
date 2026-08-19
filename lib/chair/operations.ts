@@ -207,14 +207,17 @@ export const normalizeChairSessionState = (value: unknown): ChairSessionState =>
 
   let vote: ChairVote | null = null;
   if (isRecord(value.vote)) {
-    const choices: Record<string, VoteChoice> = {};
-    if (isRecord(value.vote.choices)) {
-      for (const [delegateId, rawChoice] of Object.entries(value.vote.choices)) {
-        if (delegateId.length <= 80 && typeof rawChoice === 'string' && VOTE_CHOICES.includes(rawChoice as VoteChoice)) {
-          choices[delegateId] = rawChoice as VoteChoice;
-        }
-      }
-    }
+    const choices = Object.fromEntries(
+      isRecord(value.vote.choices)
+        ? Object.entries(value.vote.choices).flatMap(([delegateId, rawChoice]) => (
+          delegateId.length <= 80
+          && typeof rawChoice === 'string'
+          && VOTE_CHOICES.includes(rawChoice as VoteChoice)
+            ? [[delegateId, rawChoice as VoteChoice] as const]
+            : []
+        ))
+        : [],
+    ) as Record<string, VoteChoice>;
     vote = {
       title: asString(value.vote.title, 240, 'Roll-call vote'),
       motionId: asOptionalString(value.vote.motionId, 80),
@@ -303,24 +306,29 @@ export const applyChairSessionAction = (
     case 'timer': {
       const timerKind = enumValue(TIMER_KINDS, action.timer, 'speaker');
       const command = enumValue(['start', 'pause', 'reset', 'set'] as const, action.command, 'pause');
-      const timer = next.timers[timerKind];
+      const timer = timerKind === 'session'
+        ? next.timers.session
+        : timerKind === 'caucus'
+          ? next.timers.caucus
+          : next.timers.speaker;
+      let updatedTimer = timer;
       if (command === 'start' && !timer.running) {
-        timer.startedAt = nowIso;
-        timer.running = true;
+        updatedTimer = { ...timer, startedAt: nowIso, running: true };
       } else if (command === 'pause' && timer.running) {
-        timer.elapsedSeconds = effectiveTimerElapsed(timer, now.getTime());
-        timer.startedAt = null;
-        timer.running = false;
+        updatedTimer = {
+          ...timer,
+          elapsedSeconds: effectiveTimerElapsed(timer, now.getTime()),
+          startedAt: null,
+          running: false,
+        };
       } else if (command === 'reset') {
-        timer.elapsedSeconds = 0;
-        timer.startedAt = null;
-        timer.running = false;
+        updatedTimer = defaultTimer(timer.durationSeconds);
       } else if (command === 'set') {
-        timer.durationSeconds = asInteger(action.durationSeconds, 5, 43_200, timer.durationSeconds);
-        timer.elapsedSeconds = 0;
-        timer.startedAt = null;
-        timer.running = false;
+        updatedTimer = defaultTimer(asInteger(action.durationSeconds, 5, 43_200, timer.durationSeconds));
       }
+      if (timerKind === 'session') next.timers.session = updatedTimer;
+      else if (timerKind === 'caucus') next.timers.caucus = updatedTimer;
+      else next.timers.speaker = updatedTimer;
       return next;
     }
     case 'speaker.add': {
@@ -445,7 +453,10 @@ export const applyChairSessionAction = (
     case 'vote.set': {
       if (!next.vote || next.vote.status !== 'open') throw new ChairOperationError('Open a vote first.');
       const delegateId = requireDelegate(action.delegateId);
-      next.vote.choices[delegateId] = enumValue(VOTE_CHOICES, action.choice, 'abstain');
+      next.vote.choices = {
+        ...next.vote.choices,
+        [delegateId]: enumValue(VOTE_CHOICES, action.choice, 'abstain'),
+      };
       return next;
     }
     case 'vote.close': {
