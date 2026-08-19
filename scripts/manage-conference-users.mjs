@@ -57,7 +57,7 @@ const isValidEmail = (value) => {
   return dot > 0 && dot < domain.length - 1;
 };
 
-export const parseCsv = (input) => {
+const parseCsvTable = (input) => {
   const text = String(input || '').replace(/^\uFEFF/, '');
   const rows = [];
   let row = [];
@@ -101,18 +101,38 @@ export const parseCsv = (input) => {
   const headers = nonEmptyRows[0].map((value) => normalizeText(value).toLowerCase());
   const duplicateHeaders = headers.filter((header, index) => headers.indexOf(header) !== index);
   if (duplicateHeaders.length > 0) throw new Error(`CSV contains duplicate column(s): ${[...new Set(duplicateHeaders)].join(', ')}`);
-  const missing = REQUIRED_COLUMNS.filter((column) => !headers.includes(column));
-  const unknown = headers.filter((column) => !REQUIRED_COLUMNS.includes(column));
-  if (missing.length > 0) throw new Error(`CSV is missing required column(s): ${missing.join(', ')}`);
-  if (unknown.length > 0) throw new Error(`CSV contains unsupported column(s): ${unknown.join(', ')}`);
-
-  return nonEmptyRows.slice(1).map((values, rowIndex) => {
+  const records = nonEmptyRows.slice(1).map((values, rowIndex) => {
     if (values.length > headers.length) throw new Error(`CSV row ${rowIndex + 2} contains too many columns.`);
     const record = { _row: rowIndex + 2 };
     headers.forEach((header, index) => {
       record[header] = normalizeText(values[index]);
     });
     return record;
+  });
+  return { headers, records };
+};
+
+export const parseCsv = (input) => {
+  const { headers, records } = parseCsvTable(input);
+  const missing = REQUIRED_COLUMNS.filter((column) => !headers.includes(column));
+  const unknown = headers.filter((column) => !REQUIRED_COLUMNS.includes(column));
+  if (missing.length > 0) throw new Error(`CSV is missing required column(s): ${missing.join(', ')}`);
+  if (unknown.length > 0) throw new Error(`CSV contains unsupported column(s): ${unknown.join(', ')}`);
+  return records;
+};
+
+export const parseCleanupCsv = (input) => {
+  const { headers, records } = parseCsvTable(input);
+  if (!headers.includes('email')) throw new Error('Cleanup CSV requires an email column.');
+  const unknown = headers.filter((column) => !REQUIRED_COLUMNS.includes(column));
+  if (unknown.length > 0) throw new Error(`Cleanup CSV contains unsupported column(s): ${unknown.join(', ')}`);
+  const emails = new Map();
+  return records.map((record) => {
+    const email = normalizeEmail(record.email);
+    if (!isValidEmail(email)) throw new Error(`Cleanup row ${record._row}: invalid email address.`);
+    if (emails.has(email)) throw new Error(`Cleanup rows ${emails.get(email)} and ${record._row}: duplicate email ${email}.`);
+    emails.set(email, record._row);
+    return { row: record._row, email };
   });
 };
 
@@ -218,6 +238,19 @@ const loadRoster = (rosterPath) => {
     absolutePath,
     hash: createHash('sha256').update(contents).digest('hex'),
     rows: validateRosterShape(parseCsv(contents)),
+  };
+};
+
+const loadCleanupRoster = (rosterPath) => {
+  if (!rosterPath || rosterPath === true) throw new Error('Provide --roster /absolute/or/relative/path.csv.');
+  const absolutePath = path.resolve(process.cwd(), rosterPath);
+  const contents = fs.readFileSync(absolutePath, 'utf8');
+  const rows = parseCleanupCsv(contents);
+  if (rows.length === 0) throw new Error('Cleanup roster must contain at least one email.');
+  return {
+    absolutePath,
+    hash: createHash('sha256').update(contents).digest('hex'),
+    rows,
   };
 };
 
@@ -607,9 +640,6 @@ const listStorageDirectory = async (supabase, bucket, prefix) => {
 
 const cleanupTestUsers = async ({ supabase, projectRef, roster, options }) => {
   if (options.mode !== 'qa') throw new Error('cleanup-test requires --mode qa.');
-  if (roster.rows.some((row) => row.role === 'admin')) {
-    throw new Error('cleanup-test refuses to delete administrators. Keep the permanent bootstrap admin out of the QA cleanup roster.');
-  }
   assertWriteConfirmation({ options, projectRef, rosterCount: roster.rows.length, action: 'cleanup-test' });
   if (options.confirm_cleanup !== CLEANUP_CONFIRMATION) {
     throw new Error(`cleanup-test requires --confirm-cleanup ${CLEANUP_CONFIRMATION}.`);
@@ -618,6 +648,12 @@ const cleanupTestUsers = async ({ supabase, projectRef, roster, options }) => {
   const targetEmails = new Set(roster.rows.map((row) => row.email));
   const authTargets = live.authUsers.filter((user) => targetEmails.has(normalizeEmail(user.email)));
   const appTargets = live.appUsers.filter((user) => targetEmails.has(normalizeEmail(user.email)));
+  const legacyAdminTargets = live.legacyRows
+    .find((group) => group.table === 'Admin')
+    ?.rows.filter((row) => targetEmails.has(normalizeEmail(row.email))) || [];
+  if (appTargets.some((user) => user.role === 'admin') || legacyAdminTargets.length > 0) {
+    throw new Error('cleanup-test refuses to delete administrators. Remove the permanent bootstrap admin from the cleanup email list.');
+  }
   const targetIds = [...new Set([...authTargets.map((user) => user.id), ...appTargets.map((user) => user.id)])];
   console.log(`Exact cleanup scope: ${targetEmails.size} roster emails, ${targetIds.length} linked UUIDs.`);
 
@@ -727,7 +763,7 @@ const main = async () => {
   if (!['preflight', 'provision', 'status', 'cleanup-test'].includes(options.action)) {
     throw new Error(`Unknown action ${options.action}. Run with help.`);
   }
-  const roster = loadRoster(options.roster);
+  const roster = options.action === 'cleanup-test' ? loadCleanupRoster(options.roster) : loadRoster(options.roster);
   const { supabase, projectRef } = await createAdminClient();
   if (options.action === 'preflight') {
     await preflight(supabase, roster);
