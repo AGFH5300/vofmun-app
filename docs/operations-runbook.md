@@ -8,6 +8,8 @@ Administrators and secretariat members provision accounts from **Admin → Users
 
 Before inviting users, configure the Supabase Auth Site URL and `APP_URL` / `NEXT_PUBLIC_APP_URL` to the deployed application origin. Invitation and recovery links return to `/reset-password`.
 
+For first-admin bootstrap, same-project QA cohorts, conference CSV validation, bulk invitations, reconciliation, retries, and exact QA cleanup, follow [`docs/conference-user-provisioning.md`](conference-user-provisioning.md). The consolidated command defaults to read-only preflight and requires explicit project, row-count, and production confirmations before writes.
+
 ## Required environment
 
 Copy `.env.example` and provide:
@@ -80,4 +82,3 @@ Application logs use bounded context and never log access tokens, service keys, 
 8. Confirm an attempted cross-committee delegate or committee request is rejected.
 
 The chair tables are server-only Data API surfaces: public, anon, and authenticated grants are revoked, RLS is enabled for defense in depth, and the verified server route performs the committee authorization check.
-
