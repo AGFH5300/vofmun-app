@@ -6,6 +6,8 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 const server = read('server/chat/server.ts');
 const chair = read('app/chair/page.tsx');
 const delegatesRoute = read('app/api/delegates/route.ts');
+const chairOperationsRoute = read('app/api/chair/operations/route.ts');
+const chairOperations = read('lib/chair/operations.ts');
 const chat = read('app/messages/context/ChatContext.tsx');
 const admin = read('app/admin/page.tsx');
 const liveUpdates = read('app/live-updates/page.tsx');
@@ -16,10 +18,19 @@ assert.match(server, /'\/api\/delegates'/, 'The custom server must forward the d
 assert.match(chair, /withBrowserAuthHeaders/, 'Chair API calls must include the verified Supabase bearer token.');
 assert.match(delegatesRoute, /getVerifiedSessionUserFromRequest/, 'The delegates API must verify the access token.');
 assert.match(delegatesRoute, /actor\.role === 'chair'/, 'Chair updates must be committee-scoped.');
+assert.match(chairOperationsRoute, /getVerifiedSessionUserFromRequest/, 'Chair operations must verify the access token.');
+assert.match(chairOperationsRoute, /actor\.role === 'chair' \? profile\?\.committee_id/, 'Chairs must be locked to their assigned committee.');
+for (const feature of ['speaker.startNext', 'timer', 'motion.add', 'vote.open', 'metric.tally', 'metric.assessment']) {
+  assert.ok(chairOperationsRoute.includes(feature) || chairOperations.includes(feature), `Missing chair workflow: ${feature}`);
+}
+for (const label of ['Live Session', 'Roll Call & Tallies', 'Scoring Matrix', 'Motions & Voting', 'Resolution Access']) {
+  assert.ok(chair.includes(label), `Chair dashboard must expose ${label}.`);
+}
 assert.match(chat, /getReceiptRetryDelay/, 'Receipt delivery must use the terminal/transient retry policy.');
 for (const route of [
   '/api/health',
   '/api/delegates',
+  '/api/chair/operations',
   '/api/notifications',
   '/api/conference',
   '/api/admin/support-requests',
@@ -37,3 +48,4 @@ assert.doesNotMatch(login, /\.signUp\s*\(/, 'Public signup must remain intention
 assert.equal(fs.existsSync('app/signup/page.tsx'), false, 'A public signup page must not be added.');
 
 process.stdout.write('Release contracts verified.\n');
+

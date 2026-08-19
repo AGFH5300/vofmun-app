@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "chat:server": "tsx server/chat/server.ts",
     "dev:webpack": "concurrently -s last -n \"APP,WARM\" -c \"cyan,magenta\" \"node scripts/start-clean-dev.mjs\" \"node scripts/warmup-dev.mjs\"",
-    "test": "tsx --test tests/receipt-retry.test.ts",
+    "test": "tsx --test tests/*.test.ts",
     "verify:release": "node scripts/verify-release-contract.mjs",
     "verify:database": "node scripts/verify-database-contract.mjs"
   },
@@ -96,3 +96,4 @@
     "node": ">=22 <25"
   }
 }
+

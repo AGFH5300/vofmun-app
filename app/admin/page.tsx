@@ -47,6 +47,22 @@ type DirectoryUser = {
   role: UserRole;
   committee_id: string | null;
   country: string | null;
+  school: string | null;
+  grade: string | null;
+};
+
+type MatrixSeat = {
+  id: string;
+  committee_id: string;
+  country_name: string;
+  sort_order: number;
+};
+
+type UserDraft = {
+  committeeId: string;
+  country: string;
+  school: string;
+  grade: string;
 };
 
 type CommitteeRecord = {
@@ -96,6 +112,9 @@ const AdminPage = () => {
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [directoryUsers, setDirectoryUsers] = useState<DirectoryUser[]>([]);
   const [committees, setCommittees] = useState<CommitteeRecord[]>([]);
+  const [matrixSeats, setMatrixSeats] = useState<MatrixSeat[]>([]);
+  const [userDrafts, setUserDrafts] = useState<Record<string, UserDraft>>({});
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [conference, setConference] = useState<ConferenceRecord | null>(null);
 
   const [invite, setInvite] = useState({
@@ -105,6 +124,8 @@ const AdminPage = () => {
     role: 'delegate' as UserRole,
     committeeId: '',
     country: '',
+    school: '',
+    grade: '',
   });
   const [inviting, setInviting] = useState(false);
 
@@ -174,6 +195,7 @@ const AdminPage = () => {
       setNotifications((notificationBody.notifications as NotificationRecord[]) || []);
       setDirectoryUsers((usersBody.users as DirectoryUser[]) || []);
       setCommittees((usersBody.committees as CommitteeRecord[]) || []);
+      setMatrixSeats((usersBody.matrixSeats as MatrixSeat[]) || []);
       applyConference(conferenceBody.conference as ConferenceRecord);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to load admin operations.');
@@ -247,12 +269,55 @@ const AdminPage = () => {
       setDirectoryUsers((current) => [...current, body.user as DirectoryUser].sort((a, b) =>
         (a.first_name || '').localeCompare(b.first_name || ''),
       ));
-      setInvite({ email: '', firstName: '', lastName: '', role: 'delegate', committeeId: '', country: '' });
+      setInvite({ email: '', firstName: '', lastName: '', role: 'delegate', committeeId: '', country: '', school: '', grade: '' });
       toast.success('Invitation sent and VOFMUN profile created.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to invite the user.');
     } finally {
       setInviting(false);
+    }
+  };
+
+  const getUserDraft = (user: DirectoryUser): UserDraft => userDrafts[user.id] || {
+    committeeId: user.committee_id || '',
+    country: user.country || '',
+    school: user.school || '',
+    grade: user.grade || '',
+  };
+
+  const updateUserDraft = (user: DirectoryUser, patch: Partial<UserDraft>) => {
+    setUserDrafts((current) => ({ ...current, [user.id]: { ...getUserDraft(user), ...patch } }));
+  };
+
+  const saveDirectoryUser = async (user: DirectoryUser) => {
+    const draft = getUserDraft(user);
+    setSavingUserId(user.id);
+    try {
+      const response = await apiFetch('/api/admin/users', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          id: user.id,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          role: user.role,
+          committeeId: draft.committeeId,
+          country: draft.country,
+          school: draft.school,
+          grade: draft.grade,
+        }),
+      }, 'admin-user-update');
+      const body = await parseResponse(response);
+      setDirectoryUsers((current) => current.map((entry) => entry.id === user.id ? body.user as DirectoryUser : entry));
+      setUserDrafts((current) => {
+        const next = { ...current };
+        delete next[user.id];
+        return next;
+      });
+      toast.success(user.role === 'chair' ? 'Chair committee assignment saved.' : 'Delegate profile saved.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to update the user.');
+    } finally {
+      setSavingUserId(null);
     }
   };
 
@@ -394,9 +459,13 @@ const AdminPage = () => {
                     <label><span className={labelClass}>Last name</span><input value={invite.lastName} onChange={(event) => setInvite((value) => ({ ...value, lastName: event.target.value }))} className={fieldClass} /></label>
                   </div>
                   <label><span className={labelClass}>Email</span><input type="email" value={invite.email} onChange={(event) => setInvite((value) => ({ ...value, email: event.target.value }))} className={fieldClass} /></label>
-                  <label><span className={labelClass}>Country</span><input value={invite.country} onChange={(event) => setInvite((value) => ({ ...value, country: event.target.value }))} className={fieldClass} /></label>
-                  <div><span className={labelClass}>Role</span><div className="grid grid-cols-2 gap-2">{(['delegate', 'chair', 'secretariat', 'admin'] as UserRole[]).map((role) => <button key={role} type="button" onClick={() => setInvite((value) => ({ ...value, role }))} className={`rounded-xl border px-3 py-2 text-sm capitalize ${invite.role === role ? 'border-[#6E1D1B] bg-[#6E1D1B] text-white' : 'border-[#dcc0bd] bg-white text-[#564240]'}`}>{role}</button>)}</div></div>
-                  {(invite.role === 'delegate' || invite.role === 'chair') ? <label><span className={labelClass}>Committee</span><select value={invite.committeeId} onChange={(event) => setInvite((value) => ({ ...value, committeeId: event.target.value }))} className={fieldClass}><option value="">Select committee</option>{committees.map((committee) => <option key={committee.committeeID} value={committee.committeeID}>{committee.committeeCode} — {committee.name}</option>)}</select></label> : null}
+                  <div><span className={labelClass}>Role</span><div className="grid grid-cols-2 gap-2">{(['delegate', 'chair', 'secretariat', 'admin'] as UserRole[]).map((role) => <button key={role} type="button" onClick={() => setInvite((value) => ({ ...value, role, country: role === 'delegate' ? value.country : '', school: role === 'delegate' ? value.school : '', grade: role === 'delegate' ? value.grade : '' }))} className={`rounded-xl border px-3 py-2 text-sm capitalize ${invite.role === role ? 'border-[#6E1D1B] bg-[#6E1D1B] text-white' : 'border-[#dcc0bd] bg-white text-[#564240]'}`}>{role}</button>)}</div></div>
+                  {(invite.role === 'delegate' || invite.role === 'chair') ? <label><span className={labelClass}>Committee</span><select value={invite.committeeId} onChange={(event) => setInvite((value) => ({ ...value, committeeId: event.target.value, country: '' }))} className={fieldClass}><option value="">Select committee</option>{committees.map((committee) => <option key={committee.committeeID} value={committee.committeeID}>{committee.committeeCode} — {committee.name}</option>)}</select></label> : null}
+                  {invite.role === 'delegate' ? <>
+                    <label><span className={labelClass}>Matrix country</span><select value={invite.country} onChange={(event) => setInvite((value) => ({ ...value, country: event.target.value }))} className={fieldClass} disabled={!invite.committeeId}><option value="">Select country</option>{matrixSeats.filter((seat) => seat.committee_id === invite.committeeId).map((seat) => <option key={seat.id} value={seat.country_name}>{seat.country_name}</option>)}</select></label>
+                    <label><span className={labelClass}>School</span><input value={invite.school} onChange={(event) => setInvite((value) => ({ ...value, school: event.target.value }))} maxLength={255} className={fieldClass} /></label>
+                    <label><span className={labelClass}>Grade (optional)</span><input value={invite.grade} onChange={(event) => setInvite((value) => ({ ...value, grade: event.target.value }))} maxLength={50} className={fieldClass} /></label>
+                  </> : null}
                   <button onClick={() => void inviteUser()} disabled={inviting} className="inline-flex items-center gap-2 rounded-xl bg-[#6E1D1B] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">{inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{inviting ? 'Sending…' : 'Send invitation'}</button>
                 </div>
               </section>
@@ -405,7 +474,8 @@ const AdminPage = () => {
                 <div className="mt-4 max-h-[640px] space-y-3 overflow-y-auto pr-1">
                   {directoryUsers.map((user) => {
                     const committee = committees.find((item) => item.committeeID === user.committee_id);
-                    return <div key={user.id} className="rounded-xl border border-[#e7dcda] bg-[#fffdfb] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-[#1a1c1c]">{[user.first_name, user.last_name].filter(Boolean).join(' ') || 'Unnamed user'}</p><p className="text-sm text-[#564240]/70">{user.email || 'No email'}</p></div><span className="rounded-full bg-[#f4e8e4] px-3 py-1 text-xs font-semibold capitalize text-[#6E1D1B]">{user.role}</span></div><p className="mt-2 text-xs text-[#564240]/65">{committee?.committeeCode || 'No committee'}{user.country ? ` · ${user.country}` : ''}</p></div>;
+                    const draft = getUserDraft(user);
+                    return <div key={user.id} className="rounded-xl border border-[#e7dcda] bg-[#fffdfb] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-[#1a1c1c]">{[user.first_name, user.last_name].filter(Boolean).join(' ') || 'Unnamed user'}</p><p className="text-sm text-[#564240]/70">{user.email || 'No email'}</p></div><span className="rounded-full bg-[#f4e8e4] px-3 py-1 text-xs font-semibold capitalize text-[#6E1D1B]">{user.role}</span></div><p className="mt-2 text-xs text-[#564240]/65">{committee?.committeeCode || 'No committee'}{user.country ? ` · ${user.country}` : ''}{user.school ? ` · ${user.school}` : ''}</p>{(user.role === 'chair' || user.role === 'delegate') ? <div className="mt-3 grid gap-2"><select value={draft.committeeId} onChange={(event) => updateUserDraft(user, { committeeId: event.target.value, country: user.role === 'delegate' ? '' : draft.country })} className={fieldClass}><option value="">Select committee</option>{committees.map((item) => <option key={item.committeeID} value={item.committeeID}>{item.committeeCode} — {item.name}</option>)}</select>{user.role === 'delegate' ? <><select value={draft.country} onChange={(event) => updateUserDraft(user, { country: event.target.value })} className={fieldClass}><option value="">Select matrix country</option>{matrixSeats.filter((seat) => seat.committee_id === draft.committeeId).map((seat) => <option key={seat.id} value={seat.country_name}>{seat.country_name}</option>)}</select><input value={draft.school} onChange={(event) => updateUserDraft(user, { school: event.target.value })} placeholder="School" className={fieldClass} /><input value={draft.grade} onChange={(event) => updateUserDraft(user, { grade: event.target.value })} placeholder="Grade (optional)" className={fieldClass} /></> : null}<button type="button" onClick={() => void saveDirectoryUser(user)} disabled={savingUserId === user.id} className="rounded-lg bg-[#6E1D1B] px-3 py-2 text-xs font-semibold text-white disabled:opacity-60">{savingUserId === user.id ? 'Saving…' : user.role === 'chair' ? 'Save chair assignment' : 'Save delegate profile'}</button></div> : null}</div>;
                   })}
                   {directoryUsers.length === 0 ? <p className="rounded-xl bg-[#f4f3f3] p-4 text-sm text-[#564240]">No application users found.</p> : null}
                 </div>
@@ -475,3 +545,4 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
+

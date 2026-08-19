@@ -66,3 +66,18 @@ Application logs use bounded context and never log access tokens, service keys, 
 - Application: redeploy the previous known-good commit.
 - Database: migrations are additive and security-oriented. Take a Supabase database backup before release; restore from that backup for data-level rollback rather than editing applied migration history.
 - Storage: failed live-update writes remove the uploaded object automatically.
+
+
+## Chair Command acceptance
+
+1. In Admin Control Centre → Users, assign every chair to exactly one committee.
+2. Provision delegates with a country from that committee's published matrix and their school.
+3. Sign in as each chair and confirm only the assigned committee is visible.
+4. Verify session, speaker, and caucus timers persist after refresh.
+5. Add delegates to both speakers lists, advance and complete a speaker, and confirm the activity timeline.
+6. Record roll call, quick tallies, assessment scores, notes, and award tracking.
+7. Add and resolve a motion, run a roll-call vote, then confirm a second chair sees the saved state within the polling window.
+8. Confirm an attempted cross-committee delegate or committee request is rejected.
+
+The chair tables are server-only Data API surfaces: public, anon, and authenticated grants are revoked, RLS is enabled for defense in depth, and the verified server route performs the committee authorization check.
+

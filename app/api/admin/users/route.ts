@@ -26,22 +26,31 @@ const authorizeStaff = async (request: Request) => {
 const loadDirectory = async () => {
   if (!supabaseAdmin) return { users: [], committees: [] };
 
-  const [{ data: users, error: usersError }, { data: committees, error: committeesError }] = await Promise.all([
+  const [
+    { data: users, error: usersError },
+    { data: committees, error: committeesError },
+    { data: matrixSeats, error: matrixError },
+  ] = await Promise.all([
     supabaseAdmin
       .from('app_users')
-      .select('id, email, first_name, last_name, role, committee_id, country, created_at, updated_at')
+      .select('id, email, first_name, last_name, role, committee_id, country, school, grade, created_at, updated_at')
       .order('first_name', { ascending: true })
       .limit(500),
     supabaseAdmin
       .from('Committee')
       .select('committeeID, committeeCode, name, fullname')
       .order('committeeCode', { ascending: true }),
+    supabaseAdmin
+      .from('committee_matrix_seats')
+      .select('id, committee_id, country_name, sort_order')
+      .order('sort_order', { ascending: true }),
   ]);
 
   if (usersError) throw usersError;
   if (committeesError) throw committeesError;
+  if (matrixError) throw matrixError;
 
-  return { users: users || [], committees: committees || [] };
+  return { users: users || [], committees: committees || [], matrixSeats: matrixSeats || [] };
 };
 
 const createLegacyProfile = async (profile: {
@@ -52,6 +61,8 @@ const createLegacyProfile = async (profile: {
   role: string;
   committeeId: string | null;
   country: string | null;
+  school: string | null;
+  grade: string | null;
 }) => {
   if (!supabaseAdmin) throw new Error('User provisioning is unavailable.');
 
@@ -69,6 +80,8 @@ const createLegacyProfile = async (profile: {
         'update:reso': [],
       },
       country: profile.country,
+      school: profile.school,
+      grade: profile.grade,
       committeeID: profile.committeeId,
     });
   }
@@ -139,12 +152,27 @@ export async function POST(request: Request) {
   const role = typeof body.role === 'string' ? body.role.trim().toLowerCase() : '';
   const committeeId = typeof body.committeeId === 'string' && body.committeeId ? body.committeeId : null;
   const country = typeof body.country === 'string' ? body.country.trim() || null : null;
+  const school = typeof body.school === 'string' ? body.school.trim().slice(0, 255) || null : null;
+  const grade = typeof body.grade === 'string' ? body.grade.trim().slice(0, 50) || null : null;
 
   if (!isValidEmail(email) || !firstName || !lastName || !roles.has(role)) {
     return reply({ error: 'A valid email, first name, last name, and role are required.' }, 400);
   }
   if ((role === 'delegate' || role === 'chair') && !committeeId) {
     return reply({ error: 'Delegates and chairs must be assigned to a committee.' }, 400);
+  }
+  if (role === 'delegate' && (!country || !school)) {
+    return reply({ error: 'Delegates require a matrix country and school.' }, 400);
+  }
+  if (role === 'delegate') {
+    const { data: seat, error: seatError } = await supabaseAdmin
+      .from('committee_matrix_seats')
+      .select('id')
+      .eq('committee_id', committeeId!)
+      .eq('country_name', country!)
+      .maybeSingle();
+    if (seatError) return reply({ error: 'Unable to validate the committee matrix.' }, 500);
+    if (!seat) return reply({ error: 'Choose a country from the selected committee matrix.' }, 400);
   }
 
   const configuredAppUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
@@ -169,6 +197,8 @@ export async function POST(request: Request) {
     role,
     committeeId,
     country,
+    school,
+    grade,
   });
 
   if (legacyError) {
@@ -191,6 +221,8 @@ export async function POST(request: Request) {
       role,
       committee_id: role === 'delegate' || role === 'chair' ? committeeId : null,
       country,
+      school,
+      grade,
       reso_perms: {
         'view:ownreso': role === 'delegate',
         'view:allreso': role === 'chair' || role === 'admin' || role === 'secretariat',
@@ -199,7 +231,7 @@ export async function POST(request: Request) {
       },
       updated_at: new Date().toISOString(),
     })
-    .select('id, email, first_name, last_name, role, committee_id, country, created_at, updated_at')
+    .select('id, email, first_name, last_name, role, committee_id, country, school, grade, created_at, updated_at')
     .single();
 
   if (error) {
@@ -228,12 +260,27 @@ export async function PATCH(request: Request) {
   const role = typeof body.role === 'string' ? body.role.trim().toLowerCase() : '';
   const committeeId = typeof body.committeeId === 'string' && body.committeeId ? body.committeeId : null;
   const country = typeof body.country === 'string' ? body.country.trim() || null : null;
+  const school = typeof body.school === 'string' ? body.school.trim().slice(0, 255) || null : null;
+  const grade = typeof body.grade === 'string' ? body.grade.trim().slice(0, 50) || null : null;
 
   if (!id || !firstName || !lastName || !roles.has(role)) {
     return reply({ error: 'User, name, and role are required.' }, 400);
   }
   if ((role === 'delegate' || role === 'chair') && !committeeId) {
     return reply({ error: 'Delegates and chairs must be assigned to a committee.' }, 400);
+  }
+  if (role === 'delegate' && (!country || !school)) {
+    return reply({ error: 'Delegates require a matrix country and school.' }, 400);
+  }
+  if (role === 'delegate') {
+    const { data: seat, error: seatError } = await supabaseAdmin
+      .from('committee_matrix_seats')
+      .select('id')
+      .eq('committee_id', committeeId!)
+      .eq('country_name', country!)
+      .maybeSingle();
+    if (seatError) return reply({ error: 'Unable to validate the committee matrix.' }, 500);
+    if (!seat) return reply({ error: 'Choose a country from the selected committee matrix.' }, 400);
   }
 
   const { data: existing, error: existingError } = await supabaseAdmin
@@ -259,10 +306,12 @@ export async function PATCH(request: Request) {
       role,
       committee_id: role === 'delegate' || role === 'chair' ? committeeId : null,
       country,
+      school,
+      grade,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
-    .select('id, email, first_name, last_name, role, committee_id, country, created_at, updated_at')
+    .select('id, email, first_name, last_name, role, committee_id, country, school, grade, created_at, updated_at')
     .maybeSingle();
 
   if (error) {
@@ -273,3 +322,4 @@ export async function PATCH(request: Request) {
 
   return reply({ user: data });
 }
+

@@ -1480,6 +1480,7 @@ app.all(
     '/api/health',
     '/api/auth/profile',
     '/api/delegates',
+    '/api/chair/operations',
     '/api/notifications',
     '/api/conference',
     '/api/admin/support-requests',
@@ -1682,3 +1683,4 @@ start().catch((error) => {
 });
 
 export default app;
+

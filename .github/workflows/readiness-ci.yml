@@ -90,6 +90,20 @@ jobs:
             echo "Applying $migration"
             psql "$PGURL" -v ON_ERROR_STOP=1 -f "$migration"
           done
+          psql "$PGURL" -v ON_ERROR_STOP=1 -f scripts/verify-ci-chair-data.sql
+
+      - name: Verify backdated baseline preserves receipt hardening
+        env:
+          PGURL: postgresql://postgres:postgres@127.0.0.1:5432/vofmun_ci
+        shell: bash
+        run: |
+          set -euo pipefail
+          signature='public.mark_message_receipts(uuid,uuid[],character varying,boolean)'
+          before="$(psql "$PGURL" -Atc "select md5(pg_get_functiondef('$signature'::regprocedure))")"
+          psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260801000000_initial_schema_contract.sql
+          after="$(psql "$PGURL" -Atc "select md5(pg_get_functiondef('$signature'::regprocedure))")"
+          test -n "$before"
+          test "$before" = "$after"
 
       - name: Verify database contract
         run: npm run verify:database
@@ -179,3 +193,4 @@ jobs:
           if [[ "$AUDIT_OUTCOME" != "success" || "$TYPECHECK_OUTCOME" != "success" || "$LINT_OUTCOME" != "success" || "$BUILD_OUTCOME" != "success" || "$CLIENT_SECRET_OUTCOME" != "success" ]]; then
             exit 1
           fi
+

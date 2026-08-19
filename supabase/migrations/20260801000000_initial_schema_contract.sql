@@ -327,27 +327,10 @@ $$;
 revoke all on function public.is_room_member(uuid) from public, anon;
 grant execute on function public.is_room_member(uuid) to authenticated;
 
-create or replace function public.get_room_unread_counts(p_user_id text)
-returns table(room_id uuid, unread_count bigint)
-language sql
-stable
-as $$
-  select rm.room_id, 0::bigint
-  from public.room_members rm
-  where rm.user_id::text = p_user_id
-$$;
-
-create or replace function public.mark_message_receipts(
-  p_room_id uuid,
-  p_message_ids uuid[],
-  p_user_id character varying,
-  p_mark_read boolean default false
-)
-returns setof uuid
-language sql
-as $$
-  select id from public.messages where false
-$$;
+-- Receipt and unread-count functions are intentionally created by the forward
+-- hardening migrations. Do not define placeholders here: this baseline can be
+-- applied after those migrations on an existing project and must not replace
+-- their deployed implementations.
 
 drop trigger if exists chat_rooms_add_creator on public.chat_rooms;
 create trigger chat_rooms_add_creator

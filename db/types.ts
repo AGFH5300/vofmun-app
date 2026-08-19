@@ -43,6 +43,8 @@ export interface SessionUser {
   role: AppUserRole;
   committee_id: string | null;
   country: string | null;
+  school?: string | null;
+  grade?: string | null;
   legacy_id: string | null;
   reso_perms: {
     "view:ownreso": boolean;
@@ -75,6 +77,8 @@ export interface AppUser {
   role: AppUserRole;
   committee_id: string | null;
   country: string | null;
+  school: string | null;
+  grade: string | null;
   legacy_id: string | null;
   reso_perms: {
     "view:ownreso": boolean;
@@ -125,6 +129,8 @@ export interface Delegate {
   password?: string;
   email: string;
   country: string | null;
+  school?: string | null;
+  grade?: string | null;
   committeeID: string | null;
   committee?: Committee | null;
   id?: string;
