@@ -110,7 +110,7 @@ npm run conference:users -- cleanup-test \
   --roster .private/qa-cleanup.csv
 ```
 
-The first command is read-only and prints the exact Auth, profile, room, and Storage-object scope. Apply the deletion only after reviewing that preview:
+The first command is read-only and prints every target email/UUID, application and legacy profile, room ID, and Storage-object path. Apply the deletion only after reviewing that exact preview:
 
 ```bash
 npm run conference:users -- cleanup-test \
