@@ -94,12 +94,20 @@ The report includes invitation, confirmation and last-sign-in timestamps. Report
 
 ## 7. Exact QA cleanup
 
-QA cleanup refuses to delete administrators. It deletes only identities whose normalized emails appear in the supplied QA roster. Test-created chat rooms are deleted only when every room member belongs to the same exact roster; otherwise the command stops.
+QA cleanup uses a separate email-only allowlist, for example `.private/qa-cleanup.csv`:
+
+```csv
+email
+qa.delegate.one@yourdomain.org
+qa.delegate.two@yourdomain.org
+```
+
+It independently reads each target's live role and refuses to delete administrators. It deletes only identities whose normalized emails appear in the supplied cleanup file. Test-created chat rooms are deleted only when every room member belongs to the same exact allowlist; otherwise the command stops.
 
 ```bash
 npm run conference:users -- cleanup-test \
   --mode qa \
-  --roster .private/qa-roster.csv \
+  --roster .private/qa-cleanup.csv \
   --apply \
   --confirm-project gqymcyupsfemseybtmle \
   --confirm-count 8 \
@@ -118,4 +126,3 @@ The command removes owned attachment objects before database metadata, deletes Q
 6. Dry-run the final delegate roster.
 7. Send a 10-person delivery wave, then controlled larger waves.
 8. Run `status` after every wave and one day before the conference.
-

@@ -4,7 +4,7 @@ import test from 'node:test';
 // The production command is plain ESM so it can be run with Node without a
 // transpilation step. Its pure validation helpers are exported for regression tests.
 // @ts-expect-error JavaScript module intentionally has no declaration file.
-import { buildPlan, computeInviteDelayMs, parseCsv, projectRefFromUrl, validateRedirect, validateRosterShape } from '../scripts/manage-conference-users.mjs';
+import { buildPlan, computeInviteDelayMs, parseCleanupCsv, parseCsv, projectRefFromUrl, validateRedirect, validateRosterShape } from '../scripts/manage-conference-users.mjs';
 
 test('CSV parser handles quoted school names and normalizes roster fields', () => {
   const rows = parseCsv(`email,first_name,last_name,role,committee_code,country,school,grade\nTEST@EXAMPLE.ORG, First , Last ,delegate,ga1,Republic of India,"School, Dubai",11\n`);
@@ -17,6 +17,12 @@ test('CSV parser handles quoted school names and normalizes roster fields', () =
 test('roster validation rejects duplicate committee seats', () => {
   const rows = parseCsv(`email,first_name,last_name,role,committee_code,country,school,grade\nfirst@test.org,First,User,delegate,GA1,Republic of India,School A,11\nsecond@test.org,Second,User,delegate,GA1,Republic of India,School B,11\n`);
   assert.throws(() => validateRosterShape(rows), /duplicate delegate seat/i);
+});
+
+test('QA cleanup accepts an exact email-only allowlist', () => {
+  const rows = parseCleanupCsv('email\nFirst@Test.org\nsecond@test.org\n');
+  assert.deepEqual(rows.map((row) => row.email), ['first@test.org', 'second@test.org']);
+  assert.throws(() => parseCleanupCsv('email\nfirst@test.org\nFIRST@test.org\n'), /duplicate email/i);
 });
 
 test('staff and chair shape rules are enforced', () => {
