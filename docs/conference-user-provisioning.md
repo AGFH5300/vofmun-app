@@ -107,6 +107,14 @@ It independently reads each target's live role and refuses to delete administrat
 ```bash
 npm run conference:users -- cleanup-test \
   --mode qa \
+  --roster .private/qa-cleanup.csv
+```
+
+The first command is read-only and prints every target email/UUID, application and legacy profile, room ID, and Storage-object path. Apply the deletion only after reviewing that exact preview:
+
+```bash
+npm run conference:users -- cleanup-test \
+  --mode qa \
   --roster .private/qa-cleanup.csv \
   --apply \
   --confirm-project gqymcyupsfemseybtmle \

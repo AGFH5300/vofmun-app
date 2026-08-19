@@ -640,9 +640,11 @@ const listStorageDirectory = async (supabase, bucket, prefix) => {
 
 const cleanupTestUsers = async ({ supabase, projectRef, roster, options }) => {
   if (options.mode !== 'qa') throw new Error('cleanup-test requires --mode qa.');
-  assertWriteConfirmation({ options, projectRef, rosterCount: roster.rows.length, action: 'cleanup-test' });
-  if (options.confirm_cleanup !== CLEANUP_CONFIRMATION) {
-    throw new Error(`cleanup-test requires --confirm-cleanup ${CLEANUP_CONFIRMATION}.`);
+  if (options.apply) {
+    assertWriteConfirmation({ options, projectRef, rosterCount: roster.rows.length, action: 'cleanup-test' });
+    if (options.confirm_cleanup !== CLEANUP_CONFIRMATION) {
+      throw new Error(`cleanup-test requires --confirm-cleanup ${CLEANUP_CONFIRMATION}.`);
+    }
   }
   const live = await loadLiveDirectory(supabase, roster.rows);
   const targetEmails = new Set(roster.rows.map((row) => row.email));
@@ -651,6 +653,16 @@ const cleanupTestUsers = async ({ supabase, projectRef, roster, options }) => {
   const legacyAdminTargets = live.legacyRows
     .find((group) => group.table === 'Admin')
     ?.rows.filter((row) => targetEmails.has(normalizeEmail(row.email))) || [];
+  const legacyTargets = live.legacyRows.flatMap((group) =>
+    group.rows
+      .filter((row) => targetEmails.has(normalizeEmail(row.email)))
+      .map((row) => ({
+        table: group.table,
+        id: row[group.id],
+        email: normalizeEmail(row.email),
+        auth_user_id: row.auth_user_id || null,
+      })),
+  );
   if (appTargets.some((user) => user.role === 'admin') || legacyAdminTargets.length > 0) {
     throw new Error('cleanup-test refuses to delete administrators. Remove the permanent bootstrap admin from the cleanup email list.');
   }
@@ -679,6 +691,25 @@ const cleanupTestUsers = async ({ supabase, projectRef, roster, options }) => {
   for (const roomId of roomIds) {
     for (const objectPath of await listStorageDirectory(supabase, 'chat-attachments', roomId)) storagePaths.add(objectPath);
   }
+  console.log(
+    `Cleanup preview: auth=${authTargets.length}, app_profiles=${appTargets.length}, legacy_profiles=${legacyTargets.length}, rooms=${roomIds.length}, storage_objects=${storagePaths.size}.`,
+  );
+  console.log('Roster email allowlist:');
+  console.table([...targetEmails].map((email) => ({ email })));
+  console.log('Auth identities:');
+  console.table(authTargets.map((user) => ({ email: normalizeEmail(user.email), id: user.id })));
+  console.log('Application profiles:');
+  console.table(appTargets.map((user) => ({ email: normalizeEmail(user.email), id: user.id, role: user.role, legacy_id: user.legacy_id })));
+  console.log('Legacy profiles:');
+  console.table(legacyTargets);
+  console.log('Test-created rooms:');
+  console.table((rooms || []).map((room) => ({ id: room.id, created_by: room.created_by })));
+  console.log('Storage objects:');
+  console.table([...storagePaths].sort().map((objectPath) => ({ bucket: 'chat-attachments', path: objectPath })));
+  if (!options.apply) {
+    console.log('Read-only cleanup preview complete. Re-run with the explicit apply confirmations to delete these exact targets.');
+    return;
+  }
   for (const pathBatch of chunk([...storagePaths], 100)) {
     const { error } = await supabase.storage.from('chat-attachments').remove(pathBatch);
     if (error) throw new Error(`Unable to remove chat attachment objects: ${error.message}`);
@@ -700,7 +731,7 @@ const cleanupTestUsers = async ({ supabase, projectRef, roster, options }) => {
   await deleteWhereIn(supabase, 'app_notifications', 'created_by', targetIds);
 
   for (const group of live.legacyRows) {
-    const ids = group.rows.filter((row) => targetEmails.has(normalizeEmail(row.email))).map((row) => row[group.id]);
+    const ids = legacyTargets.filter((row) => row.table === group.table).map((row) => row.id);
     await deleteWhereIn(supabase, group.table, group.id, ids);
   }
   await deleteWhereIn(supabase, 'app_users', 'id', targetIds);
@@ -746,7 +777,8 @@ Examples:
     --redirect-to https://your-stable-preview.example/reset-password \\
     --emails-per-hour 25 --apply --confirm-project ${EXPECTED_PROJECT_REF} --confirm-count 8
   npm run conference:users -- status --mode qa --roster .private/qa-roster.csv
-  npm run conference:users -- cleanup-test --mode qa --roster .private/qa-roster.csv \\
+  npm run conference:users -- cleanup-test --mode qa --roster .private/qa-cleanup.csv
+  npm run conference:users -- cleanup-test --mode qa --roster .private/qa-cleanup.csv \\
     --apply --confirm-project ${EXPECTED_PROJECT_REF} --confirm-count 8 \\
     --confirm-cleanup ${CLEANUP_CONFIRMATION}
   npm run conference:users -- provision --mode production --roster .private/conference-roster.csv \\
