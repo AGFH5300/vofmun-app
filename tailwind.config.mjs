@@ -25,20 +25,22 @@ export default {
         heading: ["Merriweather", "Playfair Display", "Georgia", "serif"],
       },
       colors: {
-        // Primary Colors
-        'deep-red': '#641414',
-        'dark-burgundy': '#781414',
-        
-        // Neutral Colors  
-        'almost-black-green': '#001414',
-        'dark-navy': '#001428',
-        'cool-grey': '#DCDCDC',
-        'warm-light-grey': '#F0F0F0',
-        
+        // Primary Colors - VOFMUN branding
+        'deep-red': '#701E1E',
+        'dark-burgundy': '#8B2424',
+        'primary-peach': '#FFEBDD',
+
+        // Neutral Colors
+        'almost-black-green': '#1C1C1C',
+        'dark-navy': '#26262B',
+        'cool-grey': '#E4D7CC',
+        'warm-light-grey': '#FFFDFB',
+
         // Highlight / Support Colors
-        'soft-rose': '#F0DCDC',
-        'soft-ivory': '#F0F0DC', 
-        'pale-aqua': '#DCF0F0',
+        'soft-rose': '#F6D4C6',
+        'soft-ivory': '#FFEBDD',
+        'pale-aqua': '#E0F1F4',
+        'rich-gold': '#C79A3B',
       },
       animation: {
         'float': 'float 3s ease-in-out infinite',

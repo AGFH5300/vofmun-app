@@ -121,8 +121,8 @@ export function HeadingDropdownMenu({
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent>
-        <DropdownMenuGroup>
+      <DropdownMenuContent className="min-w-[220px] rounded-2xl border border-soft-ivory/80 bg-white/95 p-1 shadow-xl backdrop-blur-sm">
+        <DropdownMenuGroup className="space-y-1">
           {levels.map((level) => (
             <DropdownMenuItem key={`heading-${level}`} asChild>
               <HeadingButton
@@ -130,6 +130,8 @@ export function HeadingDropdownMenu({
                 level={level}
                 text={getFormattedHeadingName(level)}
                 tooltip={""}
+                className="w-full justify-start gap-3 px-3 py-2 text-sm"
+                showTooltip={false}
               />
             </DropdownMenuItem>
           ))}

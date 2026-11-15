@@ -1,5 +1,6 @@
 import { useSession } from "../app/context/sessionContext";
 import CustomNav from "@/components/ui/customnav";
+import SiteFooter from "@/components/ui/site-footer";
 import role from "@/lib/roles";
 import { useRouter } from "@/src/router";
 import AmazingCursor from "@/components/ui/AmazingCursor";
@@ -13,8 +14,9 @@ export default function AppWrapper({ children }: AppWrapperProps) {
   const { pathname } = useRouter();
   const userRole = role(currentUser);
   
-  // Don't show navigation on login page
-  const showNav = pathname !== "/login";
+  // Don't show navigation or footer on login page
+  const isLoginRoute = pathname === "/login";
+  const showNav = !isLoginRoute;
   
   // Get activeLink from pathname
   const getActiveLink = () => {
@@ -32,15 +34,16 @@ export default function AppWrapper({ children }: AppWrapperProps) {
   return (
     <>
       <AmazingCursor />
-      {showNav && (
-        <CustomNav
-          role={userRole as 'delegate' | 'chair' | 'admin'}
-          activeLink={getActiveLink()}
-        />
-      )}
-      <main>
-        {children}
-      </main>
+      <div className="flex min-h-screen flex-col">
+        {showNav && (
+          <CustomNav
+            role={userRole as 'delegate' | 'chair' | 'admin'}
+            activeLink={getActiveLink()}
+          />
+        )}
+        <main className="flex-1">{children}</main>
+        {!isLoginRoute && <SiteFooter />}
+      </div>
     </>
   );
 }

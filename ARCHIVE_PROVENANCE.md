@@ -1,4 +1,4 @@
-# Historical MUN Hub app source — october-2025
+# Historical MUN Hub app source — november-2025
 
 This is an archival import of one VOFMUN App/MUN Hub source folder from late 2025, not a recovered original Git commit chronology. The original source directory has no Git history. The two separate 2025 snapshots are imported as sequential source commits/tags on a dedicated history branch in the EXISTING public AGFH5300/vofmun-app repository. The existing GitHub main branch and running application were NOT changed.
 

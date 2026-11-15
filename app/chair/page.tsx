@@ -16,40 +16,40 @@ const DelegateItem = memo(({
   onPermissionChange: (delegateID: string, permKey: string, value: boolean) => void;
   isMobile?: boolean;
 }) => (
-  <li key={delegate.delegateID} className='outline outline-gray-800 p-3 sm:p-4 w-full rounded-lg shadow-md'>
-    <div className='flex flex-col items-center'>
-        <div>
-            <h2 className="text-xl sm:text-2xl text-white font-semibold mb-2">{delegate.firstname} {delegate.lastname}</h2>
+  <li key={delegate.delegateID} className='surface-card p-4 sm:p-5 rounded-2xl border border-soft-ivory'>
+    <div className='flex flex-col gap-4'>
+      <div className='text-center'>
+        <h2 className="text-xl sm:text-2xl font-semibold text-deep-red">{delegate.firstname} {delegate.lastname}</h2>
+      </div>
+      <div className='flex flex-col sm:flex-row gap-4 w-full max-w-md mx-auto text-sm text-almost-black-green/80'>
+        <div className='flex items-center justify-between w-full'>
+          <span>{isMobile ? 'View own' : 'View own resolutions'}</span>
+          <input
+            type="checkbox"
+            className='h-4 w-4 rounded border-soft-ivory text-deep-red focus:ring-deep-red'
+            checked={delegate.resoPerms["view:ownreso"]}
+            onChange={(e) => onPermissionChange(delegate.delegateID, "view:ownreso", e.target.checked)}
+          />
         </div>
-        <div className='flex flex-col sm:flex-row gap-3 sm:gap-4 w-full max-w-md'>
-            <div className='flex items-center justify-between w-full sm:block'>
-                <span className='mr-2'>{isMobile ? 'View own' : 'View own resolutions'}</span>
-                <input 
-                  type="checkbox" 
-                  className='scale-110' 
-                  checked={delegate.resoPerms["view:ownreso"]} 
-                  onChange={(e) => onPermissionChange(delegate.delegateID, "view:ownreso", e.target.checked)}
-                />
-            </div>
-            <div className='flex items-center justify-between w-full sm:block'>
-                <span className='mr-2'>{isMobile ? 'View all' : 'View all resolutions'}</span>
-                <input 
-                  type="checkbox" 
-                  className='scale-110' 
-                  checked={delegate.resoPerms["view:allreso"]} 
-                  onChange={(e) => onPermissionChange(delegate.delegateID, "view:allreso", e.target.checked)}
-                />
-            </div>
-            <div className='flex items-center justify-between w-full sm:block'>
-                <span className='mr-2'>{isMobile ? 'Update own' : 'Update own resolutions'}</span>
-                <input 
-                  type="checkbox" 
-                  className='scale-110' 
-                  checked={delegate.resoPerms["update:ownreso"]} 
-                  onChange={(e) => onPermissionChange(delegate.delegateID, "update:ownreso", e.target.checked)}
-                />
-            </div>
+        <div className='flex items-center justify-between w-full'>
+          <span>{isMobile ? 'View all' : 'View all resolutions'}</span>
+          <input
+            type="checkbox"
+            className='h-4 w-4 rounded border-soft-ivory text-deep-red focus:ring-deep-red'
+            checked={delegate.resoPerms["view:allreso"]}
+            onChange={(e) => onPermissionChange(delegate.delegateID, "view:allreso", e.target.checked)}
+          />
         </div>
+        <div className='flex items-center justify-between w-full'>
+          <span>{isMobile ? 'Update own' : 'Update own resolutions'}</span>
+          <input
+            type="checkbox"
+            className='h-4 w-4 rounded border-soft-ivory text-deep-red focus:ring-deep-red'
+            checked={delegate.resoPerms["update:ownreso"]}
+            onChange={(e) => onPermissionChange(delegate.delegateID, "update:ownreso", e.target.checked)}
+          />
+        </div>
+      </div>
     </div>
   </li>
 ));
@@ -229,36 +229,39 @@ const Page = () => {
 
   return (
     <ChairRoute>
-        <div className='min-h-screen bg-black text-white'>
-            <div className='text-center p-3 sm:p-4'>
-                <h1 className='text-3xl sm:text-4xl font-bold'>Delegates Permissions</h1>
-                <p className='text-base sm:text-lg mt-2'>Manage permissions for delegates in your committee</p>
-                {!loading && (
-                <div className='mt-4'>
-                    <button 
-                        className={`${hasChanges 
-                          ? 'bg-blue-500 hover:bg-blue-600' 
-                          : 'bg-gray-500'} cursor-pointer text-white px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg transition-colors`}
-                        onClick={saveChanges}
-                        disabled={!hasChanges || saving}
-                    >
-                        {saving ? 'Saving...' : 'Save Changes'}
-                    </button>
+        <div className='page-shell'>
+            <div className='page-maxwidth space-y-8'>
+                <div className='surface-card is-emphasised text-center px-8 py-10'>
+                    <span className='badge-pill bg-white/15 text-white/80 inline-flex justify-center mx-auto mb-4'>Chair Tools</span>
+                    <h1 className='text-3xl sm:text-4xl font-serif font-semibold text-white'>Delegate Permissions</h1>
+                    <p className='text-white/80 max-w-2xl mx-auto mt-2'>Manage who can view and amend resolutions in your committee.</p>
+                    {!loading && (
+                        <div className='mt-6 flex justify-center'>
+                            <button
+                                className={`primary-button ${(!hasChanges || saving) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                onClick={saveChanges}
+                                disabled={!hasChanges || saving}
+                            >
+                                {saving ? 'Saving...' : 'Save Changes'}
+                            </button>
+                        </div>
+                    )}
                 </div>
+
+                {loading ? (
+                    <div className="surface-card p-10 flex justify-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-deep-red"></div>
+                    </div>
+                ) : delegates.length === 0 ? (
+                    <div className="surface-card p-10 text-center">
+                        <p className="text-almost-black-green/75">No delegates found in your committee.</p>
+                    </div>
+                ) : (
+                    <div className='surface-card p-6'>
+                        {memoizedDelegatesList}
+                    </div>
                 )}
             </div>
-            
-            {loading ? (
-                <div className="flex justify-center items-center h-64">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-                </div>
-            ) : delegates.length === 0 ? (
-                <div className="text-center p-8">
-                    <p className="text-xl">No delegates found in your committee</p>
-                </div>
-            ) : (
-                memoizedDelegatesList
-            )}
         </div>
     </ChairRoute>
   )

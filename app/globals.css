@@ -24,45 +24,113 @@
   /* Typography variables */
   --font-serif: 'Merriweather', 'Playfair Display', 'Georgia', serif;
   --font-sans: 'Inter', 'Poppins', 'Open Sans', sans-serif;
-  
+
   /* New Color Scheme Variables */
-  
+
   /* Primary Colors */
-  --deep-red: hsl(0, 65%, 24%);
-  --dark-burgundy: hsl(0, 70%, 27%);
-  
+  --deep-red: #701e1e;
+  --dark-burgundy: #8b2424;
+  --primary-peach: #ffebdd;
+  --off-white: #fffdfb;
+  --pure-white: #ffffff;
+  --white: #ffffff;
+  --black: #0a0a0a;
+
   /* Neutral Colors */
-  --almost-black-green: hsl(180, 100%, 4%);
-  --dark-navy: hsl(225, 100%, 8%);
-  --cool-grey: hsl(0, 0%, 86%);
-  --warm-light-grey: hsl(0, 0%, 94%);
-  
+  --almost-black-green: #1c1c1c;
+  --dark-navy: #26262b;
+  --cool-grey: #e4d7cc;
+  --warm-light-grey: #fffdfb;
+
   /* Highlight / Support Colors */
-  --soft-rose: hsl(0, 33%, 90%);
-  --soft-ivory: hsl(50, 33%, 90%);
-  --pale-aqua: hsl(180, 33%, 90%);
-  
+  --soft-rose: #f6d4c6;
+  --soft-ivory: #ffebdd;
+  --pale-aqua: #e0f1f4;
+  --rich-gold: #c79a3b;
+
+  /* TipTap Theme Tokens */
+  --tt-selection-color: rgba(112, 30, 30, 0.25);
+  --tt-cursor-color: var(--deep-red);
+  --tt-bg-color: rgba(255, 253, 251, 0.98);
+  --tt-bg-color-contrast: rgba(112, 30, 30, 0.8);
+  --tt-scrollbar-color: rgba(112, 30, 30, 0.2);
+  --tt-radius-xs: 0.25rem;
+  --tt-radius-md: 0.5rem;
+  --tt-radius-lg: 0.75rem;
+  --tt-radius-xl: 1rem;
+  --tt-color-highlight-green: #d6f1d8;
+  --tt-color-highlight-green-contrast: #2f6b32;
+  --tt-color-highlight-blue: #d7e9ff;
+  --tt-color-highlight-blue-contrast: #1d4e89;
+  --tt-color-highlight-red: #f7d6d6;
+  --tt-color-highlight-red-contrast: #7d2020;
+  --tt-color-highlight-purple: #eadcff;
+  --tt-color-highlight-purple-contrast: #4f3d9a;
+  --tt-color-highlight-yellow: #fff1c2;
+  --tt-color-highlight-yellow-contrast: #8a6500;
+  --tt-shadow-elevated-md: 0 24px 50px -28px rgba(112, 30, 30, 0.45);
+  --tt-transition-duration-default: 0.2s;
+  --tt-transition-easing-default: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --tt-gray-light-200: #f3e7de;
+  --tt-gray-light-300: #e4d2c4;
+  --tt-gray-light-900: #1f1f1f;
+  --tt-gray-light-a-50: rgba(31, 31, 31, 0.04);
+  --tt-gray-light-a-100: rgba(31, 31, 31, 0.08);
+  --tt-gray-light-a-200: rgba(31, 31, 31, 0.12);
+  --tt-gray-light-a-300: rgba(31, 31, 31, 0.18);
+  --tt-gray-light-a-400: rgba(31, 31, 31, 0.32);
+  --tt-gray-light-a-500: rgba(31, 31, 31, 0.44);
+  --tt-gray-light-a-600: rgba(31, 31, 31, 0.6);
+  --tt-gray-light-a-700: rgba(31, 31, 31, 0.72);
+  --tt-gray-light-a-900: rgba(31, 31, 31, 0.9);
+
+  --tt-gray-dark-50: rgba(15, 23, 42, 0.95);
+  --tt-gray-dark-900: #0f172a;
+  --tt-gray-dark-a-50: rgba(255, 255, 255, 0.08);
+  --tt-gray-dark-a-100: rgba(255, 255, 255, 0.12);
+  --tt-gray-dark-a-200: rgba(255, 255, 255, 0.2);
+  --tt-gray-dark-a-300: rgba(255, 255, 255, 0.3);
+  --tt-gray-dark-a-400: rgba(255, 255, 255, 0.4);
+  --tt-gray-dark-a-500: rgba(255, 255, 255, 0.5);
+  --tt-gray-dark-a-600: rgba(255, 255, 255, 0.65);
+  --tt-gray-dark-a-700: rgba(255, 255, 255, 0.75);
+  --tt-gray-dark-a-900: rgba(255, 255, 255, 0.9);
+
+  --tt-brand-color-50: #fdeaea;
+  --tt-brand-color-100: #f7d2cf;
+  --tt-brand-color-200: #f2aba7;
+  --tt-brand-color-300: #e8837f;
+  --tt-brand-color-400: #da5e56;
+  --tt-brand-color-500: #c0453d;
+  --tt-brand-color-600: #a23630;
+  --tt-brand-color-800: #7b221d;
+  --tt-brand-color-900: #591715;
+
+  --tt-color-yellow-base: #facc15;
+  --tt-color-yellow-inc-2: #fde047;
+
   /* Semantic color mappings */
-  --background: var(--soft-ivory);
+  --background: var(--off-white);
   --foreground: var(--almost-black-green);
-  --card: #FFFFFF;
+  --card: var(--pure-white);
   --card-foreground: var(--almost-black-green);
-  --popover: #FFFFFF;
+  --popover: var(--pure-white);
   --popover-foreground: var(--almost-black-green);
   --primary: var(--deep-red);
-  --primary-foreground: #FFFFFF;
-  --secondary: var(--warm-light-grey);
+  --primary-foreground: var(--pure-white);
+  --secondary: var(--primary-peach);
   --secondary-foreground: var(--deep-red);
   --muted: var(--cool-grey);
   --muted-foreground: var(--almost-black-green);
   --accent: var(--pale-aqua);
   --accent-foreground: var(--dark-navy);
   --destructive: var(--dark-burgundy);
-  --destructive-foreground: #FFFFFF;
+  --destructive-foreground: var(--pure-white);
   --border: var(--cool-grey);
   --input: var(--warm-light-grey);
   --ring: var(--deep-red);
-  
+
   /* Enhanced radius for modern look */
   --radius: 0.5rem;
   --radius-sm: calc(var(--radius) - 2px);
@@ -91,6 +159,16 @@ body {
   line-height: 1.6;
 }
 
+::selection {
+  background: color-mix(in srgb, var(--soft-ivory) 88%, white 12%);
+  color: var(--deep-red);
+}
+
+::-moz-selection {
+  background: color-mix(in srgb, var(--soft-ivory) 88%, white 12%);
+  color: var(--deep-red);
+}
+
 /*
   The AmazingCursor component hides the native cursor while its overlay is
   active so we can render the Bibata SVG artwork in React. When the component
@@ -107,7 +185,6 @@ body.super-cursor-active * {
 /* Headings (H1–H6) - Serif fonts with specified weights and colors */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-serif);
-  color: var(--deep-red);
   line-height: 1.2;
   margin-bottom: 0.5em;
   font-feature-settings: "liga" 1, "kern" 1;
@@ -116,44 +193,37 @@ h1, h2, h3, h4, h5, h6 {
 h1 {
   font-weight: 900; /* Bold (700–900) */
   font-size: 2.5rem;
-  color: var(--deep-red);
 }
 
 h2 {
   font-weight: 700; /* Semi-bold (600–700) */
   font-size: 2rem;
-  color: var(--deep-red);
 }
 
 h3 {
   font-weight: 600; /* Medium to Semi-bold (500–600) */
   font-size: 1.75rem;
-  color: var(--deep-red);
 }
 
 h4 {
   font-weight: 600; /* Medium to Semi-bold (500–600) */
   font-size: 1.5rem;
-  color: var(--deep-red);
 }
 
 h5 {
   font-weight: 500; /* Medium to Semi-bold (500–600) */
   font-size: 1.25rem;
-  color: var(--deep-red);
 }
 
 h6 {
   font-weight: 500; /* Medium to Semi-bold (500–600) */
   font-size: 1.125rem;
-  color: var(--deep-red);
 }
 
 /* Paragraphs / Body Text - Sans-serif with specified weights and colors */
-p, body, li, td, th {
+p, li, td, th {
   font-family: var(--font-sans);
-  font-weight: 400; 
-  color: var(--almost-black-green);
+  font-weight: 400;
   line-height: 1.6;
 }
 
@@ -167,7 +237,6 @@ span {
 /* Text emphasis */
 .text-emphasis, strong, b {
   font-weight: 500; /* Medium (500) for emphasis */
-  color: var(--almost-black-green);
 }
 
 /* Secondary text / muted info */
@@ -181,7 +250,7 @@ span {
 
 /* Hero Section Styles */
 .hero-section {
-  background: var(--deep-red); /* Deep Red background */
+  background: linear-gradient(135deg, color-mix(in srgb, var(--deep-red) 92%, black 8%), color-mix(in srgb, var(--dark-burgundy) 82%, black 18%));
   color: var(--warm-light-grey); /* Warm Light Grey text */
   padding: 4rem 0;
 }
@@ -197,6 +266,140 @@ span {
   color: var(--soft-ivory); /* Soft Ivory for subheadings */
   font-family: var(--font-sans);
   font-weight: 400;
+}
+
+/* Layout helpers */
+.page-shell {
+  min-height: 100vh;
+  background: radial-gradient(circle at top left, color-mix(in srgb, var(--soft-ivory) 85%, white 15%) 0%, transparent 55%),
+              radial-gradient(circle at top right, color-mix(in srgb, var(--primary-peach) 80%, white 20%) 0%, transparent 60%),
+              linear-gradient(180deg, color-mix(in srgb, var(--off-white) 95%, white 5%), color-mix(in srgb, var(--soft-ivory) 86%, white 14%));
+}
+
+.page-maxwidth {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 3.5rem;
+}
+
+.section-heading {
+  font-family: var(--font-serif);
+  font-size: clamp(1.75rem, 2.1vw + 1.5rem, 3rem);
+  color: var(--deep-red);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.section-subheading {
+  color: color-mix(in srgb, var(--almost-black-green) 75%, var(--deep-red) 25%);
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+}
+
+.surface-card {
+  background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--cool-grey) 55%, white 45%);
+  border-radius: 1rem;
+  box-shadow:
+    0 18px 40px -24px rgba(112, 30, 30, 0.35),
+    0 2px 12px rgba(28, 28, 28, 0.08);
+}
+
+.surface-card.is-emphasised {
+  background: linear-gradient(150deg, color-mix(in srgb, var(--deep-red) 88%, black 12%), color-mix(in srgb, var(--dark-burgundy) 80%, black 20%));
+  border: 1px solid color-mix(in srgb, var(--deep-red) 70%, white 30%);
+  box-shadow:
+    0 20px 45px -20px rgba(112, 30, 30, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.45rem 1rem;
+  background: color-mix(in srgb, var(--soft-rose) 65%, white 35%);
+  color: color-mix(in srgb, var(--deep-red) 78%, black 22%);
+}
+
+.primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--deep-red) 95%, black 5%), color-mix(in srgb, var(--dark-burgundy) 80%, black 20%));
+  color: var(--pure-white);
+  box-shadow: 0 14px 30px -18px rgba(112, 30, 30, 0.5);
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.primary-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 32px -16px rgba(112, 30, 30, 0.55);
+  filter: brightness(1.05);
+}
+
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid color-mix(in srgb, var(--deep-red) 48%, white 52%);
+  background: color-mix(in srgb, var(--soft-ivory) 85%, white 15%);
+  color: color-mix(in srgb, var(--deep-red) 75%, black 25%);
+  transition: transform 150ms ease, box-shadow 150ms ease, border 150ms ease;
+}
+
+.ghost-button:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--dark-burgundy) 68%, white 32%);
+  box-shadow: 0 14px 24px -18px rgba(139, 36, 36, 0.4);
+}
+
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--destructive) 94%, black 6%), color-mix(in srgb, var(--dark-burgundy) 85%, black 15%));
+  color: var(--pure-white);
+  box-shadow: 0 16px 34px -20px rgba(112, 30, 30, 0.55);
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+
+.danger-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 36px -18px rgba(112, 30, 30, 0.6);
+  filter: brightness(1.05);
+}
+
+.divider-soft {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--deep-red) 28%, var(--cool-grey) 72%), transparent);
+  margin: 1.5rem 0;
 }
 
 /* Committee Cards */
@@ -261,20 +464,28 @@ span {
   display: block;
 }
 
-.form-input, input, textarea, select {
-  background: var(--warm-light-grey); /* Warm Light Grey input backgrounds */
-  border: 1px solid var(--cool-grey);
+.form-input,
+input,
+textarea,
+select {
+  background: color-mix(in srgb, var(--warm-light-grey) 92%, white 8%);
+  border: 1.5px solid color-mix(in srgb, var(--soft-ivory) 78%, var(--deep-red) 22%);
   color: var(--almost-black-green);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   padding: 0.75rem;
   font-family: var(--font-sans);
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  box-shadow: inset 0 1px 2px rgba(112, 30, 30, 0.06);
 }
 
-.form-input:focus, input:focus, textarea:focus, select:focus {
-  border-color: var(--deep-red);
-  box-shadow: 0 0 0 2px rgba(100, 20, 20, 0.1);
+.form-input:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: color-mix(in srgb, var(--deep-red) 62%, white 38%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--deep-red) 16%, transparent 84%);
   outline: none;
+  background: color-mix(in srgb, var(--warm-light-grey) 98%, var(--soft-ivory) 2%);
 }
 
 /* Button Styles */
@@ -529,7 +740,7 @@ main {
     border-color: var(--border);
     outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
   }
-  
+
   body {
     background-color: var(--background) !important;
     color: var(--foreground) !important;

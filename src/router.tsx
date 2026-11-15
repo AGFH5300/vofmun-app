@@ -1,8 +1,11 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
+type NavigationGuard = (to: string) => boolean;
+
 interface RouterContextValue {
   pathname: string;
   navigate: (to: string, options?: { replace?: boolean }) => void;
+  registerNavigationGuard: (guard: NavigationGuard) => () => void;
 }
 
 const RouterContext = createContext<RouterContextValue | undefined>(undefined);
@@ -16,26 +19,67 @@ const normalizePath = (path: string) => {
 
 export const RouterProvider = ({ children }: { children: React.ReactNode }) => {
   const [pathname, setPathname] = useState(() => normalizePath(window.location.pathname));
+  const guardsRef = React.useRef<Set<NavigationGuard>>(new Set());
+  const pathnameRef = React.useRef(pathname);
+
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
+  const registerNavigationGuard = React.useCallback((guard: NavigationGuard) => {
+    guardsRef.current.add(guard);
+    return () => {
+      guardsRef.current.delete(guard);
+    };
+  }, []);
+
+  const canNavigate = React.useCallback(
+    (target: string) => {
+      for (const guard of Array.from(guardsRef.current)) {
+        if (!guard(target)) {
+          return false;
+        }
+      }
+      return true;
+    },
+    []
+  );
 
   useEffect(() => {
     const handlePopState = () => {
-      setPathname(normalizePath(window.location.pathname));
+      const target = normalizePath(window.location.pathname);
+      if (!canNavigate(target)) {
+        window.history.pushState({}, '', pathnameRef.current);
+        return;
+      }
+      setPathname(target);
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [canNavigate]);
 
-  const navigate = (to: string, options?: { replace?: boolean }) => {
-    const target = normalizePath(to);
-    if (options?.replace) {
-      window.history.replaceState({}, '', target);
-    } else {
-      window.history.pushState({}, '', target);
-    }
-    setPathname(target);
-  };
+  const navigate = React.useCallback(
+    (to: string, options?: { replace?: boolean }) => {
+      const target = normalizePath(to);
+      if (!canNavigate(target)) {
+        return;
+      }
 
-  const value = useMemo<RouterContextValue>(() => ({ pathname, navigate }), [pathname]);
+      if (options?.replace) {
+        window.history.replaceState({}, '', target);
+      } else {
+        window.history.pushState({}, '', target);
+      }
+      pathnameRef.current = target;
+      setPathname(target);
+    },
+    [canNavigate]
+  );
+
+  const value = useMemo<RouterContextValue>(
+    () => ({ pathname, navigate, registerNavigationGuard }),
+    [pathname, navigate, registerNavigationGuard]
+  );
 
   return <RouterContext.Provider value={value}>{children}</RouterContext.Provider>;
 };

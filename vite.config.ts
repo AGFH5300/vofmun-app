@@ -11,4 +11,7 @@ export default defineConfig({
     jsx: 'automatic',
     jsxImportSource: 'react',
   },
+  server: {
+    allowedHosts: true,
+  }
 });

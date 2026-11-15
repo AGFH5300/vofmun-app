@@ -13,9 +13,9 @@ export default function TypeWriter() {
     "Your one stop hub for collaboration",
     "Your one stop hub for innovation",
     "Your one stop hub for inspiration",
-    "Your one stop hub for all information",
-    "Your one stop hub for ideas",
     "Your one stop hub for interaction",
+    "Your one stop hub for ideas",
+    "Your one stop hub for all information",
     "Your one stop hub for news",
     "Are you still reading this?",
   ], []);
@@ -87,9 +87,11 @@ export default function TypeWriter() {
   }, [phase, charIndex, count, words, returnIndex]);
 
   return (
-    <h1 className="text-4xl text-center font-bold text-white">
-      {text}
-      <span>{blinker}</span>
-    </h1>
+    <div className="flex min-h-[3.5rem] items-center justify-center">
+      <h1 className="text-center text-4xl font-heading font-black leading-tight text-deep-red">
+        {text}
+        <span className="ml-1 inline-block w-[0.5ch] align-middle text-deep-red">{blinker}</span>
+      </h1>
+    </div>
   );
 }
