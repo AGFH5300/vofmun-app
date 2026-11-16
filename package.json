@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node scripts/start-clean-dev.mjs",
     "dev:hot": "node scripts/start-stable-preview.mjs",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "NODE_ENV=production tsx server/chat/server.ts",
     "lint": "eslint .",
     "chat:server": "tsx server/chat/server.ts",
